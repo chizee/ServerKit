@@ -194,6 +194,10 @@ cmd_help() {
     echo "  version           Show current version"
     echo "  check-update      Check if updates are available"
     echo ""
+    echo "Diagnostics:"
+    echo "  doctor            Check for common issues"
+    echo "  doctor --fix      Auto-fix detected issues"
+    echo ""
     echo "Utility Commands:"
     echo "  generate-keys     Generate secure keys for .env"
     echo "  config            Edit configuration"
@@ -452,6 +456,24 @@ cmd_update() {
     mkdir -p /etc/serverkit/templates
     cp -r "$INSTALL_DIR/backend/templates/"*.yaml /etc/serverkit/templates/ 2>/dev/null || true
     cp -r "$INSTALL_DIR/backend/templates/"*.yml /etc/serverkit/templates/ 2>/dev/null || true
+
+    # Remove any nginx configs that use server_name _ besides serverkit.conf
+    mkdir -p /etc/nginx/serverkit-locations
+    for conf in /etc/nginx/sites-enabled/*; do
+        [ -f "$conf" ] || continue
+        name=$(basename "$conf")
+        [ "$name" = "serverkit.conf" ] && continue
+        if grep -q 'server_name.*_' "$conf" 2>/dev/null; then
+            print_warning "Removing conflicting catch-all config: $name"
+            rm -f "/etc/nginx/sites-enabled/$name"
+            rm -f "/etc/nginx/sites-available/$name"
+        fi
+    done
+
+    # Update main nginx config
+    if [ -f "$INSTALL_DIR/nginx/sites-available/serverkit.conf" ]; then
+        cp "$INSTALL_DIR/nginx/sites-available/serverkit.conf" /etc/nginx/sites-available/
+    fi
 
     # Clean up Docker to prevent networking issues
     print_info "Cleaning up Docker..."
@@ -906,6 +928,296 @@ cmd_list_sites() {
     echo ""
 }
 
+cmd_doctor() {
+    check_installed
+    print_header
+    echo ""
+    print_info "Running diagnostics..."
+    echo ""
+
+    ISSUES=0
+    FIXED=0
+    FIX_MODE="${1:-}"  # --fix to auto-fix
+
+    doctor_issue() {
+        ISSUES=$((ISSUES + 1))
+        print_error "$1"
+    }
+
+    doctor_ok() {
+        print_success "$1"
+    }
+
+    doctor_fixed() {
+        FIXED=$((FIXED + 1))
+        print_success "FIXED: $1"
+    }
+
+    doctor_skip() {
+        print_warning "SKIP: $1 (run with --fix to auto-fix)"
+    }
+
+    # ── 1. Backend service ──────────────────────────────────────
+    echo "Backend"
+    echo "───────────────────────────────────────"
+
+    if systemctl is-active --quiet $BACKEND_SERVICE 2>/dev/null; then
+        doctor_ok "systemd service is running"
+    else
+        doctor_issue "systemd service is not running"
+        if [ "$FIX_MODE" = "--fix" ]; then
+            systemctl start $BACKEND_SERVICE 2>/dev/null && doctor_fixed "Started backend service" || print_error "  Could not start service"
+        else
+            doctor_skip "systemctl start $BACKEND_SERVICE"
+        fi
+    fi
+
+    if curl -sf http://127.0.0.1:5000/api/v1/system/health > /dev/null 2>&1; then
+        doctor_ok "API responding on port 5000"
+    else
+        if systemctl is-active --quiet $BACKEND_SERVICE 2>/dev/null; then
+            doctor_issue "Service running but API not responding on port 5000"
+            echo "         Check logs: journalctl -u serverkit -n 30"
+        else
+            doctor_issue "API not responding (service is down)"
+        fi
+    fi
+
+    echo ""
+
+    # ── 2. Frontend container ───────────────────────────────────
+    echo "Frontend"
+    echo "───────────────────────────────────────"
+
+    FRONTEND_RUNNING=false
+    FRONTEND_PORT=""
+
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$FRONTEND_CONTAINER"; then
+        FRONTEND_RUNNING=true
+        # Get the actual host port the container is mapped to
+        FRONTEND_PORT=$(docker port "$FRONTEND_CONTAINER" 80 2>/dev/null | head -1 | grep -oP ':\K[0-9]+' || echo "")
+        doctor_ok "Container running (port $FRONTEND_PORT)"
+    else
+        doctor_issue "Container '$FRONTEND_CONTAINER' is not running"
+        if [ "$FIX_MODE" = "--fix" ]; then
+            cd "$INSTALL_DIR"
+            docker compose up -d 2>/dev/null && {
+                sleep 3
+                FRONTEND_PORT=$(docker port "$FRONTEND_CONTAINER" 80 2>/dev/null | head -1 | grep -oP ':\K[0-9]+' || echo "")
+                FRONTEND_RUNNING=true
+                doctor_fixed "Started frontend container (port $FRONTEND_PORT)"
+            } || print_error "  Could not start container"
+        else
+            doctor_skip "docker compose up -d"
+        fi
+    fi
+
+    if [ "$FRONTEND_RUNNING" = true ] && [ -n "$FRONTEND_PORT" ]; then
+        if curl -sf "http://127.0.0.1:$FRONTEND_PORT" > /dev/null 2>&1; then
+            doctor_ok "Frontend responding on port $FRONTEND_PORT"
+        else
+            doctor_issue "Container running but not responding on port $FRONTEND_PORT"
+        fi
+    fi
+
+    echo ""
+
+    # ── 3. Nginx ────────────────────────────────────────────────
+    echo "Nginx"
+    echo "───────────────────────────────────────"
+
+    if systemctl is-active --quiet nginx 2>/dev/null; then
+        doctor_ok "nginx is running"
+    else
+        doctor_issue "nginx is not running"
+        if [ "$FIX_MODE" = "--fix" ]; then
+            systemctl start nginx 2>/dev/null && doctor_fixed "Started nginx" || print_error "  Could not start nginx"
+        else
+            doctor_skip "systemctl start nginx"
+        fi
+    fi
+
+    if nginx -t 2>/dev/null; then
+        doctor_ok "nginx config syntax OK"
+    else
+        doctor_issue "nginx config has errors"
+        echo "         Run: nginx -t"
+    fi
+
+    # Scan ALL enabled nginx configs for competing server_name _
+    # Only serverkit.conf should use server_name _ (the catch-all panel block)
+    for SITE_CONF in /etc/nginx/sites-enabled/*; do
+        [ -f "$SITE_CONF" ] || continue
+        SITE_NAME=$(basename "$SITE_CONF")
+        [ "$SITE_NAME" = "serverkit.conf" ] && continue
+
+        if grep -q 'server_name\s*_' "$SITE_CONF" 2>/dev/null; then
+            doctor_issue "'$SITE_NAME' uses server_name _ (conflicts with panel, can hijack all traffic)"
+            if [ "$FIX_MODE" = "--fix" ]; then
+                rm -f "/etc/nginx/sites-enabled/$SITE_NAME"
+                rm -f "/etc/nginx/sites-available/$SITE_NAME"
+                doctor_fixed "Removed conflicting '$SITE_NAME'"
+            else
+                doctor_skip "Remove conflicting '$SITE_NAME' from sites-enabled"
+            fi
+        fi
+    done
+
+    # Ensure serverkit-locations directory exists
+    if [ ! -d /etc/nginx/serverkit-locations ]; then
+        print_warning "Missing /etc/nginx/serverkit-locations directory"
+        if [ "$FIX_MODE" = "--fix" ]; then
+            mkdir -p /etc/nginx/serverkit-locations
+            doctor_fixed "Created /etc/nginx/serverkit-locations"
+        else
+            doctor_skip "mkdir -p /etc/nginx/serverkit-locations"
+        fi
+    fi
+
+    # Check for port mismatch between nginx and frontend container
+    NGINX_CONF="/etc/nginx/sites-available/serverkit.conf"
+    if [ -f "$NGINX_CONF" ]; then
+        NGINX_FRONTEND_PORT=$(grep -m1 'proxy_pass.*127.0.0.1' "$NGINX_CONF" | head -1 | grep -oP ':\K[0-9]+' || echo "")
+
+        if [ -n "$FRONTEND_PORT" ] && [ -n "$NGINX_FRONTEND_PORT" ]; then
+            if [ "$NGINX_FRONTEND_PORT" = "$FRONTEND_PORT" ]; then
+                doctor_ok "nginx proxy port ($NGINX_FRONTEND_PORT) matches frontend container ($FRONTEND_PORT)"
+            else
+                doctor_issue "PORT MISMATCH: nginx proxies to :$NGINX_FRONTEND_PORT but frontend is on :$FRONTEND_PORT"
+                if [ "$FIX_MODE" = "--fix" ]; then
+                    sed -i "s|proxy_pass http://127.0.0.1:${NGINX_FRONTEND_PORT}|proxy_pass http://127.0.0.1:${FRONTEND_PORT}|" "$NGINX_CONF"
+                    if nginx -t 2>/dev/null; then
+                        nginx -s reload 2>/dev/null
+                        doctor_fixed "Updated nginx to proxy to port $FRONTEND_PORT"
+                    else
+                        print_error "  nginx config broken after edit — reverting"
+                        sed -i "s|proxy_pass http://127.0.0.1:${FRONTEND_PORT}|proxy_pass http://127.0.0.1:${NGINX_FRONTEND_PORT}|" "$NGINX_CONF"
+                    fi
+                else
+                    doctor_skip "Update nginx proxy_pass from :$NGINX_FRONTEND_PORT to :$FRONTEND_PORT"
+                fi
+            fi
+        fi
+
+        # Check API proxy port
+        NGINX_API_PORT=$(grep -A1 'location /api' "$NGINX_CONF" | grep proxy_pass | grep -oP ':\K[0-9]+' || echo "")
+        if [ -n "$NGINX_API_PORT" ]; then
+            if ss -tlnp 2>/dev/null | grep -q ":${NGINX_API_PORT}.*gunicorn\|:${NGINX_API_PORT}.*python"; then
+                doctor_ok "nginx API proxy port ($NGINX_API_PORT) has backend listening"
+            else
+                doctor_issue "nginx proxies API to :$NGINX_API_PORT but nothing is listening there"
+            fi
+        fi
+    else
+        doctor_issue "nginx config not found: $NGINX_CONF"
+    fi
+
+    echo ""
+
+    # ── 4. Docker ───────────────────────────────────────────────
+    echo "Docker"
+    echo "───────────────────────────────────────"
+
+    if command -v docker &>/dev/null; then
+        doctor_ok "Docker installed"
+    else
+        doctor_issue "Docker not found"
+    fi
+
+    if docker info &>/dev/null; then
+        doctor_ok "Docker daemon running"
+    else
+        doctor_issue "Docker daemon not running"
+        if [ "$FIX_MODE" = "--fix" ]; then
+            systemctl start docker 2>/dev/null && doctor_fixed "Started Docker daemon" || print_error "  Could not start Docker"
+        else
+            doctor_skip "systemctl start docker"
+        fi
+    fi
+
+    echo ""
+
+    # ── 5. Disk space ───────────────────────────────────────────
+    echo "System"
+    echo "───────────────────────────────────────"
+
+    DISK_USAGE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
+    if [ "$DISK_USAGE" -lt 90 ]; then
+        doctor_ok "Disk usage: ${DISK_USAGE}%"
+    elif [ "$DISK_USAGE" -lt 95 ]; then
+        print_warning "Disk usage high: ${DISK_USAGE}%"
+    else
+        doctor_issue "Disk almost full: ${DISK_USAGE}%"
+    fi
+
+    RAM_AVAIL=$(free -m | awk '/Mem:/ {print $7}')
+    if [ "$RAM_AVAIL" -gt 100 ]; then
+        doctor_ok "Available RAM: ${RAM_AVAIL}MB"
+    else
+        doctor_issue "Low RAM: ${RAM_AVAIL}MB available"
+    fi
+
+    # Check swap
+    SWAP_TOTAL=$(free -m | awk '/^Swap:/ {print $2}')
+    if [ "$SWAP_TOTAL" -gt 0 ]; then
+        doctor_ok "Swap: ${SWAP_TOTAL}MB"
+    else
+        print_warning "No swap configured (recommended for low-RAM servers)"
+    fi
+
+    echo ""
+
+    # ── 6. Database ─────────────────────────────────────────────
+    echo "Database"
+    echo "───────────────────────────────────────"
+
+    DB_FILE="$INSTALL_DIR/backend/instance/serverkit.db"
+    if [ -f "$DB_FILE" ]; then
+        DB_SIZE=$(du -h "$DB_FILE" | cut -f1)
+        doctor_ok "SQLite database exists ($DB_SIZE)"
+    else
+        doctor_issue "Database file not found: $DB_FILE"
+    fi
+
+    echo ""
+
+    # ── 7. Connectivity ─────────────────────────────────────────
+    echo "Connectivity"
+    echo "───────────────────────────────────────"
+
+    if curl -sf http://127.0.0.1 > /dev/null 2>&1; then
+        doctor_ok "localhost:80 responding"
+    else
+        doctor_issue "localhost:80 not responding (nginx → frontend broken)"
+    fi
+
+    if curl -sf http://127.0.0.1/api/v1/system/health > /dev/null 2>&1; then
+        doctor_ok "localhost:80/api proxying to backend"
+    else
+        doctor_issue "localhost:80/api not reaching backend"
+    fi
+
+    echo ""
+
+    # ── Summary ─────────────────────────────────────────────────
+    echo "───────────────────────────────────────"
+    if [ "$ISSUES" -eq 0 ]; then
+        print_success "All checks passed!"
+    else
+        if [ "$FIX_MODE" = "--fix" ]; then
+            echo -e "${YELLOW}Found $ISSUES issue(s), fixed $FIXED${NC}"
+            REMAINING=$((ISSUES - FIXED))
+            if [ "$REMAINING" -gt 0 ]; then
+                echo "$REMAINING issue(s) need manual attention"
+            fi
+        else
+            echo -e "${RED}Found $ISSUES issue(s)${NC}"
+            echo "Run 'sudo serverkit doctor --fix' to auto-fix"
+        fi
+    fi
+    echo ""
+}
+
 cmd_remove_site() {
     check_root
 
@@ -1045,6 +1357,9 @@ case "${1:-help}" in
         ;;
     remove-site)
         cmd_remove_site "$2"
+        ;;
+    doctor)
+        cmd_doctor "$2"
         ;;
     *)
         print_error "Unknown command: $1"

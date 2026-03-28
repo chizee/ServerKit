@@ -28,6 +28,7 @@ class NginxService:
     SITES_AVAILABLE = os.path.join(NGINX_CONF_DIR, 'sites-available')
     SITES_ENABLED = os.path.join(NGINX_CONF_DIR, 'sites-enabled')
     NGINX_BIN = os.environ.get('NGINX_BIN', '/usr/sbin/nginx')
+    LOCATIONS_DIR = os.path.join(NGINX_CONF_DIR, 'serverkit-locations')
 
     # Templates
     PHP_SITE_TEMPLATE = '''server {{
@@ -182,74 +183,56 @@ class NginxService:
     GITEA_CONFIG_NAME = 'serverkit-gitea'
     WORDPRESS_CONFIG_NAME = 'serverkit-wordpress'
 
-    # Gitea location block for /gitea path
-    GITEA_LOCATION_TEMPLATE = '''server {{
-    listen 80;
-    listen [::]:80;
-    server_name _;
+    # Gitea location block for /gitea path (included inside main server block)
+    GITEA_LOCATION_TEMPLATE = '''# Gitea at /gitea path
+location /gitea/ {{
+    proxy_pass http://127.0.0.1:{port}/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_cache_bypass $http_upgrade;
+    proxy_read_timeout 86400;
+    proxy_connect_timeout 60;
+    proxy_send_timeout 60;
 
-    access_log /var/log/nginx/gitea.access.log;
-    error_log /var/log/nginx/gitea.error.log;
+    # Required for Gitea WebSocket connections
+    proxy_buffering off;
+    client_max_body_size 100M;
+}}
 
-    # Gitea at /gitea path
-    location /gitea/ {{
-        proxy_pass http://127.0.0.1:{port}/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 86400;
-        proxy_connect_timeout 60;
-        proxy_send_timeout 60;
-
-        # Required for Gitea WebSocket connections
-        proxy_buffering off;
-        client_max_body_size 100M;
-    }}
-
-    # Handle /gitea without trailing slash
-    location = /gitea {{
-        return 301 /gitea/;
-    }}
+# Handle /gitea without trailing slash
+location = /gitea {{
+    return 301 /gitea/;
 }}
 '''
 
-    # WordPress location block for /wordpress path
-    WORDPRESS_LOCATION_TEMPLATE = '''server {{
-    listen 80;
-    listen [::]:80;
-    server_name _;
+    # WordPress location block for /wordpress path (included inside main server block)
+    WORDPRESS_LOCATION_TEMPLATE = '''# WordPress at /wordpress path
+location /wordpress/ {{
+    proxy_pass http://127.0.0.1:{port}/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_cache_bypass $http_upgrade;
+    proxy_read_timeout 300;
+    proxy_connect_timeout 60;
+    proxy_send_timeout 60;
 
-    access_log /var/log/nginx/wordpress.access.log;
-    error_log /var/log/nginx/wordpress.error.log;
+    # WordPress file uploads
+    client_max_body_size 256M;
+}}
 
-    # WordPress at /wordpress path
-    location /wordpress/ {{
-        proxy_pass http://127.0.0.1:{port}/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 300;
-        proxy_connect_timeout 60;
-        proxy_send_timeout 60;
-
-        # WordPress file uploads
-        client_max_body_size 256M;
-    }}
-
-    # Handle /wordpress without trailing slash
-    location = /wordpress {{
-        return 301 /wordpress/;
-    }}
+# Handle /wordpress without trailing slash
+location = /wordpress {{
+    return 301 /wordpress/;
 }}
 '''
 
@@ -430,6 +413,8 @@ server {{
 
         # Validate all domains
         for domain in domains:
+            if domain == '_':
+                return {'success': False, 'error': 'Wildcard server_name "_" is reserved for the ServerKit panel'}
             if not _validate_domain(domain):
                 return {'success': False, 'error': f'Invalid domain name: {domain}'}
 
@@ -864,8 +849,16 @@ server {{
     # ==================== GITEA CONFIGURATION ====================
 
     @classmethod
+    def _ensure_locations_dir(cls):
+        """Ensure the serverkit-locations directory exists."""
+        run_privileged(['mkdir', '-p', cls.LOCATIONS_DIR])
+
+    @classmethod
     def create_gitea_config(cls, port: int) -> Dict:
-        """Create Nginx configuration for Gitea at /gitea path.
+        """Create Nginx location config for Gitea at /gitea path.
+
+        The config is a location-only snippet included inside the main
+        serverkit.conf server block, preventing server_name conflicts.
 
         Args:
             port: The internal port Gitea is running on
@@ -874,19 +867,17 @@ server {{
             Dict with success status and message
         """
         try:
+            cls._ensure_locations_dir()
             config = cls.GITEA_LOCATION_TEMPLATE.format(port=port)
-            config_path = os.path.join(cls.SITES_AVAILABLE, cls.GITEA_CONFIG_NAME)
+            config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.GITEA_CONFIG_NAME}.conf')
 
-            # Write config file
+            # Write location snippet (no separate server block, no sites-enabled symlink)
             process = run_privileged(['tee', config_path], input=config)
             if process.returncode != 0:
                 return {'success': False, 'error': f'Failed to write config: {process.stderr}'}
 
-            # Enable the site
-            enabled_path = os.path.join(cls.SITES_ENABLED, cls.GITEA_CONFIG_NAME)
-            result = run_privileged(['ln', '-sf', config_path, enabled_path])
-            if result.returncode != 0:
-                return {'success': False, 'error': f'Failed to enable config: {result.stderr}'}
+            # Clean up legacy separate server block if it exists
+            cls._remove_legacy_site(cls.GITEA_CONFIG_NAME)
 
             # Reload Nginx
             reload_result = cls.reload()
@@ -911,13 +902,12 @@ server {{
             Dict with success status and message
         """
         try:
-            # Remove symlink
-            enabled_path = os.path.join(cls.SITES_ENABLED, cls.GITEA_CONFIG_NAME)
-            run_privileged(['rm', '-f', enabled_path])
-
-            # Remove config file
-            config_path = os.path.join(cls.SITES_AVAILABLE, cls.GITEA_CONFIG_NAME)
+            # Remove location snippet
+            config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.GITEA_CONFIG_NAME}.conf')
             run_privileged(['rm', '-f', config_path])
+
+            # Clean up legacy separate server block if it exists
+            cls._remove_legacy_site(cls.GITEA_CONFIG_NAME)
 
             # Reload Nginx
             cls.reload()
@@ -940,7 +930,10 @@ server {{
 
     @classmethod
     def create_wordpress_config(cls, port: int) -> Dict:
-        """Create Nginx configuration for WordPress at /wordpress path.
+        """Create Nginx location config for WordPress at /wordpress path.
+
+        The config is a location-only snippet included inside the main
+        serverkit.conf server block, preventing server_name conflicts.
 
         Args:
             port: The internal port WordPress is running on
@@ -949,19 +942,17 @@ server {{
             Dict with success status and message
         """
         try:
+            cls._ensure_locations_dir()
             config = cls.WORDPRESS_LOCATION_TEMPLATE.format(port=port)
-            config_path = os.path.join(cls.SITES_AVAILABLE, cls.WORDPRESS_CONFIG_NAME)
+            config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.WORDPRESS_CONFIG_NAME}.conf')
 
-            # Write config file
+            # Write location snippet (no separate server block, no sites-enabled symlink)
             process = run_privileged(['tee', config_path], input=config)
             if process.returncode != 0:
                 return {'success': False, 'error': f'Failed to write config: {process.stderr}'}
 
-            # Enable the site
-            enabled_path = os.path.join(cls.SITES_ENABLED, cls.WORDPRESS_CONFIG_NAME)
-            result = run_privileged(['ln', '-sf', config_path, enabled_path])
-            if result.returncode != 0:
-                return {'success': False, 'error': f'Failed to enable config: {result.stderr}'}
+            # Clean up legacy separate server block if it exists
+            cls._remove_legacy_site(cls.WORDPRESS_CONFIG_NAME)
 
             # Reload Nginx
             reload_result = cls.reload()
@@ -986,13 +977,12 @@ server {{
             Dict with success status and message
         """
         try:
-            # Remove symlink
-            enabled_path = os.path.join(cls.SITES_ENABLED, cls.WORDPRESS_CONFIG_NAME)
-            run_privileged(['rm', '-f', enabled_path])
-
-            # Remove config file
-            config_path = os.path.join(cls.SITES_AVAILABLE, cls.WORDPRESS_CONFIG_NAME)
+            # Remove location snippet
+            config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.WORDPRESS_CONFIG_NAME}.conf')
             run_privileged(['rm', '-f', config_path])
+
+            # Clean up legacy separate server block if it exists
+            cls._remove_legacy_site(cls.WORDPRESS_CONFIG_NAME)
 
             # Reload Nginx
             cls.reload()
@@ -1001,6 +991,16 @@ server {{
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def _remove_legacy_site(cls, name: str):
+        """Remove legacy separate server block configs from sites-available/enabled.
+
+        Old versions wrote WordPress/Gitea as full server blocks in sites-available
+        with symlinks in sites-enabled. This caused server_name conflicts.
+        """
+        run_privileged(['rm', '-f', os.path.join(cls.SITES_ENABLED, name)])
+        run_privileged(['rm', '-f', os.path.join(cls.SITES_AVAILABLE, name)])
 
     @classmethod
     def get_wordpress_config(cls) -> Dict:
