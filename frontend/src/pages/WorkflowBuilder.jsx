@@ -34,6 +34,8 @@ import NotificationConfigPanel from '../components/workflow/panels/NotificationC
 import LogicIfConfigPanel from '../components/workflow/panels/LogicIfConfigPanel';
 import { isValidConnection as checkValidConnection, getConnectionError, getConnectionType } from '../utils/connectionRules';
 import ConnectionEdge from '../components/workflow/ConnectionEdge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const initialNodes = [];
 const initialEdges = [];
@@ -863,7 +865,7 @@ const WorkflowCanvas = () => {
         <div className="workflow-canvas" ref={reactFlowWrapper}>
             <div className="workflow-toolbar">
                 <div className="toolbar-left">
-                    <input
+                    <Input
                         type="text"
                         className="workflow-name-input"
                         value={workflowName}
@@ -875,24 +877,30 @@ const WorkflowCanvas = () => {
                     )}
                 </div>
                 <div className="toolbar-right">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         className="toolbar-btn"
                         onClick={newWorkflow}
                         title="New workflow"
                     >
                         <Plus size={16} />
                         <span>New</span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         className="toolbar-btn"
                         onClick={() => setShowLoadModal(true)}
                         title="Load saved workflow"
                     >
                         <FolderOpen size={16} />
                         <span>Load</span>
-                    </button>
+                    </Button>
                     <div className="toolbar-divider" />
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         className="toolbar-btn toolbar-btn-execute"
                         onClick={executeWorkflow}
                         disabled={isExecuting || !currentWorkflow}
@@ -900,8 +908,10 @@ const WorkflowCanvas = () => {
                     >
                         <Play size={16} />
                         <span>{isExecuting ? 'Running...' : 'Execute'}</span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         className="toolbar-btn"
                         onClick={() => setShowHistory(true)}
                         disabled={!currentWorkflow}
@@ -909,9 +919,10 @@ const WorkflowCanvas = () => {
                     >
                         <Activity size={16} />
                         <span>History</span>
-                    </button>
+                    </Button>
                     <div className="toolbar-divider" />
-                    <button
+                    <Button
+                        size="sm"
                         className="toolbar-btn toolbar-btn-primary"
                         onClick={saveWorkflow}
                         disabled={isSaving}
@@ -919,7 +930,7 @@ const WorkflowCanvas = () => {
                     >
                         <Save size={16} />
                         <span>{isSaving ? 'Saving...' : 'Save'}</span>
-                    </button>
+                    </Button>
                 </div>
                 {saveMessage && (
                     <div className="toolbar-message">{saveMessage}</div>

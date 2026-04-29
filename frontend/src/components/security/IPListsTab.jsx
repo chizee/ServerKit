@@ -3,6 +3,9 @@ import api from '../../services/api';
 import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const IPListsTab = () => {
     const [lists, setLists] = useState({ allowlist: [], blocklist: [] });
@@ -74,9 +77,9 @@ const IPListsTab = () => {
         <div className="card">
             <div className="card-header">
                 <h3>{title}</h3>
-                <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(listType)}>
+                <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
                     Add IP
-                </button>
+                </Button>
             </div>
             <div className="card-body">
                 {items.length === 0 ? (
@@ -90,9 +93,9 @@ const IPListsTab = () => {
                                     {item.comment && <span className="ip-comment">{item.comment}</span>}
                                     <span className="ip-date">{new Date(item.added_at).toLocaleDateString()}</span>
                                 </div>
-                                <button className="btn btn-sm btn-danger" onClick={() => handleRemove(item.ip, listType)}>
+                                <Button variant="destructive" size="sm" onClick={() => handleRemove(item.ip, listType)}>
                                     Remove
-                                </button>
+                                </Button>
                             </div>
                         ))}
                     </div>
@@ -113,30 +116,30 @@ const IPListsTab = () => {
             </div>
 
             <Modal open={!!showAddModal} onClose={() => setShowAddModal(null)} title={`Add to ${showAddModal || ''}`}>
-                            <div className="form-group">
-                                <label>IP Address or CIDR</label>
-                                <input
-                                    type="text"
-                                    value={newIP}
-                                    onChange={(e) => setNewIP(e.target.value)}
-                                    placeholder="192.168.1.100 or 10.0.0.0/24"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Comment (optional)</label>
-                                <input
-                                    type="text"
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Office IP, VPN, etc."
-                                />
-                            </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowAddModal(null)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleAdd} disabled={actionLoading || !newIP.trim()}>
-                                {actionLoading ? 'Adding...' : 'Add'}
-                            </button>
-                        </div>
+                <div className="form-group">
+                    <Label>IP Address or CIDR</Label>
+                    <Input
+                        type="text"
+                        value={newIP}
+                        onChange={(e) => setNewIP(e.target.value)}
+                        placeholder="192.168.1.100 or 10.0.0.0/24"
+                    />
+                </div>
+                <div className="form-group">
+                    <Label>Comment (optional)</Label>
+                    <Input
+                        type="text"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Office IP, VPN, etc."
+                    />
+                </div>
+                <div className="modal-footer">
+                    <Button variant="outline" onClick={() => setShowAddModal(null)}>Cancel</Button>
+                    <Button variant="default" onClick={handleAdd} disabled={actionLoading || !newIP.trim()}>
+                        {actionLoading ? 'Adding...' : 'Add'}
+                    </Button>
+                </div>
             </Modal>
 
             {confirmDialog && (

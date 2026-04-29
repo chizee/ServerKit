@@ -11,6 +11,9 @@ import {
     PieChart, Clock, PanelRightClose, PanelRightOpen
 } from 'lucide-react';
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 // LocalStorage keys
 const SIDEBAR_VISIBLE_KEY = 'serverkit-fm-sidebar';
@@ -334,18 +337,18 @@ function FileManager() {
                     <p className="page-description">Browse, edit, and manage your server files</p>
                 </div>
                 <div className="page-header-actions">
-                    <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
                         <Upload size={16} />
                         Upload
-                    </button>
-                    <button className="btn btn-secondary" onClick={() => setShowNewFolderModal(true)}>
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowNewFolderModal(true)}>
                         <FolderPlus size={16} />
                         New Folder
-                    </button>
-                    <button className="btn btn-primary" onClick={() => setShowNewFileModal(true)}>
+                    </Button>
+                    <Button onClick={() => setShowNewFileModal(true)}>
                         <FilePlus size={16} />
                         New File
-                    </button>
+                    </Button>
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -366,13 +369,14 @@ function FileManager() {
 
             <div className="file-manager-toolbar">
                 <div className="path-breadcrumb">
-                    <button
-                        className="btn btn-icon"
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => parentPath && setCurrentPath(parentPath)}
                         disabled={!parentPath}
                     >
                         <ArrowLeft size={16} />
-                    </button>
+                    </Button>
                     <span className="current-path">{currentPath}</span>
                 </div>
                 <div className="toolbar-actions">
@@ -386,20 +390,21 @@ function FileManager() {
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         />
                         {searchResults && (
-                            <button className="btn btn-icon btn-sm" onClick={() => setSearchResults(null)}>
+                            <Button variant="ghost" size="icon" className="btn-sm" onClick={() => setSearchResults(null)}>
                                 <X size={14} />
-                            </button>
+                            </Button>
                         )}
                     </div>
-                    <button
-                        className="btn btn-secondary btn-sm"
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onClick={analyzeDirectory}
                         disabled={analysisLoading}
                         title="Analyze directory sizes"
                     >
                         <BarChart3 size={14} />
                         Analyze
-                    </button>
+                    </Button>
                     <label className="checkbox-label">
                         <input
                             type="checkbox"
@@ -409,16 +414,17 @@ function FileManager() {
                         {showHidden ? <Eye size={14} /> : <EyeOff size={14} />}
                         Hidden
                     </label>
-                    <button className="btn btn-icon" onClick={() => loadDirectory(currentPath)} title="Refresh">
+                    <Button variant="ghost" size="icon" onClick={() => loadDirectory(currentPath)} title="Refresh">
                         <RefreshCw size={16} />
-                    </button>
-                    <button
-                        className="btn btn-icon"
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setSidebarVisible(!sidebarVisible)}
                         title={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
                     >
                         {sidebarVisible ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -462,35 +468,43 @@ function FileManager() {
                                             <span className="col-permissions">{entry.permissions}</span>
                                             <span className="col-actions" onClick={(e) => e.stopPropagation()}>
                                                 {!entry.is_dir && (
-                                                    <button
-                                                        className="btn btn-icon btn-sm"
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="btn-sm"
                                                         onClick={() => handleDownload(entry)}
                                                         title="Download"
                                                     >
                                                         <Download size={14} />
-                                                    </button>
+                                                    </Button>
                                                 )}
-                                                <button
-                                                    className="btn btn-icon btn-sm"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="btn-sm"
                                                     onClick={() => openRenameModal(entry)}
                                                     title="Rename"
                                                 >
                                                     <Edit3 size={14} />
-                                                </button>
-                                                <button
-                                                    className="btn btn-icon btn-sm"
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="btn-sm"
                                                     onClick={() => openPermissionsModal(entry)}
                                                     title="Permissions"
                                                 >
                                                     <Lock size={14} />
-                                                </button>
-                                                <button
-                                                    className="btn btn-icon btn-sm btn-danger"
+                                                </Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    size="icon"
+                                                    className="btn-sm"
                                                     onClick={() => handleDelete(entry)}
                                                     title="Delete"
                                                 >
                                                     <Trash2 size={14} />
-                                                </button>
+                                                </Button>
                                             </span>
                                         </div>
                                     ))}
@@ -504,24 +518,24 @@ function FileManager() {
                                     <h3>{selectedFile.name}</h3>
                                     <div className="preview-actions">
                                         {selectedFile.is_editable && !editingFile && (
-                                            <button className="btn btn-primary btn-sm" onClick={handleEditFile}>
+                                            <Button size="sm" onClick={handleEditFile}>
                                                 <Edit3 size={14} />
                                                 Edit
-                                            </button>
+                                            </Button>
                                         )}
                                         {editingFile && (
                                             <>
-                                                <button className="btn btn-secondary btn-sm" onClick={() => setEditingFile(null)}>
+                                                <Button variant="outline" size="sm" onClick={() => setEditingFile(null)}>
                                                     Cancel
-                                                </button>
-                                                <button className="btn btn-primary btn-sm" onClick={handleSaveFile}>
+                                                </Button>
+                                                <Button size="sm" onClick={handleSaveFile}>
                                                     Save
-                                                </button>
+                                                </Button>
                                             </>
                                         )}
-                                        <button className="btn btn-icon btn-sm" onClick={() => setSelectedFile(null)}>
+                                        <Button variant="ghost" size="icon" className="btn-sm" onClick={() => setSelectedFile(null)}>
                                             <X size={16} />
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                                 <div className="preview-info">
@@ -542,10 +556,10 @@ function FileManager() {
                                     <div className="preview-unavailable">
                                         <EyeOff size={48} strokeWidth={1.5} />
                                         <p>Preview not available for this file type</p>
-                                        <button className="btn btn-primary" onClick={() => handleDownload(selectedFile)}>
+                                        <Button onClick={() => handleDownload(selectedFile)}>
                                             <Download size={16} />
                                             Download File
-                                        </button>
+                                        </Button>
                                     </div>
                                 )}
                             </div>
@@ -576,14 +590,16 @@ function FileManager() {
                                                 {diskLastUpdated.toLocaleTimeString()}
                                             </span>
                                         )}
-                                        <button
-                                            className="btn btn-icon btn-sm"
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="btn-sm"
                                             onClick={loadDiskMounts}
                                             disabled={diskLoading}
                                             title="Refresh"
                                         >
                                             <RefreshCw size={12} className={diskLoading ? 'spinning' : ''} />
-                                        </button>
+                                        </Button>
                                     </div>
 
                                     {diskMounts.map((mount, idx) => (
@@ -616,12 +632,14 @@ function FileManager() {
                                 <div className="sidebar-section-header static">
                                     <BarChart3 size={16} />
                                     <span>Directory Analysis</span>
-                                    <button
-                                        className="btn btn-icon btn-sm close-btn"
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="btn-sm close-btn"
                                         onClick={closeAnalysis}
                                     >
                                         <X size={14} />
-                                    </button>
+                                    </Button>
                                 </div>
 
                                 <div className="sidebar-section-content">
@@ -768,14 +786,14 @@ function FileManager() {
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>Create New File</h2>
-                            <button className="btn btn-icon" onClick={() => setShowNewFileModal(false)}>
+                            <Button variant="ghost" size="icon" onClick={() => setShowNewFileModal(false)}>
                                 <X size={20} />
-                            </button>
+                            </Button>
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>File Name</label>
-                                <input
+                                <Label>File Name</Label>
+                                <Input
                                     type="text"
                                     value={newFileName}
                                     onChange={(e) => setNewFileName(e.target.value)}
@@ -786,12 +804,12 @@ function FileManager() {
                             <p className="text-muted">File will be created in: {currentPath}</p>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowNewFileModal(false)}>
+                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>
                                 Cancel
-                            </button>
-                            <button className="btn btn-primary" onClick={handleCreateFile}>
+                            </Button>
+                            <Button onClick={handleCreateFile}>
                                 Create File
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -803,14 +821,14 @@ function FileManager() {
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>Create New Folder</h2>
-                            <button className="btn btn-icon" onClick={() => setShowNewFolderModal(false)}>
+                            <Button variant="ghost" size="icon" onClick={() => setShowNewFolderModal(false)}>
                                 <X size={20} />
-                            </button>
+                            </Button>
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Folder Name</label>
-                                <input
+                                <Label>Folder Name</Label>
+                                <Input
                                     type="text"
                                     value={newFolderName}
                                     onChange={(e) => setNewFolderName(e.target.value)}
@@ -821,12 +839,12 @@ function FileManager() {
                             <p className="text-muted">Folder will be created in: {currentPath}</p>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowNewFolderModal(false)}>
+                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>
                                 Cancel
-                            </button>
-                            <button className="btn btn-primary" onClick={handleCreateFolder}>
+                            </Button>
+                            <Button onClick={handleCreateFolder}>
                                 Create Folder
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -838,14 +856,14 @@ function FileManager() {
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>Rename {renameTarget?.is_dir ? 'Folder' : 'File'}</h2>
-                            <button className="btn btn-icon" onClick={() => setShowRenameModal(false)}>
+                            <Button variant="ghost" size="icon" onClick={() => setShowRenameModal(false)}>
                                 <X size={20} />
-                            </button>
+                            </Button>
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>New Name</label>
-                                <input
+                                <Label>New Name</Label>
+                                <Input
                                     type="text"
                                     value={newName}
                                     onChange={(e) => setNewName(e.target.value)}
@@ -854,12 +872,12 @@ function FileManager() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowRenameModal(false)}>
+                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>
                                 Cancel
-                            </button>
-                            <button className="btn btn-primary" onClick={handleRename}>
+                            </Button>
+                            <Button onClick={handleRename}>
                                 Rename
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -871,14 +889,14 @@ function FileManager() {
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>Change Permissions</h2>
-                            <button className="btn btn-icon" onClick={() => setShowPermissionsModal(false)}>
+                            <Button variant="ghost" size="icon" onClick={() => setShowPermissionsModal(false)}>
                                 <X size={20} />
-                            </button>
+                            </Button>
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Permissions (Octal)</label>
-                                <input
+                                <Label>Permissions (Octal)</Label>
+                                <Input
                                     type="text"
                                     value={newPermissions}
                                     onChange={(e) => setNewPermissions(e.target.value)}
@@ -900,12 +918,12 @@ function FileManager() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowPermissionsModal(false)}>
+                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>
                                 Cancel
-                            </button>
-                            <button className="btn btn-primary" onClick={handleChangePermissions}>
+                            </Button>
+                            <Button onClick={handleChangePermissions}>
                                 Apply
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

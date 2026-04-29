@@ -4,6 +4,10 @@ import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['status', 'domains', 'accounts', 'aliases', 'forwarding', 'dns-providers', 'spam', 'webmail', 'queue'];
 
@@ -460,16 +464,16 @@ function Email() {
                     <h3>{name}</h3>
                     {data?.version && <span className="version">v{data.version}</span>}
                 </div>
-                <span className={`status-badge ${data?.running ? 'online' : 'offline'}`}>
+                <Badge variant={data?.running ? 'success' : 'secondary'}>
                     {data?.running ? 'Running' : data?.installed ? 'Stopped' : 'Not Installed'}
-                </span>
+                </Badge>
             </div>
             {data?.installed && (
                 <div className="email-service-actions">
-                    <button className="btn btn-sm" onClick={() => handleServiceControl(component, 'restart')} disabled={actionLoading}>Restart</button>
+                    <Button size="sm" variant="outline" onClick={() => handleServiceControl(component, 'restart')} disabled={actionLoading}>Restart</Button>
                     {data?.running
-                        ? <button className="btn btn-sm" onClick={() => handleServiceControl(component, 'stop')} disabled={actionLoading}>Stop</button>
-                        : <button className="btn btn-sm btn-primary" onClick={() => handleServiceControl(component, 'start')} disabled={actionLoading}>Start</button>
+                        ? <Button size="sm" variant="outline" onClick={() => handleServiceControl(component, 'stop')} disabled={actionLoading}>Stop</Button>
+                        : <Button size="sm" onClick={() => handleServiceControl(component, 'start')} disabled={actionLoading}>Start</Button>
                     }
                 </div>
             )}
@@ -484,7 +488,7 @@ function Email() {
                     <p className="page-description">Manage Postfix, Dovecot, DKIM, SpamAssassin, and Roundcube</p>
                 </div>
                 <div className="page-header-actions">
-                    <button className="btn btn-sm" onClick={loadStatus}>Refresh</button>
+                    <Button size="sm" variant="outline" onClick={loadStatus}>Refresh</Button>
                 </div>
             </div>
 
@@ -496,451 +500,459 @@ function Email() {
                     <div className="install-form">
                         <div className="form-group w-full">
                             <label>Hostname (e.g. mail.example.com)</label>
-                            <input type="text" value={installHostname} onChange={e => setInstallHostname(e.target.value)} placeholder="mail.example.com" />
+                            <Input type="text" value={installHostname} onChange={e => setInstallHostname(e.target.value)} placeholder="mail.example.com" />
                         </div>
-                        <button className="btn btn-primary" onClick={handleInstall} disabled={actionLoading}>
+                        <Button onClick={handleInstall} disabled={actionLoading}>
                             {actionLoading ? 'Installing...' : 'Install Email Server'}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             ) : (
                 <>
-                    <div className="tab-navigation">
-                        {VALID_TABS.map(tab => (
-                            <button key={tab} className={`tab-button ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-                                {tab === 'dns-providers' ? 'DNS Providers' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            </button>
-                        ))}
-                    </div>
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList>
+                            {VALID_TABS.map(tab => (
+                                <TabsTrigger key={tab} value={tab}>
+                                    {tab === 'dns-providers' ? 'DNS Providers' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
 
-                    {/* Status Tab */}
-                    {activeTab === 'status' && (
-                        <div className="email-status">
-                            <div className="status-grid">
-                                <ServiceCard name="Postfix (SMTP)" data={status?.postfix} component="postfix" />
-                                <ServiceCard name="Dovecot (IMAP)" data={status?.dovecot} component="dovecot" />
-                                <ServiceCard name="OpenDKIM" data={status?.dkim} component="opendkim" />
-                                <ServiceCard name="SpamAssassin" data={status?.spamassassin} component="spamassassin" />
-                                <ServiceCard name="Roundcube" data={status?.roundcube} component="roundcube" />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Domains Tab */}
-                    {activeTab === 'domains' && (
-                        <div className="email-domains">
-                            <div className="section-header">
-                                <h2>Email Domains</h2>
-                                <button className="btn btn-primary btn-sm" onClick={() => setShowDomainForm(!showDomainForm)}>
-                                    {showDomainForm ? 'Cancel' : 'Add Domain'}
-                                </button>
-                            </div>
-                            {showDomainForm && (
-                                <form className="email-form" onSubmit={handleAddDomain}>
-                                    <div className="form-grid">
-                                        <div className="form-group">
-                                            <label>Domain Name</label>
-                                            <input type="text" value={newDomain.name} onChange={e => setNewDomain({ ...newDomain, name: e.target.value })} placeholder="example.com" required />
-                                        </div>
-                                    </div>
-                                    <div className="form-actions">
-                                        <button type="submit" className="btn btn-primary btn-sm" disabled={actionLoading}>Add Domain</button>
-                                    </div>
-                                </form>
-                            )}
-                            <div className="domain-list">
-                                {domains.length === 0 ? (
-                                    <div className="empty-state"><p>No domains configured</p></div>
-                                ) : domains.map(d => (
-                                    <div key={d.id} className="domain-card">
-                                        <div className="domain-header">
-                                            <h3>{d.name}</h3>
-                                            <span className={`status-badge ${d.is_active ? 'online' : 'offline'}`}>{d.is_active ? 'Active' : 'Inactive'}</span>
-                                        </div>
-                                        <div className="domain-stats">
-                                            <span>{d.accounts_count} accounts</span>
-                                            <span>{d.aliases_count} aliases</span>
-                                        </div>
-                                        <div className="domain-dns">
-                                            <span className={`dns-badge ${d.dkim_public_key ? 'verified' : 'missing'}`}>DKIM</span>
-                                            <span className={`dns-badge ${d.spf_record ? 'verified' : 'missing'}`}>SPF</span>
-                                            <span className={`dns-badge ${d.dmarc_record ? 'verified' : 'missing'}`}>DMARC</span>
-                                        </div>
-                                        <div className="domain-actions">
-                                            <button className="btn btn-sm" onClick={() => handleVerifyDNS(d.id)} disabled={actionLoading}>Verify DNS</button>
-                                            {d.dns_provider_id && <button className="btn btn-sm btn-primary" onClick={() => handleDeployDNS(d.id)} disabled={actionLoading}>Deploy DNS</button>}
-                                            <button className="btn btn-sm btn-danger" onClick={() => handleDeleteDomain(d.id, d.name)}>Delete</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Accounts Tab */}
-                    {activeTab === 'accounts' && (
-                        <div className="email-accounts">
-                            <div className="domain-selector">
-                                <div className="form-group">
-                                    <label>Select Domain</label>
-                                    <select value={selectedDomainId} onChange={e => setSelectedDomainId(e.target.value)}>
-                                        <option value="">-- Select --</option>
-                                        {domains.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                    </select>
+                        {/* Status Tab */}
+                        <TabsContent value="status">
+                            <div className="email-status">
+                                <div className="status-grid">
+                                    <ServiceCard name="Postfix (SMTP)" data={status?.postfix} component="postfix" />
+                                    <ServiceCard name="Dovecot (IMAP)" data={status?.dovecot} component="dovecot" />
+                                    <ServiceCard name="OpenDKIM" data={status?.dkim} component="opendkim" />
+                                    <ServiceCard name="SpamAssassin" data={status?.spamassassin} component="spamassassin" />
+                                    <ServiceCard name="Roundcube" data={status?.roundcube} component="roundcube" />
                                 </div>
                             </div>
-                            {selectedDomainId && (
-                                <>
-                                    <div className="section-header">
-                                        <h2>Accounts</h2>
-                                        <button className="btn btn-primary btn-sm" onClick={() => setShowAccountForm(!showAccountForm)}>
-                                            {showAccountForm ? 'Cancel' : 'Create Account'}
-                                        </button>
-                                    </div>
-                                    {showAccountForm && (
-                                        <form className="email-form" onSubmit={handleCreateAccount}>
-                                            <div className="form-grid">
-                                                <div className="form-group">
-                                                    <label>Username</label>
-                                                    <input type="text" value={newAccount.username} onChange={e => setNewAccount({ ...newAccount, username: e.target.value })} placeholder="user" required />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>Password</label>
-                                                    <input type="password" value={newAccount.password} onChange={e => setNewAccount({ ...newAccount, password: e.target.value })} required />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>Quota (MB)</label>
-                                                    <input type="number" value={newAccount.quota_mb} onChange={e => setNewAccount({ ...newAccount, quota_mb: parseInt(e.target.value) || 1024 })} />
-                                                </div>
+                        </TabsContent>
+
+                        {/* Domains Tab */}
+                        <TabsContent value="domains">
+                            <div className="email-domains">
+                                <div className="section-header">
+                                    <h2>Email Domains</h2>
+                                    <Button size="sm" variant={showDomainForm ? 'outline' : 'default'} onClick={() => setShowDomainForm(!showDomainForm)}>
+                                        {showDomainForm ? 'Cancel' : 'Add Domain'}
+                                    </Button>
+                                </div>
+                                {showDomainForm && (
+                                    <form className="email-form" onSubmit={handleAddDomain}>
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label>Domain Name</label>
+                                                <Input type="text" value={newDomain.name} onChange={e => setNewDomain({ ...newDomain, name: e.target.value })} placeholder="example.com" required />
                                             </div>
-                                            <div className="form-actions">
-                                                <button type="submit" className="btn btn-primary btn-sm" disabled={actionLoading}>Create</button>
-                                            </div>
-                                        </form>
-                                    )}
-                                    <div className="accounts-list">
-                                        {accounts.length === 0 ? (
-                                            <div className="empty-state"><p>No accounts for this domain</p></div>
-                                        ) : accounts.map(a => (
-                                            <div key={a.id} className="account-card">
-                                                <div className="account-info">
-                                                    <div className="account-email">{a.email}</div>
-                                                    <div className="account-meta">
-                                                        <span>Quota: {a.quota_mb}MB</span>
-                                                        <span className={`status-badge ${a.is_active ? 'online' : 'offline'}`}>{a.is_active ? 'Active' : 'Disabled'}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="account-actions">
-                                                    <button className="btn btn-sm" onClick={() => { setShowPasswordModal(a.id); setNewPassword(''); }}>Password</button>
-                                                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteAccount(a.id, a.email)}>Delete</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                            {showPasswordModal && (
-                                <div className="modal-overlay" onClick={() => setShowPasswordModal(null)}>
-                                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                                        <h3>Change Password</h3>
-                                        <div className="form-group">
-                                            <label>New Password</label>
-                                            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                                         </div>
                                         <div className="form-actions">
-                                            <button className="btn btn-sm" onClick={() => setShowPasswordModal(null)}>Cancel</button>
-                                            <button className="btn btn-primary btn-sm" onClick={handleChangePassword} disabled={actionLoading || !newPassword}>Change</button>
+                                            <Button type="submit" size="sm" disabled={actionLoading}>Add Domain</Button>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Aliases Tab */}
-                    {activeTab === 'aliases' && (
-                        <div className="email-aliases">
-                            <div className="domain-selector">
-                                <div className="form-group">
-                                    <label>Select Domain</label>
-                                    <select value={aliasDomainId} onChange={e => setAliasDomainId(e.target.value)}>
-                                        <option value="">-- Select --</option>
-                                        {domains.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            {aliasDomainId && (
-                                <>
-                                    <div className="section-header">
-                                        <h2>Aliases</h2>
-                                        <button className="btn btn-primary btn-sm" onClick={() => setShowAliasForm(!showAliasForm)}>
-                                            {showAliasForm ? 'Cancel' : 'Create Alias'}
-                                        </button>
-                                    </div>
-                                    {showAliasForm && (
-                                        <form className="email-form" onSubmit={handleCreateAlias}>
-                                            <div className="form-grid">
-                                                <div className="form-group">
-                                                    <label>Source</label>
-                                                    <input type="text" value={newAlias.source} onChange={e => setNewAlias({ ...newAlias, source: e.target.value })} placeholder="info@example.com" required />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>Destination</label>
-                                                    <input type="text" value={newAlias.destination} onChange={e => setNewAlias({ ...newAlias, destination: e.target.value })} placeholder="user@example.com" required />
-                                                </div>
-                                            </div>
-                                            <div className="form-actions">
-                                                <button type="submit" className="btn btn-primary btn-sm" disabled={actionLoading}>Create</button>
-                                            </div>
-                                        </form>
-                                    )}
-                                    <div className="items-list">
-                                        {aliases.length === 0 ? (
-                                            <div className="empty-state"><p>No aliases for this domain</p></div>
-                                        ) : aliases.map(a => (
-                                            <div key={a.id} className="alias-card">
-                                                <div className="item-info">
-                                                    <div className="item-mapping">{a.source} <span className="arrow">&rarr;</span> {a.destination}</div>
-                                                </div>
-                                                <div className="item-actions">
-                                                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteAlias(a.id)}>Delete</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Forwarding Tab */}
-                    {activeTab === 'forwarding' && (
-                        <div className="email-forwarding">
-                            <div className="domain-selector">
-                                <div className="form-group">
-                                    <label>Select Account</label>
-                                    <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)}>
-                                        <option value="">-- Select --</option>
-                                        {allAccounts.map(a => <option key={a.id} value={a.id}>{a.email}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            {selectedAccountId && (
-                                <>
-                                    <div className="section-header">
-                                        <h2>Forwarding Rules</h2>
-                                        <button className="btn btn-primary btn-sm" onClick={() => setShowForwardForm(!showForwardForm)}>
-                                            {showForwardForm ? 'Cancel' : 'Add Rule'}
-                                        </button>
-                                    </div>
-                                    {showForwardForm && (
-                                        <form className="email-form" onSubmit={handleCreateForwarding}>
-                                            <div className="form-grid">
-                                                <div className="form-group">
-                                                    <label>Forward To</label>
-                                                    <input type="email" value={newForward.destination} onChange={e => setNewForward({ ...newForward, destination: e.target.value })} required />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>
-                                                        <input type="checkbox" checked={newForward.keep_copy} onChange={e => setNewForward({ ...newForward, keep_copy: e.target.checked })} />
-                                                        {' '}Keep a copy in mailbox
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div className="form-actions">
-                                                <button type="submit" className="btn btn-primary btn-sm" disabled={actionLoading}>Add</button>
-                                            </div>
-                                        </form>
-                                    )}
-                                    <div className="items-list">
-                                        {forwardingRules.length === 0 ? (
-                                            <div className="empty-state"><p>No forwarding rules</p></div>
-                                        ) : forwardingRules.map(r => (
-                                            <div key={r.id} className="forwarding-card">
-                                                <div className="item-info">
-                                                    <div className="item-mapping">{r.account_email} <span className="arrow">&rarr;</span> {r.destination}</div>
-                                                    <div className="item-meta">{r.keep_copy ? 'Keeps copy' : 'No copy'} &middot; {r.is_active ? 'Active' : 'Inactive'}</div>
-                                                </div>
-                                                <div className="item-actions">
-                                                    <button className="btn btn-sm btn-danger" onClick={() => handleDeleteForwarding(r.id)}>Delete</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* DNS Providers Tab */}
-                    {activeTab === 'dns-providers' && (
-                        <div className="email-dns-providers">
-                            <div className="section-header">
-                                <h2>DNS Providers</h2>
-                                <button className="btn btn-primary btn-sm" onClick={() => setShowProviderForm(!showProviderForm)}>
-                                    {showProviderForm ? 'Cancel' : 'Add Provider'}
-                                </button>
-                            </div>
-                            {showProviderForm && (
-                                <form className="email-form" onSubmit={handleAddProvider}>
-                                    <div className="form-grid">
-                                        <div className="form-group"><label>Name</label><input type="text" value={newProvider.name} onChange={e => setNewProvider({ ...newProvider, name: e.target.value })} required /></div>
-                                        <div className="form-group">
-                                            <label>Provider</label>
-                                            <select value={newProvider.provider} onChange={e => setNewProvider({ ...newProvider, provider: e.target.value })}>
-                                                <option value="cloudflare">Cloudflare</option>
-                                                <option value="route53">Route53</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group"><label>API Key</label><input type="password" value={newProvider.api_key} onChange={e => setNewProvider({ ...newProvider, api_key: e.target.value })} required /></div>
-                                        <div className="form-group"><label>API Secret (Route53)</label><input type="password" value={newProvider.api_secret} onChange={e => setNewProvider({ ...newProvider, api_secret: e.target.value })} /></div>
-                                        <div className="form-group"><label>API Email (Cloudflare)</label><input type="email" value={newProvider.api_email} onChange={e => setNewProvider({ ...newProvider, api_email: e.target.value })} /></div>
-                                    </div>
-                                    <div className="form-actions"><button type="submit" className="btn btn-primary btn-sm" disabled={actionLoading}>Add</button></div>
-                                </form>
-                            )}
-                            <div className="provider-list">
-                                {providers.length === 0 ? (
-                                    <div className="empty-state"><p>No DNS providers configured</p></div>
-                                ) : providers.map(p => (
-                                    <div key={p.id} className="provider-card">
-                                        <div className="provider-header">
-                                            <h3>{p.name}</h3>
-                                            <span className="provider-type">{p.provider}</span>
-                                        </div>
-                                        <div className="provider-meta">
-                                            <div className="meta-row"><span>API Key: {p.api_key}</span>{p.is_default && <span><strong>Default</strong></span>}</div>
-                                        </div>
-                                        <div className="provider-actions">
-                                            <button className="btn btn-sm" onClick={() => handleTestProvider(p.id)} disabled={actionLoading}>Test</button>
-                                            <button className="btn btn-sm" onClick={() => handleListZones(p.id)}>Zones</button>
-                                            <button className="btn btn-sm btn-danger" onClick={() => handleDeleteProvider(p.id)}>Delete</button>
-                                        </div>
-                                        {providerZones[p.id] && (
-                                            <div className="zones-list">
-                                                {providerZones[p.id].map(z => (
-                                                    <div key={z.id} className="zone-item"><span>{z.name}</span><span>{z.id}</span></div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Spam Tab */}
-                    {activeTab === 'spam' && spamConfig && (
-                        <div className="email-spam">
-                            <div className="section-header">
-                                <h2>SpamAssassin Configuration</h2>
-                                <div className="section-actions">
-                                    <button className="btn btn-sm" onClick={handleUpdateSpamRules} disabled={actionLoading}>Update Rules</button>
-                                    <button className="btn btn-primary btn-sm" onClick={handleUpdateSpam} disabled={actionLoading}>Save</button>
-                                </div>
-                            </div>
-                            <div className="spam-config">
-                                <div className="form-grid">
-                                    <div className="form-group">
-                                        <label>Required Score</label>
-                                        <input type="number" step="0.1" value={spamConfig.required_score} onChange={e => setSpamConfig({ ...spamConfig, required_score: parseFloat(e.target.value) })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Rewrite Subject</label>
-                                        <input type="text" value={spamConfig.rewrite_subject} onChange={e => setSpamConfig({ ...spamConfig, rewrite_subject: e.target.value })} />
-                                    </div>
-                                    <div className="form-group checkbox-field">
-                                        <input type="checkbox" checked={!!spamConfig.use_bayes} onChange={e => setSpamConfig({ ...spamConfig, use_bayes: e.target.checked ? 1 : 0 })} />
-                                        <label>Enable Bayesian Filter</label>
-                                    </div>
-                                    <div className="form-group checkbox-field">
-                                        <input type="checkbox" checked={!!spamConfig.bayes_auto_learn} onChange={e => setSpamConfig({ ...spamConfig, bayes_auto_learn: e.target.checked ? 1 : 0 })} />
-                                        <label>Auto-learn</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Webmail Tab */}
-                    {activeTab === 'webmail' && (
-                        <div className="email-webmail">
-                            <div className="section-header"><h2>Roundcube Webmail</h2></div>
-                            <div className="webmail-card">
-                                <div className="webmail-status-row">
-                                    <span className={`status-badge ${webmailStatus?.running ? 'online' : 'offline'}`}>
-                                        {webmailStatus?.running ? 'Running' : webmailStatus?.installed ? 'Stopped' : 'Not Installed'}
-                                    </span>
-                                    {webmailStatus?.port && <span>Port: {webmailStatus.port}</span>}
-                                </div>
-                                <div className="webmail-actions">
-                                    {!webmailStatus?.installed ? (
-                                        <button className="btn btn-primary btn-sm" onClick={handleWebmailInstall} disabled={actionLoading}>Install Roundcube</button>
-                                    ) : (
-                                        <>
-                                            {webmailStatus?.running
-                                                ? <button className="btn btn-sm" onClick={() => handleWebmailControl('stop')} disabled={actionLoading}>Stop</button>
-                                                : <button className="btn btn-sm btn-primary" onClick={() => handleWebmailControl('start')} disabled={actionLoading}>Start</button>
-                                            }
-                                            <button className="btn btn-sm" onClick={() => handleWebmailControl('restart')} disabled={actionLoading}>Restart</button>
-                                        </>
-                                    )}
-                                </div>
-                                {webmailStatus?.installed && (
-                                    <div className="proxy-form">
-                                        <div className="form-group">
-                                            <label>Proxy Domain</label>
-                                            <input type="text" value={proxyDomain} onChange={e => setProxyDomain(e.target.value)} placeholder="webmail.example.com" />
-                                        </div>
-                                        <button className="btn btn-sm btn-primary" onClick={handleConfigureProxy} disabled={actionLoading || !proxyDomain}>Configure Nginx Proxy</button>
-                                    </div>
+                                    </form>
                                 )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Queue & Logs Tab */}
-                    {activeTab === 'queue' && (
-                        <div>
-                            <div className="email-queue">
-                                <div className="section-header">
-                                    <h2>Mail Queue ({queue.length})</h2>
-                                    <button className="btn btn-sm" onClick={handleFlushQueue} disabled={actionLoading}>Flush Queue</button>
-                                </div>
-                                <div className="queue-list">
-                                    {queue.length === 0 ? (
-                                        <div className="empty-state"><p>Queue is empty</p></div>
-                                    ) : queue.map(item => (
-                                        <div key={item.queue_id} className="queue-item">
-                                            <div className="queue-info">
-                                                <div className="queue-id">{item.queue_id}</div>
-                                                <div className="queue-meta">
-                                                    <span>From: {item.sender}</span>
-                                                    <span>Size: {item.size}B</span>
-                                                    <span>{item.arrival_time}</span>
-                                                </div>
-                                                {item.error && <div className="queue-error">{item.error}</div>}
+                                <div className="domain-list">
+                                    {domains.length === 0 ? (
+                                        <div className="empty-state"><p>No domains configured</p></div>
+                                    ) : domains.map(d => (
+                                        <div key={d.id} className="domain-card">
+                                            <div className="domain-header">
+                                                <h3>{d.name}</h3>
+                                                <Badge variant={d.is_active ? 'success' : 'secondary'}>
+                                                    {d.is_active ? 'Active' : 'Inactive'}
+                                                </Badge>
                                             </div>
-                                            <button className="btn btn-sm btn-danger" onClick={() => handleDeleteQueueItem(item.queue_id)}>Delete</button>
+                                            <div className="domain-stats">
+                                                <span>{d.accounts_count} accounts</span>
+                                                <span>{d.aliases_count} aliases</span>
+                                            </div>
+                                            <div className="domain-dns">
+                                                <span className={`dns-badge ${d.dkim_public_key ? 'verified' : 'missing'}`}>DKIM</span>
+                                                <span className={`dns-badge ${d.spf_record ? 'verified' : 'missing'}`}>SPF</span>
+                                                <span className={`dns-badge ${d.dmarc_record ? 'verified' : 'missing'}`}>DMARC</span>
+                                            </div>
+                                            <div className="domain-actions">
+                                                <Button size="sm" variant="outline" onClick={() => handleVerifyDNS(d.id)} disabled={actionLoading}>Verify DNS</Button>
+                                                {d.dns_provider_id && <Button size="sm" onClick={() => handleDeployDNS(d.id)} disabled={actionLoading}>Deploy DNS</Button>}
+                                                <Button size="sm" variant="destructive" onClick={() => handleDeleteDomain(d.id, d.name)}>Delete</Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="email-logs mt-8">
-                                <div className="section-header">
-                                    <h2>Mail Logs</h2>
-                                    <div className="log-controls">
-                                        <select value={logLines} onChange={e => setLogLines(parseInt(e.target.value))}>
-                                            <option value={50}>50 lines</option>
-                                            <option value={100}>100 lines</option>
-                                            <option value={500}>500 lines</option>
+                        </TabsContent>
+
+                        {/* Accounts Tab */}
+                        <TabsContent value="accounts">
+                            <div className="email-accounts">
+                                <div className="domain-selector">
+                                    <div className="form-group">
+                                        <label>Select Domain</label>
+                                        <select value={selectedDomainId} onChange={e => setSelectedDomainId(e.target.value)}>
+                                            <option value="">-- Select --</option>
+                                            {domains.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                         </select>
                                     </div>
                                 </div>
-                                <pre className="log-output">{logs.length > 0 ? logs.join('\n') : 'No logs available'}</pre>
+                                {selectedDomainId && (
+                                    <>
+                                        <div className="section-header">
+                                            <h2>Accounts</h2>
+                                            <Button size="sm" variant={showAccountForm ? 'outline' : 'default'} onClick={() => setShowAccountForm(!showAccountForm)}>
+                                                {showAccountForm ? 'Cancel' : 'Create Account'}
+                                            </Button>
+                                        </div>
+                                        {showAccountForm && (
+                                            <form className="email-form" onSubmit={handleCreateAccount}>
+                                                <div className="form-grid">
+                                                    <div className="form-group">
+                                                        <label>Username</label>
+                                                        <Input type="text" value={newAccount.username} onChange={e => setNewAccount({ ...newAccount, username: e.target.value })} placeholder="user" required />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>Password</label>
+                                                        <Input type="password" value={newAccount.password} onChange={e => setNewAccount({ ...newAccount, password: e.target.value })} required />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>Quota (MB)</label>
+                                                        <Input type="number" value={newAccount.quota_mb} onChange={e => setNewAccount({ ...newAccount, quota_mb: parseInt(e.target.value) || 1024 })} />
+                                                    </div>
+                                                </div>
+                                                <div className="form-actions">
+                                                    <Button type="submit" size="sm" disabled={actionLoading}>Create</Button>
+                                                </div>
+                                            </form>
+                                        )}
+                                        <div className="accounts-list">
+                                            {accounts.length === 0 ? (
+                                                <div className="empty-state"><p>No accounts for this domain</p></div>
+                                            ) : accounts.map(a => (
+                                                <div key={a.id} className="account-card">
+                                                    <div className="account-info">
+                                                        <div className="account-email">{a.email}</div>
+                                                        <div className="account-meta">
+                                                            <span>Quota: {a.quota_mb}MB</span>
+                                                            <Badge variant={a.is_active ? 'success' : 'secondary'}>
+                                                                {a.is_active ? 'Active' : 'Disabled'}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                    <div className="account-actions">
+                                                        <Button size="sm" variant="outline" onClick={() => { setShowPasswordModal(a.id); setNewPassword(''); }}>Password</Button>
+                                                        <Button size="sm" variant="destructive" onClick={() => handleDeleteAccount(a.id, a.email)}>Delete</Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {showPasswordModal && (
+                                    <div className="modal-overlay" onClick={() => setShowPasswordModal(null)}>
+                                        <div className="modal-content" onClick={e => e.stopPropagation()}>
+                                            <h3>Change Password</h3>
+                                            <div className="form-group">
+                                                <label>New Password</label>
+                                                <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                                            </div>
+                                            <div className="form-actions">
+                                                <Button size="sm" variant="outline" onClick={() => setShowPasswordModal(null)}>Cancel</Button>
+                                                <Button size="sm" onClick={handleChangePassword} disabled={actionLoading || !newPassword}>Change</Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        </TabsContent>
+
+                        {/* Aliases Tab */}
+                        <TabsContent value="aliases">
+                            <div className="email-aliases">
+                                <div className="domain-selector">
+                                    <div className="form-group">
+                                        <label>Select Domain</label>
+                                        <select value={aliasDomainId} onChange={e => setAliasDomainId(e.target.value)}>
+                                            <option value="">-- Select --</option>
+                                            {domains.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                {aliasDomainId && (
+                                    <>
+                                        <div className="section-header">
+                                            <h2>Aliases</h2>
+                                            <Button size="sm" variant={showAliasForm ? 'outline' : 'default'} onClick={() => setShowAliasForm(!showAliasForm)}>
+                                                {showAliasForm ? 'Cancel' : 'Create Alias'}
+                                            </Button>
+                                        </div>
+                                        {showAliasForm && (
+                                            <form className="email-form" onSubmit={handleCreateAlias}>
+                                                <div className="form-grid">
+                                                    <div className="form-group">
+                                                        <label>Source</label>
+                                                        <Input type="text" value={newAlias.source} onChange={e => setNewAlias({ ...newAlias, source: e.target.value })} placeholder="info@example.com" required />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>Destination</label>
+                                                        <Input type="text" value={newAlias.destination} onChange={e => setNewAlias({ ...newAlias, destination: e.target.value })} placeholder="user@example.com" required />
+                                                    </div>
+                                                </div>
+                                                <div className="form-actions">
+                                                    <Button type="submit" size="sm" disabled={actionLoading}>Create</Button>
+                                                </div>
+                                            </form>
+                                        )}
+                                        <div className="items-list">
+                                            {aliases.length === 0 ? (
+                                                <div className="empty-state"><p>No aliases for this domain</p></div>
+                                            ) : aliases.map(a => (
+                                                <div key={a.id} className="alias-card">
+                                                    <div className="item-info">
+                                                        <div className="item-mapping">{a.source} <span className="arrow">&rarr;</span> {a.destination}</div>
+                                                    </div>
+                                                    <div className="item-actions">
+                                                        <Button size="sm" variant="destructive" onClick={() => handleDeleteAlias(a.id)}>Delete</Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </TabsContent>
+
+                        {/* Forwarding Tab */}
+                        <TabsContent value="forwarding">
+                            <div className="email-forwarding">
+                                <div className="domain-selector">
+                                    <div className="form-group">
+                                        <label>Select Account</label>
+                                        <select value={selectedAccountId} onChange={e => setSelectedAccountId(e.target.value)}>
+                                            <option value="">-- Select --</option>
+                                            {allAccounts.map(a => <option key={a.id} value={a.id}>{a.email}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                {selectedAccountId && (
+                                    <>
+                                        <div className="section-header">
+                                            <h2>Forwarding Rules</h2>
+                                            <Button size="sm" variant={showForwardForm ? 'outline' : 'default'} onClick={() => setShowForwardForm(!showForwardForm)}>
+                                                {showForwardForm ? 'Cancel' : 'Add Rule'}
+                                            </Button>
+                                        </div>
+                                        {showForwardForm && (
+                                            <form className="email-form" onSubmit={handleCreateForwarding}>
+                                                <div className="form-grid">
+                                                    <div className="form-group">
+                                                        <label>Forward To</label>
+                                                        <Input type="email" value={newForward.destination} onChange={e => setNewForward({ ...newForward, destination: e.target.value })} required />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label>
+                                                            <input type="checkbox" checked={newForward.keep_copy} onChange={e => setNewForward({ ...newForward, keep_copy: e.target.checked })} />
+                                                            {' '}Keep a copy in mailbox
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div className="form-actions">
+                                                    <Button type="submit" size="sm" disabled={actionLoading}>Add</Button>
+                                                </div>
+                                            </form>
+                                        )}
+                                        <div className="items-list">
+                                            {forwardingRules.length === 0 ? (
+                                                <div className="empty-state"><p>No forwarding rules</p></div>
+                                            ) : forwardingRules.map(r => (
+                                                <div key={r.id} className="forwarding-card">
+                                                    <div className="item-info">
+                                                        <div className="item-mapping">{r.account_email} <span className="arrow">&rarr;</span> {r.destination}</div>
+                                                        <div className="item-meta">{r.keep_copy ? 'Keeps copy' : 'No copy'} &middot; {r.is_active ? 'Active' : 'Inactive'}</div>
+                                                    </div>
+                                                    <div className="item-actions">
+                                                        <Button size="sm" variant="destructive" onClick={() => handleDeleteForwarding(r.id)}>Delete</Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </TabsContent>
+
+                        {/* DNS Providers Tab */}
+                        <TabsContent value="dns-providers">
+                            <div className="email-dns-providers">
+                                <div className="section-header">
+                                    <h2>DNS Providers</h2>
+                                    <Button size="sm" variant={showProviderForm ? 'outline' : 'default'} onClick={() => setShowProviderForm(!showProviderForm)}>
+                                        {showProviderForm ? 'Cancel' : 'Add Provider'}
+                                    </Button>
+                                </div>
+                                {showProviderForm && (
+                                    <form className="email-form" onSubmit={handleAddProvider}>
+                                        <div className="form-grid">
+                                            <div className="form-group"><label>Name</label><Input type="text" value={newProvider.name} onChange={e => setNewProvider({ ...newProvider, name: e.target.value })} required /></div>
+                                            <div className="form-group">
+                                                <label>Provider</label>
+                                                <select value={newProvider.provider} onChange={e => setNewProvider({ ...newProvider, provider: e.target.value })}>
+                                                    <option value="cloudflare">Cloudflare</option>
+                                                    <option value="route53">Route53</option>
+                                                </select>
+                                            </div>
+                                            <div className="form-group"><label>API Key</label><Input type="password" value={newProvider.api_key} onChange={e => setNewProvider({ ...newProvider, api_key: e.target.value })} required /></div>
+                                            <div className="form-group"><label>API Secret (Route53)</label><Input type="password" value={newProvider.api_secret} onChange={e => setNewProvider({ ...newProvider, api_secret: e.target.value })} /></div>
+                                            <div className="form-group"><label>API Email (Cloudflare)</label><Input type="email" value={newProvider.api_email} onChange={e => setNewProvider({ ...newProvider, api_email: e.target.value })} /></div>
+                                        </div>
+                                        <div className="form-actions"><Button type="submit" size="sm" disabled={actionLoading}>Add</Button></div>
+                                    </form>
+                                )}
+                                <div className="provider-list">
+                                    {providers.length === 0 ? (
+                                        <div className="empty-state"><p>No DNS providers configured</p></div>
+                                    ) : providers.map(p => (
+                                        <div key={p.id} className="provider-card">
+                                            <div className="provider-header">
+                                                <h3>{p.name}</h3>
+                                                <span className="provider-type">{p.provider}</span>
+                                            </div>
+                                            <div className="provider-meta">
+                                                <div className="meta-row"><span>API Key: {p.api_key}</span>{p.is_default && <span><strong>Default</strong></span>}</div>
+                                            </div>
+                                            <div className="provider-actions">
+                                                <Button size="sm" variant="outline" onClick={() => handleTestProvider(p.id)} disabled={actionLoading}>Test</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleListZones(p.id)}>Zones</Button>
+                                                <Button size="sm" variant="destructive" onClick={() => handleDeleteProvider(p.id)}>Delete</Button>
+                                            </div>
+                                            {providerZones[p.id] && (
+                                                <div className="zones-list">
+                                                    {providerZones[p.id].map(z => (
+                                                        <div key={z.id} className="zone-item"><span>{z.name}</span><span>{z.id}</span></div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* Spam Tab */}
+                        <TabsContent value="spam">
+                            {spamConfig && (
+                                <div className="email-spam">
+                                    <div className="section-header">
+                                        <h2>SpamAssassin Configuration</h2>
+                                        <div className="section-actions">
+                                            <Button size="sm" variant="outline" onClick={handleUpdateSpamRules} disabled={actionLoading}>Update Rules</Button>
+                                            <Button size="sm" onClick={handleUpdateSpam} disabled={actionLoading}>Save</Button>
+                                        </div>
+                                    </div>
+                                    <div className="spam-config">
+                                        <div className="form-grid">
+                                            <div className="form-group">
+                                                <label>Required Score</label>
+                                                <Input type="number" step="0.1" value={spamConfig.required_score} onChange={e => setSpamConfig({ ...spamConfig, required_score: parseFloat(e.target.value) })} />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Rewrite Subject</label>
+                                                <Input type="text" value={spamConfig.rewrite_subject} onChange={e => setSpamConfig({ ...spamConfig, rewrite_subject: e.target.value })} />
+                                            </div>
+                                            <div className="form-group checkbox-field">
+                                                <input type="checkbox" checked={!!spamConfig.use_bayes} onChange={e => setSpamConfig({ ...spamConfig, use_bayes: e.target.checked ? 1 : 0 })} />
+                                                <label>Enable Bayesian Filter</label>
+                                            </div>
+                                            <div className="form-group checkbox-field">
+                                                <input type="checkbox" checked={!!spamConfig.bayes_auto_learn} onChange={e => setSpamConfig({ ...spamConfig, bayes_auto_learn: e.target.checked ? 1 : 0 })} />
+                                                <label>Auto-learn</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </TabsContent>
+
+                        {/* Webmail Tab */}
+                        <TabsContent value="webmail">
+                            <div className="email-webmail">
+                                <div className="section-header"><h2>Roundcube Webmail</h2></div>
+                                <div className="webmail-card">
+                                    <div className="webmail-status-row">
+                                        <Badge variant={webmailStatus?.running ? 'success' : 'secondary'}>
+                                            {webmailStatus?.running ? 'Running' : webmailStatus?.installed ? 'Stopped' : 'Not Installed'}
+                                        </Badge>
+                                        {webmailStatus?.port && <span>Port: {webmailStatus.port}</span>}
+                                    </div>
+                                    <div className="webmail-actions">
+                                        {!webmailStatus?.installed ? (
+                                            <Button size="sm" onClick={handleWebmailInstall} disabled={actionLoading}>Install Roundcube</Button>
+                                        ) : (
+                                            <>
+                                                {webmailStatus?.running
+                                                    ? <Button size="sm" variant="outline" onClick={() => handleWebmailControl('stop')} disabled={actionLoading}>Stop</Button>
+                                                    : <Button size="sm" onClick={() => handleWebmailControl('start')} disabled={actionLoading}>Start</Button>
+                                                }
+                                                <Button size="sm" variant="outline" onClick={() => handleWebmailControl('restart')} disabled={actionLoading}>Restart</Button>
+                                            </>
+                                        )}
+                                    </div>
+                                    {webmailStatus?.installed && (
+                                        <div className="proxy-form">
+                                            <div className="form-group">
+                                                <label>Proxy Domain</label>
+                                                <Input type="text" value={proxyDomain} onChange={e => setProxyDomain(e.target.value)} placeholder="webmail.example.com" />
+                                            </div>
+                                            <Button size="sm" onClick={handleConfigureProxy} disabled={actionLoading || !proxyDomain}>Configure Nginx Proxy</Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* Queue & Logs Tab */}
+                        <TabsContent value="queue">
+                            <div>
+                                <div className="email-queue">
+                                    <div className="section-header">
+                                        <h2>Mail Queue ({queue.length})</h2>
+                                        <Button size="sm" variant="outline" onClick={handleFlushQueue} disabled={actionLoading}>Flush Queue</Button>
+                                    </div>
+                                    <div className="queue-list">
+                                        {queue.length === 0 ? (
+                                            <div className="empty-state"><p>Queue is empty</p></div>
+                                        ) : queue.map(item => (
+                                            <div key={item.queue_id} className="queue-item">
+                                                <div className="queue-info">
+                                                    <div className="queue-id">{item.queue_id}</div>
+                                                    <div className="queue-meta">
+                                                        <span>From: {item.sender}</span>
+                                                        <span>Size: {item.size}B</span>
+                                                        <span>{item.arrival_time}</span>
+                                                    </div>
+                                                    {item.error && <div className="queue-error">{item.error}</div>}
+                                                </div>
+                                                <Button size="sm" variant="destructive" onClick={() => handleDeleteQueueItem(item.queue_id)}>Delete</Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="email-logs mt-8">
+                                    <div className="section-header">
+                                        <h2>Mail Logs</h2>
+                                        <div className="log-controls">
+                                            <select value={logLines} onChange={e => setLogLines(parseInt(e.target.value))}>
+                                                <option value={50}>50 lines</option>
+                                                <option value={100}>100 lines</option>
+                                                <option value={500}>500 lines</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <pre className="log-output">{logs.length > 0 ? logs.join('\n') : 'No logs available'}</pre>
+                                </div>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </>
             )}
 

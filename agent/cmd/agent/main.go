@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"github.com/serverkit/agent/internal/agent"
@@ -390,14 +391,35 @@ servers, use 'serverkit-agent pair' instead.`,
 }
 
 func runSetup() error {
+	// WebView2 / OS UI must run on the main OS thread on Windows.
+	runtime.LockOSThread()
+
+	// Diagnostic file log — invaluable when launched from a Start Menu
+	// shortcut (no console) and the wizard "does nothing".
+	dbg := openSetupDebugLog()
+	defer dbg.Close()
+	dbg.Logf("--- runSetup start, version=%s pid=%d ---", Version, os.Getpid())
+
+	// Catch panics so they end up in the log + a MessageBox instead of vanishing.
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("panic: %v", r)
+			dbg.Logf(msg)
+			showFatalError(fmt.Errorf("%s\n\nLog: %s", msg, dbg.Path()))
+		}
+	}()
+
 	log := logger.New(config.LoggingConfig{Level: "info"})
+	dbg.Logf("logger ready")
 
 	configPath := cfgFile
 	if configPath == "" {
 		configPath = config.DefaultConfigPath()
 	}
+	dbg.Logf("configPath=%s", configPath)
 
 	srv := setupui.New(log, configPath)
+	dbg.Logf("setupui.New OK")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -410,7 +432,16 @@ func runSetup() error {
 		cancel()
 	}()
 
-	return srv.Run(ctx)
+	dbg.Logf("calling srv.Run …")
+	err := srv.Run(ctx)
+	dbg.Logf("srv.Run returned: %v", err)
+	if err != nil {
+		// We're built with -H windowsgui so there's no console. Surface
+		// failures via a MessageBox so the user isn't left staring at a
+		// shortcut that "does nothing".
+		showFatalError(fmt.Errorf("%w\n\nLog: %s", err, dbg.Path()))
+	}
+	return err
 }
 
 func trayCmd() *cobra.Command {

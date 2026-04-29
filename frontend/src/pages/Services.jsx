@@ -3,6 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { getServiceType, getStatusConfig, formatRelativeTime } from '../utils/serviceTypes';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const SERVICE_TYPE_OPTIONS = ['all', 'docker', 'flask', 'django', 'php', 'static', 'wordpress'];
 const STATUS_OPTIONS = ['all', 'running', 'stopped'];
@@ -79,16 +82,6 @@ const Services = () => {
         }
     }
 
-    function toggleSelect(e, appId) {
-        e.stopPropagation();
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(appId)) next.delete(appId);
-            else next.add(appId);
-            return next;
-        });
-    }
-
     function toggleSelectAll() {
         if (selectedIds.size === filteredApps.length) {
             setSelectedIds(new Set());
@@ -149,13 +142,15 @@ const Services = () => {
                         {stats.total} services &middot; {stats.running} live
                     </p>
                 </div>
-                <Link to="/templates" className="btn btn-primary">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    New Service
-                </Link>
+                <Button asChild>
+                    <Link to="/templates">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        New Service
+                    </Link>
+                </Button>
             </div>
 
             {/* Summary Cards */}
@@ -224,7 +219,7 @@ const Services = () => {
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
-                    <input
+                    <Input
                         type="text"
                         placeholder="Search services..."
                         value={searchTerm}
@@ -269,18 +264,18 @@ const Services = () => {
                 <div className="services-page__bulk-bar">
                     <span>{selectedIds.size} selected</span>
                     <div className="services-page__bulk-actions">
-                        <button className="btn btn-sm" onClick={() => handleBulkAction('restart')} disabled={bulkLoading}>
+                        <Button variant="outline" size="sm" onClick={() => handleBulkAction('restart')} disabled={bulkLoading}>
                             Restart All
-                        </button>
-                        <button className="btn btn-sm" onClick={() => handleBulkAction('stop')} disabled={bulkLoading}>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleBulkAction('stop')} disabled={bulkLoading}>
                             Stop All
-                        </button>
-                        <button className="btn btn-sm" onClick={() => handleBulkAction('start')} disabled={bulkLoading}>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleBulkAction('start')} disabled={bulkLoading}>
                             Start All
-                        </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
                             Clear
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -297,7 +292,9 @@ const Services = () => {
                         ? 'Try adjusting your filters'
                         : 'Deploy your first service to get started'}</p>
                     {!searchTerm && typeFilter === 'all' && statusFilter === 'all' && (
-                        <Link to="/templates" className="btn btn-primary">Create Service</Link>
+                        <Button asChild>
+                            <Link to="/templates">Create Service</Link>
+                        </Button>
                     )}
                 </div>
             ) : (
@@ -305,10 +302,9 @@ const Services = () => {
                     {/* List Header */}
                     <div className="services-page__list-header">
                         <div className="services-page__list-header-left">
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={selectedIds.size === filteredApps.length && filteredApps.length > 0}
-                                onChange={toggleSelectAll}
+                                onCheckedChange={toggleSelectAll}
                                 className="services-page__checkbox"
                             />
                             <span>Service</span>
@@ -338,10 +334,16 @@ const Services = () => {
                                 }}
                             >
                                 <div className="services-page__row-main">
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
                                         checked={selectedIds.has(app.id)}
-                                        onChange={(e) => toggleSelect(e, app.id)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedIds(prev => {
+                                                const next = new Set(prev);
+                                                if (checked) next.add(app.id);
+                                                else next.delete(app.id);
+                                                return next;
+                                            });
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                         className="services-page__checkbox"
                                     />
@@ -395,8 +397,9 @@ const Services = () => {
                                     <div className="services-page__actions" onClick={e => e.stopPropagation()}>
                                         {isRunning ? (
                                             <>
-                                                <button
-                                                    className="btn btn-ghost btn-sm"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={(e) => handleAction(e, app.id, 'restart')}
                                                     disabled={actionLoading === `${app.id}-restart`}
                                                     title="Restart"
@@ -405,9 +408,10 @@ const Services = () => {
                                                         <polyline points="23 4 23 10 17 10"/>
                                                         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                                                     </svg>
-                                                </button>
-                                                <button
-                                                    className="btn btn-ghost btn-sm"
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={(e) => handleAction(e, app.id, 'stop')}
                                                     disabled={actionLoading === `${app.id}-stop`}
                                                     title="Stop"
@@ -415,11 +419,12 @@ const Services = () => {
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                                         <rect x="6" y="6" width="12" height="12" rx="1"/>
                                                     </svg>
-                                                </button>
+                                                </Button>
                                             </>
                                         ) : (
-                                            <button
-                                                className="btn btn-ghost btn-sm"
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={(e) => handleAction(e, app.id, 'start')}
                                                 disabled={actionLoading === `${app.id}-start`}
                                                 title="Start"
@@ -427,7 +432,7 @@ const Services = () => {
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                                     <polygon points="5 3 19 12 5 21 5 3"/>
                                                 </svg>
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
                                 </div>

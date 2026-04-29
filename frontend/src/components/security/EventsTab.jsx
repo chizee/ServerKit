@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
 
 const EventsTab = () => {
     const [events, setEvents] = useState([]);
@@ -47,7 +48,7 @@ const EventsTab = () => {
                 <div className={`card ${failedLogins.alert_triggered ? 'card-warning' : ''}`}>
                     <div className="card-header">
                         <h3>Failed Login Attempts (24h)</h3>
-                        <button className="btn btn-sm btn-secondary" onClick={loadFailedLogins}>Refresh</button>
+                        <Button variant="outline" size="sm" onClick={loadFailedLogins}>Refresh</Button>
                     </div>
                     <div className="card-body">
                         <div className="failed-login-summary">
@@ -69,7 +70,7 @@ const EventsTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>Security Events</h3>
-                    <button className="btn btn-sm btn-secondary" onClick={loadEvents}>Refresh</button>
+                    <Button variant="outline" size="sm" onClick={loadEvents}>Refresh</Button>
                 </div>
                 <div className="card-body">
                     {loading ? (

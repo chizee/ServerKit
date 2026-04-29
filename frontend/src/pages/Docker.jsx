@@ -4,6 +4,9 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 // Server context for Docker operations
 const ServerContext = createContext({ serverId: 'local', serverName: 'Local' });
@@ -196,13 +199,13 @@ const Docker = () => {
                             <li>Verify the user has permissions to access Docker</li>
                         </ul>
                     </div>
-                    <button className="btn btn-primary" onClick={checkDockerStatus}>
+                    <Button onClick={checkDockerStatus}>
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                             <path d="M23 4v6h-6M1 20v-6h6"/>
                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                         </svg>
                         Retry Connection
-                    </button>
+                    </Button>
                 </div>
             </div>
         );
@@ -326,9 +329,9 @@ const RunContainerButton = () => {
     const [showModal, setShowModal] = useState(false);
     return (
         <>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Button onClick={() => setShowModal(true)}>
                 <span>+</span> Run Container
-            </button>
+            </Button>
             {showModal && <RunContainerModal onClose={() => setShowModal(false)} onCreated={() => window.location.reload()} />}
         </>
     );
@@ -338,9 +341,9 @@ const PullImageButton = () => {
     const [showModal, setShowModal] = useState(false);
     return (
         <>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Button onClick={() => setShowModal(true)}>
                 <span>+</span> Pull Image
-            </button>
+            </Button>
             {showModal && <PullImageModal onClose={() => setShowModal(false)} onPulled={() => window.location.reload()} />}
         </>
     );
@@ -350,9 +353,9 @@ const CreateNetworkButton = () => {
     const [showModal, setShowModal] = useState(false);
     return (
         <>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Button onClick={() => setShowModal(true)}>
                 <span>+</span> Create Network
-            </button>
+            </Button>
             {showModal && <CreateNetworkModal onClose={() => setShowModal(false)} onCreated={() => window.location.reload()} />}
         </>
     );
@@ -362,9 +365,9 @@ const CreateVolumeButton = () => {
     const [showModal, setShowModal] = useState(false);
     return (
         <>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Button onClick={() => setShowModal(true)}>
                 <span>+</span> Create Volume
-            </button>
+            </Button>
             {showModal && <CreateVolumeModal onClose={() => setShowModal(false)} onCreated={() => window.location.reload()} />}
         </>
     );
@@ -393,9 +396,9 @@ const PruneButton = ({ onPruned }) => {
 
     return (
         <>
-            <button className="btn btn-secondary btn-sm" onClick={handlePrune} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={handlePrune} disabled={loading}>
                 {loading ? 'Cleaning...' : 'Prune Unused'}
-            </button>
+            </Button>
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 title={confirmState.title}
@@ -629,7 +632,7 @@ const ContainersTab = ({ onStatsChange }) => {
                     />
                     Show stopped
                 </label>
-                <input
+                <Input
                     type="text"
                     className="docker-search"
                     placeholder="Search ID or Name..."
@@ -826,7 +829,7 @@ const ImagesTab = ({ onStatsChange }) => {
         <div>
             <div className="docker-table-header">
                 <div />
-                <input
+                <Input
                     type="text"
                     className="docker-search"
                     placeholder="Search images..."
@@ -1217,9 +1220,9 @@ const ComposeTab = ({ onStatsChange }) => {
                 <div className="docker-table-info">
                     {projects.length} project{projects.length !== 1 ? 's' : ''} found
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={loadProjects}>
+                <Button variant="outline" size="sm" onClick={loadProjects}>
                     Refresh
-                </button>
+                </Button>
             </div>
 
             {projects.length === 0 ? (
@@ -1437,10 +1440,10 @@ const ComposeLogsModal = ({ project, onClose }) => {
                     <pre className="log-viewer">{loading ? 'Loading...' : logs}</pre>
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-secondary" onClick={loadLogs} disabled={loading}>
+                    <Button variant="outline" onClick={loadLogs} disabled={loading}>
                         {loading ? 'Loading...' : 'Refresh'}
-                    </button>
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    </Button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>
@@ -1505,7 +1508,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Image *</label>
-                        <input
+                        <Input
                             type="text"
                             name="image"
                             value={formData.image}
@@ -1517,7 +1520,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
 
                     <div className="form-group">
                         <label>Container Name</label>
-                        <input
+                        <Input
                             type="text"
                             name="name"
                             value={formData.name}
@@ -1528,7 +1531,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
 
                     <div className="form-group">
                         <label>Ports (comma-separated)</label>
-                        <input
+                        <Input
                             type="text"
                             name="ports"
                             value={formData.ports}
@@ -1539,7 +1542,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
 
                     <div className="form-group">
                         <label>Volumes (comma-separated)</label>
-                        <input
+                        <Input
                             type="text"
                             name="volumes"
                             value={formData.volumes}
@@ -1550,7 +1553,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
 
                     <div className="form-group">
                         <label>Environment Variables (one per line, KEY=value)</label>
-                        <textarea
+                        <Textarea
                             name="env"
                             value={formData.env}
                             onChange={handleChange}
@@ -1560,12 +1563,12 @@ const RunContainerModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Running...' : 'Run Container'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1622,10 +1625,10 @@ const ContainerLogsModal = ({ container, onClose }) => {
                     <pre className="log-viewer">{loading ? 'Loading...' : logs}</pre>
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-secondary" onClick={loadLogs} disabled={loading}>
+                    <Button variant="outline" onClick={loadLogs} disabled={loading}>
                         {loading ? 'Loading...' : 'Refresh'}
-                    </button>
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    </Button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>
@@ -1751,14 +1754,14 @@ const ContainerExecModal = ({ container, onClose }) => {
                             autoComplete="off"
                             spellCheck="false"
                         />
-                        <button type="submit" className="btn btn-primary btn-sm" disabled={loading || !command.trim()}>
+                        <Button type="submit" size="sm" disabled={loading || !command.trim()}>
                             Run
-                        </button>
+                        </Button>
                     </form>
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-secondary" onClick={clearOutput}>Clear</button>
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    <Button variant="outline" onClick={clearOutput}>Clear</Button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>
@@ -1800,7 +1803,7 @@ const PullImageModal = ({ onClose, onPulled }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Image Name *</label>
-                        <input
+                        <Input
                             type="text"
                             value={image}
                             onChange={(e) => setImage(e.target.value)}
@@ -1811,7 +1814,7 @@ const PullImageModal = ({ onClose, onPulled }) => {
 
                     <div className="form-group">
                         <label>Tag</label>
-                        <input
+                        <Input
                             type="text"
                             value={tag}
                             onChange={(e) => setTag(e.target.value)}
@@ -1820,12 +1823,12 @@ const PullImageModal = ({ onClose, onPulled }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Pulling...' : 'Pull Image'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1868,7 +1871,7 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Network Name *</label>
-                        <input
+                        <Input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -1887,12 +1890,12 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Network'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1934,7 +1937,7 @@ const CreateVolumeModal = ({ onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Volume Name *</label>
-                        <input
+                        <Input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -1944,12 +1947,12 @@ const CreateVolumeModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Volume'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

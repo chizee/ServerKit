@@ -17,6 +17,7 @@ import {
     EventsTab,
     SecurityConfigTab,
 } from '../components/security';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['overview', 'firewall', 'fail2ban', 'ssh-keys', 'ip-lists', 'scanner', 'quarantine', 'integrity', 'audit', 'vulnerability', 'updates', 'events', 'settings'];
 
@@ -54,63 +55,39 @@ const Security = () => {
                 </div>
             </div>
 
-            <div className="tabs-nav tabs-nav-scrollable">
-                <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
-                    Overview
-                </button>
-                <button className={`tab-btn ${activeTab === 'firewall' ? 'active' : ''}`} onClick={() => setActiveTab('firewall')}>
-                    Firewall
-                </button>
-                <button className={`tab-btn ${activeTab === 'fail2ban' ? 'active' : ''}`} onClick={() => setActiveTab('fail2ban')}>
-                    Fail2ban
-                </button>
-                <button className={`tab-btn ${activeTab === 'ssh-keys' ? 'active' : ''}`} onClick={() => setActiveTab('ssh-keys')}>
-                    SSH Keys
-                </button>
-                <button className={`tab-btn ${activeTab === 'ip-lists' ? 'active' : ''}`} onClick={() => setActiveTab('ip-lists')}>
-                    IP Lists
-                </button>
-                <button className={`tab-btn ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => setActiveTab('scanner')}>
-                    Malware Scanner
-                </button>
-                <button className={`tab-btn ${activeTab === 'quarantine' ? 'active' : ''}`} onClick={() => setActiveTab('quarantine')}>
-                    Quarantine
-                </button>
-                <button className={`tab-btn ${activeTab === 'integrity' ? 'active' : ''}`} onClick={() => setActiveTab('integrity')}>
-                    File Integrity
-                </button>
-                <button className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
-                    Audit
-                </button>
-                <button className={`tab-btn ${activeTab === 'vulnerability' ? 'active' : ''}`} onClick={() => setActiveTab('vulnerability')}>
-                    Vulnerability Scan
-                </button>
-                <button className={`tab-btn ${activeTab === 'updates' ? 'active' : ''}`} onClick={() => setActiveTab('updates')}>
-                    Auto Updates
-                </button>
-                <button className={`tab-btn ${activeTab === 'events' ? 'active' : ''}`} onClick={() => setActiveTab('events')}>
-                    Events
-                </button>
-                <button className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-                    Settings
-                </button>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="tabs-nav tabs-nav-scrollable">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="firewall">Firewall</TabsTrigger>
+                    <TabsTrigger value="fail2ban">Fail2ban</TabsTrigger>
+                    <TabsTrigger value="ssh-keys">SSH Keys</TabsTrigger>
+                    <TabsTrigger value="ip-lists">IP Lists</TabsTrigger>
+                    <TabsTrigger value="scanner">Malware Scanner</TabsTrigger>
+                    <TabsTrigger value="quarantine">Quarantine</TabsTrigger>
+                    <TabsTrigger value="integrity">File Integrity</TabsTrigger>
+                    <TabsTrigger value="audit">Audit</TabsTrigger>
+                    <TabsTrigger value="vulnerability">Vulnerability Scan</TabsTrigger>
+                    <TabsTrigger value="updates">Auto Updates</TabsTrigger>
+                    <TabsTrigger value="events">Events</TabsTrigger>
+                    <TabsTrigger value="settings">Settings</TabsTrigger>
+                </TabsList>
 
-            <div className="tab-content">
-                {activeTab === 'overview' && <OverviewTab status={status} onRefresh={loadStatus} />}
-                {activeTab === 'firewall' && <FirewallTab />}
-                {activeTab === 'fail2ban' && <Fail2banTab />}
-                {activeTab === 'ssh-keys' && <SSHKeysTab />}
-                {activeTab === 'ip-lists' && <IPListsTab />}
-                {activeTab === 'scanner' && <ScannerTab />}
-                {activeTab === 'quarantine' && <QuarantineTab />}
-                {activeTab === 'integrity' && <IntegrityTab />}
-                {activeTab === 'audit' && <AuditTab />}
-                {activeTab === 'vulnerability' && <VulnerabilityTab />}
-                {activeTab === 'updates' && <AutoUpdatesTab />}
-                {activeTab === 'events' && <EventsTab />}
-                {activeTab === 'settings' && <SecurityConfigTab />}
-            </div>
+                <div className="tab-content">
+                    <TabsContent value="overview"><OverviewTab status={status} onRefresh={loadStatus} /></TabsContent>
+                    <TabsContent value="firewall"><FirewallTab /></TabsContent>
+                    <TabsContent value="fail2ban"><Fail2banTab /></TabsContent>
+                    <TabsContent value="ssh-keys"><SSHKeysTab /></TabsContent>
+                    <TabsContent value="ip-lists"><IPListsTab /></TabsContent>
+                    <TabsContent value="scanner"><ScannerTab /></TabsContent>
+                    <TabsContent value="quarantine"><QuarantineTab /></TabsContent>
+                    <TabsContent value="integrity"><IntegrityTab /></TabsContent>
+                    <TabsContent value="audit"><AuditTab /></TabsContent>
+                    <TabsContent value="vulnerability"><VulnerabilityTab /></TabsContent>
+                    <TabsContent value="updates"><AutoUpdatesTab /></TabsContent>
+                    <TabsContent value="events"><EventsTab /></TabsContent>
+                    <TabsContent value="settings"><SecurityConfigTab /></TabsContent>
+                </div>
+            </Tabs>
         </div>
     );
 };

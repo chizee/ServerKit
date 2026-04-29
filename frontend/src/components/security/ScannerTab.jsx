@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const ScannerTab = () => {
     const [scanStatus, setScanStatus] = useState({ status: 'idle' });
@@ -96,13 +99,14 @@ const ScannerTab = () => {
                     </div>
                     <h4>Quick Scan</h4>
                     <span className="scan-desc">Scan common web directories</span>
-                    <button
-                        className="btn btn-primary btn-sm"
+                    <Button
+                        variant="default"
+                        size="sm"
                         onClick={(e) => { e.stopPropagation(); handleStartScan('quick'); }}
                         disabled={isScanning || scanning}
                     >
                         Start Scan
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="scan-card" onClick={() => !isScanning && !scanning && handleStartScan('full')}>
@@ -115,13 +119,14 @@ const ScannerTab = () => {
                     </div>
                     <h4>Full Scan</h4>
                     <span className="scan-desc">Scan entire system (slow)</span>
-                    <button
-                        className="btn btn-primary btn-sm"
+                    <Button
+                        variant="default"
+                        size="sm"
                         onClick={(e) => { e.stopPropagation(); handleStartScan('full'); }}
                         disabled={isScanning || scanning}
                     >
                         Start Scan
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="scan-card scan-card--custom">
@@ -133,7 +138,7 @@ const ScannerTab = () => {
                     <h4>Custom Path</h4>
                     <span className="scan-desc">Scan a specific directory</span>
                     <div className="scan-custom-input">
-                        <input
+                        <Input
                             type="text"
                             value={scanPath}
                             onChange={(e) => setScanPath(e.target.value)}
@@ -141,35 +146,36 @@ const ScannerTab = () => {
                             disabled={isScanning}
                             onClick={(e) => e.stopPropagation()}
                         />
-                        <button
-                            className="btn btn-primary btn-sm"
+                        <Button
+                            variant="default"
+                            size="sm"
                             onClick={() => handleStartScan('custom')}
                             disabled={isScanning || scanning || !scanPath}
                         >
                             Scan
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
 
             <div className="scan-toolbar">
-                <button className="btn btn-sm btn-secondary" onClick={handleUpdateDefinitions} disabled={updating}>
+                <Button variant="outline" size="sm" onClick={handleUpdateDefinitions} disabled={updating}>
                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="7 10 12 15 17 10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                     {updating ? 'Updating...' : 'Update Definitions'}
-                </button>
+                </Button>
             </div>
 
             {isScanning && (
                 <div className="card scan-progress">
                     <div className="card-header">
                         <h3>Scan in Progress</h3>
-                        <button className="btn btn-sm btn-danger" onClick={handleCancelScan}>
+                        <Button variant="destructive" size="sm" onClick={handleCancelScan}>
                             Cancel
-                        </button>
+                        </Button>
                     </div>
                     <div className="card-body">
                         <div className="progress-info">
@@ -189,7 +195,7 @@ const ScannerTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>Scan History</h3>
-                    <button className="btn btn-sm btn-secondary" onClick={loadHistory}>Refresh</button>
+                    <Button variant="outline" size="sm" onClick={loadHistory}>Refresh</Button>
                 </div>
                 <div className="card-body">
                     {history.length === 0 ? (
@@ -216,15 +222,15 @@ const ScannerTab = () => {
                                         <td>{new Date(scan.started_at).toLocaleString()}</td>
                                         <td className="path-cell">{scan.directory}</td>
                                         <td>
-                                            <span className={`badge badge-${scan.status === 'completed' ? 'success' : scan.status === 'error' ? 'danger' : 'warning'}`}>
+                                            <Badge variant={scan.status === 'completed' ? 'success' : scan.status === 'error' ? 'destructive' : 'warning'}>
                                                 {scan.status}
-                                            </span>
+                                            </Badge>
                                         </td>
                                         <td>
                                             {scan.infected_files?.length > 0 ? (
-                                                <span className="badge badge-danger">{scan.infected_files.length} found</span>
+                                                <Badge variant="destructive">{scan.infected_files.length} found</Badge>
                                             ) : (
-                                                <span className="badge badge-success">Clean</span>
+                                                <Badge variant="success">Clean</Badge>
                                             )}
                                         </td>
                                     </tr>

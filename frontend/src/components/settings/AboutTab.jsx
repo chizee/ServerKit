@@ -5,6 +5,7 @@ import {
     RefreshCw, ExternalLink, Star, X
 } from 'lucide-react';
 import ServerKitLogo from '../ServerKitLogo';
+import { Button } from '@/components/ui/button';
 
 const STAR_PROMPT_KEY = 'serverkit-star-prompt-dismissed';
 
@@ -64,8 +65,9 @@ const AboutTab = () => {
 
                 <div className="update-check">
                     {!updateInfo ? (
-                        <button
-                            className="btn btn-secondary btn-sm"
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onClick={checkForUpdate}
                             disabled={checkingUpdate}
                         >
@@ -74,7 +76,7 @@ const AboutTab = () => {
                             ) : (
                                 <><Download size={14} /> Check for Updates</>
                             )}
-                        </button>
+                        </Button>
                     ) : updateInfo.error ? (
                         <div className="update-status error">
                             <span>{updateInfo.error}</span>

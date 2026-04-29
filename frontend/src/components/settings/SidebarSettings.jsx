@@ -8,6 +8,7 @@ import {
     SIDEBAR_CATEGORIES,
     CATEGORY_LABELS
 } from '../sidebarItems';
+import { Button } from '@/components/ui/button';
 
 const PRESET_ICONS = {
     full: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
@@ -190,21 +191,21 @@ const SidebarSettings = () => {
             </div>
 
             <div className="sidebar-settings-actions">
-                <button
-                    className="btn btn-ghost"
+                <Button
+                    variant="ghost"
                     onClick={handleReset}
                     disabled={preset === 'full' && hiddenItems.length === 0}
                 >
                     <RotateCcw size={14} />
                     Reset to Default
-                </button>
-                <button
-                    className="btn btn-primary"
+                </Button>
+                <Button
+                    variant="default"
                     onClick={handleSave}
                     disabled={saving || !hasChanges}
                 >
                     {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+                </Button>
             </div>
 
             {message && (

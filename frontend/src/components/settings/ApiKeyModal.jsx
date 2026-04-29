@@ -1,6 +1,10 @@
 import { useState } from 'react';
-import { X, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Copy, Check, AlertTriangle } from 'lucide-react';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const SCOPE_OPTIONS = [
     { value: '*', label: 'Full Access' },
@@ -79,13 +83,13 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                         </div>
                         <div className="api-key-modal__key-display">
                             <code>{createdKey}</code>
-                            <button className="btn btn-sm btn-secondary" onClick={copyKey}>
+                            <Button variant="outline" size="sm" onClick={copyKey}>
                                 {copied ? <Check size={14} /> : <Copy size={14} />}
                                 {copied ? 'Copied' : 'Copy'}
-                            </button>
+                            </Button>
                         </div>
                     <div className="modal-footer">
-                        <button className="btn btn-primary" onClick={onClose}>Done</button>
+                        <Button variant="default" onClick={onClose}>Done</Button>
                     </div>
             </Modal>
         );
@@ -96,10 +100,9 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="form-group">
-                            <label>Name</label>
-                            <input
+                            <Label>Name</Label>
+                            <Input
                                 type="text"
-                                className="form-input"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 placeholder="e.g. CI/CD Pipeline, Monitoring Script"
@@ -108,7 +111,7 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Tier</label>
+                            <Label>Tier</Label>
                             <div className="api-key-modal__tiers">
                                 {TIER_OPTIONS.map(t => (
                                     <button
@@ -125,15 +128,14 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Scopes</label>
+                            <Label>Scopes</Label>
                             <div className="api-key-modal__scopes">
                                 {SCOPE_OPTIONS.map(s => (
                                     <label key={s.value} className="api-key-modal__scope-item">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={scopes.includes(s.value) || (s.value !== '*' && scopes.includes('*'))}
                                             disabled={s.value !== '*' && scopes.includes('*')}
-                                            onChange={() => handleScopeToggle(s.value)}
+                                            onCheckedChange={() => handleScopeToggle(s.value)}
                                         />
                                         <span>{s.label}</span>
                                     </label>
@@ -142,10 +144,9 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Expiration (optional)</label>
-                            <input
+                            <Label>Expiration (optional)</Label>
+                            <Input
                                 type="datetime-local"
-                                className="form-input"
                                 value={expiresAt}
                                 onChange={e => setExpiresAt(e.target.value)}
                             />
@@ -153,10 +154,10 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={saving || !name.trim()}>
+                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button type="submit" variant="default" disabled={saving || !name.trim()}>
                             {saving ? 'Creating...' : 'Create Key'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
         </Modal>

@@ -3,6 +3,11 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const Marketplace = () => {
     const toast = useToast();
@@ -13,7 +18,6 @@ const Marketplace = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
-    const [tab, setTab] = useState('browse');
     const [showSubmit, setShowSubmit] = useState(false);
     const [pluginUrl, setPluginUrl] = useState('');
     const [installing, setInstalling] = useState(false);
@@ -103,7 +107,13 @@ const Marketplace = () => {
 
     const renderStars = (rating) => {
         const full = Math.floor(rating);
-        return '\u2605'.repeat(full) + '\u2606'.repeat(5 - full);
+        return '★'.repeat(full) + '☆'.repeat(5 - full);
+    };
+
+    const pluginStatusVariant = (status) => {
+        if (status === 'active') return 'success';
+        if (status === 'error') return 'destructive';
+        return 'outline';
     };
 
     if (loading) return <Spinner />;
@@ -118,20 +128,20 @@ const Marketplace = () => {
                     <p className="page-description">{extensions.length} extensions available</p>
                 </div>
                 <div className="page-header-actions">
-                    <button className="btn" onClick={() => setShowSubmit(true)}>Submit Extension</button>
+                    <Button variant="outline" onClick={() => setShowSubmit(true)}>Submit Extension</Button>
                 </div>
             </div>
 
-            <div className="tabs">
-                <button className={`tab ${tab === 'browse' ? 'active' : ''}`} onClick={() => setTab('browse')}>Browse</button>
-                <button className={`tab ${tab === 'installed' ? 'active' : ''}`} onClick={() => setTab('installed')}>Installed ({myExtensions.length})</button>
-                <button className={`tab ${tab === 'plugins' ? 'active' : ''}`} onClick={() => setTab('plugins')}>Plugins ({plugins.length})</button>
-            </div>
+            <Tabs defaultValue="browse">
+                <TabsList>
+                    <TabsTrigger value="browse">Browse</TabsTrigger>
+                    <TabsTrigger value="installed">Installed ({myExtensions.length})</TabsTrigger>
+                    <TabsTrigger value="plugins">Plugins ({plugins.length})</TabsTrigger>
+                </TabsList>
 
-            {tab === 'browse' && (
-                <>
+                <TabsContent value="browse">
                     <div className="marketplace-filters">
-                        <input className="form-input" placeholder="Search extensions..." value={search} onChange={e => setSearch(e.target.value)} />
+                        <Input placeholder="Search extensions..." value={search} onChange={e => setSearch(e.target.value)} />
                         <select className="form-select" value={category} onChange={e => setCategory(e.target.value)}>
                             <option value="">All Categories</option>
                             {categories.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
@@ -143,7 +153,7 @@ const Marketplace = () => {
                             <div key={ext.id} className="extension-card card">
                                 <div className="extension-card__header">
                                     <h3>{ext.display_name}</h3>
-                                    <span className="badge badge--outline">{ext.category}</span>
+                                    <Badge variant="outline">{ext.category}</Badge>
                                 </div>
                                 <p className="extension-card__desc">{ext.description}</p>
                                 <div className="extension-card__meta">
@@ -153,107 +163,109 @@ const Marketplace = () => {
                                 <div className="extension-card__info">
                                     <span>v{ext.version}</span>
                                     {ext.author && <span>by {ext.author}</span>}
-                                    <span className="badge badge--subtle">{ext.extension_type}</span>
+                                    <Badge variant="secondary">{ext.extension_type}</Badge>
                                 </div>
                                 <div className="extension-card__actions">
                                     {installedIds.has(ext.id) ? (
-                                        <span className="badge badge--success">Installed</span>
+                                        <Badge variant="success">Installed</Badge>
                                     ) : (
-                                        <button className="btn btn-sm btn-primary" onClick={() => handleInstall(ext.id)}>Install</button>
+                                        <Button size="sm" onClick={() => handleInstall(ext.id)}>Install</Button>
                                     )}
                                 </div>
                             </div>
                         ))}
                         {extensions.length === 0 && <div className="empty-state"><p>No extensions found.</p></div>}
                     </div>
-                </>
-            )}
+                </TabsContent>
 
-            {tab === 'installed' && (
-                <div className="installed-list">
-                    {myExtensions.map(inst => (
-                        <div key={inst.id} className="installed-item card">
-                            <div className="installed-item__info">
-                                <strong>{inst.extension_name}</strong>
-                                <span className="text-muted">v{inst.installed_version}</span>
-                            </div>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleUninstall(inst.id)}>Uninstall</button>
-                        </div>
-                    ))}
-                    {myExtensions.length === 0 && <div className="empty-state"><p>No extensions installed.</p></div>}
-                </div>
-            )}
-
-            {tab === 'plugins' && (
-                <div className="plugins-section">
-                    <div className="plugin-install-form card">
-                        <h3>Install Plugin from URL</h3>
-                        <p className="text-muted">Paste a GitHub repo URL, release URL, or direct zip link.</p>
-                        <div className="plugin-install-row">
-                            <input
-                                className="form-input"
-                                placeholder="https://github.com/user/serverkit-plugin"
-                                value={pluginUrl}
-                                onChange={e => setPluginUrl(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handlePluginInstall()}
-                                disabled={installing}
-                            />
-                            <button
-                                className="btn btn-primary"
-                                onClick={handlePluginInstall}
-                                disabled={installing || !pluginUrl.trim()}
-                            >
-                                {installing ? 'Installing...' : 'Install'}
-                            </button>
-                        </div>
-                    </div>
-
+                <TabsContent value="installed">
                     <div className="installed-list">
-                        {plugins.map(plugin => (
-                            <div key={plugin.id} className={`installed-item card ${plugin.status === 'error' ? 'installed-item--error' : ''}`}>
+                        {myExtensions.map(inst => (
+                            <div key={inst.id} className="installed-item card">
                                 <div className="installed-item__info">
-                                    <strong>{plugin.display_name}</strong>
-                                    <span className="text-muted">v{plugin.version}</span>
-                                    <span className={`badge badge--${plugin.status === 'active' ? 'success' : plugin.status === 'error' ? 'danger' : 'outline'}`}>
-                                        {plugin.status}
-                                    </span>
-                                    {plugin.has_backend && <span className="badge badge--subtle">Backend</span>}
-                                    {plugin.has_frontend && <span className="badge badge--subtle">Frontend</span>}
+                                    <strong>{inst.extension_name}</strong>
+                                    <span className="text-muted">v{inst.installed_version}</span>
                                 </div>
-                                {plugin.description && <p className="text-muted" style={{ margin: '4px 0 8px', fontSize: '13px' }}>{plugin.description}</p>}
-                                {plugin.error_message && <p className="text-danger" style={{ margin: '4px 0 8px', fontSize: '12px' }}>{plugin.error_message}</p>}
-                                <div className="installed-item__actions">
-                                    <button
-                                        className={`btn btn-sm ${plugin.status === 'active' ? 'btn-outline' : 'btn-primary'}`}
-                                        onClick={() => handlePluginToggle(plugin)}
-                                    >
-                                        {plugin.status === 'active' ? 'Disable' : 'Enable'}
-                                    </button>
-                                    <button className="btn btn-sm btn-danger" onClick={() => handlePluginUninstall(plugin.id)}>Uninstall</button>
-                                </div>
+                                <Button size="sm" variant="destructive" onClick={() => handleUninstall(inst.id)}>Uninstall</Button>
                             </div>
                         ))}
-                        {plugins.length === 0 && (
-                            <div className="empty-state">
-                                <p>No plugins installed. Use the form above to install one from a URL.</p>
-                            </div>
-                        )}
+                        {myExtensions.length === 0 && <div className="empty-state"><p>No extensions installed.</p></div>}
                     </div>
-                </div>
-            )}
+                </TabsContent>
+
+                <TabsContent value="plugins">
+                    <div className="plugins-section">
+                        <div className="plugin-install-form card">
+                            <h3>Install Plugin from URL</h3>
+                            <p className="text-muted">Paste a GitHub repo URL, release URL, or direct zip link.</p>
+                            <div className="plugin-install-row">
+                                <Input
+                                    placeholder="https://github.com/user/serverkit-plugin"
+                                    value={pluginUrl}
+                                    onChange={e => setPluginUrl(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handlePluginInstall()}
+                                    disabled={installing}
+                                />
+                                <Button
+                                    onClick={handlePluginInstall}
+                                    disabled={installing || !pluginUrl.trim()}
+                                >
+                                    {installing ? 'Installing...' : 'Install'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="installed-list">
+                            {plugins.map(plugin => (
+                                <div key={plugin.id} className={`installed-item card ${plugin.status === 'error' ? 'installed-item--error' : ''}`}>
+                                    <div className="installed-item__info">
+                                        <strong>{plugin.display_name}</strong>
+                                        <span className="text-muted">v{plugin.version}</span>
+                                        <Badge variant={pluginStatusVariant(plugin.status)}>
+                                            {plugin.status}
+                                        </Badge>
+                                        {plugin.has_backend && <Badge variant="secondary">Backend</Badge>}
+                                        {plugin.has_frontend && <Badge variant="secondary">Frontend</Badge>}
+                                    </div>
+                                    {plugin.description && <p className="text-muted" style={{ margin: '4px 0 8px', fontSize: '13px' }}>{plugin.description}</p>}
+                                    {plugin.error_message && <p className="text-danger" style={{ margin: '4px 0 8px', fontSize: '12px' }}>{plugin.error_message}</p>}
+                                    <div className="installed-item__actions">
+                                        <Button
+                                            size="sm"
+                                            variant={plugin.status === 'active' ? 'outline' : 'default'}
+                                            onClick={() => handlePluginToggle(plugin)}
+                                        >
+                                            {plugin.status === 'active' ? 'Disable' : 'Enable'}
+                                        </Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handlePluginUninstall(plugin.id)}>Uninstall</Button>
+                                    </div>
+                                </div>
+                            ))}
+                            {plugins.length === 0 && (
+                                <div className="empty-state">
+                                    <p>No plugins installed. Use the form above to install one from a URL.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
 
             {showSubmit && (
                 <div className="modal-overlay" onClick={() => setShowSubmit(false)}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header"><h2>Submit Extension</h2><button className="modal-close" onClick={() => setShowSubmit(false)}>&times;</button></div>
                         <div className="modal-body">
-                            <div className="form-group"><label>Name</label><input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                            <div className="form-group"><label>Display Name</label><input className="form-input" value={form.display_name} onChange={e => setForm({...form, display_name: e.target.value})} /></div>
-                            <div className="form-group"><label>Description</label><textarea className="form-input" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} /></div>
+                            <div className="form-group"><label>Name</label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                            <div className="form-group"><label>Display Name</label><Input value={form.display_name} onChange={e => setForm({...form, display_name: e.target.value})} /></div>
+                            <div className="form-group"><label>Description</label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} /></div>
                             <div className="form-group"><label>Category</label><select className="form-select" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                            <div className="form-group"><label>Author</label><input className="form-input" value={form.author} onChange={e => setForm({...form, author: e.target.value})} /></div>
+                            <div className="form-group"><label>Author</label><Input value={form.author} onChange={e => setForm({...form, author: e.target.value})} /></div>
                         </div>
-                        <div className="modal-footer"><button className="btn" onClick={() => setShowSubmit(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSubmit} disabled={!form.name}>Submit</button></div>
+                        <div className="modal-footer">
+                            <Button variant="outline" onClick={() => setShowSubmit(false)}>Cancel</Button>
+                            <Button onClick={handleSubmit} disabled={!form.name}>Submit</Button>
+                        </div>
                     </div>
                 </div>
             )}

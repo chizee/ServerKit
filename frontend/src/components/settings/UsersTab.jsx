@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import UserModal from './UserModal';
 import InvitationsTab from './InvitationsTab';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const UsersTab = () => {
     const [users, setUsers] = useState([]);
@@ -79,16 +81,11 @@ const UsersTab = () => {
         }
     }
 
-    function getRoleBadgeClass(role) {
+    function getRoleBadgeVariant(role) {
         switch (role) {
-            case 'admin':
-                return 'badge-danger';
-            case 'developer':
-                return 'badge-primary';
-            case 'viewer':
-                return 'badge-secondary';
-            default:
-                return 'badge-secondary';
+            case 'admin': return 'destructive';
+            case 'developer': return 'default';
+            default: return 'secondary';
         }
     }
 
@@ -118,13 +115,13 @@ const UsersTab = () => {
                     <h3>User Management</h3>
                     <p>Manage user accounts and permissions</p>
                 </div>
-                <button className="btn btn-primary" onClick={handleAddUser}>
+                <Button variant="default" onClick={handleAddUser}>
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                         <line x1="12" y1="5" x2="12" y2="19"/>
                         <line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                     Add User
-                </button>
+                </Button>
             </div>
 
             {error && <div className="error-message">{error}</div>}
@@ -159,9 +156,9 @@ const UsersTab = () => {
                                     </div>
                                 </td>
                                 <td>
-                                    <span className={`badge ${getRoleBadgeClass(user.role)}`}>
+                                    <Badge variant={getRoleBadgeVariant(user.role)}>
                                         {user.role}
-                                    </span>
+                                    </Badge>
                                 </td>
                                 <td>
                                     <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
@@ -171,8 +168,9 @@ const UsersTab = () => {
                                 <td className="date-cell">{formatDate(user.last_login_at)}</td>
                                 <td className="date-cell">{formatDate(user.created_at)}</td>
                                 <td className="actions-cell">
-                                    <button
-                                        className="btn btn-sm btn-ghost"
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => handleEditUser(user)}
                                         title="Edit user"
                                     >
@@ -180,13 +178,15 @@ const UsersTab = () => {
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                         </svg>
-                                    </button>
+                                    </Button>
                                     {user.id !== currentUser?.id && (
                                         <>
-                                            <button
-                                                className={`btn btn-sm btn-ghost ${user.is_active ? 'text-warning' : 'text-success'}`}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={() => handleToggleActive(user)}
                                                 title={user.is_active ? 'Disable user' : 'Enable user'}
+                                                className={user.is_active ? 'text-warning' : 'text-success'}
                                             >
                                                 {user.is_active ? (
                                                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
@@ -199,17 +199,19 @@ const UsersTab = () => {
                                                         <circle cx="12" cy="12" r="3"/>
                                                     </svg>
                                                 )}
-                                            </button>
-                                            <button
-                                                className="btn btn-sm btn-ghost text-danger"
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={() => setDeleteConfirm(user)}
                                                 title="Delete user"
+                                                className="text-destructive hover:text-destructive"
                                             >
                                                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                                                     <polyline points="3 6 5 6 21 6"/>
                                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                                 </svg>
-                                            </button>
+                                            </Button>
                                         </>
                                     )}
                                 </td>
@@ -232,12 +234,12 @@ const UsersTab = () => {
                             <p>Are you sure you want to delete <strong>{deleteConfirm.username}</strong>?</p>
                             <p className="text-muted">This action cannot be undone.</p>
                         <div className="modal-footer">
-                            <button className="btn btn-ghost" onClick={() => setDeleteConfirm(null)}>
+                            <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
                                 Cancel
-                            </button>
-                            <button className="btn btn-danger" onClick={() => handleDeleteUser(deleteConfirm)}>
+                            </Button>
+                            <Button variant="destructive" onClick={() => handleDeleteUser(deleteConfirm)}>
                                 Delete User
-                            </button>
+                            </Button>
                         </div>
                 </Modal>
             )}

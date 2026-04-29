@@ -7,6 +7,8 @@ import {
     Loader, CheckCircle, XCircle, RotateCcw, Shield
 } from 'lucide-react';
 import ServerKitLogo from '../components/ServerKitLogo';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const TOTAL_STEPS = 4;
 const STEP_TITLES = ['Overview', 'Backup', 'Apply', 'Done'];
@@ -182,23 +184,23 @@ const DatabaseMigration = () => {
                                     {loginError && (
                                         <div className="migration-error-inline">{loginError}</div>
                                     )}
-                                    <input
+                                    <Input
                                         type="text"
                                         placeholder="Email or username"
                                         value={loginEmail}
                                         onChange={e => setLoginEmail(e.target.value)}
                                         required
                                     />
-                                    <input
+                                    <Input
                                         type="password"
                                         placeholder="Password"
                                         value={loginPassword}
                                         onChange={e => setLoginPassword(e.target.value)}
                                         required
                                     />
-                                    <button type="submit" className="btn-wizard-next" disabled={loginLoading}>
+                                    <Button type="submit" className="btn-wizard-next" disabled={loginLoading}>
                                         {loginLoading ? <Loader size={16} className="spin" /> : 'Sign In'}
-                                    </button>
+                                    </Button>
                                 </form>
                             </div>
                         )}
@@ -212,13 +214,13 @@ const DatabaseMigration = () => {
 
                         <div className="wizard-nav">
                             <div />
-                            <button
+                            <Button
                                 className="btn-wizard-next"
                                 onClick={() => setCurrentStep(2)}
                                 disabled={!isAuthenticated || !isAdmin}
                             >
                                 Continue <ArrowRight size={16} />
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -241,7 +243,7 @@ const DatabaseMigration = () => {
 
                         {!backupResult && (
                             <div className="migration-backup-actions">
-                                <button
+                                <Button
                                     className="btn-wizard-next"
                                     onClick={handleBackup}
                                     disabled={backupLoading}
@@ -251,7 +253,7 @@ const DatabaseMigration = () => {
                                     ) : (
                                         <><Download size={16} /> Create Backup</>
                                     )}
-                                </button>
+                                </Button>
                             </div>
                         )}
 
@@ -276,25 +278,25 @@ const DatabaseMigration = () => {
                         )}
 
                         <div className="wizard-nav">
-                            <button className="btn-wizard-prev" onClick={() => setCurrentStep(1)}>
+                            <Button variant="ghost" className="btn-wizard-prev" onClick={() => setCurrentStep(1)}>
                                 Back
-                            </button>
+                            </Button>
                             <div className="migration-nav-right">
                                 {!backupResult?.success && (
-                                    <button
-                                        className="btn-text-link"
+                                    <Button
+                                        variant="link"
                                         onClick={() => setCurrentStep(3)}
                                     >
                                         Skip backup
-                                    </button>
+                                    </Button>
                                 )}
-                                <button
+                                <Button
                                     className="btn-wizard-next"
                                     onClick={() => setCurrentStep(3)}
                                     disabled={!backupResult?.success}
                                 >
                                     Continue <ArrowRight size={16} />
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -313,9 +315,9 @@ const DatabaseMigration = () => {
 
                         {!applyLoading && !applyError && (
                             <div className="migration-apply-actions">
-                                <button className="btn-wizard-next" onClick={handleApply}>
+                                <Button className="btn-wizard-next" onClick={handleApply}>
                                     <Database size={16} /> Apply Updates
-                                </button>
+                                </Button>
                             </div>
                         )}
 
@@ -333,17 +335,17 @@ const DatabaseMigration = () => {
                                     <strong>Update failed</strong>
                                     <span>{applyError}</span>
                                 </div>
-                                <button className="btn-wizard-prev" onClick={handleApply}>
+                                <Button variant="ghost" className="btn-wizard-prev" onClick={handleApply}>
                                     <RotateCcw size={14} /> Retry
-                                </button>
+                                </Button>
                             </div>
                         )}
 
                         {!applyLoading && (
                             <div className="wizard-nav">
-                                <button className="btn-wizard-prev" onClick={() => setCurrentStep(2)}>
+                                <Button variant="ghost" className="btn-wizard-prev" onClick={() => setCurrentStep(2)}>
                                     Back
-                                </button>
+                                </Button>
                                 <div />
                             </div>
                         )}
@@ -366,9 +368,9 @@ const DatabaseMigration = () => {
 
                         <div className="wizard-nav">
                             <div />
-                            <button className="btn-wizard-next" onClick={handleFinish}>
+                            <Button className="btn-wizard-next" onClick={handleFinish}>
                                 Continue to ServerKit <ArrowRight size={16} />
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}

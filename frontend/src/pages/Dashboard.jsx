@@ -9,6 +9,8 @@ import api from '../services/api';
 import { useMetrics } from '../hooks/useMetrics';
 import MetricsGraph from '../components/MetricsGraph';
 import useDashboardLayout from '../hooks/useDashboardLayout';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 // Refresh interval options in seconds
 const REFRESH_OPTIONS = [
@@ -386,9 +388,9 @@ const Dashboard = () => {
                             <div key="processes" className="table-panel">
                                 <div className="table-header">
                                     <span>Applications</span>
-                                    <button className="btn btn-sm btn-secondary" onClick={loadData}>
+                                    <Button variant="outline" size="sm" onClick={loadData}>
                                         <RefreshCw size={14} />
-                                    </button>
+                                    </Button>
                                 </div>
                                 <table className="data-table">
                                     <thead>
@@ -419,9 +421,9 @@ const Dashboard = () => {
                                                     </td>
                                                     <td>{app.app_type}</td>
                                                     <td>
-                                                        <span className={`badge badge-${app.status === 'running' ? 'running' : 'warning'}`}>
+                                                        <Badge variant={app.status === 'running' ? 'success' : 'warning'}>
                                                             {app.status?.toUpperCase()}
-                                                        </span>
+                                                        </Badge>
                                                     </td>
                                                     <td>{app.domains?.[0]?.name || '-'}</td>
                                                 </tr>

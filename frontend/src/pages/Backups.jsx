@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import useTabParam from '../hooks/useTabParam';
-import { Upload, Download, Check, AlertTriangle, Clock, Database, Package, FolderArchive, HardDrive, Cloud, CloudOff, RefreshCw, Trash2, Plus, Settings, CheckCircle, XCircle, Server, FileArchive } from 'lucide-react';
+import { Upload, Download, Check, AlertTriangle, Clock, Database, Package, FolderArchive, HardDrive, Cloud, CloudOff, RefreshCw, Trash2, Plus, CheckCircle, XCircle, FileArchive } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['backups', 'schedules', 'storage', 'settings'];
 
@@ -342,11 +347,11 @@ const Backups = () => {
     const getRemoteStatusBadge = (status) => {
         switch (status) {
             case 'synced':
-                return <span className="badge badge-success"><Cloud size={12} /> Synced</span>;
+                return <Badge variant="success"><Cloud size={12} /> Synced</Badge>;
             case 'remote-only':
-                return <span className="badge badge-info"><Cloud size={12} /> Remote</span>;
+                return <Badge variant="info"><Cloud size={12} /> Remote</Badge>;
             default:
-                return <span className="badge badge-secondary"><HardDrive size={12} /> Local</span>;
+                return <Badge variant="secondary"><HardDrive size={12} /> Local</Badge>;
         }
     };
 
@@ -366,14 +371,14 @@ const Backups = () => {
                     <p className="page-subtitle">Manage application, database, and file backups with local and remote storage</p>
                 </div>
                 <div className="page-actions">
-                    <button className="btn btn-secondary" onClick={() => setShowScheduleModal(true)}>
+                    <Button variant="outline" onClick={() => setShowScheduleModal(true)}>
                         <Clock size={16} />
                         Add Schedule
-                    </button>
-                    <button className="btn btn-primary" onClick={() => setShowBackupModal(true)}>
+                    </Button>
+                    <Button onClick={() => setShowBackupModal(true)}>
                         <Plus size={16} />
                         Create Backup
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -439,458 +444,457 @@ const Backups = () => {
                 )}
             </div>
 
-            <div className="tabs">
-                <button className={`tab ${activeTab === 'backups' ? 'active' : ''}`} onClick={() => setActiveTab('backups')}>
-                    Backups
-                </button>
-                <button className={`tab ${activeTab === 'schedules' ? 'active' : ''}`} onClick={() => setActiveTab('schedules')}>
-                    Schedules
-                </button>
-                <button className={`tab ${activeTab === 'storage' ? 'active' : ''}`} onClick={() => setActiveTab('storage')}>
-                    Storage
-                </button>
-                <button className={`tab ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-                    Settings
-                </button>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                    <TabsTrigger value="backups">Backups</TabsTrigger>
+                    <TabsTrigger value="schedules">Schedules</TabsTrigger>
+                    <TabsTrigger value="storage">Storage</TabsTrigger>
+                    <TabsTrigger value="settings">Settings</TabsTrigger>
+                </TabsList>
 
-            {/* Backups Tab */}
-            {activeTab === 'backups' && (
-                <div className="card">
-                    <div className="card-header">
-                        <h3>Backup List</h3>
-                        <div className="card-actions">
-                            <select
-                                value={filterType}
-                                onChange={(e) => setFilterType(e.target.value)}
-                                className="filter-select"
-                            >
-                                <option value="all">All Types</option>
-                                <option value="application">Applications</option>
-                                <option value="database">Databases</option>
-                                <option value="files">Files</option>
-                            </select>
-                            <button className="btn btn-secondary btn-sm" onClick={loadData}>
-                                <RefreshCw size={14} />
-                                Refresh
-                            </button>
+                {/* Backups Tab */}
+                <TabsContent value="backups">
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>Backup List</h3>
+                            <div className="card-actions">
+                                <select
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                    className="filter-select"
+                                >
+                                    <option value="all">All Types</option>
+                                    <option value="application">Applications</option>
+                                    <option value="database">Databases</option>
+                                    <option value="files">Files</option>
+                                </select>
+                                <Button size="sm" variant="outline" onClick={loadData}>
+                                    <RefreshCw size={14} />
+                                    Refresh
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="card-body">
+                            {filteredBackups.length === 0 ? (
+                                <div className="empty-state">
+                                    <Download size={48} />
+                                    <h3>No Backups</h3>
+                                    <p>No backups found. Create your first backup to get started.</p>
+                                    <Button onClick={() => setShowBackupModal(true)}>
+                                        Create Backup
+                                    </Button>
+                                </div>
+                            ) : (
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Size</th>
+                                            <th>Storage</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredBackups.map((backup, index) => (
+                                            <tr key={index}>
+                                                <td>
+                                                    <div className="backup-name">
+                                                        {getBackupIcon(backup.type)}
+                                                        <span>{backup.name || backup.app_name}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <Badge variant={backup.type === 'application' ? 'default' : backup.type === 'database' ? 'info' : 'warning'}>
+                                                        {backup.type}
+                                                    </Badge>
+                                                </td>
+                                                <td>{formatSize(backup.size)}</td>
+                                                <td>{getRemoteStatusBadge(backup.remote_status)}</td>
+                                                <td>{formatTimestamp(backup.timestamp)}</td>
+                                                <td>
+                                                    <div className="action-buttons">
+                                                        {backup.type !== 'files' && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setSelectedBackup(backup);
+                                                                    setShowRestoreModal(true);
+                                                                }}
+                                                                title="Restore"
+                                                            >
+                                                                <RefreshCw size={14} />
+                                                            </Button>
+                                                        )}
+                                                        {storageConfig?.provider !== 'local' && backup.remote_status !== 'synced' && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => handleUploadToRemote(backup)}
+                                                                disabled={uploadingBackup === backup.path}
+                                                                title="Upload to Remote"
+                                                            >
+                                                                {uploadingBackup === backup.path ? (
+                                                                    <RefreshCw size={14} className="spinning" />
+                                                                ) : (
+                                                                    <Upload size={14} />
+                                                                )}
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() => handleDeleteBackup(backup.path)}
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     </div>
-                    <div className="card-body">
-                        {filteredBackups.length === 0 ? (
-                            <div className="empty-state">
-                                <Download size={48} />
-                                <h3>No Backups</h3>
-                                <p>No backups found. Create your first backup to get started.</p>
-                                <button className="btn btn-primary" onClick={() => setShowBackupModal(true)}>
-                                    Create Backup
-                                </button>
-                            </div>
-                        ) : (
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Size</th>
-                                        <th>Storage</th>
-                                        <th>Created</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredBackups.map((backup, index) => (
-                                        <tr key={index}>
-                                            <td>
-                                                <div className="backup-name">
-                                                    {getBackupIcon(backup.type)}
-                                                    <span>{backup.name || backup.app_name}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className={`badge badge-${backup.type === 'application' ? 'primary' : backup.type === 'database' ? 'info' : 'warning'}`}>
-                                                    {backup.type}
-                                                </span>
-                                            </td>
-                                            <td>{formatSize(backup.size)}</td>
-                                            <td>{getRemoteStatusBadge(backup.remote_status)}</td>
-                                            <td>{formatTimestamp(backup.timestamp)}</td>
-                                            <td>
-                                                <div className="action-buttons">
-                                                    {backup.type !== 'files' && (
-                                                        <button
-                                                            className="btn btn-sm btn-secondary"
-                                                            onClick={() => {
-                                                                setSelectedBackup(backup);
-                                                                setShowRestoreModal(true);
-                                                            }}
-                                                            title="Restore"
-                                                        >
-                                                            <RefreshCw size={14} />
-                                                        </button>
-                                                    )}
-                                                    {storageConfig?.provider !== 'local' && backup.remote_status !== 'synced' && (
-                                                        <button
-                                                            className="btn btn-sm btn-secondary"
-                                                            onClick={() => handleUploadToRemote(backup)}
-                                                            disabled={uploadingBackup === backup.path}
-                                                            title="Upload to Remote"
-                                                        >
-                                                            {uploadingBackup === backup.path ? (
-                                                                <RefreshCw size={14} className="spinning" />
-                                                            ) : (
-                                                                <Upload size={14} />
-                                                            )}
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        className="btn btn-sm btn-danger"
-                                                        onClick={() => handleDeleteBackup(backup.path)}
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                </TabsContent>
+
+                {/* Schedules Tab */}
+                <TabsContent value="schedules">
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>Backup Schedules</h3>
+                            <Button size="sm" onClick={() => setShowScheduleModal(true)}>
+                                <Plus size={14} />
+                                Add Schedule
+                            </Button>
+                        </div>
+                        <div className="card-body">
+                            {schedules.length === 0 ? (
+                                <div className="empty-state">
+                                    <Clock size={48} />
+                                    <h3>No Schedules</h3>
+                                    <p>No backup schedules configured. Add a schedule for automated backups.</p>
+                                    <Button onClick={() => setShowScheduleModal(true)}>
+                                        Add Schedule
+                                    </Button>
+                                </div>
+                            ) : (
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Target</th>
+                                            <th>Time</th>
+                                            <th>Days</th>
+                                            <th>Remote</th>
+                                            <th>Last Run</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
+                                    </thead>
+                                    <tbody>
+                                        {schedules.map((schedule) => (
+                                            <tr key={schedule.id}>
+                                                <td>{schedule.name}</td>
+                                                <td>
+                                                    <Badge variant={schedule.backup_type === 'application' ? 'default' : schedule.backup_type === 'database' ? 'info' : 'warning'}>
+                                                        {schedule.backup_type}
+                                                    </Badge>
+                                                </td>
+                                                <td>{schedule.target}</td>
+                                                <td>{schedule.schedule_time}</td>
+                                                <td>{schedule.days?.join(', ') || 'daily'}</td>
+                                                <td>
+                                                    {schedule.upload_remote ? (
+                                                        <Cloud size={16} className="text-success" />
+                                                    ) : (
+                                                        <CloudOff size={16} className="text-muted" />
+                                                    )}
+                                                </td>
+                                                <td>{schedule.last_run ? formatTimestamp(schedule.last_run) : 'Never'}</td>
+                                                <td>
+                                                    {schedule.last_status === 'success' && (
+                                                        <Badge variant="success"><CheckCircle size={12} /> Success</Badge>
+                                                    )}
+                                                    {schedule.last_status === 'failed' && (
+                                                        <Badge variant="destructive"><XCircle size={12} /> Failed</Badge>
+                                                    )}
+                                                    {!schedule.last_status && (
+                                                        <Badge variant={schedule.enabled ? 'success' : 'secondary'}>
+                                                            {schedule.enabled ? 'Active' : 'Disabled'}
+                                                        </Badge>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <div className="action-buttons">
+                                                        <Button
+                                                            size="sm"
+                                                            variant={schedule.enabled ? 'outline' : 'default'}
+                                                            onClick={() => handleToggleSchedule(schedule)}
+                                                            title={schedule.enabled ? 'Disable' : 'Enable'}
+                                                        >
+                                                            {schedule.enabled ? <XCircle size={14} /> : <CheckCircle size={14} />}
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() => handleRemoveSchedule(schedule.id)}
+                                                            title="Remove"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                </TabsContent>
 
-            {/* Schedules Tab */}
-            {activeTab === 'schedules' && (
-                <div className="card">
-                    <div className="card-header">
-                        <h3>Backup Schedules</h3>
-                        <button className="btn btn-primary btn-sm" onClick={() => setShowScheduleModal(true)}>
-                            <Plus size={14} />
-                            Add Schedule
-                        </button>
-                    </div>
-                    <div className="card-body">
-                        {schedules.length === 0 ? (
-                            <div className="empty-state">
-                                <Clock size={48} />
-                                <h3>No Schedules</h3>
-                                <p>No backup schedules configured. Add a schedule for automated backups.</p>
-                                <button className="btn btn-primary" onClick={() => setShowScheduleModal(true)}>
-                                    Add Schedule
-                                </button>
-                            </div>
-                        ) : (
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Target</th>
-                                        <th>Time</th>
-                                        <th>Days</th>
-                                        <th>Remote</th>
-                                        <th>Last Run</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {schedules.map((schedule) => (
-                                        <tr key={schedule.id}>
-                                            <td>{schedule.name}</td>
-                                            <td>
-                                                <span className={`badge badge-${schedule.backup_type === 'application' ? 'primary' : schedule.backup_type === 'database' ? 'info' : 'warning'}`}>
-                                                    {schedule.backup_type}
-                                                </span>
-                                            </td>
-                                            <td>{schedule.target}</td>
-                                            <td>{schedule.schedule_time}</td>
-                                            <td>{schedule.days?.join(', ') || 'daily'}</td>
-                                            <td>
-                                                {schedule.upload_remote ? (
-                                                    <Cloud size={16} className="text-success" />
-                                                ) : (
-                                                    <CloudOff size={16} className="text-muted" />
-                                                )}
-                                            </td>
-                                            <td>{schedule.last_run ? formatTimestamp(schedule.last_run) : 'Never'}</td>
-                                            <td>
-                                                {schedule.last_status === 'success' && (
-                                                    <span className="badge badge-success"><CheckCircle size={12} /> Success</span>
-                                                )}
-                                                {schedule.last_status === 'failed' && (
-                                                    <span className="badge badge-danger"><XCircle size={12} /> Failed</span>
-                                                )}
-                                                {!schedule.last_status && (
-                                                    <span className={`badge badge-${schedule.enabled ? 'success' : 'secondary'}`}>
-                                                        {schedule.enabled ? 'Active' : 'Disabled'}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <div className="action-buttons">
-                                                    <button
-                                                        className={`btn btn-sm ${schedule.enabled ? 'btn-secondary' : 'btn-success'}`}
-                                                        onClick={() => handleToggleSchedule(schedule)}
-                                                        title={schedule.enabled ? 'Disable' : 'Enable'}
-                                                    >
-                                                        {schedule.enabled ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-sm btn-danger"
-                                                        onClick={() => handleRemoveSchedule(schedule.id)}
-                                                        title="Remove"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                </div>
-            )}
+                {/* Storage Tab */}
+                <TabsContent value="storage">
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>Remote Storage Configuration</h3>
+                        </div>
+                        <div className="card-body">
+                            <form onSubmit={handleSaveStorageConfig}>
+                                <div className="form-group">
+                                    <label>Storage Provider</label>
+                                    <select
+                                        value={storageForm.provider}
+                                        onChange={(e) => setStorageForm({...storageForm, provider: e.target.value})}
+                                    >
+                                        <option value="local">Local Only</option>
+                                        <option value="s3">S3-Compatible (AWS S3, MinIO, Wasabi)</option>
+                                        <option value="b2">Backblaze B2</option>
+                                    </select>
+                                </div>
 
-            {/* Storage Tab */}
-            {activeTab === 'storage' && (
-                <div className="card">
-                    <div className="card-header">
-                        <h3>Remote Storage Configuration</h3>
-                    </div>
-                    <div className="card-body">
-                        <form onSubmit={handleSaveStorageConfig}>
-                            <div className="form-group">
-                                <label>Storage Provider</label>
-                                <select
-                                    value={storageForm.provider}
-                                    onChange={(e) => setStorageForm({...storageForm, provider: e.target.value})}
-                                >
-                                    <option value="local">Local Only</option>
-                                    <option value="s3">S3-Compatible (AWS S3, MinIO, Wasabi)</option>
-                                    <option value="b2">Backblaze B2</option>
-                                </select>
-                            </div>
-
-                            {storageForm.provider === 's3' && (
-                                <div className="storage-provider-config">
-                                    <h4>S3-Compatible Storage</h4>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Bucket Name</label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.s3.bucket}
-                                                onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, bucket: e.target.value}})}
-                                                placeholder="my-backup-bucket"
-                                                required
-                                            />
+                                {storageForm.provider === 's3' && (
+                                    <div className="storage-provider-config">
+                                        <h4>S3-Compatible Storage</h4>
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Bucket Name</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.s3.bucket}
+                                                    onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, bucket: e.target.value}})}
+                                                    placeholder="my-backup-bucket"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Region</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.s3.region}
+                                                    onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, region: e.target.value}})}
+                                                    placeholder="us-east-1"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="form-group">
-                                            <label>Region</label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.s3.region}
-                                                onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, region: e.target.value}})}
-                                                placeholder="us-east-1"
-                                            />
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Access Key</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.s3.access_key}
+                                                    onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, access_key: e.target.value}})}
+                                                    placeholder="AKIA..."
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Secret Key</label>
+                                                <Input
+                                                    type="password"
+                                                    value={storageForm.s3.secret_key}
+                                                    onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, secret_key: e.target.value}})}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Custom Endpoint URL <span className="form-help-inline">(optional, for MinIO/Wasabi)</span></label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.s3.endpoint_url}
+                                                    onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, endpoint_url: e.target.value}})}
+                                                    placeholder="https://s3.example.com"
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Path Prefix</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.s3.path_prefix}
+                                                    onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, path_prefix: e.target.value}})}
+                                                    placeholder="serverkit-backups"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Access Key</label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.s3.access_key}
-                                                onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, access_key: e.target.value}})}
-                                                placeholder="AKIA..."
-                                                required
-                                            />
+                                )}
+
+                                {storageForm.provider === 'b2' && (
+                                    <div className="storage-provider-config">
+                                        <h4>Backblaze B2</h4>
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Bucket Name</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.b2.bucket}
+                                                    onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, bucket: e.target.value}})}
+                                                    placeholder="my-backup-bucket"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>S3-Compatible Endpoint URL</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.b2.endpoint_url}
+                                                    onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, endpoint_url: e.target.value}})}
+                                                    placeholder="https://s3.us-west-004.backblazeb2.com"
+                                                    required
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="form-group">
-                                            <label>Secret Key</label>
-                                            <input
-                                                type="password"
-                                                value={storageForm.s3.secret_key}
-                                                onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, secret_key: e.target.value}})}
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Custom Endpoint URL <span className="form-help-inline">(optional, for MinIO/Wasabi)</span></label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.s3.endpoint_url}
-                                                onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, endpoint_url: e.target.value}})}
-                                                placeholder="https://s3.example.com"
-                                            />
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Application Key ID</label>
+                                                <Input
+                                                    type="text"
+                                                    value={storageForm.b2.key_id}
+                                                    onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, key_id: e.target.value}})}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Application Key</label>
+                                                <Input
+                                                    type="password"
+                                                    value={storageForm.b2.application_key}
+                                                    onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, application_key: e.target.value}})}
+                                                    required
+                                                />
+                                            </div>
                                         </div>
                                         <div className="form-group">
                                             <label>Path Prefix</label>
-                                            <input
+                                            <Input
                                                 type="text"
-                                                value={storageForm.s3.path_prefix}
-                                                onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, path_prefix: e.target.value}})}
+                                                value={storageForm.b2.path_prefix}
+                                                onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, path_prefix: e.target.value}})}
                                                 placeholder="serverkit-backups"
                                             />
                                         </div>
                                     </div>
-                                </div>
-                            )}
-
-                            {storageForm.provider === 'b2' && (
-                                <div className="storage-provider-config">
-                                    <h4>Backblaze B2</h4>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Bucket Name</label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.b2.bucket}
-                                                onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, bucket: e.target.value}})}
-                                                placeholder="my-backup-bucket"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>S3-Compatible Endpoint URL</label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.b2.endpoint_url}
-                                                onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, endpoint_url: e.target.value}})}
-                                                placeholder="https://s3.us-west-004.backblazeb2.com"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Application Key ID</label>
-                                            <input
-                                                type="text"
-                                                value={storageForm.b2.key_id}
-                                                onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, key_id: e.target.value}})}
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Application Key</label>
-                                            <input
-                                                type="password"
-                                                value={storageForm.b2.application_key}
-                                                onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, application_key: e.target.value}})}
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Path Prefix</label>
-                                        <input
-                                            type="text"
-                                            value={storageForm.b2.path_prefix}
-                                            onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, path_prefix: e.target.value}})}
-                                            placeholder="serverkit-backups"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {storageForm.provider !== 'local' && (
-                                <>
-                                    <div className="form-group">
-                                        <label className="checkbox-label">
-                                            <input
-                                                type="checkbox"
-                                                checked={storageForm.auto_upload}
-                                                onChange={(e) => setStorageForm({...storageForm, auto_upload: e.target.checked})}
-                                            />
-                                            <span>Auto-upload new backups to remote storage</span>
-                                        </label>
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="checkbox-label">
-                                            <input
-                                                type="checkbox"
-                                                checked={storageForm.keep_local_copy}
-                                                onChange={(e) => setStorageForm({...storageForm, keep_local_copy: e.target.checked})}
-                                            />
-                                            <span>Keep local copy after uploading</span>
-                                        </label>
-                                    </div>
-                                </>
-                            )}
-
-                            <div className="form-actions">
-                                <button type="submit" className="btn btn-primary">Save Storage Config</button>
-                                {storageForm.provider !== 'local' && (
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={handleTestConnection}
-                                        disabled={testingConnection}
-                                    >
-                                        {testingConnection ? (
-                                            <><RefreshCw size={16} className="spinning" /> Testing...</>
-                                        ) : (
-                                            <><Check size={16} /> Test Connection</>
-                                        )}
-                                    </button>
                                 )}
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
-            {/* Settings Tab */}
-            {activeTab === 'settings' && (
-                <div className="card">
-                    <div className="card-header">
-                        <h3>Backup Settings</h3>
+                                {storageForm.provider !== 'local' && (
+                                    <>
+                                        <div className="form-group">
+                                            <label className="checkbox-label">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={storageForm.auto_upload}
+                                                    onChange={(e) => setStorageForm({...storageForm, auto_upload: e.target.checked})}
+                                                />
+                                                <span>Auto-upload new backups to remote storage</span>
+                                            </label>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="checkbox-label">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={storageForm.keep_local_copy}
+                                                    onChange={(e) => setStorageForm({...storageForm, keep_local_copy: e.target.checked})}
+                                                />
+                                                <span>Keep local copy after uploading</span>
+                                            </label>
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="form-actions">
+                                    <Button type="submit">Save Storage Config</Button>
+                                    {storageForm.provider !== 'local' && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleTestConnection}
+                                            disabled={testingConnection}
+                                        >
+                                            {testingConnection ? (
+                                                <><RefreshCw size={16} className="spinning" /> Testing...</>
+                                            ) : (
+                                                <><Check size={16} /> Test Connection</>
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    <div className="card-body">
-                        <form onSubmit={handleSaveConfig}>
-                            <div className="form-group">
-                                <label className="checkbox-label">
-                                    <input
-                                        type="checkbox"
-                                        checked={configForm.enabled}
-                                        onChange={(e) => setConfigForm({...configForm, enabled: e.target.checked})}
+                </TabsContent>
+
+                {/* Settings Tab */}
+                <TabsContent value="settings">
+                    <div className="card">
+                        <div className="card-header">
+                            <h3>Backup Settings</h3>
+                        </div>
+                        <div className="card-body">
+                            <form onSubmit={handleSaveConfig}>
+                                <div className="form-group">
+                                    <label className="checkbox-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={configForm.enabled}
+                                            onChange={(e) => setConfigForm({...configForm, enabled: e.target.checked})}
+                                        />
+                                        <span>Enable Scheduled Backups</span>
+                                    </label>
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Retention Period (days)</label>
+                                    <Input
+                                        type="number"
+                                        value={configForm.retention_days}
+                                        onChange={(e) => setConfigForm({...configForm, retention_days: parseInt(e.target.value)})}
+                                        min="1"
+                                        max="365"
                                     />
-                                    <span>Enable Scheduled Backups</span>
-                                </label>
-                            </div>
+                                    <span className="form-help">Backups older than this will be deleted during cleanup</span>
+                                </div>
 
-                            <div className="form-group">
-                                <label>Retention Period (days)</label>
-                                <input
-                                    type="number"
-                                    value={configForm.retention_days}
-                                    onChange={(e) => setConfigForm({...configForm, retention_days: parseInt(e.target.value)})}
-                                    min="1"
-                                    max="365"
-                                />
-                                <span className="form-help">Backups older than this will be deleted during cleanup</span>
-                            </div>
-
-                            <div className="form-actions">
-                                <button type="submit" className="btn btn-primary">Save Settings</button>
-                                <button type="button" className="btn btn-secondary" onClick={handleCleanup}>
-                                    <Trash2 size={16} />
-                                    Run Cleanup Now
-                                </button>
-                            </div>
-                        </form>
+                                <div className="form-actions">
+                                    <Button type="submit">Save Settings</Button>
+                                    <Button type="button" variant="outline" onClick={handleCleanup}>
+                                        <Trash2 size={16} />
+                                        Run Cleanup Now
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                </TabsContent>
+            </Tabs>
 
             {/* Create Backup Modal */}
             {showBackupModal && (
@@ -947,7 +951,7 @@ const Backups = () => {
                                     <>
                                         <div className="form-group">
                                             <label>Backup Name (optional)</label>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 value={backupForm.fileName}
                                                 onChange={(e) => setBackupForm({...backupForm, fileName: e.target.value})}
@@ -956,7 +960,7 @@ const Backups = () => {
                                         </div>
                                         <div className="form-group">
                                             <label>File/Directory Paths (one per line)</label>
-                                            <textarea
+                                            <Textarea
                                                 value={backupForm.filePaths}
                                                 onChange={(e) => setBackupForm({...backupForm, filePaths: e.target.value})}
                                                 placeholder={"/etc/nginx/nginx.conf\n/var/www/mysite/config\n/home/user/.env"}
@@ -983,7 +987,7 @@ const Backups = () => {
 
                                         <div className="form-group">
                                             <label>Database Name</label>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 value={backupForm.dbName}
                                                 onChange={(e) => setBackupForm({...backupForm, dbName: e.target.value})}
@@ -994,7 +998,7 @@ const Backups = () => {
                                         <div className="form-row">
                                             <div className="form-group">
                                                 <label>Username</label>
-                                                <input
+                                                <Input
                                                     type="text"
                                                     value={backupForm.dbUser}
                                                     onChange={(e) => setBackupForm({...backupForm, dbUser: e.target.value})}
@@ -1003,7 +1007,7 @@ const Backups = () => {
 
                                             <div className="form-group">
                                                 <label>Password</label>
-                                                <input
+                                                <Input
                                                     type="password"
                                                     value={backupForm.dbPassword}
                                                     onChange={(e) => setBackupForm({...backupForm, dbPassword: e.target.value})}
@@ -1013,7 +1017,7 @@ const Backups = () => {
 
                                         <div className="form-group">
                                             <label>Host</label>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 value={backupForm.dbHost}
                                                 onChange={(e) => setBackupForm({...backupForm, dbHost: e.target.value})}
@@ -1023,10 +1027,10 @@ const Backups = () => {
                                 )}
                             </div>
                             <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowBackupModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowBackupModal(false)}>
                                     Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary">Create Backup</button>
+                                </Button>
+                                <Button type="submit">Create Backup</Button>
                             </div>
                         </form>
                     </div>
@@ -1045,7 +1049,7 @@ const Backups = () => {
                             <div className="modal-body">
                                 <div className="form-group">
                                     <label>Schedule Name</label>
-                                    <input
+                                    <Input
                                         type="text"
                                         value={scheduleForm.name}
                                         onChange={(e) => setScheduleForm({...scheduleForm, name: e.target.value})}
@@ -1075,7 +1079,7 @@ const Backups = () => {
                                             : 'Application Name'
                                         }
                                     </label>
-                                    <input
+                                    <Input
                                         type="text"
                                         value={scheduleForm.target}
                                         onChange={(e) => setScheduleForm({...scheduleForm, target: e.target.value})}
@@ -1092,7 +1096,7 @@ const Backups = () => {
 
                                 <div className="form-group">
                                     <label>Time</label>
-                                    <input
+                                    <Input
                                         type="time"
                                         value={scheduleForm.scheduleTime}
                                         onChange={(e) => setScheduleForm({...scheduleForm, scheduleTime: e.target.value})}
@@ -1114,10 +1118,10 @@ const Backups = () => {
                                 )}
                             </div>
                             <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowScheduleModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowScheduleModal(false)}>
                                     Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary">Add Schedule</button>
+                                </Button>
+                                <Button type="submit">Add Schedule</Button>
                             </div>
                         </form>
                     </div>
@@ -1158,12 +1162,12 @@ const Backups = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowRestoreModal(false)}>
+                            <Button variant="outline" onClick={() => setShowRestoreModal(false)}>
                                 Cancel
-                            </button>
-                            <button className="btn btn-danger" onClick={handleRestore}>
+                            </Button>
+                            <Button variant="destructive" onClick={handleRestore}>
                                 Restore Backup
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

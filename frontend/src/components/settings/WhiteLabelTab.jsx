@@ -1,6 +1,10 @@
 import { useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Star, X, Layers, Image, Type, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 const WHITELABEL_MODES = [
     { id: 'image_text', label: 'Logo + Text', icon: Layers, desc: 'Mini logo with brand name' },
@@ -25,18 +29,14 @@ const WhiteLabelTab = () => {
 
                 <div className="settings-row">
                     <div className="settings-label">
-                        <span>Enable custom branding</span>
+                        <Label>Enable custom branding</Label>
                         <span className="settings-hint">Replaces the sidebar logo, name, and GitHub star link</span>
                     </div>
                     <div className="settings-control">
-                        <label className="toggle-switch">
-                            <input
-                                type="checkbox"
-                                checked={whiteLabel.enabled}
-                                onChange={(e) => setWhiteLabel({ enabled: e.target.checked })}
-                            />
-                            <span className="toggle-slider"></span>
-                        </label>
+                        <Switch
+                            checked={whiteLabel.enabled}
+                            onCheckedChange={(checked) => setWhiteLabel({ enabled: checked })}
+                        />
                     </div>
                 </div>
 
@@ -59,8 +59,8 @@ const WhiteLabelTab = () => {
                         <div className="whitelabel-fields">
                             {whiteLabel.mode !== 'image_full' && (
                                 <div className="form-group">
-                                    <label>Brand Name</label>
-                                    <input
+                                    <Label>Brand Name</Label>
+                                    <Input
                                         type="text"
                                         value={whiteLabel.brandName}
                                         onChange={(e) => setWhiteLabel({ brandName: e.target.value })}
@@ -72,17 +72,18 @@ const WhiteLabelTab = () => {
 
                             {whiteLabel.mode !== 'text_only' && (
                                 <div className="form-group">
-                                    <label>Logo Image</label>
+                                    <Label>Logo Image</Label>
                                     <div className="whitelabel-upload" onClick={() => logoInputRef.current?.click()}>
                                         {whiteLabel.logoData ? (
                                             <div className="whitelabel-logo-preview">
                                                 <img src={whiteLabel.logoData} alt="Logo preview" />
-                                                <button
-                                                    className="btn btn-secondary btn-sm"
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={(e) => { e.stopPropagation(); setWhiteLabel({ logoData: '' }); }}
                                                 >
                                                     <X size={12} /> Remove
-                                                </button>
+                                                </Button>
                                             </div>
                                         ) : (
                                             <div className="whitelabel-upload__placeholder">

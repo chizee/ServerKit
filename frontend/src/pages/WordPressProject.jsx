@@ -22,6 +22,9 @@ import {
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import Spinner from '../components/Spinner';
 import { io } from 'socket.io-client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:5000';
 
@@ -381,9 +384,9 @@ const WordPressProject = () => {
         return (
             <div className="empty-state">
                 <h3>Project not found</h3>
-                <button className="btn btn-primary" onClick={() => navigate('/wordpress/projects')}>
+                <Button onClick={() => navigate('/wordpress/projects')}>
                     Back to Projects
-                </button>
+                </Button>
             </div>
         );
     }
@@ -403,31 +406,31 @@ const WordPressProject = () => {
                 </div>
                 <div className="app-detail-actions">
                     {projectDomain && (
-                        <a
-                            href={projectDomain.startsWith('http') ? projectDomain : `https://${projectDomain}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-ghost"
-                        >
-                            <ExternalLink size={16} />
-                            Visit Site
-                        </a>
+                        <Button variant="ghost" asChild>
+                            <a
+                                href={projectDomain.startsWith('http') ? projectDomain : `https://${projectDomain}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <ExternalLink size={16} />
+                                Visit Site
+                            </a>
+                        </Button>
                     )}
-                    <button
-                        className="btn btn-ghost"
+                    <Button
+                        variant="ghost"
                         onClick={() => setShowSanitizationProfiles(true)}
                         title="Manage sanitization profiles"
                     >
                         <Shield size={16} />
                         Profiles
-                    </button>
-                    <button
-                        className="btn btn-primary"
+                    </Button>
+                    <Button
                         onClick={() => setShowCreateEnvModal(true)}
                     >
                         <Plus size={16} />
                         New Environment
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -561,12 +564,13 @@ const WordPressProject = () => {
                         <div className="pipeline-activity-preview">
                             <div className="section-header">
                                 <h3>Recent Activity</h3>
-                                <button
-                                    className="btn btn-ghost btn-sm"
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => setActiveTab('activity')}
                                 >
                                     View All
-                                </button>
+                                </Button>
                             </div>
                             <ActivityFeed projectId={id} limit={5} compact />
                         </div>
@@ -577,9 +581,9 @@ const WordPressProject = () => {
                     <div className="activity-tab">
                         <div className="section-header">
                             <h3>Activity Log</h3>
-                            <button className="btn btn-ghost btn-sm" onClick={loadPipeline}>
+                            <Button variant="ghost" size="sm" onClick={loadPipeline}>
                                 <RefreshCw size={14} /> Refresh
-                            </button>
+                            </Button>
                         </div>
                         <ActivityFeed projectId={id} limit={50} />
                     </div>
@@ -780,7 +784,7 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>Environment Type</label>
+                        <Label>Environment Type</Label>
                         <select name="type" value={formData.type} onChange={handleChange}>
                             {availableTypes.map(t => (
                                 <option key={t.value} value={t.value} disabled={t.disabled}>
@@ -792,22 +796,23 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
 
                     {formData.type === 'multidev' && (
                         <div className="form-group">
-                            <label>
+                            <Label>
                                 <GitBranch size={14} className="mr-1" style={{ verticalAlign: -2 }} />
                                 Git Branch *
-                            </label>
+                            </Label>
 
                             {formData.branch && !useCustomBranch && (
                                 <div className="branch-selected">
                                     <GitBranch size={14} />
                                     <span className="branch-selected-name">{formData.branch}</span>
-                                    <button
+                                    <Button
                                         type="button"
-                                        className="btn btn-ghost btn-sm"
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => setFormData(prev => ({ ...prev, branch: '' }))}
                                     >
                                         Change
-                                    </button>
+                                    </Button>
                                 </div>
                             )}
 
@@ -822,7 +827,7 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
                                         <div className="branch-picker">
                                             <div className="branch-picker-search">
                                                 <Search size={14} />
-                                                <input
+                                                <Input
                                                     type="text"
                                                     value={branchSearch}
                                                     onChange={e => setBranchSearch(e.target.value)}
@@ -860,17 +865,19 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
                                                     </div>
                                                 )}
                                             </div>
-                                            <button
+                                            <Button
                                                 type="button"
-                                                className="btn btn-ghost btn-sm branch-picker-custom"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="branch-picker-custom"
                                                 onClick={() => setUseCustomBranch(true)}
                                             >
                                                 Enter branch name manually
-                                            </button>
+                                            </Button>
                                         </div>
                                     ) : (
                                         <div>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 name="branch"
                                                 value={formData.branch}
@@ -886,7 +893,7 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
 
                             {useCustomBranch && (
                                 <div>
-                                    <input
+                                    <Input
                                         type="text"
                                         name="branch"
                                         value={formData.branch}
@@ -896,13 +903,15 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
                                         autoFocus
                                     />
                                     {branches.length > 0 && (
-                                        <button
+                                        <Button
                                             type="button"
-                                            className="btn btn-ghost btn-sm mt-1"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="mt-1"
                                             onClick={() => { setUseCustomBranch(false); setFormData(prev => ({ ...prev, branch: '' })); }}
                                         >
                                             Back to branch list
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             )}
@@ -910,8 +919,8 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
                     )}
 
                     <div className="form-group">
-                        <label>Environment Name</label>
-                        <input
+                        <Label>Environment Name</Label>
+                        <Input
                             type="text"
                             name="name"
                             value={formData.name}
@@ -935,16 +944,15 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
+                        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
-                            className="btn btn-primary"
                             disabled={loading || (formData.type === 'multidev' && !formData.branch)}
                         >
                             {loading ? <><Spinner size="sm" /> Creating...</> : 'Create Environment'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

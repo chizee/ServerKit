@@ -11,6 +11,7 @@ import {
     Sparkles, ArrowUpCircle, AlertCircle, XCircle, GitCompare, GitCommit, Rocket,
     Minus, Unlock, ArrowDownLeft, ArrowUpRight
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const ICON_CATALOG = {
     'General': {
@@ -87,12 +88,11 @@ const IconReferenceTab = () => {
                 <div className="form-group">
                     <div className="search-input-wrapper" style={{ position: 'relative' }}>
                         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
-                        <input
+                        <Input
                             type="text"
                             placeholder="Search icons..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="form-input"
                             style={{ paddingLeft: 36 }}
                         />
                     </div>

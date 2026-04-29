@@ -3,6 +3,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import PermissionEditor from './PermissionEditor';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const UserModal = ({ user, onSave, onClose }) => {
     const [formData, setFormData] = useState({
@@ -57,6 +62,13 @@ const UserModal = ({ user, onSave, onClose }) => {
         // When role changes, load template defaults for the permissions editor
         if (name === 'role' && templates[value]) {
             setPermissions(templates[value]);
+        }
+    }
+
+    function handleRoleChange(newRole) {
+        setFormData(prev => ({ ...prev, role: newRole }));
+        if (templates[newRole]) {
+            setPermissions(templates[newRole]);
         }
     }
 
@@ -120,8 +132,8 @@ const UserModal = ({ user, onSave, onClose }) => {
                         {error && <div className="error-message">{error}</div>}
 
                         <div className="form-group">
-                            <label htmlFor="email">Email</label>
-                            <input
+                            <Label htmlFor="email">Email</Label>
+                            <Input
                                 type="email"
                                 id="email"
                                 name="email"
@@ -133,8 +145,8 @@ const UserModal = ({ user, onSave, onClose }) => {
                         </div>
 
                         <div className="form-group">
-                            <label htmlFor="username">Username</label>
-                            <input
+                            <Label htmlFor="username">Username</Label>
+                            <Input
                                 type="text"
                                 id="username"
                                 name="username"
@@ -147,10 +159,10 @@ const UserModal = ({ user, onSave, onClose }) => {
 
                         <div className="form-row">
                             <div className="form-group">
-                                <label htmlFor="password">
+                                <Label htmlFor="password">
                                     {isEditing ? 'New Password (leave blank to keep current)' : 'Password'}
-                                </label>
-                                <input
+                                </Label>
+                                <Input
                                     type="password"
                                     id="password"
                                     name="password"
@@ -162,8 +174,8 @@ const UserModal = ({ user, onSave, onClose }) => {
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="confirmPassword">Confirm Password</label>
-                                <input
+                                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                <Input
                                     type="password"
                                     id="confirmPassword"
                                     name="confirmPassword"
@@ -176,18 +188,21 @@ const UserModal = ({ user, onSave, onClose }) => {
                         </div>
 
                         <div className="form-group">
-                            <label htmlFor="role">Role</label>
-                            <select
-                                id="role"
-                                name="role"
+                            <Label htmlFor="role">Role</Label>
+                            <Select
                                 value={formData.role}
-                                onChange={handleChange}
+                                onValueChange={handleRoleChange}
                                 disabled={isSelf}
                             >
-                                <option value="admin">Admin - Full access</option>
-                                <option value="developer">Developer - Manage apps and deployments</option>
-                                <option value="viewer">Viewer - Read-only access</option>
-                            </select>
+                                <SelectTrigger id="role">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="admin">Admin - Full access</SelectItem>
+                                    <SelectItem value="developer">Developer - Manage apps and deployments</SelectItem>
+                                    <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
+                                </SelectContent>
+                            </Select>
                             {isSelf && (
                                 <span className="form-help">You cannot change your own role</span>
                             )}
@@ -195,11 +210,10 @@ const UserModal = ({ user, onSave, onClose }) => {
 
                         <div className="form-group">
                             <label className="checkbox-label">
-                                <input
-                                    type="checkbox"
+                                <Checkbox
                                     name="is_active"
                                     checked={formData.is_active}
-                                    onChange={handleChange}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
                                     disabled={isSelf}
                                 />
                                 <span className="checkbox-text">Account is active</span>
@@ -227,9 +241,10 @@ const UserModal = ({ user, onSave, onClose }) => {
 
                         {formData.role !== 'admin' && (
                             <div className="customize-permissions-section">
-                                <button
+                                <Button
                                     type="button"
-                                    className="btn btn-ghost btn-sm"
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => {
                                         if (!showPermissions && templates[formData.role]) {
                                             setPermissions(templates[formData.role]);
@@ -244,7 +259,7 @@ const UserModal = ({ user, onSave, onClose }) => {
                                             : <polyline points="6 9 12 15 18 9"/>
                                         }
                                     </svg>
-                                </button>
+                                </Button>
                                 {showPermissions && (
                                     <PermissionEditor
                                         permissions={permissions}
@@ -256,12 +271,12 @@ const UserModal = ({ user, onSave, onClose }) => {
                     </div>
 
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-ghost" onClick={onClose}>
+                        <Button type="button" variant="ghost" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" variant="default" disabled={loading}>
                             {loading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create User')}
-                        </button>
+                        </Button>
                     </div>
                 </form>
         </Modal>

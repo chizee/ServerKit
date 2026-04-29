@@ -5,6 +5,10 @@ import { useToast } from '../contexts/ToastContext';
 import MetricsGraph from '../components/MetricsGraph';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 const ServerDetail = () => {
     const { id, tab } = useParams();
@@ -137,7 +141,7 @@ const ServerDetail = () => {
             <div className="error-page">
                 <h2>Error Loading Server</h2>
                 <p>{error}</p>
-                <Link to="/servers" className="btn btn-primary">Back to Servers</Link>
+                <Button asChild><Link to="/servers">Back to Servers</Link></Button>
             </div>
         );
     }
@@ -147,7 +151,7 @@ const ServerDetail = () => {
             <div className="error-page">
                 <h2>Server Not Found</h2>
                 <p>The requested server could not be found.</p>
-                <Link to="/servers" className="btn btn-primary">Back to Servers</Link>
+                <Button asChild><Link to="/servers">Back to Servers</Link></Button>
             </div>
         );
     }
@@ -199,15 +203,15 @@ const ServerDetail = () => {
                     </div>
                 </div>
                 <div className="server-detail-header__actions">
-                    <button className="btn btn-secondary" onClick={handlePingServer}>
+                    <Button variant="outline" onClick={handlePingServer}>
                         <RefreshIcon /> Ping
-                    </button>
-                    <Link className="btn btn-secondary" to={`/servers/${id}/docker`}>
-                        Docker
-                    </Link>
-                    <button className="btn btn-primary" onClick={handleGenerateToken}>
+                    </Button>
+                    <Button variant="outline" asChild>
+                        <Link to={`/servers/${id}/docker`}>Docker</Link>
+                    </Button>
+                    <Button onClick={handleGenerateToken}>
                         <KeyIcon /> Generate Token
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -715,9 +719,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : 
                         <div className="install-script-header">
                             <TerminalIcon />
                             <span>Linux</span>
-                            <button className="btn btn-sm btn-secondary" onClick={() => copyToClipboard(linuxScript)}>
+                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(linuxScript)}>
                                 <CopyIcon /> Copy
-                            </button>
+                            </Button>
                         </div>
                         <pre className="install-script-code">{linuxScript}</pre>
                     </div>
@@ -726,16 +730,16 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : 
                         <div className="install-script-header">
                             <WindowsIcon />
                             <span>Windows (PowerShell)</span>
-                            <button className="btn btn-sm btn-secondary" onClick={() => copyToClipboard(windowsScript)}>
+                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(windowsScript)}>
                                 <CopyIcon /> Copy
-                            </button>
+                            </Button>
                         </div>
                         <pre className="install-script-code">{windowsScript}</pre>
                     </div>
 
-                    <button className="btn btn-secondary" onClick={onRegenerateToken}>
+                    <Button variant="outline" onClick={onRegenerateToken}>
                         <RefreshIcon /> Regenerate Token
-                    </button>
+                    </Button>
                 </div>
             ) : (
                 <div className="install-inactive">
@@ -744,9 +748,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : 
                             ? 'The registration token has expired. Generate a new one to install or reinstall the agent.'
                             : 'Generate a registration token to install the agent on your server.'}
                     </p>
-                    <button className="btn btn-primary" onClick={onRegenerateToken}>
+                    <Button onClick={onRegenerateToken}>
                         <KeyIcon /> Generate Token
-                    </button>
+                    </Button>
                 </div>
             )}
         </div>
@@ -891,7 +895,7 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
 
                         <div className="form-group">
                             <label>Server Name</label>
-                            <input
+                            <Input
                                 type="text"
                                 name="name"
                                 value={formData.name}
@@ -902,7 +906,7 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
 
                         <div className="form-group">
                             <label>Description</label>
-                            <textarea
+                            <Textarea
                                 name="description"
                                 value={formData.description}
                                 onChange={handleChange}
@@ -913,7 +917,7 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                         <div className="form-row">
                             <div className="form-group">
                                 <label>Hostname</label>
-                                <input
+                                <Input
                                     type="text"
                                     name="hostname"
                                     value={formData.hostname}
@@ -922,7 +926,7 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                             </div>
                             <div className="form-group">
                                 <label>IP Address</label>
-                                <input
+                                <Input
                                     type="text"
                                     name="ip_address"
                                     value={formData.ip_address}
@@ -941,9 +945,9 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                             </select>
                         </div>
 
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Saving...' : 'Save Changes'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
 
@@ -987,7 +991,7 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                                     <div key={idx} className="ip-item">
                                         <code>{ip}</code>
                                         {connectionInfo?.ip_address === ip && (
-                                            <span className="badge badge-success">Current</span>
+                                            <Badge variant="success">Current</Badge>
                                         )}
                                         <button
                                             className="btn-icon danger"
@@ -1002,16 +1006,16 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                         </div>
 
                         <div className="ip-add-form">
-                            <input
+                            <Input
                                 type="text"
                                 placeholder="IP address or CIDR (e.g., 192.168.1.0/24)"
                                 value={newIP}
                                 onChange={(e) => setNewIP(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIP())}
                             />
-                            <button className="btn btn-secondary" onClick={handleAddIP}>
+                            <Button variant="outline" onClick={handleAddIP}>
                                 Add
-                            </button>
+                            </Button>
                         </div>
 
                         {connectionInfo?.ip_address && allowedIPs.length > 0 && !allowedIPs.some(ip => {
@@ -1030,13 +1034,13 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                         Rotate the API credentials used by the agent. The agent must be online to receive new credentials.
                     </p>
                     <div className="key-rotation-actions">
-                        <button
-                            className="btn btn-secondary"
+                        <Button
+                            variant="outline"
                             onClick={handleRotateKey}
                             disabled={rotatingKey || server.status !== 'online'}
                         >
                             <KeyIcon /> {rotatingKey ? 'Rotating...' : 'Rotate API Key'}
-                        </button>
+                        </Button>
                         {server.api_key_last_rotated && (
                             <span className="key-rotation-hint">Last rotated: {new Date(server.api_key_last_rotated).toLocaleString()}</span>
                         )}
@@ -1068,19 +1072,21 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                                 </div>
                                 <div className="alert-item-actions">
                                     {alert.status === 'open' && (
-                                        <button
-                                            className="btn btn-sm btn-secondary"
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleAcknowledgeAlert(alert.id)}
                                         >
                                             Acknowledge
-                                        </button>
+                                        </Button>
                                     )}
-                                    <button
-                                        className="btn btn-sm btn-success"
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => handleResolveAlert(alert.id)}
                                     >
                                         Resolve
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         ))}
@@ -1093,9 +1099,9 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                 <p className="section-description">
                     Removing this server will disconnect the agent and delete all associated data.
                 </p>
-                <button className="btn btn-danger" onClick={onDelete}>
+                <Button variant="destructive" onClick={onDelete}>
                     <TrashIcon /> Remove Server
-                </button>
+                </Button>
             </div>
             <ConfirmDialog
                 isOpen={confirmSettingsState.isOpen}
@@ -1150,9 +1156,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : 
                                     <span>Linux</span>
                                     <span className="install-tab-description">Linux server with curl, tar, sudo, and systemd</span>
                                 </div>
-                                <button className="btn btn-sm btn-secondary" onClick={() => copyToClipboard(linuxScript)}>
+                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(linuxScript)}>
                                     <CopyIcon /> Copy
-                                </button>
+                                </Button>
                             </div>
                             <pre className="install-script">{linuxScript}</pre>
                         </div>
@@ -1164,9 +1170,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : 
                                     <span>Windows (PowerShell)</span>
                                     <span className="install-tab-description">Run as Administrator</span>
                                 </div>
-                                <button className="btn btn-sm btn-secondary" onClick={() => copyToClipboard(windowsScript)}>
+                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(windowsScript)}>
                                     <CopyIcon /> Copy
-                                </button>
+                                </Button>
                             </div>
                             <pre className="install-script">{windowsScript}</pre>
                         </div>
@@ -1185,7 +1191,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : 
                     </div>
 
                     <div className="modal-actions">
-                        <button className="btn btn-primary" onClick={onClose}>Close</button>
+                        <Button onClick={onClose}>Close</Button>
                     </div>
                 </div>
             </div>

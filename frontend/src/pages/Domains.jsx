@@ -6,6 +6,18 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Select,
+    SelectTrigger,
+    SelectContent,
+    SelectItem,
+    SelectValue,
+} from '@/components/ui/select';
 
 const Domains = () => {
     const toast = useToast();
@@ -155,14 +167,14 @@ const Domains = () => {
                     <p className="subtitle">Manage your domains and SSL certificates</p>
                 </div>
                 <div className="top-bar-actions">
-                    <button className="btn btn-secondary" onClick={loadData}>
+                    <Button variant="outline" onClick={loadData}>
                         <RefreshCw size={16} />
                         Refresh
-                    </button>
-                    <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                    </Button>
+                    <Button onClick={() => setShowAddModal(true)}>
                         <Plus size={16} />
                         Add Domain
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -209,10 +221,10 @@ const Domains = () => {
                     <Globe size={48} />
                     <h3>No domains configured</h3>
                     <p>Add a domain to your application to get started.</p>
-                    <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                    <Button onClick={() => setShowAddModal(true)}>
                         <Plus size={16} />
                         Add Domain
-                    </button>
+                    </Button>
                 </div>
             ) : (
                 <div className="domain-list">
@@ -242,42 +254,46 @@ const Domains = () => {
                                 </div>
                             </div>
                             <div className="domain-item-actions">
-                                <a
-                                    href={`${domain.ssl_enabled ? 'https' : 'http'}://${domain.name}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="btn btn-secondary btn-sm"
-                                >
-                                    <ExternalLink size={14} />
-                                    Visit
-                                </a>
-                                <button
-                                    className="btn btn-secondary btn-sm"
+                                <Button variant="outline" size="sm" asChild>
+                                    <a
+                                        href={`${domain.ssl_enabled ? 'https' : 'http'}://${domain.name}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <ExternalLink size={14} />
+                                        Visit
+                                    </a>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handleVerifyDomain(domain)}
                                 >
                                     <Search size={14} />
                                     Verify DNS
-                                </button>
+                                </Button>
                                 {domain.ssl_enabled ? (
                                     <>
-                                        <button
-                                            className="btn btn-secondary btn-sm"
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleRenewSsl(domain)}
                                             disabled={actionLoading}
                                         >
                                             <RefreshCw size={14} />
                                             Renew SSL
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary btn-sm"
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleDisableSsl(domain)}
                                         >
                                             <Unlock size={14} />
-                                        </button>
+                                        </Button>
                                     </>
                                 ) : (
-                                    <button
-                                        className="btn btn-primary btn-sm"
+                                    <Button
+                                        size="sm"
                                         onClick={() => {
                                             setSelectedDomain(domain);
                                             setShowSslModal(true);
@@ -285,14 +301,15 @@ const Domains = () => {
                                     >
                                         <Lock size={14} />
                                         Enable SSL
-                                    </button>
+                                    </Button>
                                 )}
-                                <button
-                                    className="btn btn-secondary btn-sm"
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handleDeleteDomain(domain)}
                                 >
                                     <Trash2 size={14} />
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -328,15 +345,15 @@ const Domains = () => {
                                 </div>
                                 <div className="cert-status">
                                     {cert.expiry_valid ? (
-                                        <span className="status-badge status-active">
+                                        <Badge variant="success">
                                             <CheckCircle size={14} />
                                             Valid
-                                        </span>
+                                        </Badge>
                                     ) : (
-                                        <span className="status-badge status-warning">
+                                        <Badge variant="warning">
                                             <AlertTriangle size={14} />
                                             Expiring Soon
-                                        </span>
+                                        </Badge>
                                     )}
                                 </div>
                             </div>
@@ -355,8 +372,8 @@ const Domains = () => {
                         </div>
                         <form onSubmit={handleAddDomain}>
                             <div className="form-group">
-                                <label>Domain Name</label>
-                                <input
+                                <Label>Domain Name</Label>
+                                <Input
                                     type="text"
                                     placeholder="example.com"
                                     value={domainName}
@@ -365,35 +382,34 @@ const Domains = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Application</label>
-                                <select
-                                    value={selectedAppId}
-                                    onChange={e => setSelectedAppId(e.target.value)}
-                                    required
-                                >
-                                    <option value="">Select an application</option>
-                                    {apps.map(app => (
-                                        <option key={app.id} value={app.id}>{app.name}</option>
-                                    ))}
-                                </select>
+                                <Label>Application</Label>
+                                <Select value={selectedAppId} onValueChange={setSelectedAppId} required>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select an application" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {apps.map(app => (
+                                            <SelectItem key={app.id} value={String(app.id)}>{app.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="form-group">
                                 <label className="checkbox-label">
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
                                         checked={isPrimary}
-                                        onChange={e => setIsPrimary(e.target.checked)}
+                                        onCheckedChange={setIsPrimary}
                                     />
                                     Set as primary domain
                                 </label>
                             </div>
                             <div className="modal-actions">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
                                     Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary" disabled={actionLoading}>
+                                </Button>
+                                <Button type="submit" disabled={actionLoading}>
                                     {actionLoading ? 'Adding...' : 'Add Domain'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -417,8 +433,8 @@ const Domains = () => {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label>Email Address</label>
-                                <input
+                                <Label>Email Address</Label>
+                                <Input
                                     type="email"
                                     placeholder="admin@example.com"
                                     value={sslEmail}
@@ -428,12 +444,12 @@ const Domains = () => {
                                 <p className="hint">Required for certificate expiration notifications</p>
                             </div>
                             <div className="modal-actions">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowSslModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowSslModal(false)}>
                                     Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary" disabled={actionLoading}>
+                                </Button>
+                                <Button type="submit" disabled={actionLoading}>
                                     {actionLoading ? 'Obtaining Certificate...' : 'Enable SSL'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

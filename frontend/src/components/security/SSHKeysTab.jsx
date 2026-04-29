@@ -3,6 +3,9 @@ import api from '../../services/api';
 import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 const SSHKeysTab = () => {
     const [keys, setKeys] = useState([]);
@@ -71,12 +74,12 @@ const SSHKeysTab = () => {
                 <div className="card-header">
                     <h3>SSH Authorized Keys</h3>
                     <div className="card-actions">
-                        <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
+                        <Button variant="default" size="sm" onClick={() => setShowAddModal(true)}>
                             Add Key
-                        </button>
-                        <button className="btn btn-sm btn-secondary" onClick={loadKeys}>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={loadKeys}>
                             Refresh
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 <div className="card-body">
@@ -85,9 +88,9 @@ const SSHKeysTab = () => {
                     ) : keys.length === 0 ? (
                         <div className="empty-state-sm">
                             <p>No SSH keys configured for root user.</p>
-                            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                            <Button variant="default" onClick={() => setShowAddModal(true)}>
                                 Add SSH Key
-                            </button>
+                            </Button>
                         </div>
                     ) : (
                         <table className="table">
@@ -106,9 +109,9 @@ const SSHKeysTab = () => {
                                         <td><code className="fingerprint">{key.fingerprint}</code></td>
                                         <td>{key.comment || '-'}</td>
                                         <td>
-                                            <button className="btn btn-sm btn-danger" onClick={() => handleRemoveKey(key.id, key.comment)}>
+                                            <Button variant="destructive" size="sm" onClick={() => handleRemoveKey(key.id, key.comment)}>
                                                 Remove
-                                            </button>
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))}
@@ -119,22 +122,22 @@ const SSHKeysTab = () => {
             </div>
 
             <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add SSH Public Key" size="lg">
-                            <div className="form-group">
-                                <label>Public Key</label>
-                                <textarea
-                                    value={newKey}
-                                    onChange={(e) => setNewKey(e.target.value)}
-                                    placeholder="ssh-rsa AAAA... user@host or ssh-ed25519 AAAA... user@host"
-                                    rows={4}
-                                />
-                                <p className="help-text">Paste your SSH public key (typically from ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub)</p>
-                            </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleAddKey} disabled={actionLoading || !newKey.trim()}>
-                                {actionLoading ? 'Adding...' : 'Add Key'}
-                            </button>
-                        </div>
+                <div className="form-group">
+                    <Label>Public Key</Label>
+                    <Textarea
+                        value={newKey}
+                        onChange={(e) => setNewKey(e.target.value)}
+                        placeholder="ssh-rsa AAAA... user@host or ssh-ed25519 AAAA... user@host"
+                        rows={4}
+                    />
+                    <p className="help-text">Paste your SSH public key (typically from ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub)</p>
+                </div>
+                <div className="modal-footer">
+                    <Button variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
+                    <Button variant="default" onClick={handleAddKey} disabled={actionLoading || !newKey.trim()}>
+                        {actionLoading ? 'Adding...' : 'Add Key'}
+                    </Button>
+                </div>
             </Modal>
 
             {confirmDialog && (

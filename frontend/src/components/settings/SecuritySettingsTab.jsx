@@ -3,6 +3,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import SSOProviderIcon from '../SSOProviderIcon';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 const LinkedAccounts = () => {
     const { ssoProviders } = useAuth();
@@ -78,13 +82,14 @@ const LinkedAccounts = () => {
                                     <span className="linked-account__email">{identity.provider_email}</span>
                                 </div>
                             </div>
-                            <button
-                                className="btn btn-sm btn-danger"
+                            <Button
+                                variant="destructive"
+                                size="sm"
                                 onClick={() => handleUnlink(identity.provider)}
                                 disabled={unlinking === identity.provider}
                             >
                                 {unlinking === identity.provider ? 'Unlinking...' : 'Unlink'}
-                            </button>
+                            </Button>
                         </div>
                     ))}
                 </div>
@@ -93,15 +98,16 @@ const LinkedAccounts = () => {
             {availableToLink.length > 0 && (
                 <div className="linked-accounts-available">
                     {availableToLink.map(p => (
-                        <button
+                        <Button
                             key={p.id}
-                            className="btn btn-secondary btn-sm"
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleLink(p.id)}
                             disabled={linkingProvider === p.id}
                         >
                             <SSOProviderIcon provider={p.id} />
                             {linkingProvider === p.id ? 'Redirecting...' : `Link ${p.name}`}
-                        </button>
+                        </Button>
                     ))}
                 </div>
             )}
@@ -308,7 +314,7 @@ Keep these codes in a safe place.`;
                 ) : twoFAStatus?.enabled ? (
                     <div className="two-fa-enabled">
                         <div className="two-fa-status">
-                            <span className="badge badge-success">Enabled</span>
+                            <Badge variant="success">Enabled</Badge>
                             <span className="two-fa-info">
                                 Enabled on {new Date(twoFAStatus.confirmed_at).toLocaleDateString()}
                             </span>
@@ -320,8 +326,8 @@ Keep these codes in a safe place.`;
                             )}
                         </div>
                         <div className="two-fa-actions">
-                            <button
-                                className="btn btn-secondary"
+                            <Button
+                                variant="outline"
                                 onClick={() => {
                                     setVerificationCode('');
                                     setTwoFAError('');
@@ -329,9 +335,9 @@ Keep these codes in a safe place.`;
                                 }}
                             >
                                 Regenerate Backup Codes
-                            </button>
-                            <button
-                                className="btn btn-danger"
+                            </Button>
+                            <Button
+                                variant="destructive"
                                 onClick={() => {
                                     setVerificationCode('');
                                     setTwoFAError('');
@@ -339,7 +345,7 @@ Keep these codes in a safe place.`;
                                 }}
                             >
                                 Disable 2FA
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 ) : (
@@ -348,13 +354,13 @@ Keep these codes in a safe place.`;
                             Two-factor authentication adds an additional layer of security to your account
                             by requiring a code from your authenticator app in addition to your password.
                         </p>
-                        <button
-                            className="btn btn-primary"
+                        <Button
+                            variant="default"
                             onClick={handleInitiate2FA}
                             disabled={twoFALoading}
                         >
                             Enable Two-Factor Authentication
-                        </button>
+                        </Button>
                     </div>
                 )}
             </div>
@@ -363,8 +369,8 @@ Keep these codes in a safe place.`;
                 <h3>Change Password</h3>
 
                 <div className="form-group">
-                    <label>Current Password</label>
-                    <input
+                    <Label>Current Password</Label>
+                    <Input
                         type="password"
                         value={formData.currentPassword}
                         onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
@@ -373,8 +379,8 @@ Keep these codes in a safe place.`;
                 </div>
 
                 <div className="form-group">
-                    <label>New Password</label>
-                    <input
+                    <Label>New Password</Label>
+                    <Input
                         type="password"
                         value={formData.newPassword}
                         onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
@@ -385,8 +391,8 @@ Keep these codes in a safe place.`;
                 </div>
 
                 <div className="form-group">
-                    <label>Confirm New Password</label>
-                    <input
+                    <Label>Confirm New Password</Label>
+                    <Input
                         type="password"
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
@@ -396,9 +402,9 @@ Keep these codes in a safe place.`;
                 </div>
 
                 <div className="form-actions">
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                    <Button type="submit" variant="default" disabled={loading}>
                         {loading ? 'Changing...' : 'Change Password'}
-                    </button>
+                    </Button>
                 </div>
             </form>
 
@@ -417,7 +423,7 @@ Keep these codes in a safe place.`;
                             <span className="session-details">This device - Active now</span>
                         </div>
                     </div>
-                    <span className="badge badge-success">Current</span>
+                    <Badge variant="success">Current</Badge>
                 </div>
             </div>
 
@@ -456,7 +462,7 @@ Keep these codes in a safe place.`;
                                     <div className="step-content">
                                         <h4>Enter Verification Code</h4>
                                         <p>Enter the 6-digit code from your authenticator app to verify setup.</p>
-                                        <input
+                                        <Input
                                             type="text"
                                             value={verificationCode}
                                             onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -469,16 +475,16 @@ Keep these codes in a safe place.`;
                                 </div>
                             </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowSetupModal(false)}>
+                            <Button variant="outline" onClick={() => setShowSetupModal(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
+                            </Button>
+                            <Button
+                                variant="default"
                                 onClick={handleConfirm2FA}
                                 disabled={twoFALoading || verificationCode.length !== 6}
                             >
                                 {twoFALoading ? 'Verifying...' : 'Enable 2FA'}
-                            </button>
+                            </Button>
                         </div>
                 </Modal>
             )}
@@ -495,8 +501,8 @@ Keep these codes in a safe place.`;
                                 <p>Disabling 2FA will make your account less secure. You will only need your password to log in.</p>
                             </div>
                             <div className="form-group">
-                                <label>Enter a verification code or backup code to disable 2FA:</label>
-                                <input
+                                <Label>Enter a verification code or backup code to disable 2FA:</Label>
+                                <Input
                                     type="text"
                                     value={verificationCode}
                                     onChange={(e) => setVerificationCode(e.target.value)}
@@ -506,16 +512,16 @@ Keep these codes in a safe place.`;
                                 {twoFAError && <p className="error-text">{twoFAError}</p>}
                             </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowDisableModal(false)}>
+                            <Button variant="outline" onClick={() => setShowDisableModal(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                className="btn btn-danger"
+                            </Button>
+                            <Button
+                                variant="destructive"
                                 onClick={handleDisable2FA}
                                 disabled={twoFALoading || !verificationCode}
                             >
                                 {twoFALoading ? 'Disabling...' : 'Disable 2FA'}
-                            </button>
+                            </Button>
                         </div>
                 </Modal>
             )}
@@ -539,27 +545,27 @@ Keep these codes in a safe place.`;
                                         ))}
                                     </div>
                                     <div className="backup-codes-actions">
-                                        <button className="btn btn-secondary" onClick={downloadBackupCodes}>
+                                        <Button variant="outline" onClick={downloadBackupCodes}>
                                             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                                             </svg>
                                             Download
-                                        </button>
-                                        <button className="btn btn-secondary" onClick={copyBackupCodes}>
+                                        </Button>
+                                        <Button variant="outline" onClick={copyBackupCodes}>
                                             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                                             </svg>
                                             Copy
-                                        </button>
+                                        </Button>
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <p>Enter a code from your authenticator app to generate new backup codes. This will invalidate all existing backup codes.</p>
                                     <div className="form-group">
-                                        <label>Verification Code</label>
-                                        <input
+                                        <Label>Verification Code</Label>
+                                        <Input
                                             type="text"
                                             value={verificationCode}
                                             onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -571,21 +577,21 @@ Keep these codes in a safe place.`;
                                 </>
                             )}
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => {
+                            <Button variant="outline" onClick={() => {
                                 setShowBackupCodesModal(false);
                                 setBackupCodes([]);
                                 setVerificationCode('');
                             }}>
                                 {backupCodes.length > 0 ? 'Done' : 'Cancel'}
-                            </button>
+                            </Button>
                             {backupCodes.length === 0 && (
-                                <button
-                                    className="btn btn-primary"
+                                <Button
+                                    variant="default"
                                     onClick={handleRegenerateBackupCodes}
                                     disabled={twoFALoading || verificationCode.length !== 6}
                                 >
                                     {twoFALoading ? 'Generating...' : 'Generate New Codes'}
-                                </button>
+                                </Button>
                             )}
                         </div>
                 </Modal>

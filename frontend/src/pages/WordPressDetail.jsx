@@ -6,6 +6,10 @@ import wordpressApi from '../services/wordpress';
 import { useToast } from '../contexts/ToastContext';
 import { EnvironmentCard, SnapshotTable, GitConnectForm, CommitList } from '../components/wordpress';
 import { ErrorBoundary, ErrorState } from '../components/ErrorBoundary';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 // Detail Page Skeleton for initial loading
 const DetailPageSkeleton = () => (
@@ -94,9 +98,9 @@ const WordPressDetail = () => {
         return (
             <div className="empty-state">
                 <h3>Site not found</h3>
-                <button className="btn btn-primary" onClick={() => navigate('/wordpress')}>
+                <Button onClick={() => navigate('/wordpress')}>
                     Back to WordPress Sites
-                </button>
+                </Button>
             </div>
         );
     }
@@ -115,24 +119,26 @@ const WordPressDetail = () => {
                 <div className="app-detail-actions">
                     {site.url && (
                         <>
-                            <a
-                                href={site.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-ghost"
-                            >
-                                <ExternalLink size={16} />
-                                Visit Site
-                            </a>
-                            <a
-                                href={`${site.url}/wp-admin`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-ghost"
-                            >
-                                <Settings size={16} />
-                                Dashboard
-                            </a>
+                            <Button variant="ghost" asChild>
+                                <a
+                                    href={site.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <ExternalLink size={16} />
+                                    Visit Site
+                                </a>
+                            </Button>
+                            <Button variant="ghost" asChild>
+                                <a
+                                    href={`${site.url}/wp-admin`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <Settings size={16} />
+                                    Dashboard
+                                </a>
+                            </Button>
                         </>
                     )}
                 </div>
@@ -592,9 +598,9 @@ const EnvironmentsTab = ({ siteId, site, onUpdate }) => {
             <div className="section-header">
                 <h3>Environments</h3>
                 {canCreateMore && (
-                    <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                    <Button onClick={() => setShowCreateModal(true)}>
                         <Plus size={14} /> Create Environment
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -706,7 +712,7 @@ const CreateEnvironmentModal = ({ onClose, onCreate, productionDomain, hasStagin
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>Environment Type</label>
+                        <Label>Environment Type</Label>
                         <select name="type" value={formData.type} onChange={handleChange}>
                             {!hasDev && <option value="development">Development</option>}
                             {!hasStaging && <option value="staging">Staging</option>}
@@ -714,8 +720,8 @@ const CreateEnvironmentModal = ({ onClose, onCreate, productionDomain, hasStagin
                     </div>
 
                     <div className="form-group">
-                        <label>Environment Name *</label>
-                        <input
+                        <Label>Environment Name *</Label>
+                        <Input
                             type="text"
                             name="name"
                             value={formData.name}
@@ -726,8 +732,8 @@ const CreateEnvironmentModal = ({ onClose, onCreate, productionDomain, hasStagin
                     </div>
 
                     <div className="form-group">
-                        <label>Domain</label>
-                        <input
+                        <Label>Domain</Label>
+                        <Input
                             type="text"
                             name="domain"
                             value={formData.domain}
@@ -764,7 +770,7 @@ const CreateEnvironmentModal = ({ onClose, onCreate, productionDomain, hasStagin
                     </div>
 
                     <div className="form-group">
-                        <label>Sync Schedule (optional)</label>
+                        <Label>Sync Schedule (optional)</Label>
                         <select name="syncSchedule" value={formData.syncSchedule} onChange={handleChange}>
                             <option value="">No automatic sync</option>
                             <option value="0 3 * * 0">Weekly (Sunday 3am)</option>
@@ -774,12 +780,12 @@ const CreateEnvironmentModal = ({ onClose, onCreate, productionDomain, hasStagin
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Environment'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -896,9 +902,9 @@ const DatabaseTab = ({ siteId, site }) => {
             {/* Snapshots */}
             <div className="section-header mt-6">
                 <h3>Database Snapshots</h3>
-                <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                <Button onClick={() => setShowCreateModal(true)}>
                     <Plus size={14} /> Create Snapshot
-                </button>
+                </Button>
             </div>
 
             <SnapshotTable
@@ -952,8 +958,8 @@ const CreateSnapshotModal = ({ onClose, onCreate }) => {
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>Snapshot Name *</label>
-                        <input
+                        <Label>Snapshot Name *</Label>
+                        <Input
                             type="text"
                             name="name"
                             value={formData.name}
@@ -963,8 +969,8 @@ const CreateSnapshotModal = ({ onClose, onCreate }) => {
                     </div>
 
                     <div className="form-group">
-                        <label>Description</label>
-                        <textarea
+                        <Label>Description</Label>
+                        <Textarea
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
@@ -974,8 +980,8 @@ const CreateSnapshotModal = ({ onClose, onCreate }) => {
                     </div>
 
                     <div className="form-group">
-                        <label>Tag</label>
-                        <input
+                        <Label>Tag</Label>
+                        <Input
                             type="text"
                             name="tag"
                             value={formData.tag}
@@ -985,12 +991,12 @@ const CreateSnapshotModal = ({ onClose, onCreate }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Snapshot'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1075,15 +1081,15 @@ const PluginsTab = ({ siteId }) => {
             </div>
 
             <form className="install-form" onSubmit={handleInstall}>
-                <input
+                <Input
                     type="text"
                     value={newPlugin}
                     onChange={(e) => setNewPlugin(e.target.value)}
                     placeholder="Plugin slug (e.g., akismet, woocommerce)"
                 />
-                <button type="submit" className="btn btn-primary" disabled={installing}>
+                <Button type="submit" disabled={installing}>
                     {installing ? 'Installing...' : 'Install Plugin'}
-                </button>
+                </Button>
             </form>
 
             <div className="plugins-list">
@@ -1184,15 +1190,15 @@ const ThemesTab = ({ siteId }) => {
             </div>
 
             <form className="install-form" onSubmit={handleInstall}>
-                <input
+                <Input
                     type="text"
                     value={newTheme}
                     onChange={(e) => setNewTheme(e.target.value)}
                     placeholder="Theme slug (e.g., twentytwentyfour)"
                 />
-                <button type="submit" className="btn btn-primary" disabled={installing}>
+                <Button type="submit" disabled={installing}>
                     {installing ? 'Installing...' : 'Install Theme'}
-                </button>
+                </Button>
             </form>
 
             <div className="themes-list">
@@ -1316,9 +1322,9 @@ const GitTab = ({ siteId, site, onUpdate }) => {
                 <div className="git-commits-section">
                     <div className="section-header">
                         <h3>Recent Commits</h3>
-                        <button className="btn btn-secondary btn-sm" onClick={loadGitData}>
+                        <Button variant="outline" size="sm" onClick={loadGitData}>
                             <RefreshCw size={14} /> Refresh
-                        </button>
+                        </Button>
                     </div>
 
                     <CommitList
@@ -1392,9 +1398,9 @@ const BackupsTab = ({ siteId }) => {
         <div className="backups-tab">
             <div className="section-header">
                 <h3>Backups</h3>
-                <button className="btn btn-primary" onClick={handleCreateBackup}>
+                <Button onClick={handleCreateBackup}>
                     <Plus size={14} /> Create Backup
-                </button>
+                </Button>
             </div>
 
             <SnapshotTable

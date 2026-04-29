@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const IntegrityTab = () => {
     const [checking, setChecking] = useState(false);
@@ -57,20 +59,20 @@ const IntegrityTab = () => {
                     </p>
 
                     <div className="integrity-actions">
-                        <button
-                            className="btn btn-secondary"
+                        <Button
+                            variant="outline"
                             onClick={handleInitialize}
                             disabled={initializing}
                         >
                             {initializing ? 'Initializing...' : 'Initialize Baseline'}
-                        </button>
-                        <button
-                            className="btn btn-primary"
+                        </Button>
+                        <Button
+                            variant="default"
                             onClick={handleCheck}
                             disabled={checking}
                         >
                             {checking ? 'Checking...' : 'Check Integrity'}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -79,7 +81,7 @@ const IntegrityTab = () => {
                 <div className="card">
                     <div className="card-header">
                         <h3>Changes Detected</h3>
-                        <span className="badge badge-warning">{results.total_changes} changes</span>
+                        <Badge variant="warning">{results.total_changes} changes</Badge>
                     </div>
                     <div className="card-body">
                         {results.changes.modified?.length > 0 && (

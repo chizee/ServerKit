@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const SecurityConfigTab = () => {
     const [config, setConfig] = useState(null);
@@ -63,36 +67,30 @@ const SecurityConfigTab = () => {
                 </div>
                 <div className="card-body">
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Enable ClamAV scanning</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.clamav?.enabled || false}
-                                    onChange={(e) => updateConfig('clamav', 'enabled', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="clamav-enabled">Enable ClamAV scanning</Label>
+                            <Switch
+                                id="clamav-enabled"
+                                checked={config?.clamav?.enabled || false}
+                                onCheckedChange={(checked) => updateConfig('clamav', 'enabled', checked)}
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Scan files on upload</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.clamav?.scan_on_upload || false}
-                                    onChange={(e) => updateConfig('clamav', 'scan_on_upload', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="clamav-scan-upload">Scan files on upload</Label>
+                            <Switch
+                                id="clamav-scan-upload"
+                                checked={config?.clamav?.scan_on_upload || false}
+                                onCheckedChange={(checked) => updateConfig('clamav', 'scan_on_upload', checked)}
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label>Quarantine Path</label>
-                        <input
+                        <Label>Quarantine Path</Label>
+                        <Input
                             type="text"
                             value={config?.clamav?.quarantine_path || '/var/quarantine'}
                             onChange={(e) => updateConfig('clamav', 'quarantine_path', e.target.value)}
@@ -107,31 +105,25 @@ const SecurityConfigTab = () => {
                 </div>
                 <div className="card-body">
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Enable file integrity monitoring</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.file_integrity?.enabled || false}
-                                    onChange={(e) => updateConfig('file_integrity', 'enabled', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="integrity-enabled">Enable file integrity monitoring</Label>
+                            <Switch
+                                id="integrity-enabled"
+                                checked={config?.file_integrity?.enabled || false}
+                                onCheckedChange={(checked) => updateConfig('file_integrity', 'enabled', checked)}
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Alert on file changes</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.file_integrity?.alert_on_change || false}
-                                    onChange={(e) => updateConfig('file_integrity', 'alert_on_change', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="integrity-alert">Alert on file changes</Label>
+                            <Switch
+                                id="integrity-alert"
+                                checked={config?.file_integrity?.alert_on_change || false}
+                                onCheckedChange={(checked) => updateConfig('file_integrity', 'alert_on_change', checked)}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -142,53 +134,44 @@ const SecurityConfigTab = () => {
                 </div>
                 <div className="card-body">
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Notify on malware detection</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.notifications?.on_malware_found || false}
-                                    onChange={(e) => updateConfig('notifications', 'on_malware_found', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="notify-malware">Notify on malware detection</Label>
+                            <Switch
+                                id="notify-malware"
+                                checked={config?.notifications?.on_malware_found || false}
+                                onCheckedChange={(checked) => updateConfig('notifications', 'on_malware_found', checked)}
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Notify on integrity changes</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.notifications?.on_integrity_change || false}
-                                    onChange={(e) => updateConfig('notifications', 'on_integrity_change', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="notify-integrity">Notify on integrity changes</Label>
+                            <Switch
+                                id="notify-integrity"
+                                checked={config?.notifications?.on_integrity_change || false}
+                                onCheckedChange={(checked) => updateConfig('notifications', 'on_integrity_change', checked)}
+                            />
+                        </div>
                     </div>
 
                     <div className="form-group">
-                        <label className="toggle-switch-label">
-                            <span>Notify on suspicious activity</span>
-                            <label className="toggle-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={config?.notifications?.on_suspicious_activity || false}
-                                    onChange={(e) => updateConfig('notifications', 'on_suspicious_activity', e.target.checked)}
-                                />
-                                <span className="toggle-slider"></span>
-                            </label>
-                        </label>
+                        <div className="toggle-switch-label">
+                            <Label htmlFor="notify-suspicious">Notify on suspicious activity</Label>
+                            <Switch
+                                id="notify-suspicious"
+                                checked={config?.notifications?.on_suspicious_activity || false}
+                                onCheckedChange={(checked) => updateConfig('notifications', 'on_suspicious_activity', checked)}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
 
             <div className="form-actions">
-                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                <Button variant="default" onClick={handleSave} disabled={saving}>
                     {saving ? 'Saving...' : 'Save Settings'}
-                </button>
+                </Button>
             </div>
         </div>
     );

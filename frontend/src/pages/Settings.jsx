@@ -18,6 +18,7 @@ import MigrationHistoryTab from '../components/settings/MigrationHistoryTab';
 import IconReferenceTab from '../components/settings/IconReferenceTab';
 import AboutTab from '../components/settings/AboutTab';
 import { Activity, Code, Database, Layers } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const VALID_TABS = ['profile', 'security', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'migrations', 'developer', 'about'];
 
@@ -46,7 +47,8 @@ const Settings = () => {
             <div className="settings-layout">
                 <nav className="settings-nav">
                     <div className="settings-nav-divider">Account</div>
-                    <button
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
                         onClick={() => setActiveTab('profile')}
                     >
@@ -55,8 +57,9 @@ const Settings = () => {
                             <circle cx="12" cy="7" r="4"/>
                         </svg>
                         Profile
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'security' ? 'active' : ''}`}
                         onClick={() => setActiveTab('security')}
                     >
@@ -65,8 +68,9 @@ const Settings = () => {
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
                         Security
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'notifications' ? 'active' : ''}`}
                         onClick={() => setActiveTab('notifications')}
                     >
@@ -75,9 +79,10 @@ const Settings = () => {
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                         Notifications
-                    </button>
+                    </Button>
                     <div className="settings-nav-divider">Preferences</div>
-                    <button
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'appearance' ? 'active' : ''}`}
                         onClick={() => setActiveTab('appearance')}
                     >
@@ -93,8 +98,9 @@ const Settings = () => {
                             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
                         </svg>
                         Appearance
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'sidebar' ? 'active' : ''}`}
                         onClick={() => setActiveTab('sidebar')}
                     >
@@ -103,18 +109,20 @@ const Settings = () => {
                             <line x1="9" y1="3" x2="9" y2="21"/>
                         </svg>
                         Sidebar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'whitelabel' ? 'active' : ''}`}
                         onClick={() => setActiveTab('whitelabel')}
                     >
                         <Layers size={18} />
                         White Label
-                    </button>
+                    </Button>
                     {isAdmin && (
                         <>
                             <div className="settings-nav-divider">Admin</div>
-                            <button
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'users' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('users')}
                             >
@@ -125,15 +133,17 @@ const Settings = () => {
                                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                                 </svg>
                                 Users
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'activity' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('activity')}
                             >
                                 <Activity size={18} />
                                 Activity
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'site' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('site')}
                             >
@@ -142,8 +152,9 @@ const Settings = () => {
                                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                                 </svg>
                                 Site Settings
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'sso' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('sso')}
                             >
@@ -153,22 +164,25 @@ const Settings = () => {
                                     <line x1="15" y1="12" x2="3" y2="12"/>
                                 </svg>
                                 SSO
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'api' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('api')}
                             >
                                 <Code size={18} />
                                 API
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'migrations' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('migrations')}
                             >
                                 <Database size={18} />
                                 Migrations
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'system' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('system')}
                             >
@@ -178,22 +192,24 @@ const Settings = () => {
                                     <line x1="12" y1="17" x2="12" y2="21"/>
                                 </svg>
                                 System Info
-                            </button>
+                            </Button>
                         </>
                     )}
                     {devMode && isAdmin && (
                         <>
                             <div className="settings-nav-divider">Developer</div>
-                            <button
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'developer' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('developer')}
                             >
                                 <Code size={18} />
                                 Icon Reference
-                            </button>
+                            </Button>
                         </>
                     )}
-                    <button
+                    <Button
+                        variant="ghost"
                         className={`settings-nav-item ${activeTab === 'about' ? 'active' : ''}`}
                         onClick={() => setActiveTab('about')}
                     >
@@ -203,7 +219,7 @@ const Settings = () => {
                             <line x1="12" y1="8" x2="12.01" y2="8"/>
                         </svg>
                         About
-                    </button>
+                    </Button>
                 </nav>
 
                 <div className="settings-content">

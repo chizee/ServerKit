@@ -8,6 +8,12 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const SSLCertificates = () => {
     const toast = useToast();
@@ -170,10 +176,10 @@ const SSLCertificates = () => {
                 <div className="ssl-status-bar">
                     {[1, 2, 3].map(i => (
                         <div key={i} className="ssl-status-item">
-                            <div className="skeleton-box" style={{ width: 48, height: 48, borderRadius: 12 }} />
+                            <Skeleton className="w-12 h-12 rounded-xl" />
                             <div>
-                                <div className="skeleton-box" style={{ width: 80, height: 14, marginBottom: 6 }} />
-                                <div className="skeleton-box" style={{ width: 50, height: 12 }} />
+                                <Skeleton className="w-20 h-3.5 mb-1.5" />
+                                <Skeleton className="w-12 h-3" />
                             </div>
                         </div>
                     ))}
@@ -181,10 +187,10 @@ const SSLCertificates = () => {
                 <div className="ssl-cert-list">
                     {[1, 2].map(i => (
                         <div key={i} className="ssl-cert-item">
-                            <div className="skeleton-box" style={{ width: 40, height: 40, borderRadius: 10 }} />
+                            <Skeleton className="w-10 h-10 rounded-xl" />
                             <div className="flex-1">
-                                <div className="skeleton-box" style={{ width: 200, height: 14, marginBottom: 8 }} />
-                                <div className="skeleton-box" style={{ width: 300, height: 12 }} />
+                                <Skeleton className="w-48 h-3.5 mb-2" />
+                                <Skeleton className="w-72 h-3" />
                             </div>
                         </div>
                     ))}
@@ -205,37 +211,36 @@ const SSLCertificates = () => {
                     <p className="subtitle">Manage Let's Encrypt SSL certificates</p>
                 </div>
                 <div className="top-bar-actions">
-                    <button
-                        className="btn btn-secondary"
+                    <Button
+                        variant="outline"
                         onClick={handleSetupAutoRenewal}
                         disabled={actionLoading || !certbotInstalled}
                         title="Configure automatic renewal via systemd or cron"
                     >
                         <Settings size={16} />
                         Auto-Renew
-                    </button>
+                    </Button>
                     {certificates.length > 0 && (
-                        <button
-                            className="btn btn-secondary"
+                        <Button
+                            variant="outline"
                             onClick={handleRenewAll}
                             disabled={actionLoading}
                         >
                             <RefreshCw size={16} />
                             Renew All
-                        </button>
+                        </Button>
                     )}
-                    <button className="btn btn-secondary" onClick={loadData}>
+                    <Button variant="outline" onClick={loadData}>
                         <RefreshCw size={16} />
                         Refresh
-                    </button>
-                    <button
-                        className="btn btn-primary"
+                    </Button>
+                    <Button
                         onClick={() => setShowObtainModal(true)}
                         disabled={!certbotInstalled}
                     >
                         <Plus size={16} />
                         New Certificate
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -250,14 +255,15 @@ const SSLCertificates = () => {
                         <span>{certbotInstalled ? 'Installed' : 'Not Installed'}</span>
                     </div>
                     {!certbotInstalled && (
-                        <button
-                            className="btn btn-primary btn-sm ml-auto"
+                        <Button
+                            size="sm"
                             onClick={handleInstallCertbot}
                             disabled={actionLoading}
+                            className="ml-auto"
                         >
                             <Download size={14} />
                             Install
-                        </button>
+                        </Button>
                     )}
                 </div>
                 <div className="ssl-status-item">
@@ -292,15 +298,15 @@ const SSLCertificates = () => {
                     <h3>No SSL certificates</h3>
                     <p>Obtain your first Let's Encrypt certificate to secure your domains.</p>
                     {certbotInstalled ? (
-                        <button className="btn btn-primary" onClick={() => setShowObtainModal(true)}>
+                        <Button onClick={() => setShowObtainModal(true)}>
                             <Plus size={16} />
                             New Certificate
-                        </button>
+                        </Button>
                     ) : (
-                        <button className="btn btn-primary" onClick={handleInstallCertbot} disabled={actionLoading}>
+                        <Button onClick={handleInstallCertbot} disabled={actionLoading}>
                             <Download size={16} />
                             Install Certbot First
-                        </button>
+                        </Button>
                     )}
                 </div>
             ) : (
@@ -329,34 +335,36 @@ const SSLCertificates = () => {
                             </div>
                             <div className="ssl-cert-item-status">
                                 {cert.expiry_valid ? (
-                                    <span className="status-badge status-active">
+                                    <Badge variant="success">
                                         <CheckCircle size={14} />
                                         Valid
-                                    </span>
+                                    </Badge>
                                 ) : (
-                                    <span className="status-badge status-warning">
+                                    <Badge variant="warning">
                                         <AlertTriangle size={14} />
                                         Expiring
-                                    </span>
+                                    </Badge>
                                 )}
                             </div>
                             <div className="ssl-cert-item-actions">
-                                <button
-                                    className="btn btn-secondary btn-sm"
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handleRenewCertificate(cert.name)}
                                     disabled={renewingDomain === cert.name || actionLoading}
                                 >
                                     <RefreshCw size={14} className={renewingDomain === cert.name ? 'spin' : ''} />
                                     {renewingDomain === cert.name ? 'Renewing...' : 'Renew'}
-                                </button>
-                                <button
-                                    className="btn btn-secondary btn-sm"
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => handleRevokeCertificate(cert.name)}
                                     disabled={actionLoading}
                                 >
                                     <Trash2 size={14} />
                                     Revoke
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -371,14 +379,14 @@ const SSLCertificates = () => {
                         <strong>Certificates expiring soon:</strong>{' '}
                         {expiringSoon.join(', ')}
                     </div>
-                    <button
-                        className="btn btn-primary btn-sm"
+                    <Button
+                        size="sm"
                         onClick={handleRenewAll}
                         disabled={actionLoading}
                     >
                         <RefreshCw size={14} />
                         Renew All
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -399,8 +407,8 @@ const SSLCertificates = () => {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label>Domains</label>
-                                <input
+                                <Label>Domains</Label>
+                                <Input
                                     type="text"
                                     placeholder="example.com, www.example.com"
                                     value={domains}
@@ -410,8 +418,8 @@ const SSLCertificates = () => {
                                 <p className="hint">Comma-separated list of domains</p>
                             </div>
                             <div className="form-group">
-                                <label>Email Address</label>
-                                <input
+                                <Label>Email Address</Label>
+                                <Input
                                     type="email"
                                     placeholder="admin@example.com"
                                     value={email}
@@ -422,18 +430,17 @@ const SSLCertificates = () => {
                             </div>
                             <div className="form-group">
                                 <label className="checkbox-label">
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
                                         checked={useNginx}
-                                        onChange={e => setUseNginx(e.target.checked)}
+                                        onCheckedChange={setUseNginx}
                                     />
                                     Use Nginx plugin (recommended)
                                 </label>
                             </div>
                             {!useNginx && (
                                 <div className="form-group">
-                                    <label>Webroot Path</label>
-                                    <input
+                                    <Label>Webroot Path</Label>
+                                    <Input
                                         type="text"
                                         placeholder="/var/www/html"
                                         value={webrootPath}
@@ -444,20 +451,19 @@ const SSLCertificates = () => {
                                 </div>
                             )}
                             <div className="modal-actions">
-                                <button
+                                <Button
                                     type="button"
-                                    className="btn btn-secondary"
+                                    variant="outline"
                                     onClick={() => setShowObtainModal(false)}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    className="btn btn-primary"
                                     disabled={actionLoading}
                                 >
                                     {actionLoading ? 'Obtaining...' : 'Obtain Certificate'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

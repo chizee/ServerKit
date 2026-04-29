@@ -4,6 +4,10 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['logs', 'journal', 'processes', 'services'];
 
@@ -19,60 +23,58 @@ const Terminal = () => {
                 </div>
             </div>
 
-            <div className="tabs">
-                <button
-                    className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('logs')}
-                >
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                    </svg>
-                    Log Files
-                </button>
-                <button
-                    className={`tab ${activeTab === 'journal' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('journal')}
-                >
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="9" y1="9" x2="15" y2="9"/>
-                        <line x1="9" y1="13" x2="15" y2="13"/>
-                        <line x1="9" y1="17" x2="11" y2="17"/>
-                    </svg>
-                    System Journal
-                </button>
-                <button
-                    className={`tab ${activeTab === 'processes' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('processes')}
-                >
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                        <line x1="8" y1="21" x2="16" y2="21"/>
-                        <line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                    Processes
-                </button>
-                <button
-                    className={`tab ${activeTab === 'services' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('services')}
-                >
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                    </svg>
-                    Services
-                </button>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                    <TabsTrigger value="logs">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        Log Files
+                    </TabsTrigger>
+                    <TabsTrigger value="journal">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="9" y1="9" x2="15" y2="9"/>
+                            <line x1="9" y1="13" x2="15" y2="13"/>
+                            <line x1="9" y1="17" x2="11" y2="17"/>
+                        </svg>
+                        System Journal
+                    </TabsTrigger>
+                    <TabsTrigger value="processes">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                        Processes
+                    </TabsTrigger>
+                    <TabsTrigger value="services">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                        Services
+                    </TabsTrigger>
+                </TabsList>
 
-            <div className="tab-content">
-                {activeTab === 'logs' && <LogFilesTab />}
-                {activeTab === 'journal' && <JournalTab />}
-                {activeTab === 'processes' && <ProcessesTab />}
-                {activeTab === 'services' && <ServicesTab />}
-            </div>
+                <div className="tab-content">
+                    <TabsContent value="logs">
+                        <LogFilesTab />
+                    </TabsContent>
+                    <TabsContent value="journal">
+                        <JournalTab />
+                    </TabsContent>
+                    <TabsContent value="processes">
+                        <ProcessesTab />
+                    </TabsContent>
+                    <TabsContent value="services">
+                        <ServicesTab />
+                    </TabsContent>
+                </div>
+            </Tabs>
         </div>
     );
 };
@@ -202,12 +204,12 @@ const LogFilesTab = () => {
                 <div className="logs-sidebar">
                     <div className="sidebar-header">
                         <h3>Log Files</h3>
-                        <button className="btn btn-secondary btn-sm" onClick={loadLogFiles}>
+                        <Button variant="outline" size="sm" onClick={loadLogFiles}>
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="23 4 23 10 17 10"/>
                                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                             </svg>
-                        </button>
+                        </Button>
                     </div>
                     <div className="log-files-list">
                         {logFiles.length === 0 ? (
@@ -244,7 +246,7 @@ const LogFilesTab = () => {
                                     <circle cx="11" cy="11" r="8"/>
                                     <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                                 </svg>
-                                <input
+                                <Input
                                     type="text"
                                     value={searchPattern}
                                     onChange={(e) => setSearchPattern(e.target.value)}
@@ -273,27 +275,30 @@ const LogFilesTab = () => {
                                 />
                                 <span>Auto-refresh</span>
                             </label>
-                            <button
-                                className="btn btn-secondary btn-sm"
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => selectedLog && loadLogContent(selectedLog)}
                                 disabled={!selectedLog || loadingContent}
                             >
                                 Refresh
-                            </button>
-                            <button
-                                className="btn btn-secondary btn-sm"
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={handleDownload}
                                 disabled={!logContent}
                             >
                                 Download
-                            </button>
-                            <button
-                                className="btn btn-danger btn-sm"
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                size="sm"
                                 onClick={handleClearLog}
                                 disabled={!selectedLog}
                             >
                                 Clear
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
@@ -398,7 +403,7 @@ const JournalTab = () => {
                 <div className="control-group">
                     <label>{isJournalctl ? 'Service/Unit' : 'Filter by service'}</label>
                     <div className="input-with-suggestions">
-                        <input
+                        <Input
                             type="text"
                             value={unit}
                             onChange={(e) => setUnit(e.target.value)}
@@ -447,9 +452,9 @@ const JournalTab = () => {
                     </div>
                 )}
 
-                <button className="btn btn-primary" onClick={loadJournalLogs} disabled={loading}>
+                <Button onClick={loadJournalLogs} disabled={loading}>
                     {loading ? 'Loading...' : 'Load Logs'}
-                </button>
+                </Button>
             </div>
 
             {!isJournalctl && source && (
@@ -533,7 +538,7 @@ const ProcessesTab = () => {
                             <circle cx="11" cy="11" r="8"/>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                         </svg>
-                        <input
+                        <Input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -553,9 +558,9 @@ const ProcessesTab = () => {
                         <option value={50}>50 processes</option>
                         <option value={100}>100 processes</option>
                     </select>
-                    <button className="btn btn-secondary btn-sm" onClick={loadProcesses}>
+                    <Button variant="outline" size="sm" onClick={loadProcesses}>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -607,14 +612,15 @@ const ProcessesTab = () => {
                                 </td>
                                 <td>{formatMemory(process.memory_info?.rss)}</td>
                                 <td>
-                                    <span className={`badge badge-${getStatusClass(process.status)}`}>
+                                    <Badge variant={getStatusVariant(process.status)}>
                                         {process.status}
-                                    </span>
+                                    </Badge>
                                 </td>
                                 <td>
                                     <div className="action-buttons">
-                                        <button
-                                            className="btn btn-secondary btn-xs"
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleKillProcess(process.pid);
@@ -625,9 +631,10 @@ const ProcessesTab = () => {
                                                 <line x1="18" y1="6" x2="6" y2="18"/>
                                                 <line x1="6" y1="6" x2="18" y2="18"/>
                                             </svg>
-                                        </button>
-                                        <button
-                                            className="btn btn-danger btn-xs"
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleKillProcess(process.pid, true);
@@ -639,7 +646,7 @@ const ProcessesTab = () => {
                                                 <line x1="15" y1="9" x2="9" y2="15"/>
                                                 <line x1="9" y1="9" x2="15" y2="15"/>
                                             </svg>
-                                        </button>
+                                        </Button>
                                     </div>
                                 </td>
                             </tr>
@@ -652,9 +659,9 @@ const ProcessesTab = () => {
                 <div className="process-details-panel">
                     <div className="panel-header">
                         <h3>Process Details</h3>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setSelectedProcess(null)}>
+                        <Button variant="outline" size="sm" onClick={() => setSelectedProcess(null)}>
                             Close
-                        </button>
+                        </Button>
                     </div>
                     <div className="panel-body">
                         <div className="details-grid">
@@ -766,10 +773,10 @@ const ServicesTab = () => {
         }
     }
 
-    function getServiceStatusClass(status) {
+    function getServiceStatusVariant(status) {
         if (status === 'running' || status === 'active') return 'success';
         if (status === 'stopped' || status === 'inactive') return 'secondary';
-        if (status === 'failed') return 'danger';
+        if (status === 'failed') return 'destructive';
         return 'warning';
     }
 
@@ -780,13 +787,13 @@ const ServicesTab = () => {
     return (
         <div className="services-container">
             <div className="services-toolbar">
-                <button className="btn btn-secondary btn-sm" onClick={loadServices}>
+                <Button variant="outline" size="sm" onClick={loadServices}>
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="23 4 23 10 17 10"/>
                         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                     </svg>
                     Refresh
-                </button>
+                </Button>
             </div>
 
             <div className="services-grid">
@@ -799,12 +806,12 @@ const ServicesTab = () => {
                         <div key={service.name} className="service-card">
                             <div className="service-header">
                                 <div className="service-info">
-                                    <span className={`status-dot ${getServiceStatusClass(service.status)}`} />
+                                    <span className={`status-dot ${getServiceStatusVariant(service.status)}`} />
                                     <h4>{service.name}</h4>
                                 </div>
-                                <span className={`badge badge-${getServiceStatusClass(service.status)}`}>
+                                <Badge variant={getServiceStatusVariant(service.status)}>
                                     {service.status}
-                                </span>
+                                </Badge>
                             </div>
 
                             {service.description && (
@@ -827,36 +834,39 @@ const ServicesTab = () => {
                             <div className="service-actions">
                                 {service.status === 'running' || service.status === 'active' ? (
                                     <>
-                                        <button
-                                            className="btn btn-secondary btn-sm"
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleServiceAction(service.name, 'restart')}
                                             disabled={actionLoading === `${service.name}-restart`}
                                         >
                                             {actionLoading === `${service.name}-restart` ? '...' : 'Restart'}
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary btn-sm"
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleServiceAction(service.name, 'stop')}
                                             disabled={actionLoading === `${service.name}-stop`}
                                         >
                                             {actionLoading === `${service.name}-stop` ? '...' : 'Stop'}
-                                        </button>
+                                        </Button>
                                     </>
                                 ) : (
-                                    <button
-                                        className="btn btn-primary btn-sm"
+                                    <Button
+                                        size="sm"
                                         onClick={() => handleServiceAction(service.name, 'start')}
                                         disabled={actionLoading === `${service.name}-start`}
                                     >
                                         {actionLoading === `${service.name}-start` ? '...' : 'Start'}
-                                    </button>
+                                    </Button>
                                 )}
-                                <button
-                                    className="btn btn-secondary btn-sm"
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={() => viewServiceLogs(service.name)}
                                 >
                                     Logs
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))
@@ -877,9 +887,9 @@ const ServicesTab = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowLogsModal(false)}>
+                            <Button variant="outline" onClick={() => setShowLogsModal(false)}>
                                 Close
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -900,14 +910,14 @@ function formatMemory(bytes) {
     return `${bytes.toFixed(1)} ${units[i]}`;
 }
 
-function getStatusClass(status) {
+function getStatusVariant(status) {
     switch (status?.toLowerCase()) {
         case 'running':
         case 'sleeping':
             return 'success';
         case 'stopped':
         case 'zombie':
-            return 'danger';
+            return 'destructive';
         case 'idle':
         case 'disk-sleep':
             return 'warning';

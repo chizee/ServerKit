@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { Loader } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const SSOCallback = () => {
     const { provider } = useParams();
@@ -54,9 +55,9 @@ const SSOCallback = () => {
                         <h1>Authentication Failed</h1>
                         <p className="error-message">{error}</p>
                     </div>
-                    <Link to="/login" className="btn btn-primary btn-full">
-                        Back to Login
-                    </Link>
+                    <Button asChild className="btn-full">
+                        <Link to="/login">Back to Login</Link>
+                    </Button>
                 </div>
             </div>
         );

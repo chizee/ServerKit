@@ -1,6 +1,8 @@
 import { useTheme } from '../../contexts/ThemeContext';
 import useDashboardLayout from '../../hooks/useDashboardLayout';
 import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 
 const ACCENT_PRESETS = [
     { label: 'Indigo', color: '#6366f1' },
@@ -106,14 +108,10 @@ const AppearanceTab = () => {
                     {widgets.map((widget, idx) => (
                         <div key={widget.id} className={`widget-item${!widget.visible ? ' widget-item--hidden' : ''}`}>
                             <div className="widget-item__info">
-                                <label className="toggle-switch">
-                                    <input
-                                        type="checkbox"
-                                        checked={widget.visible}
-                                        onChange={() => toggleWidget(widget.id)}
-                                    />
-                                    <span className="toggle-slider"></span>
-                                </label>
+                                <Switch
+                                    checked={widget.visible}
+                                    onCheckedChange={() => toggleWidget(widget.id)}
+                                />
                                 <span className="widget-item__label">{widget.label}</span>
                             </div>
                             <div className="widget-item__controls">
@@ -137,10 +135,10 @@ const AppearanceTab = () => {
                         </div>
                     ))}
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={resetLayout} style={{ marginTop: '12px' }}>
+                <Button variant="outline" size="sm" onClick={resetLayout} style={{ marginTop: '12px' }}>
                     <RotateCcw size={14} />
                     Reset to defaults
-                </button>
+                </Button>
             </div>
 
         </div>

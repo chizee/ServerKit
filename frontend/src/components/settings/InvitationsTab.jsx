@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import InviteModal from './InviteModal';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const InvitationsTab = () => {
     const [invitations, setInvitations] = useState([]);
@@ -55,14 +57,22 @@ const InvitationsTab = () => {
         });
     }
 
-    function getStatusBadgeClass(status, isExpired) {
-        if (isExpired && status === 'pending') return 'invitation-status expired';
+    function getRoleBadgeVariant(role) {
+        switch (role) {
+            case 'admin': return 'destructive';
+            case 'developer': return 'default';
+            default: return 'secondary';
+        }
+    }
+
+    function getStatusBadgeVariant(status, isExpired) {
+        if (isExpired && status === 'pending') return 'warning';
         switch (status) {
-            case 'pending': return 'invitation-status pending';
-            case 'accepted': return 'invitation-status accepted';
-            case 'expired': return 'invitation-status expired';
-            case 'revoked': return 'invitation-status revoked';
-            default: return 'invitation-status';
+            case 'pending': return 'info';
+            case 'accepted': return 'success';
+            case 'expired': return 'warning';
+            case 'revoked': return 'secondary';
+            default: return 'secondary';
         }
     }
 
@@ -73,7 +83,7 @@ const InvitationsTab = () => {
                     <h4>Invitations</h4>
                     <p>Manage team invitations</p>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowInviteModal(true)}>
+                <Button variant="default" size="sm" onClick={() => setShowInviteModal(true)}>
                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                         <circle cx="8.5" cy="7" r="4"/>
@@ -81,7 +91,7 @@ const InvitationsTab = () => {
                         <line x1="23" y1="11" x2="17" y2="11"/>
                     </svg>
                     Invite User
-                </button>
+                </Button>
             </div>
 
             {loading ? (
@@ -106,43 +116,47 @@ const InvitationsTab = () => {
                                 <tr key={inv.id}>
                                     <td>{inv.email || <span className="text-muted">Link only</span>}</td>
                                     <td>
-                                        <span className={`badge ${inv.role === 'admin' ? 'badge-danger' : inv.role === 'developer' ? 'badge-primary' : 'badge-secondary'}`}>
+                                        <Badge variant={getRoleBadgeVariant(inv.role)}>
                                             {inv.role}
-                                        </span>
+                                        </Badge>
                                     </td>
                                     <td>
-                                        <span className={getStatusBadgeClass(inv.status, inv.is_expired)}>
+                                        <Badge variant={getStatusBadgeVariant(inv.status, inv.is_expired)}>
                                             {inv.is_expired && inv.status === 'pending' ? 'expired' : inv.status}
-                                        </span>
+                                        </Badge>
                                     </td>
                                     <td className="date-cell">{formatDate(inv.created_at)}</td>
                                     <td className="date-cell">{formatDate(inv.expires_at)}</td>
                                     <td className="actions-cell">
                                         {inv.status === 'pending' && !inv.is_expired && (
                                             <>
-                                                <button
-                                                    className="btn btn-sm btn-ghost"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={() => copyLink(inv.token)}
                                                     title="Copy invite link"
                                                 >
                                                     {copied === inv.token ? 'Copied!' : 'Copy Link'}
-                                                </button>
+                                                </Button>
                                                 {inv.email && (
-                                                    <button
-                                                        className="btn btn-sm btn-ghost"
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
                                                         onClick={() => handleResend(inv.id)}
                                                         title="Resend email"
                                                     >
                                                         Resend
-                                                    </button>
+                                                    </Button>
                                                 )}
-                                                <button
-                                                    className="btn btn-sm btn-ghost text-danger"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={() => handleRevoke(inv.id)}
                                                     title="Revoke invitation"
+                                                    className="text-destructive hover:text-destructive"
                                                 >
                                                     Revoke
-                                                </button>
+                                                </Button>
                                             </>
                                         )}
                                     </td>

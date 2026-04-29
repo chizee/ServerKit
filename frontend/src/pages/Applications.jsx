@@ -5,6 +5,9 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const Applications = () => {
     const navigate = useNavigate();
@@ -145,9 +148,9 @@ const Applications = () => {
                     <div className="docker-page-subtitle">Manage your web applications and services</div>
                 </div>
                 <div className="docker-page-actions">
-                    <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                    <Button onClick={() => setShowCreateModal(true)}>
                         <Plus size={16} /> New Application
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -183,9 +186,9 @@ const Applications = () => {
                         <div className="docker-panel-tab active">All Applications</div>
                     </div>
                     <div className="docker-panel-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={loadApps}>
+                        <Button variant="outline" size="sm" onClick={loadApps}>
                             <RefreshCw size={14} /> Refresh
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -199,7 +202,7 @@ const Applications = () => {
                             />
                             Show stopped
                         </label>
-                        <input
+                        <Input
                             type="text"
                             className="docker-search"
                             placeholder="Search apps..."
@@ -468,8 +471,8 @@ const AppLogsModal = ({ app, onClose }) => {
                     <pre className="log-viewer">{loading ? 'Loading...' : logs}</pre>
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-secondary" onClick={loadLogs}>Refresh</button>
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    <Button variant="outline" onClick={loadLogs}>Refresh</Button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>
@@ -531,9 +534,9 @@ const CreateAppModal = ({ onClose }) => {
                 </div>
 
                 <div className="modal-footer">
-                    <button className="btn btn-secondary" onClick={goToAllTemplates}>
+                    <Button variant="outline" onClick={goToAllTemplates}>
                         Browse All Templates
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

@@ -4,6 +4,7 @@ import { ExternalLink, Plus, GitBranch, Layers } from 'lucide-react';
 import wordpressApi from '../services/wordpress';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
+import { Badge } from '@/components/ui/badge';
 
 const WordPressProjects = () => {
     const [projects, setProjects] = useState([]);
@@ -102,15 +103,15 @@ const ProjectCard = ({ project, onClick }) => {
                     </div>
                     {envTypes.length > 0 && (
                         <div className="wp-project-env-badges">
-                            <span className="wp-env-badge env-production">PROD</span>
+                            <Badge variant="default">PROD</Badge>
                             {envTypes.includes('staging') && (
-                                <span className="wp-env-badge env-staging">STG</span>
+                                <Badge variant="secondary">STG</Badge>
                             )}
                             {envTypes.includes('development') && (
-                                <span className="wp-env-badge env-development">DEV</span>
+                                <Badge variant="outline">DEV</Badge>
                             )}
                             {envTypes.includes('multidev') && (
-                                <span className="wp-env-badge env-multidev">MD</span>
+                                <Badge variant="secondary">MD</Badge>
                             )}
                         </div>
                     )}

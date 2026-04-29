@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const NotificationsTab = () => {
     const { isAdmin, user } = useAuth();
@@ -138,17 +144,13 @@ const NotificationsTab = () => {
         <div className="user-notification-prefs">
             <div className="settings-card">
                 <div className="form-group">
-                    <label className="toggle-switch-label">
-                        <span>Enable notifications for my account</span>
-                        <label className="toggle-switch">
-                            <input
-                                type="checkbox"
-                                checked={userPrefs.enabled}
-                                onChange={(e) => setUserPrefs({...userPrefs, enabled: e.target.checked})}
-                            />
-                            <span className="toggle-slider"></span>
-                        </label>
-                    </label>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={userPrefs.enabled}
+                            onCheckedChange={(checked) => setUserPrefs({...userPrefs, enabled: checked})}
+                        />
+                        <Label>Enable notifications for my account</Label>
+                    </div>
                 </div>
             </div>
 
@@ -158,11 +160,10 @@ const NotificationsTab = () => {
                 <div className="channel-toggles">
                     {['email', 'discord', 'slack', 'telegram'].map(ch => (
                         <label key={ch} className="channel-toggle">
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={userPrefs.channels?.includes(ch)}
-                                onChange={(e) => {
-                                    const channels = e.target.checked
+                                onCheckedChange={(checked) => {
+                                    const channels = checked
                                         ? [...(userPrefs.channels || []), ch]
                                         : (userPrefs.channels || []).filter(c => c !== ch);
                                     setUserPrefs({...userPrefs, channels});
@@ -178,8 +179,8 @@ const NotificationsTab = () => {
                 <div className="settings-card">
                     <h3>Email Settings</h3>
                     <div className="form-group">
-                        <label>Notification Email (optional)</label>
-                        <input
+                        <Label>Notification Email (optional)</Label>
+                        <Input
                             type="email"
                             value={userPrefs.email || ''}
                             onChange={(e) => setUserPrefs({...userPrefs, email: e.target.value})}
@@ -194,8 +195,8 @@ const NotificationsTab = () => {
                 <div className="settings-card">
                     <h3>Personal Discord Webhook</h3>
                     <div className="form-group">
-                        <label>Webhook URL</label>
-                        <input
+                        <Label>Webhook URL</Label>
+                        <Input
                             type="text"
                             value={userPrefs.discord_webhook || ''}
                             onChange={(e) => setUserPrefs({...userPrefs, discord_webhook: e.target.value})}
@@ -210,8 +211,8 @@ const NotificationsTab = () => {
                 <div className="settings-card">
                     <h3>Personal Telegram</h3>
                     <div className="form-group">
-                        <label>Your Chat ID</label>
-                        <input
+                        <Label>Your Chat ID</Label>
+                        <Input
                             type="text"
                             value={userPrefs.telegram_chat_id || ''}
                             onChange={(e) => setUserPrefs({...userPrefs, telegram_chat_id: e.target.value})}
@@ -228,11 +229,10 @@ const NotificationsTab = () => {
                 <div className="severity-toggles">
                     {severityOptions.map(severity => (
                         <label key={severity} className={`severity-toggle ${severity}`}>
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={userPrefs.severities?.includes(severity)}
-                                onChange={(e) => {
-                                    const severities = e.target.checked
+                                onCheckedChange={(checked) => {
+                                    const severities = checked
                                         ? [...(userPrefs.severities || []), severity]
                                         : (userPrefs.severities || []).filter(s => s !== severity);
                                     setUserPrefs({...userPrefs, severities});
@@ -255,12 +255,11 @@ const NotificationsTab = () => {
                         apps: 'Application Events'
                     }).map(([key, label]) => (
                         <label key={key} className="category-toggle">
-                            <input
-                                type="checkbox"
+                            <Checkbox
                                 checked={userPrefs.categories?.[key] !== false}
-                                onChange={(e) => setUserPrefs({
+                                onCheckedChange={(checked) => setUserPrefs({
                                     ...userPrefs,
-                                    categories: { ...userPrefs.categories, [key]: e.target.checked }
+                                    categories: { ...userPrefs.categories, [key]: checked }
                                 })}
                             />
                             <span>{label}</span>
@@ -273,26 +272,22 @@ const NotificationsTab = () => {
                 <h3>Quiet Hours</h3>
                 <p>Pause non-critical notifications during these hours</p>
                 <div className="form-group">
-                    <label className="toggle-switch-label">
-                        <span>Enable quiet hours</span>
-                        <label className="toggle-switch">
-                            <input
-                                type="checkbox"
-                                checked={userPrefs.quiet_hours?.enabled}
-                                onChange={(e) => setUserPrefs({
-                                    ...userPrefs,
-                                    quiet_hours: { ...userPrefs.quiet_hours, enabled: e.target.checked }
-                                })}
-                            />
-                            <span className="toggle-slider"></span>
-                        </label>
-                    </label>
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            checked={userPrefs.quiet_hours?.enabled}
+                            onCheckedChange={(checked) => setUserPrefs({
+                                ...userPrefs,
+                                quiet_hours: { ...userPrefs.quiet_hours, enabled: checked }
+                            })}
+                        />
+                        <Label>Enable quiet hours</Label>
+                    </div>
                 </div>
                 {userPrefs.quiet_hours?.enabled && (
                     <div className="form-row">
                         <div className="form-group">
-                            <label>Start Time</label>
-                            <input
+                            <Label>Start Time</Label>
+                            <Input
                                 type="time"
                                 value={userPrefs.quiet_hours?.start || '22:00'}
                                 onChange={(e) => setUserPrefs({
@@ -302,8 +297,8 @@ const NotificationsTab = () => {
                             />
                         </div>
                         <div className="form-group">
-                            <label>End Time</label>
-                            <input
+                            <Label>End Time</Label>
+                            <Input
                                 type="time"
                                 value={userPrefs.quiet_hours?.end || '08:00'}
                                 onChange={(e) => setUserPrefs({
@@ -317,20 +312,20 @@ const NotificationsTab = () => {
             </div>
 
             <div className="form-actions">
-                <button
-                    className="btn btn-secondary"
+                <Button
+                    variant="outline"
                     onClick={handleTestUserNotification}
                     disabled={testing === 'user' || !userPrefs.enabled}
                 >
                     {testing === 'user' ? 'Sending...' : 'Send Test Notification'}
-                </button>
-                <button
-                    className="btn btn-primary"
+                </Button>
+                <Button
+                    variant="default"
                     onClick={handleSaveUserPrefs}
                     disabled={saving}
                 >
                     {saving ? 'Saving...' : 'Save Preferences'}
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -419,9 +414,9 @@ const NotificationsTab = () => {
                                 <p>{channel.description}</p>
                             </div>
                             <div className="channel-status">
-                                <span className={`badge ${config[channel.id]?.enabled ? 'badge-success' : 'badge-secondary'}`}>
+                                <Badge variant={config[channel.id]?.enabled ? 'success' : 'secondary'}>
                                     {config[channel.id]?.enabled ? 'Enabled' : 'Disabled'}
-                                </span>
+                                </Badge>
                                 <svg
                                     viewBox="0 0 24 24"
                                     width="20"
@@ -436,24 +431,20 @@ const NotificationsTab = () => {
                         {expandedChannel === channel.id && (
                             <div className="channel-config">
                                 <div className="form-group">
-                                    <label className="toggle-switch-label">
-                                        <span>Enable {channel.name}</span>
-                                        <label className="toggle-switch">
-                                            <input
-                                                type="checkbox"
-                                                checked={config[channel.id]?.enabled || false}
-                                                onChange={(e) => updateChannelConfig(channel.id, 'enabled', e.target.checked)}
-                                            />
-                                            <span className="toggle-slider"></span>
-                                        </label>
-                                    </label>
+                                    <div className="flex items-center gap-3">
+                                        <Switch
+                                            checked={config[channel.id]?.enabled || false}
+                                            onCheckedChange={(checked) => updateChannelConfig(channel.id, 'enabled', checked)}
+                                        />
+                                        <Label>Enable {channel.name}</Label>
+                                    </div>
                                 </div>
 
                                 {channel.id === 'discord' && (
                                     <>
                                         <div className="form-group">
-                                            <label>Webhook URL</label>
-                                            <input
+                                            <Label>Webhook URL</Label>
+                                            <Input
                                                 type="text"
                                                 value={config.discord.webhook_url || ''}
                                                 onChange={(e) => updateChannelConfig('discord', 'webhook_url', e.target.value)}
@@ -463,8 +454,8 @@ const NotificationsTab = () => {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>Bot Username</label>
-                                                <input
+                                                <Label>Bot Username</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.discord.username || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('discord', 'username', e.target.value)}
@@ -472,8 +463,8 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label>Avatar URL (optional)</label>
-                                                <input
+                                                <Label>Avatar URL (optional)</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.discord.avatar_url || ''}
                                                     onChange={(e) => updateChannelConfig('discord', 'avatar_url', e.target.value)}
@@ -487,8 +478,8 @@ const NotificationsTab = () => {
                                 {channel.id === 'slack' && (
                                     <>
                                         <div className="form-group">
-                                            <label>Webhook URL</label>
-                                            <input
+                                            <Label>Webhook URL</Label>
+                                            <Input
                                                 type="text"
                                                 value={config.slack.webhook_url || ''}
                                                 onChange={(e) => updateChannelConfig('slack', 'webhook_url', e.target.value)}
@@ -498,8 +489,8 @@ const NotificationsTab = () => {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>Channel (optional)</label>
-                                                <input
+                                                <Label>Channel (optional)</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.slack.channel || ''}
                                                     onChange={(e) => updateChannelConfig('slack', 'channel', e.target.value)}
@@ -507,8 +498,8 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label>Username</label>
-                                                <input
+                                                <Label>Username</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.slack.username || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('slack', 'username', e.target.value)}
@@ -522,8 +513,8 @@ const NotificationsTab = () => {
                                 {channel.id === 'telegram' && (
                                     <>
                                         <div className="form-group">
-                                            <label>Bot Token</label>
-                                            <input
+                                            <Label>Bot Token</Label>
+                                            <Input
                                                 type="password"
                                                 value={config.telegram.bot_token || ''}
                                                 onChange={(e) => updateChannelConfig('telegram', 'bot_token', e.target.value)}
@@ -532,8 +523,8 @@ const NotificationsTab = () => {
                                             <span className="form-help">Get a bot token from @BotFather on Telegram</span>
                                         </div>
                                         <div className="form-group">
-                                            <label>Chat ID</label>
-                                            <input
+                                            <Label>Chat ID</Label>
+                                            <Input
                                                 type="text"
                                                 value={config.telegram.chat_id || ''}
                                                 onChange={(e) => updateChannelConfig('telegram', 'chat_id', e.target.value)}
@@ -548,8 +539,8 @@ const NotificationsTab = () => {
                                     <>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>SMTP Host</label>
-                                                <input
+                                                <Label>SMTP Host</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.email.smtp_host || ''}
                                                     onChange={(e) => updateChannelConfig('email', 'smtp_host', e.target.value)}
@@ -557,8 +548,8 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label>SMTP Port</label>
-                                                <input
+                                                <Label>SMTP Port</Label>
+                                                <Input
                                                     type="number"
                                                     value={config.email.smtp_port || 587}
                                                     onChange={(e) => updateChannelConfig('email', 'smtp_port', parseInt(e.target.value))}
@@ -568,8 +559,8 @@ const NotificationsTab = () => {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>SMTP Username</label>
-                                                <input
+                                                <Label>SMTP Username</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.email.smtp_user || ''}
                                                     onChange={(e) => updateChannelConfig('email', 'smtp_user', e.target.value)}
@@ -577,8 +568,8 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label>SMTP Password</label>
-                                                <input
+                                                <Label>SMTP Password</Label>
+                                                <Input
                                                     type="password"
                                                     value={config.email.smtp_password || ''}
                                                     onChange={(e) => updateChannelConfig('email', 'smtp_password', e.target.value)}
@@ -588,8 +579,8 @@ const NotificationsTab = () => {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>From Email</label>
-                                                <input
+                                                <Label>From Email</Label>
+                                                <Input
                                                     type="email"
                                                     value={config.email.from_email || ''}
                                                     onChange={(e) => updateChannelConfig('email', 'from_email', e.target.value)}
@@ -597,8 +588,8 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label>From Name</label>
-                                                <input
+                                                <Label>From Name</Label>
+                                                <Input
                                                     type="text"
                                                     value={config.email.from_name || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('email', 'from_name', e.target.value)}
@@ -607,8 +598,8 @@ const NotificationsTab = () => {
                                             </div>
                                         </div>
                                         <div className="form-group">
-                                            <label>Recipient Emails (comma-separated)</label>
-                                            <input
+                                            <Label>Recipient Emails (comma-separated)</Label>
+                                            <Input
                                                 type="text"
                                                 value={(config.email.to_emails || []).join(', ')}
                                                 onChange={(e) => updateChannelConfig('email', 'to_emails', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
@@ -616,25 +607,21 @@ const NotificationsTab = () => {
                                             />
                                         </div>
                                         <div className="form-group">
-                                            <label className="toggle-switch-label">
-                                                <span>Use TLS</span>
-                                                <label className="toggle-switch">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={config.email.smtp_tls !== false}
-                                                        onChange={(e) => updateChannelConfig('email', 'smtp_tls', e.target.checked)}
-                                                    />
-                                                    <span className="toggle-slider"></span>
-                                                </label>
-                                            </label>
+                                            <div className="flex items-center gap-3">
+                                                <Switch
+                                                    checked={config.email.smtp_tls !== false}
+                                                    onCheckedChange={(checked) => updateChannelConfig('email', 'smtp_tls', checked)}
+                                                />
+                                                <Label>Use TLS</Label>
+                                            </div>
                                         </div>
                                     </>
                                 )}
 
                                 {channel.id === 'generic_webhook' && (
                                     <div className="form-group">
-                                        <label>Webhook URL</label>
-                                        <input
+                                        <Label>Webhook URL</Label>
+                                        <Input
                                             type="text"
                                             value={config.generic_webhook.url || ''}
                                             onChange={(e) => updateChannelConfig('generic_webhook', 'url', e.target.value)}
@@ -645,14 +632,13 @@ const NotificationsTab = () => {
                                 )}
 
                                 <div className="form-group">
-                                    <label>Alert Severities</label>
+                                    <Label>Alert Severities</Label>
                                     <div className="severity-toggles">
                                         {severityOptions.map(severity => (
                                             <label key={severity} className={`severity-toggle ${severity}`}>
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     checked={config[channel.id]?.notify_on?.includes(severity) || false}
-                                                    onChange={() => toggleSeverity(channel.id, severity)}
+                                                    onCheckedChange={() => toggleSeverity(channel.id, severity)}
                                                 />
                                                 <span>{severity.charAt(0).toUpperCase() + severity.slice(1)}</span>
                                             </label>
@@ -661,20 +647,20 @@ const NotificationsTab = () => {
                                 </div>
 
                                 <div className="channel-actions">
-                                    <button
-                                        className="btn btn-secondary"
+                                    <Button
+                                        variant="outline"
                                         onClick={() => handleTestChannel(channel.id)}
                                         disabled={testing === channel.id || !config[channel.id]?.enabled}
                                     >
                                         {testing === channel.id ? 'Testing...' : 'Send Test'}
-                                    </button>
-                                    <button
-                                        className="btn btn-primary"
+                                    </Button>
+                                    <Button
+                                        variant="default"
                                         onClick={() => handleSaveChannel(channel.id)}
                                         disabled={saving}
                                     >
                                         {saving ? 'Saving...' : 'Save'}
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         )}

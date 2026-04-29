@@ -21,6 +21,9 @@ import {
 } from 'recharts';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const CHART_COLORS = [
     '#6366f1', '#ec4899', '#14b8a6', '#f59e0b',
@@ -236,10 +239,10 @@ const FleetMonitor = () => {
                     <p>Cross-server monitoring, alerts, and capacity planning.</p>
                 </div>
                 <div className="header-actions">
-                    <button className="btn btn-primary" onClick={fetchTabData} disabled={loading}>
+                    <Button onClick={fetchTabData} disabled={loading}>
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                         Refresh
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -317,9 +320,9 @@ const FleetMonitor = () => {
                                                     {server.containers ?? '-'}
                                                 </div>
                                                 <div className="fleet-heatmap__cell">
-                                                    <span className={`badge ${server.status === 'online' ? 'badge-success' : 'badge-error'}`}>
+                                                    <Badge variant={server.status === 'online' ? 'success' : 'destructive'}>
                                                         {server.status}
-                                                    </span>
+                                                    </Badge>
                                                 </div>
                                             </div>
                                         ))}
@@ -349,9 +352,9 @@ const FleetMonitor = () => {
                             <div className="card-header flex justify-between items-center">
                                 <h2>Server Comparison</h2>
                                 <div className="flex gap-2">
-                                    <button className="btn btn-sm btn-ghost" onClick={exportCsv} disabled={selectedServers.length === 0}>
+                                    <Button variant="ghost" size="sm" onClick={exportCsv} disabled={selectedServers.length === 0}>
                                         <Download size={14} /> Export CSV
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                             <div className="card-body">
@@ -360,13 +363,14 @@ const FleetMonitor = () => {
                                         <label className="text-sm font-medium mb-1 block">Select Servers (click to toggle)</label>
                                         <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-2 border rounded">
                                             {servers.map(s => (
-                                                <button
+                                                <Button
                                                     key={s.id}
-                                                    className={`btn btn-sm ${selectedServers.includes(s.id) ? 'btn-primary' : 'btn-ghost'}`}
+                                                    size="sm"
+                                                    variant={selectedServers.includes(s.id) ? 'default' : 'ghost'}
                                                     onClick={() => toggleServer(s.id)}
                                                 >
                                                     {s.name}
-                                                </button>
+                                                </Button>
                                             ))}
                                         </div>
                                     </div>
@@ -382,25 +386,25 @@ const FleetMonitor = () => {
                                         <label className="text-sm font-medium mb-1 block">Period</label>
                                         <div className="flex gap-1">
                                             {['1h', '6h', '24h', '7d'].map(p => (
-                                                <button
+                                                <Button
                                                     key={p}
-                                                    className={`btn btn-sm ${compPeriod === p ? 'btn-primary' : 'btn-ghost'}`}
+                                                    size="sm"
+                                                    variant={compPeriod === p ? 'default' : 'ghost'}
                                                     onClick={() => setCompPeriod(p)}
                                                 >
                                                     {p}
-                                                </button>
+                                                </Button>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex justify-end mb-4">
-                                    <button
-                                        className="btn btn-primary"
+                                    <Button
                                         onClick={loadComparison}
                                         disabled={selectedServers.length === 0 || loading}
                                     >
                                         <BarChart3 size={16} /> Compare
-                                    </button>
+                                    </Button>
                                 </div>
 
                                 {compChartData.length > 0 && compData?.series && (
@@ -454,13 +458,14 @@ const FleetMonitor = () => {
                                 <h2>Metric Alerts</h2>
                                 <div className="flex gap-1">
                                     {['active', 'acknowledged', 'resolved', 'all'].map(f => (
-                                        <button
+                                        <Button
                                             key={f}
-                                            className={`btn btn-sm ${alertFilter === f ? 'btn-primary' : 'btn-ghost'}`}
+                                            size="sm"
+                                            variant={alertFilter === f ? 'default' : 'ghost'}
                                             onClick={() => setAlertFilter(f)}
                                         >
                                             {f.charAt(0).toUpperCase() + f.slice(1)}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
@@ -487,31 +492,31 @@ const FleetMonitor = () => {
                                                     <td className="font-mono">{a.value}%</td>
                                                     <td className="font-mono">{a.threshold}%</td>
                                                     <td>
-                                                        <span className={`badge ${a.severity === 'critical' ? 'badge-error' : 'badge-warning'}`}>
+                                                        <Badge variant={a.severity === 'critical' ? 'destructive' : 'warning'}>
                                                             {a.severity}
-                                                        </span>
+                                                        </Badge>
                                                     </td>
                                                     <td>
-                                                        <span className={`badge ${a.status === 'active' ? 'badge-error' : a.status === 'acknowledged' ? 'badge-warning' : 'badge-success'}`}>
+                                                        <Badge variant={a.status === 'active' ? 'destructive' : a.status === 'acknowledged' ? 'warning' : 'success'}>
                                                             {a.status}
-                                                        </span>
+                                                        </Badge>
                                                     </td>
                                                     <td className="text-sm">{new Date(a.created_at).toLocaleString()}</td>
                                                     <td className="actions">
                                                         {a.status === 'active' && (
                                                             <>
-                                                                <button className="btn btn-sm btn-ghost" onClick={() => acknowledgeAlert(a.id)}>
+                                                                <Button variant="ghost" size="sm" onClick={() => acknowledgeAlert(a.id)}>
                                                                     <Eye size={14} /> Ack
-                                                                </button>
-                                                                <button className="btn btn-sm btn-ghost" onClick={() => resolveAlert(a.id)}>
+                                                                </Button>
+                                                                <Button variant="ghost" size="sm" onClick={() => resolveAlert(a.id)}>
                                                                     <CheckCircle size={14} />
-                                                                </button>
+                                                                </Button>
                                                             </>
                                                         )}
                                                         {a.status === 'acknowledged' && (
-                                                            <button className="btn btn-sm btn-ghost" onClick={() => resolveAlert(a.id)}>
+                                                            <Button variant="ghost" size="sm" onClick={() => resolveAlert(a.id)}>
                                                                 <CheckCircle size={14} /> Resolve
-                                                            </button>
+                                                            </Button>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -552,9 +557,9 @@ const FleetMonitor = () => {
                                                         <td className="text-red-600">{t.critical_threshold}%</td>
                                                         <td>{t.duration_seconds}s</td>
                                                         <td>
-                                                            <button className="btn btn-ghost btn-sm text-red-600" onClick={() => deleteThreshold(t.id)}>
+                                                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteThreshold(t.id)}>
                                                                 <XCircle size={14} />
-                                                            </button>
+                                                            </Button>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -594,25 +599,25 @@ const FleetMonitor = () => {
                                         </div>
                                         <div className="form-group">
                                             <label>Duration (seconds)</label>
-                                            <input type="number" className="form-input w-full" value={newThreshold.duration_seconds}
+                                            <Input type="number" value={newThreshold.duration_seconds}
                                                 onChange={e => setNewThreshold(p => ({ ...p, duration_seconds: parseInt(e.target.value) || 300 }))} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="form-group">
                                             <label>Warning (%)</label>
-                                            <input type="number" className="form-input w-full" value={newThreshold.warning_threshold}
+                                            <Input type="number" value={newThreshold.warning_threshold}
                                                 onChange={e => setNewThreshold(p => ({ ...p, warning_threshold: parseFloat(e.target.value) || 80 }))} />
                                         </div>
                                         <div className="form-group">
                                             <label>Critical (%)</label>
-                                            <input type="number" className="form-input w-full" value={newThreshold.critical_threshold}
+                                            <Input type="number" value={newThreshold.critical_threshold}
                                                 onChange={e => setNewThreshold(p => ({ ...p, critical_threshold: parseFloat(e.target.value) || 95 }))} />
                                         </div>
                                     </div>
-                                    <button className="btn btn-primary w-full" onClick={saveThreshold}>
+                                    <Button className="w-full" onClick={saveThreshold}>
                                         Save Threshold
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -648,9 +653,9 @@ const FleetMonitor = () => {
                                                     <td className="font-mono">{a.stddev}</td>
                                                     <td className="font-mono font-bold">{a.z_score}</td>
                                                     <td>
-                                                        <span className={`badge ${a.direction === 'high' ? 'badge-error' : 'badge-info'}`}>
+                                                        <Badge variant={a.direction === 'high' ? 'destructive' : 'info'}>
                                                             {a.direction === 'high' ? 'Unusually High' : 'Unusually Low'}
-                                                        </span>
+                                                        </Badge>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -687,9 +692,9 @@ const FleetMonitor = () => {
                                         </select>
                                     </div>
                                     <div className="form-group flex items-end">
-                                        <button className="btn btn-primary" onClick={() => loadForecast()} disabled={!forecastServer}>
+                                        <Button onClick={() => loadForecast()} disabled={!forecastServer}>
                                             <TrendingUp size={16} /> Forecast
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
 
@@ -775,9 +780,8 @@ const FleetMonitor = () => {
                         <div className="card-body">
                             <div className="flex gap-3 mb-6">
                                 <div className="flex-1">
-                                    <input
+                                    <Input
                                         type="text"
-                                        className="form-input w-full"
                                         placeholder="Search for servers, containers, tags..."
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
@@ -790,9 +794,9 @@ const FleetMonitor = () => {
                                     <option value="container">Containers</option>
                                     <option value="tag">Tags</option>
                                 </select>
-                                <button className="btn btn-primary" onClick={handleSearch} disabled={searchQuery.length < 2}>
+                                <Button onClick={handleSearch} disabled={searchQuery.length < 2}>
                                     <Search size={16} /> Search
-                                </button>
+                                </Button>
                             </div>
 
                             {searchResults.length > 0 ? (
@@ -811,13 +815,13 @@ const FleetMonitor = () => {
                                             {searchResults.map((r, i) => (
                                                 <tr key={i}>
                                                     <td className="font-semibold">{r.server_name}</td>
-                                                    <td><span className="badge badge-default">{r.match_type}</span></td>
+                                                    <td><Badge variant="secondary">{r.match_type}</Badge></td>
                                                     <td>{r.match_name}</td>
                                                     <td className="text-sm text-gray-500">{r.match_detail}</td>
                                                     <td>
-                                                        <span className={`badge ${r.status === 'online' || r.status === 'running' ? 'badge-success' : 'badge-error'}`}>
+                                                        <Badge variant={r.status === 'online' || r.status === 'running' ? 'success' : 'destructive'}>
                                                             {r.status}
-                                                        </span>
+                                                        </Badge>
                                                     </td>
                                                 </tr>
                                             ))}

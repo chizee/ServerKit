@@ -3,6 +3,9 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import ServerKitLogo from '../components/ServerKitLogo';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const Register = () => {
     const [email, setEmail] = useState('');
@@ -130,8 +133,8 @@ const Register = () => {
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label htmlFor="email">Email</label>
-                        <input
+                        <Label htmlFor="email">Email</Label>
+                        <Input
                             type="email"
                             id="email"
                             value={email}
@@ -143,8 +146,8 @@ const Register = () => {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="username">Username</label>
-                        <input
+                        <Label htmlFor="username">Username</Label>
+                        <Input
                             type="text"
                             id="username"
                             value={username}
@@ -155,8 +158,8 @@ const Register = () => {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">Password</label>
-                        <input
+                        <Label htmlFor="password">Password</Label>
+                        <Input
                             type="password"
                             id="password"
                             value={password}
@@ -167,8 +170,8 @@ const Register = () => {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="confirmPassword">Confirm Password</label>
-                        <input
+                        <Label htmlFor="confirmPassword">Confirm Password</Label>
+                        <Input
                             type="password"
                             id="confirmPassword"
                             value={confirmPassword}
@@ -178,9 +181,9 @@ const Register = () => {
                         />
                     </div>
 
-                    <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                    <Button type="submit" className="btn-full" disabled={loading}>
                         {loading ? 'Creating account...' : 'Create Account'}
-                    </button>
+                    </Button>
                 </form>
 
                 <p className="auth-footer">

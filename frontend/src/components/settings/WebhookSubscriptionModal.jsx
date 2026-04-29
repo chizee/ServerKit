@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import api from '../../services/api';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
     const [name, setName] = useState('');
@@ -75,10 +78,9 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="form-group">
-                            <label>Name</label>
-                            <input
+                            <Label>Name</Label>
+                            <Input
                                 type="text"
-                                className="form-input"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
                                 placeholder="e.g. Slack Notifications, CI Trigger"
@@ -87,10 +89,9 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Payload URL</label>
-                            <input
+                            <Label>Payload URL</Label>
+                            <Input
                                 type="url"
-                                className="form-input"
                                 value={url}
                                 onChange={e => setUrl(e.target.value)}
                                 placeholder="https://example.com/webhook"
@@ -99,7 +100,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Events</label>
+                            <Label>Events</Label>
                             <div className="webhook-modal__events">
                                 {Object.entries(groupedEvents).map(([category, events]) => {
                                     const categoryEvents = events.map(e => e.type);
@@ -107,20 +108,18 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                                     return (
                                         <div key={category} className="webhook-modal__event-group">
                                             <label className="webhook-modal__category">
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     checked={allSelected}
-                                                    onChange={() => handleCategoryToggle(category)}
+                                                    onCheckedChange={() => handleCategoryToggle(category)}
                                                 />
                                                 <strong>{category}</strong>
                                             </label>
                                             <div className="webhook-modal__event-list">
                                                 {events.map(event => (
                                                     <label key={event.type} className="webhook-modal__event-item">
-                                                        <input
-                                                            type="checkbox"
+                                                        <Checkbox
                                                             checked={selectedEvents.includes(event.type)}
-                                                            onChange={() => handleEventToggle(event.type)}
+                                                            onCheckedChange={() => handleEventToggle(event.type)}
                                                         />
                                                         <span className="webhook-modal__event-type">{event.type}</span>
                                                         <span className="webhook-modal__event-desc">{event.description}</span>
@@ -135,10 +134,9 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
 
                         <div className="form-row">
                             <div className="form-group">
-                                <label>Retry Count</label>
-                                <input
+                                <Label>Retry Count</Label>
+                                <Input
                                     type="number"
-                                    className="form-input"
                                     value={retryCount}
                                     onChange={e => setRetryCount(parseInt(e.target.value) || 3)}
                                     min={0}
@@ -146,10 +144,9 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Timeout (seconds)</label>
-                                <input
+                                <Label>Timeout (seconds)</Label>
+                                <Input
                                     type="number"
-                                    className="form-input"
                                     value={timeoutSeconds}
                                     onChange={e => setTimeoutSeconds(parseInt(e.target.value) || 10)}
                                     min={1}
@@ -159,14 +156,14 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                        <button
+                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button
                             type="submit"
-                            className="btn btn-primary"
+                            variant="default"
                             disabled={saving || !name.trim() || !url.trim() || selectedEvents.length === 0}
                         >
                             {saving ? 'Saving...' : (subscription ? 'Update' : 'Create')}
-                        </button>
+                        </Button>
                     </div>
                 </form>
         </Modal>

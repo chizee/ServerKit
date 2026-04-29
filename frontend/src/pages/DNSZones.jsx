@@ -4,6 +4,17 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+    Select,
+    SelectTrigger,
+    SelectContent,
+    SelectItem,
+    SelectValue,
+} from '@/components/ui/select';
 
 const DNSZones = () => {
     const toast = useToast();
@@ -170,7 +181,7 @@ const DNSZones = () => {
                 </div>
                 <div className="page-header-actions">
                     {user?.is_admin && (
-                        <button className="btn btn-primary" onClick={() => setShowCreateZone(true)}>Add Zone</button>
+                        <Button onClick={() => setShowCreateZone(true)}>Add Zone</Button>
                     )}
                 </div>
             </div>
@@ -183,12 +194,12 @@ const DNSZones = () => {
                             onClick={() => loadRecords(zone.id)}>
                             <div className="dns-zone-item__info">
                                 <strong>{zone.domain}</strong>
-                                <span className="text-muted">{zone.provider} \u2022 {zone.record_count} records</span>
+                                <span className="text-muted">{zone.provider} &bull; {zone.record_count} records</span>
                             </div>
                             <div className="dns-zone-item__actions" onClick={e => e.stopPropagation()}>
-                                <button className="btn btn-sm" onClick={() => handleCheckPropagation(zone.domain)}>Check</button>
+                                <Button variant="outline" size="sm" onClick={() => handleCheckPropagation(zone.domain)}>Check</Button>
                                 {user?.is_admin && (
-                                    <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm(zone)}>Delete</button>
+                                    <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(zone)}>Delete</Button>
                                 )}
                             </div>
                         </div>
@@ -201,9 +212,9 @@ const DNSZones = () => {
                         <div className="dns-records-panel__header">
                             <h2>{selectedZone.domain}</h2>
                             <div className="dns-records-panel__actions">
-                                <button className="btn btn-sm" onClick={() => handleExport(selectedZone.id)}>Export</button>
+                                <Button variant="outline" size="sm" onClick={() => handleExport(selectedZone.id)}>Export</Button>
                                 {user?.is_admin && (
-                                    <button className="btn btn-sm btn-primary" onClick={() => setShowCreateRecord(true)}>Add Record</button>
+                                    <Button size="sm" onClick={() => setShowCreateRecord(true)}>Add Record</Button>
                                 )}
                             </div>
                         </div>
@@ -221,14 +232,14 @@ const DNSZones = () => {
                             <tbody>
                                 {records.map(rec => (
                                     <tr key={rec.id}>
-                                        <td><span className="badge badge--outline">{rec.record_type}</span></td>
+                                        <td><Badge variant="outline">{rec.record_type}</Badge></td>
                                         <td>{rec.name}</td>
                                         <td className="text-mono">{rec.content}</td>
                                         <td>{rec.ttl}</td>
                                         <td>{rec.priority || '-'}</td>
                                         <td>
                                             {user?.is_admin && (
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDeleteRecord(rec.id)}>Delete</button>
+                                                <Button variant="destructive" size="sm" onClick={() => handleDeleteRecord(rec.id)}>Delete</Button>
                                             )}
                                         </td>
                                     </tr>
@@ -251,17 +262,22 @@ const DNSZones = () => {
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Domain</label>
-                                <input className="form-input" value={zoneForm.domain} onChange={e => setZoneForm({...zoneForm, domain: e.target.value})} placeholder="example.com" />
+                                <Label>Domain</Label>
+                                <Input value={zoneForm.domain} onChange={e => setZoneForm({...zoneForm, domain: e.target.value})} placeholder="example.com" />
                             </div>
                             <div className="form-group">
-                                <label>Provider</label>
-                                <select className="form-select" value={zoneForm.provider} onChange={e => setZoneForm({...zoneForm, provider: e.target.value})}>
-                                    <option value="manual">Manual</option>
-                                    <option value="cloudflare">Cloudflare</option>
-                                    <option value="route53">Route 53 (AWS)</option>
-                                    <option value="digitalocean">DigitalOcean</option>
-                                </select>
+                                <Label>Provider</Label>
+                                <Select value={zoneForm.provider} onValueChange={v => setZoneForm({...zoneForm, provider: v})}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="manual">Manual</SelectItem>
+                                        <SelectItem value="cloudflare">Cloudflare</SelectItem>
+                                        <SelectItem value="route53">Route 53 (AWS)</SelectItem>
+                                        <SelectItem value="digitalocean">DigitalOcean</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             {zoneForm.provider !== 'manual' && (() => {
                                 const cfg = PROVIDER_CONFIG[zoneForm.provider];
@@ -271,17 +287,17 @@ const DNSZones = () => {
                                             <p className="text-muted text-sm">{cfg.helpText}</p>
                                         )}
                                         <div className="form-group">
-                                            <label>{cfg.zoneLabel}</label>
-                                            <input className="form-input" value={zoneForm.provider_zone_id} onChange={e => setZoneForm({...zoneForm, provider_zone_id: e.target.value})} placeholder={cfg.zonePlaceholder} />
+                                            <Label>{cfg.zoneLabel}</Label>
+                                            <Input value={zoneForm.provider_zone_id} onChange={e => setZoneForm({...zoneForm, provider_zone_id: e.target.value})} placeholder={cfg.zonePlaceholder} />
                                         </div>
                                         <div className="form-group">
-                                            <label>{cfg.tokenLabel}</label>
-                                            <input className="form-input" type="password" value={zoneForm.api_token} onChange={e => setZoneForm({...zoneForm, api_token: e.target.value})} placeholder={cfg.tokenPlaceholder} />
+                                            <Label>{cfg.tokenLabel}</Label>
+                                            <Input type="password" value={zoneForm.api_token} onChange={e => setZoneForm({...zoneForm, api_token: e.target.value})} placeholder={cfg.tokenPlaceholder} />
                                         </div>
                                         {cfg.extraFields?.map(field => (
                                             <div className="form-group" key={field.key}>
-                                                <label>{field.label}</label>
-                                                <input className="form-input" type={field.type} value={zoneForm[field.key] || ''} onChange={e => setZoneForm({...zoneForm, [field.key]: e.target.value})} placeholder={field.placeholder} />
+                                                <Label>{field.label}</Label>
+                                                <Input type={field.type} value={zoneForm[field.key] || ''} onChange={e => setZoneForm({...zoneForm, [field.key]: e.target.value})} placeholder={field.placeholder} />
                                             </div>
                                         ))}
                                     </>
@@ -289,8 +305,8 @@ const DNSZones = () => {
                             })()}
                         </div>
                         <div className="modal-footer">
-                            <button className="btn" onClick={() => setShowCreateZone(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleCreateZone} disabled={!zoneForm.domain}>Create</button>
+                            <Button variant="outline" onClick={() => setShowCreateZone(false)}>Cancel</Button>
+                            <Button onClick={handleCreateZone} disabled={!zoneForm.domain}>Create</Button>
                         </div>
                     </div>
                 </div>
@@ -305,35 +321,40 @@ const DNSZones = () => {
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Type</label>
-                                <select className="form-select" value={recordForm.record_type} onChange={e => setRecordForm({...recordForm, record_type: e.target.value})}>
-                                    {RECORD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
+                                <Label>Type</Label>
+                                <Select value={recordForm.record_type} onValueChange={v => setRecordForm({...recordForm, record_type: v})}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {RECORD_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="form-group">
-                                <label>Name</label>
-                                <input className="form-input" value={recordForm.name} onChange={e => setRecordForm({...recordForm, name: e.target.value})} placeholder="@ or subdomain" />
+                                <Label>Name</Label>
+                                <Input value={recordForm.name} onChange={e => setRecordForm({...recordForm, name: e.target.value})} placeholder="@ or subdomain" />
                             </div>
                             <div className="form-group">
-                                <label>Content</label>
-                                <input className="form-input" value={recordForm.content} onChange={e => setRecordForm({...recordForm, content: e.target.value})} placeholder="IP address or hostname" />
+                                <Label>Content</Label>
+                                <Input value={recordForm.content} onChange={e => setRecordForm({...recordForm, content: e.target.value})} placeholder="IP address or hostname" />
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>TTL</label>
-                                    <input className="form-input" type="number" value={recordForm.ttl} onChange={e => setRecordForm({...recordForm, ttl: parseInt(e.target.value) || 3600})} />
+                                    <Label>TTL</Label>
+                                    <Input type="number" value={recordForm.ttl} onChange={e => setRecordForm({...recordForm, ttl: parseInt(e.target.value) || 3600})} />
                                 </div>
                                 {(recordForm.record_type === 'MX' || recordForm.record_type === 'SRV') && (
                                     <div className="form-group">
-                                        <label>Priority</label>
-                                        <input className="form-input" type="number" value={recordForm.priority || ''} onChange={e => setRecordForm({...recordForm, priority: parseInt(e.target.value) || null})} />
+                                        <Label>Priority</Label>
+                                        <Input type="number" value={recordForm.priority || ''} onChange={e => setRecordForm({...recordForm, priority: parseInt(e.target.value) || null})} />
                                     </div>
                                 )}
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn" onClick={() => setShowCreateRecord(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleCreateRecord} disabled={!recordForm.content}>Create</button>
+                            <Button variant="outline" onClick={() => setShowCreateRecord(false)}>Cancel</Button>
+                            <Button onClick={handleCreateRecord} disabled={!recordForm.content}>Create</Button>
                         </div>
                     </div>
                 </div>

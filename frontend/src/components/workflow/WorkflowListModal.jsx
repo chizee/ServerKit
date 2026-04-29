@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Clock, Layers, GitBranch, Loader } from 'lucide-react';
+import { Trash2, Clock, Layers, GitBranch, Loader } from 'lucide-react';
 import api from '../../services/api';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
 
 const WorkflowListModal = ({ onLoad, onClose }) => {
     const [workflows, setWorkflows] = useState([]);
@@ -76,7 +77,7 @@ const WorkflowListModal = ({ onLoad, onClose }) => {
                     ) : error ? (
                         <div className="workflow-list-error">
                             <span>{error}</span>
-                            <button onClick={loadWorkflows}>Retry</button>
+                            <Button variant="outline" size="sm" onClick={loadWorkflows}>Retry</Button>
                         </div>
                     ) : workflows.length === 0 ? (
                         <div className="workflow-list-empty">
@@ -114,7 +115,9 @@ const WorkflowListModal = ({ onLoad, onClose }) => {
                                             {formatDate(workflow.updated_at)}
                                         </div>
                                     </div>
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="workflow-item-delete"
                                         onClick={(e) => handleDelete(e, workflow)}
                                         disabled={deletingId === workflow.id}
@@ -125,7 +128,7 @@ const WorkflowListModal = ({ onLoad, onClose }) => {
                                         ) : (
                                             <Trash2 size={16} />
                                         )}
-                                    </button>
+                                    </Button>
                                 </div>
                             ))}
                         </div>

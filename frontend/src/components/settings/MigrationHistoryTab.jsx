@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Database, Loader, CheckCircle, ArrowUpCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const MigrationHistoryTab = () => {
     const [revisions, setRevisions] = useState([]);
@@ -77,17 +78,17 @@ const MigrationHistoryTab = () => {
                                     <td>{rev.description || 'Schema update'}</td>
                                     <td>
                                         {rev.is_current && (
-                                            <span className="badge badge--success">
+                                            <Badge variant="success">
                                                 <CheckCircle size={12} /> Current
-                                            </span>
+                                            </Badge>
                                         )}
                                         {rev.is_head && !rev.is_current && (
-                                            <span className="badge badge--warning">
+                                            <Badge variant="warning">
                                                 <ArrowUpCircle size={12} /> Pending
-                                            </span>
+                                            </Badge>
                                         )}
                                         {!rev.is_current && !rev.is_head && (
-                                            <span className="badge badge--neutral">Applied</span>
+                                            <Badge variant="secondary">Applied</Badge>
                                         )}
                                     </td>
                                 </tr>

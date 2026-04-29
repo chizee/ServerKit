@@ -65,6 +65,13 @@ func New(log *logger.Logger, configPath string) *Server {
 
 // Run starts the HTTP server, opens a browser and blocks until pairing
 // completes (success or user cancel) or ctx is cancelled.
+// Run starts the wizard. It returns when the user closes the window/browser
+// or when ctx is cancelled.
+//
+// On Windows the WebView2 window must be created on the *main* OS thread, so
+// the caller is expected to invoke Run from the program's main goroutine
+// (i.e. directly from cobra RunE, not from a background goroutine). The HTTP
+// server runs in a background goroutine.
 func (s *Server) Run(ctx context.Context) error {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -92,44 +99,25 @@ func (s *Server) Run(ctx context.Context) error {
 	url := fmt.Sprintf("http://%s/", ln.Addr().String())
 	fmt.Printf("ServerKit Agent — pairing wizard:\n  %s\n\n", url)
 
-	// Try native window first (Windows: WebView2). On failure or non-Windows,
-	// fall back to opening in the user's default browser.
-	useBrowser := true
-	go func() {
-		err := openInNativeWindow(url, "ServerKit Agent · Setup")
-		if err == nil {
-			// Window closed — signal done so we shut down.
-			s.signalDone()
-		}
-		// errNoWebView2 means we never got a window; the browser fallback
-		// runs synchronously below, so nothing else to do here.
-		_ = err
-	}()
-
-	// Give the native window a brief moment to come up before deciding to
-	// open the browser. If the goroutine has already errored, fall back.
-	time.Sleep(150 * time.Millisecond)
-	if runtime.GOOS == "windows" {
-		// On Windows we trust WebView2 (ships with Win10+). If WebView2 is
-		// missing the native call returns errNoWebView2 quickly — but the
-		// goroutine may still be initializing, so we don't open a browser
-		// here. The user will see the native window.
-		useBrowser = false
-		fmt.Println("Opening setup window…")
-		fmt.Println("Leave this terminal open until pairing completes. Press Ctrl+C to cancel.")
-	}
-	if useBrowser {
+	// Try the native WebView2 window on the *main* goroutine. It blocks
+	// until the window is closed. If WebView2 isn't available we fall
+	// back to the system browser.
+	winErr := openInNativeWindow(url, "ServerKit Agent · Setup")
+	if winErr == nil {
+		// Window closed by the user — tear down.
+		s.signalDone()
+	} else {
 		fmt.Println("Opening in your default browser…")
 		fmt.Println("Leave this terminal open until pairing completes. Press Ctrl+C to cancel.")
 		if err := openBrowser(url); err != nil {
 			s.log.Warn("could not open browser automatically", "error", err)
 			fmt.Println("(Couldn't open browser automatically — copy the URL above into your browser.)")
 		}
-	}
-
-	select {
-	case <-ctx.Done():
-	case <-s.doneCh:
+		// Wait for either context cancel or the user pressing "Done" in the wizard.
+		select {
+		case <-ctx.Done():
+		case <-s.doneCh:
+		}
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

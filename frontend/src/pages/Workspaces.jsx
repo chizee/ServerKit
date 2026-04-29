@@ -4,6 +4,10 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 const Workspaces = () => {
     const toast = useToast();
@@ -107,9 +111,9 @@ const Workspaces = () => {
                     <p className="page-description">{workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''}</p>
                 </div>
                 <div className="page-header-actions">
-                    <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                    <Button onClick={() => setShowCreateModal(true)}>
                         Create Workspace
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -123,9 +127,9 @@ const Workspaces = () => {
                                 )}
                                 <h3>{ws.name}</h3>
                             </div>
-                            <span className={`badge badge--${ws.status === 'active' ? 'success' : 'warning'}`}>
+                            <Badge variant={ws.status === 'active' ? 'success' : 'warning'}>
                                 {ws.status}
-                            </span>
+                            </Badge>
                         </div>
                         {ws.description && <p className="workspace-card__desc">{ws.description}</p>}
                         <div className="workspace-card__meta">
@@ -139,12 +143,12 @@ const Workspaces = () => {
                             </div>
                         )}
                         <div className="workspace-card__actions">
-                            <button className="btn btn-sm" onClick={() => loadMembers(ws.id)}>Members</button>
+                            <Button size="sm" variant="outline" onClick={() => loadMembers(ws.id)}>Members</Button>
                             {ws.status === 'active' && (
-                                <button className="btn btn-sm btn-warning" onClick={() => handleArchive(ws.id)}>Archive</button>
+                                <Button size="sm" variant="secondary" onClick={() => handleArchive(ws.id)}>Archive</Button>
                             )}
                             {user?.is_admin && (
-                                <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm(ws)}>Delete</button>
+                                <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(ws)}>Delete</Button>
                             )}
                         </div>
                     </div>
@@ -166,26 +170,26 @@ const Workspaces = () => {
                         <div className="modal-body">
                             <div className="form-group">
                                 <label>Name</label>
-                                <input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="My Team" />
+                                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="My Team" />
                             </div>
                             <div className="form-group">
                                 <label>Description</label>
-                                <textarea className="form-input" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
+                                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Max Servers (0 = unlimited)</label>
-                                    <input className="form-input" type="number" value={form.max_servers} onChange={e => setForm({...form, max_servers: parseInt(e.target.value) || 0})} />
+                                    <Input type="number" value={form.max_servers} onChange={e => setForm({...form, max_servers: parseInt(e.target.value) || 0})} />
                                 </div>
                                 <div className="form-group">
                                     <label>Max Users (0 = unlimited)</label>
-                                    <input className="form-input" type="number" value={form.max_users} onChange={e => setForm({...form, max_users: parseInt(e.target.value) || 0})} />
+                                    <Input type="number" value={form.max_users} onChange={e => setForm({...form, max_users: parseInt(e.target.value) || 0})} />
                                 </div>
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleCreate} disabled={!form.name}>Create</button>
+                            <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                            <Button onClick={handleCreate} disabled={!form.name}>Create</Button>
                         </div>
                     </div>
                 </div>
@@ -204,10 +208,10 @@ const Workspaces = () => {
                                     <div key={m.id} className="member-row">
                                         <div>
                                             <strong>{m.username || m.email}</strong>
-                                            <span className="badge badge--outline ml-2">{m.role}</span>
+                                            <Badge variant="outline" className="ml-2">{m.role}</Badge>
                                         </div>
                                         {m.role !== 'owner' && (
-                                            <button className="btn btn-sm btn-danger" onClick={() => handleRemoveMember(m.id)}>Remove</button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleRemoveMember(m.id)}>Remove</Button>
                                         )}
                                     </div>
                                 ))}

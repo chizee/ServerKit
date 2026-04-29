@@ -4,6 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import SSOProviderIcon from '../components/SSOProviderIcon';
 import ServerKitLogo from '../components/ServerKitLogo';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -203,8 +206,8 @@ const Login = () => {
                             </div>
                         ) : (
                             <div className="form-group">
-                                <label htmlFor="backupCode">Backup Code</label>
-                                <input
+                                <Label htmlFor="backupCode">Backup Code</Label>
+                                <Input
                                     type="text"
                                     id="backupCode"
                                     value={backupCode}
@@ -215,26 +218,26 @@ const Login = () => {
                             </div>
                         )}
 
-                        <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                        <Button type="submit" className="btn-full" disabled={loading}>
                             {loading ? 'Verifying...' : 'Verify'}
-                        </button>
+                        </Button>
                     </form>
 
                     <div className="auth-footer-links">
-                        <button
+                        <Button
                             type="button"
-                            className="link-button"
+                            variant="link"
                             onClick={() => setUseBackupCode(!useBackupCode)}
                         >
                             {useBackupCode ? 'Use authenticator app instead' : 'Use a backup code instead'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            className="link-button"
+                            variant="link"
                             onClick={handleBack}
                         >
                             Back to login
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -280,8 +283,8 @@ const Login = () => {
                 {passwordLoginEnabled && (
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
-                            <label htmlFor="email">Username or Email</label>
-                            <input
+                            <Label htmlFor="email">Username or Email</Label>
+                            <Input
                                 type="text"
                                 id="email"
                                 value={email}
@@ -293,8 +296,8 @@ const Login = () => {
                         </div>
 
                         <div className="form-group">
-                            <label htmlFor="password">Password</label>
-                            <input
+                            <Label htmlFor="password">Password</Label>
+                            <Input
                                 type="password"
                                 id="password"
                                 value={password}
@@ -304,9 +307,9 @@ const Login = () => {
                             />
                         </div>
 
-                        <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                        <Button type="submit" className="btn-full" disabled={loading}>
                             {loading ? 'Signing in...' : 'Sign In'}
-                        </button>
+                        </Button>
                     </form>
                 )}
 

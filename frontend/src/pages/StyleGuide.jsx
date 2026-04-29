@@ -13,13 +13,17 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import { Spinner } from '../components/Spinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 export default function StyleGuide() {
     const [activeSection, setActiveSection] = useState('colors');
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [confirmVariant, setConfirmVariant] = useState('danger');
-    const [tabActive, setTabActive] = useState('tab1');
     const [inputValue, setInputValue] = useState('');
     const [selectValue, setSelectValue] = useState('');
     const [checkValue, setCheckValue] = useState(false);
@@ -242,51 +246,52 @@ export default function StyleGuide() {
                         <SectionTitle title="Button Variants" />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3 mb-6">
-                                <button className="btn btn-primary"><Plus size={16} /> Primary</button>
-                                <button className="btn btn-secondary"><Edit3 size={16} /> Secondary</button>
-                                <button className="btn btn-danger"><Trash2 size={16} /> Danger</button>
-                                <button className="btn btn-ghost"><Eye size={16} /> Ghost</button>
+                                <Button><Plus size={16} /> Primary</Button>
+                                <Button variant="outline"><Edit3 size={16} /> Outline</Button>
+                                <Button variant="destructive"><Trash2 size={16} /> Destructive</Button>
+                                <Button variant="ghost"><Eye size={16} /> Ghost</Button>
+                                <Button variant="secondary"><Settings size={16} /> Secondary</Button>
                             </div>
                             <div className="flex flex-wrap gap-3">
-                                <button className="btn btn-primary" disabled>Disabled Primary</button>
-                                <button className="btn btn-secondary" disabled>Disabled Secondary</button>
-                                <button className="btn btn-danger" disabled>Disabled Danger</button>
+                                <Button disabled>Disabled Primary</Button>
+                                <Button variant="outline" disabled>Disabled Outline</Button>
+                                <Button variant="destructive" disabled>Disabled Destructive</Button>
                             </div>
                         </div>
 
                         <SectionTitle title="Button Sizes" />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap items-center gap-3">
-                                <button className="btn btn-primary btn-sm">Small</button>
-                                <button className="btn btn-primary">Default</button>
-                                <button className="btn btn-primary btn-lg">Large</button>
+                                <Button size="sm">Small</Button>
+                                <Button>Default</Button>
+                                <Button size="lg">Large</Button>
                             </div>
                         </div>
 
                         <SectionTitle title="Icon Buttons" />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
-                                <button className="btn btn-icon btn-primary"><Plus size={16} /></button>
-                                <button className="btn btn-icon btn-secondary"><Edit3 size={16} /></button>
-                                <button className="btn btn-icon btn-danger"><Trash2 size={16} /></button>
-                                <button className="btn btn-icon btn-ghost"><Settings size={16} /></button>
-                                <button className="btn btn-icon btn-ghost"><Copy size={16} /></button>
-                                <button className="btn btn-icon btn-ghost"><RefreshCw size={16} /></button>
+                                <Button size="icon"><Plus size={16} /></Button>
+                                <Button size="icon" variant="outline"><Edit3 size={16} /></Button>
+                                <Button size="icon" variant="destructive"><Trash2 size={16} /></Button>
+                                <Button size="icon" variant="ghost"><Settings size={16} /></Button>
+                                <Button size="icon" variant="ghost"><Copy size={16} /></Button>
+                                <Button size="icon" variant="ghost"><RefreshCw size={16} /></Button>
                             </div>
                         </div>
 
                         <SectionTitle title="Full Width & Loading" />
                         <div className="card" style={{ padding: 24 }}>
-                            <button className="btn btn-primary btn-full mb-4">Full Width Button</button>
+                            <Button className="w-full mb-4">Full Width Button</Button>
                             <div className="flex flex-wrap gap-3">
-                                <button className="btn btn-primary btn-loading">
+                                <Button disabled>
                                     <span className="spinner spinner-sm"><span className="spinner-ring"></span></span>
                                     Saving...
-                                </button>
-                                <button className="btn btn-secondary btn-loading">
+                                </Button>
+                                <Button variant="outline" disabled>
                                     <span className="spinner spinner-sm"><span className="spinner-ring"></span></span>
                                     Loading...
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -299,12 +304,12 @@ export default function StyleGuide() {
                         <div className="card" style={{ padding: 24 }}>
                             <div className="form-group">
                                 <label>Default Input</label>
-                                <input type="text" placeholder="Enter text..." value={inputValue} onChange={e => setInputValue(e.target.value)} />
+                                <Input type="text" placeholder="Enter text..." value={inputValue} onChange={e => setInputValue(e.target.value)} />
                                 <span className="hint">This is a hint text below the input</span>
                             </div>
                             <div className="form-group">
                                 <label>Disabled Input</label>
-                                <input type="text" placeholder="Disabled..." disabled />
+                                <Input type="text" placeholder="Disabled..." disabled />
                             </div>
                         </div>
 
@@ -320,11 +325,11 @@ export default function StyleGuide() {
                             </div>
                             <div className="form-group">
                                 <label>Textarea</label>
-                                <textarea rows={3} placeholder="Enter multiline text..." />
+                                <Textarea rows={3} placeholder="Enter multiline text..." />
                             </div>
                             <div className="form-group">
                                 <label>Code Editor</label>
-                                <textarea className="code-editor" rows={3} placeholder="server { listen 80; }" />
+                                <Textarea className="code-editor" rows={3} placeholder="server { listen 80; }" />
                             </div>
                         </div>
 
@@ -333,11 +338,11 @@ export default function StyleGuide() {
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>First Name</label>
-                                    <input type="text" placeholder="John" />
+                                    <Input type="text" placeholder="John" />
                                 </div>
                                 <div className="form-group">
                                     <label>Last Name</label>
-                                    <input type="text" placeholder="Doe" />
+                                    <Input type="text" placeholder="Doe" />
                                 </div>
                             </div>
                         </div>
@@ -345,8 +350,8 @@ export default function StyleGuide() {
                         <SectionTitle title="Inline Form" />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="install-form">
-                                <input type="text" placeholder="Search packages..." />
-                                <button className="btn btn-primary"><Search size={16} /> Search</button>
+                                <Input type="text" placeholder="Search packages..." />
+                                <Button><Search size={16} /> Search</Button>
                             </div>
                         </div>
 
@@ -368,8 +373,8 @@ export default function StyleGuide() {
                             <div className="card-header">
                                 <h3>SSH Authorized Keys</h3>
                                 <div className="card-actions">
-                                    <button className="btn btn-sm btn-primary">Add Key</button>
-                                    <button className="btn btn-sm btn-secondary">Refresh</button>
+                                    <Button size="sm">Add Key</Button>
+                                    <Button size="sm" variant="outline">Refresh</Button>
                                 </div>
                             </div>
                             <div className="card-body">
@@ -387,19 +392,19 @@ export default function StyleGuide() {
                                             <td><code>ssh-ed25519</code></td>
                                             <td><code>SHA256:abc123def456...</code></td>
                                             <td>deploy@server</td>
-                                            <td><button className="btn btn-sm btn-danger">Remove</button></td>
+                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
                                         </tr>
                                         <tr>
                                             <td><code>ssh-rsa</code></td>
                                             <td><code>SHA256:xyz789ghi012...</code></td>
                                             <td>admin@laptop</td>
-                                            <td><button className="btn btn-sm btn-danger">Remove</button></td>
+                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
                                         </tr>
                                         <tr>
                                             <td><code>ssh-ed25519</code></td>
                                             <td><code>SHA256:mno345pqr678...</code></td>
                                             <td>ci-pipeline</td>
-                                            <td><button className="btn btn-sm btn-danger">Remove</button></td>
+                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -410,7 +415,7 @@ export default function StyleGuide() {
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
                                 <h3>Scan History</h3>
-                                <button className="btn btn-sm btn-secondary">Refresh</button>
+                                <Button size="sm" variant="outline">Refresh</Button>
                             </div>
                             <div className="card-body">
                                 <table className="table">
@@ -426,19 +431,19 @@ export default function StyleGuide() {
                                         <tr>
                                             <td>2026-03-29 14:30</td>
                                             <td>/var/www</td>
-                                            <td><span className="badge badge-success">completed</span></td>
-                                            <td><span className="badge badge-success">Clean</span></td>
+                                            <td><Badge variant="success">completed</Badge></td>
+                                            <td><Badge variant="success">Clean</Badge></td>
                                         </tr>
                                         <tr>
                                             <td>2026-03-28 09:15</td>
                                             <td>/home/deploy</td>
-                                            <td><span className="badge badge-success">completed</span></td>
-                                            <td><span className="badge badge-error">2 found</span></td>
+                                            <td><Badge variant="success">completed</Badge></td>
+                                            <td><Badge variant="destructive">2 found</Badge></td>
                                         </tr>
                                         <tr>
                                             <td>2026-03-27 22:00</td>
                                             <td>/var/www</td>
-                                            <td><span className="badge badge-warning">cancelled</span></td>
+                                            <td><Badge variant="warning">cancelled</Badge></td>
                                             <td>&mdash;</td>
                                         </tr>
                                     </tbody>
@@ -466,21 +471,21 @@ export default function StyleGuide() {
                                         <tr>
                                             <td><code>22</code></td>
                                             <td>TCP</td>
-                                            <td><span className="badge badge-success">Allow</span></td>
+                                            <td><Badge variant="success">Allow</Badge></td>
                                             <td>Anywhere</td>
                                             <td><StatusBadge status="active" /></td>
                                         </tr>
                                         <tr>
                                             <td><code>80</code></td>
                                             <td>TCP</td>
-                                            <td><span className="badge badge-success">Allow</span></td>
+                                            <td><Badge variant="success">Allow</Badge></td>
                                             <td>Anywhere</td>
                                             <td><StatusBadge status="active" /></td>
                                         </tr>
                                         <tr>
                                             <td><code>3306</code></td>
                                             <td>TCP</td>
-                                            <td><span className="badge badge-error">Deny</span></td>
+                                            <td><Badge variant="destructive">Deny</Badge></td>
                                             <td>External</td>
                                             <td><StatusBadge status="active" /></td>
                                         </tr>
@@ -499,8 +504,8 @@ export default function StyleGuide() {
                             <div className="card-header">
                                 <h3>Card Title</h3>
                                 <div className="card-actions">
-                                    <button className="btn btn-sm btn-secondary">Refresh</button>
-                                    <button className="btn btn-sm btn-primary">Action</button>
+                                    <Button size="sm" variant="outline">Refresh</Button>
+                                    <Button size="sm">Action</Button>
                                 </div>
                             </div>
                             <div className="card-body">
@@ -589,7 +594,7 @@ export default function StyleGuide() {
                                 <h4>Delete Application</h4>
                                 <p className="text-secondary">Once deleted, this cannot be undone. All data will be permanently removed.</p>
                             </div>
-                            <button className="btn btn-danger"><Trash2 size={16} /> Delete</button>
+                            <Button variant="destructive"><Trash2 size={16} /> Delete</Button>
                         </div>
                     </div>
                 )}
@@ -626,14 +631,16 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="Generic Badges (.badge)" />
+                        <SectionTitle title="shadcn Badge Variants" />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
-                                <span className="badge badge-default">Default</span>
-                                <span className="badge badge-info">Info</span>
-                                <span className="badge badge-success">Success</span>
-                                <span className="badge badge-warning">Warning</span>
-                                <span className="badge badge-error">Error</span>
+                                <Badge>Default</Badge>
+                                <Badge variant="info">Info</Badge>
+                                <Badge variant="success">Success</Badge>
+                                <Badge variant="warning">Warning</Badge>
+                                <Badge variant="destructive">Destructive</Badge>
+                                <Badge variant="secondary">Secondary</Badge>
+                                <Badge variant="outline">Outline</Badge>
                             </div>
                         </div>
 
@@ -714,22 +721,22 @@ export default function StyleGuide() {
                     <div className="space-y-6">
                         <SectionTitle title="Modal Dialog" />
                         <div className="card" style={{ padding: 24 }}>
-                            <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
+                            <Button onClick={() => setModalOpen(true)}>
                                 Open Modal
-                            </button>
+                            </Button>
                             <Modal
                                 open={modalOpen}
                                 onClose={() => setModalOpen(false)}
                                 title="Example Modal"
                                 footer={<>
-                                    <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
-                                    <button className="btn btn-primary" onClick={() => setModalOpen(false)}>Save Changes</button>
+                                    <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+                                    <Button onClick={() => setModalOpen(false)}>Save Changes</Button>
                                 </>}
                             >
                                 <p className="text-secondary">Modal body content with a form field.</p>
                                 <div className="form-group mt-4">
                                     <label>Example Field</label>
-                                    <input type="text" placeholder="Type something..." />
+                                    <Input type="text" placeholder="Type something..." />
                                 </div>
                             </Modal>
                         </div>
@@ -737,9 +744,9 @@ export default function StyleGuide() {
                         <SectionTitle title="Confirm Dialogs" />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
-                                <button className="btn btn-danger" onClick={() => { setConfirmVariant('danger'); setConfirmOpen(true); }}>Danger</button>
-                                <button className="btn btn-secondary" onClick={() => { setConfirmVariant('warning'); setConfirmOpen(true); }}>Warning</button>
-                                <button className="btn btn-secondary" onClick={() => { setConfirmVariant('info'); setConfirmOpen(true); }}>Info</button>
+                                <Button variant="destructive" onClick={() => { setConfirmVariant('danger'); setConfirmOpen(true); }}>Danger</Button>
+                                <Button variant="outline" onClick={() => { setConfirmVariant('warning'); setConfirmOpen(true); }}>Warning</Button>
+                                <Button variant="outline" onClick={() => { setConfirmVariant('info'); setConfirmOpen(true); }}>Info</Button>
                             </div>
                             <ConfirmDialog
                                 isOpen={confirmOpen}
@@ -757,24 +764,24 @@ export default function StyleGuide() {
                 {/* ── TABS ── */}
                 {activeSection === 'tabs' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Tabs (Primary)" />
+                        <SectionTitle title="Tabs (shadcn)" />
                         <div className="card" style={{ padding: 24 }}>
-                            <div className="tabs-container">
-                                <div className="tabs">
-                                    {['tab1', 'tab2', 'tab3'].map(t => (
-                                        <button key={t} className={`tab ${tabActive === t ? 'active' : ''}`} onClick={() => setTabActive(t)}>
-                                            {t === 'tab1' && <><Server size={14} /> General</>}
-                                            {t === 'tab2' && <><Shield size={14} /> Security</>}
-                                            {t === 'tab3' && <><Activity size={14} /> Monitoring</>}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="tab-content" style={{ padding: '16px 0' }}>
-                                    {tabActive === 'tab1' && <p className="text-secondary">General tab content.</p>}
-                                    {tabActive === 'tab2' && <p className="text-secondary">Security tab content.</p>}
-                                    {tabActive === 'tab3' && <p className="text-secondary">Monitoring tab content.</p>}
-                                </div>
-                            </div>
+                            <Tabs defaultValue="tab1">
+                                <TabsList>
+                                    <TabsTrigger value="tab1"><Server size={14} /> General</TabsTrigger>
+                                    <TabsTrigger value="tab2"><Shield size={14} /> Security</TabsTrigger>
+                                    <TabsTrigger value="tab3"><Activity size={14} /> Monitoring</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="tab1">
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>General tab content.</p>
+                                </TabsContent>
+                                <TabsContent value="tab2">
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Security tab content.</p>
+                                </TabsContent>
+                                <TabsContent value="tab3">
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Monitoring tab content.</p>
+                                </TabsContent>
+                            </Tabs>
                         </div>
                     </div>
                 )}
@@ -808,7 +815,7 @@ export default function StyleGuide() {
                             <div className="env-list">
                                 {[
                                     ['DATABASE_URL', 'postgresql://localhost:5432/mydb'],
-                                    ['SECRET_KEY', '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'],
+                                    ['SECRET_KEY', '••••••••••'],
                                     ['NODE_ENV', 'production'],
                                 ].map(([key, val]) => (
                                     <div key={key} className="env-item">
@@ -866,7 +873,7 @@ export default function StyleGuide() {
                             icon={Server}
                             title="No servers connected"
                             description="Connect your first server to start managing it from the dashboard."
-                            action={<button className="btn btn-primary"><Plus size={16} /> Add Server</button>}
+                            action={<Button><Plus size={16} /> Add Server</Button>}
                         />
 
                         <SectionTitle title="Loading State" />
@@ -887,7 +894,7 @@ export default function StyleGuide() {
                             icon={GitBranch}
                             title="No Git Server Installed"
                             description="Install Gitea to host and manage your Git repositories locally."
-                            action={<button className="btn btn-primary btn-lg"><Download size={16} /> Install Git Server</button>}
+                            action={<Button size="lg"><Download size={16} /> Install Git Server</Button>}
                         />
 
                         <SectionTitle title='Large — Unavailable (size="lg")' />
@@ -896,7 +903,7 @@ export default function StyleGuide() {
                             icon={WifiOff}
                             title="Docker Not Available"
                             description="Docker is not installed or not running on this system."
-                            action={<button className="btn btn-primary"><RefreshCw size={16} /> Retry Connection</button>}
+                            action={<Button><RefreshCw size={16} /> Retry Connection</Button>}
                         />
 
                         <SectionTitle title="Large — Loading" />
@@ -906,7 +913,7 @@ export default function StyleGuide() {
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
                                 <h3>Scan History</h3>
-                                <button className="btn btn-sm btn-secondary">Refresh</button>
+                                <Button size="sm" variant="outline">Refresh</Button>
                             </div>
                             <div className="card-body">
                                 <EmptyState
@@ -919,10 +926,10 @@ export default function StyleGuide() {
 
                         <SectionTitle title="Context Grid" />
                         <div className="grid grid-cols-2 gap-4">
-                            <EmptyState icon={Database} title="No databases" description="Create your first database." action={<button className="btn btn-primary btn-sm"><Plus size={14} /> Create</button>} />
-                            <EmptyState icon={Globe} title="No domains configured" description="Add a domain to get started." action={<button className="btn btn-primary btn-sm"><Plus size={14} /> Add Domain</button>} />
-                            <EmptyState icon={Key} title="No SSH keys" description="Add an SSH key for secure access." action={<button className="btn btn-primary btn-sm"><Plus size={14} /> Add Key</button>} />
-                            <EmptyState icon={Shield} title="No scan history" description="Run a scan to check for threats." action={<button className="btn btn-primary btn-sm"><Activity size={14} /> Scan</button>} />
+                            <EmptyState icon={Database} title="No databases" description="Create your first database." action={<Button size="sm"><Plus size={14} /> Create</Button>} />
+                            <EmptyState icon={Globe} title="No domains configured" description="Add a domain to get started." action={<Button size="sm"><Plus size={14} /> Add Domain</Button>} />
+                            <EmptyState icon={Key} title="No SSH keys" description="Add an SSH key for secure access." action={<Button size="sm"><Plus size={14} /> Add Key</Button>} />
+                            <EmptyState icon={Shield} title="No scan history" description="Run a scan to check for threats." action={<Button size="sm"><Activity size={14} /> Scan</Button>} />
                         </div>
                     </div>
                 )}
@@ -939,8 +946,8 @@ export default function StyleGuide() {
                                     <p className="subtitle">Description of the page</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="btn btn-secondary"><RefreshCw size={16} /> Refresh</button>
-                                    <button className="btn btn-primary"><Plus size={16} /> Create</button>
+                                    <Button variant="outline"><RefreshCw size={16} /> Refresh</Button>
+                                    <Button><Plus size={16} /> Create</Button>
                                 </div>
                             </div>
                         </div>
@@ -952,7 +959,7 @@ export default function StyleGuide() {
                                     <h1>Services</h1>
                                     <p className="subtitle">12 services &middot; 9 live</p>
                                 </div>
-                                <button className="btn btn-primary"><Plus size={16} /> New Service</button>
+                                <Button><Plus size={16} /> New Service</Button>
                             </div>
                         </div>
 
@@ -964,8 +971,8 @@ export default function StyleGuide() {
                                     <p className="subtitle">Self-hosted Git repository management</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="btn btn-secondary"><ExternalLink size={16} /> Open Gitea</button>
-                                    <button className="btn btn-danger">Stop Server</button>
+                                    <Button variant="outline"><ExternalLink size={16} /> Open Gitea</Button>
+                                    <Button variant="destructive">Stop Server</Button>
                                 </div>
                             </div>
                         </div>
@@ -976,8 +983,8 @@ export default function StyleGuide() {
                             <div className="card-header">
                                 <h3>Card Section Title</h3>
                                 <div className="card-actions">
-                                    <button className="btn btn-sm btn-primary">Add</button>
-                                    <button className="btn btn-sm btn-secondary">Refresh</button>
+                                    <Button size="sm">Add</Button>
+                                    <Button size="sm" variant="outline">Refresh</Button>
                                 </div>
                             </div>
                             <div className="card-body">
@@ -996,8 +1003,8 @@ export default function StyleGuide() {
                             <div className="card-header">
                                 <h3>Authorized Keys</h3>
                                 <div className="card-actions">
-                                    <button className="btn btn-sm btn-primary"><Plus size={14} /> Add Key</button>
-                                    <button className="btn btn-sm btn-secondary"><RefreshCw size={14} /></button>
+                                    <Button size="sm"><Plus size={14} /> Add Key</Button>
+                                    <Button size="sm" variant="outline"><RefreshCw size={14} /></Button>
                                 </div>
                             </div>
                             <div className="card-body">
@@ -1010,7 +1017,7 @@ export default function StyleGuide() {
                                             <td><code>ssh-ed25519</code></td>
                                             <td><code>SHA256:abc123...</code></td>
                                             <td>deploy@server</td>
-                                            <td><button className="btn btn-sm btn-danger">Remove</button></td>
+                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -1022,7 +1029,7 @@ export default function StyleGuide() {
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
                                 <h3>Scan History</h3>
-                                <button className="btn btn-sm btn-secondary">Refresh</button>
+                                <Button size="sm" variant="outline">Refresh</Button>
                             </div>
                             <div className="card-body">
                                 <EmptyState
@@ -1047,7 +1054,7 @@ export default function StyleGuide() {
                                     </div>
                                     <h4 style={{ marginBottom: 4 }}>{item.title}</h4>
                                     <p className="text-sm text-tertiary mb-4">{item.desc}</p>
-                                    <button className="btn btn-primary btn-sm">Start Scan</button>
+                                    <Button size="sm">Start Scan</Button>
                                 </div>
                             ))}
                         </div>
@@ -1066,7 +1073,7 @@ export default function StyleGuide() {
                                 <div className="logs-sidebar">
                                     <div className="sidebar-header">
                                         <h3>Log Files</h3>
-                                        <button className="btn btn-secondary btn-sm"><RefreshCw size={14} /></button>
+                                        <Button size="sm" variant="outline"><RefreshCw size={14} /></Button>
                                     </div>
                                     <div className="log-files-list">
                                         {[
@@ -1105,9 +1112,9 @@ export default function StyleGuide() {
                                                 <input type="checkbox" />
                                                 <span>Auto-refresh</span>
                                             </label>
-                                            <button className="btn btn-secondary btn-sm">Refresh</button>
-                                            <button className="btn btn-secondary btn-sm">Download</button>
-                                            <button className="btn btn-danger btn-sm">Clear</button>
+                                            <Button size="sm" variant="outline">Refresh</Button>
+                                            <Button size="sm" variant="outline">Download</Button>
+                                            <Button size="sm" variant="destructive">Clear</Button>
                                         </div>
                                     </div>
                                     <div className="log-content">
@@ -1140,7 +1147,7 @@ export default function StyleGuide() {
                                     <label>Priority</label>
                                     <select><option>All</option><option>Error</option><option>Warning</option></select>
                                 </div>
-                                <button className="btn btn-primary">Load Logs</button>
+                                <Button>Load Logs</Button>
                             </div>
                         </div>
 
@@ -1187,11 +1194,11 @@ export default function StyleGuide() {
                                                     <span>{p.mem.toFixed(1)}%</span>
                                                 </div>
                                             </td>
-                                            <td><span className={`badge badge-${p.status === 'running' ? 'success' : 'warning'}`}>{p.status}</span></td>
+                                            <td><Badge variant={p.status === 'running' ? 'success' : 'warning'}>{p.status}</Badge></td>
                                             <td>
                                                 <div className="action-buttons">
-                                                    <button className="btn btn-secondary btn-xs"><XCircle size={12} /></button>
-                                                    <button className="btn btn-danger btn-xs"><AlertTriangle size={12} /></button>
+                                                    <Button size="icon" variant="outline"><XCircle size={12} /></Button>
+                                                    <Button size="icon" variant="destructive"><AlertTriangle size={12} /></Button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1205,7 +1212,7 @@ export default function StyleGuide() {
                         <div className="process-details-panel">
                             <div className="panel-header">
                                 <h3>Process Details</h3>
-                                <button className="btn btn-secondary btn-sm">Close</button>
+                                <Button size="sm" variant="outline">Close</Button>
                             </div>
                             <div className="panel-body">
                                 <div className="details-grid">
@@ -1242,7 +1249,7 @@ export default function StyleGuide() {
                                             <span className={`status-dot ${s.status === 'running' ? 'success' : 'secondary'}`} />
                                             <h4>{s.name}</h4>
                                         </div>
-                                        <span className={`badge badge-${s.status === 'running' ? 'success' : 'default'}`}>{s.status}</span>
+                                        <Badge variant={s.status === 'running' ? 'success' : 'secondary'}>{s.status}</Badge>
                                     </div>
                                     <p className="service-description">{s.desc}</p>
                                     <div className="service-meta">
@@ -1252,13 +1259,13 @@ export default function StyleGuide() {
                                     <div className="service-actions">
                                         {s.status === 'running' ? (
                                             <>
-                                                <button className="btn btn-secondary btn-sm">Restart</button>
-                                                <button className="btn btn-secondary btn-sm">Stop</button>
+                                                <Button size="sm" variant="outline">Restart</Button>
+                                                <Button size="sm" variant="outline">Stop</Button>
                                             </>
                                         ) : (
-                                            <button className="btn btn-primary btn-sm">Start</button>
+                                            <Button size="sm">Start</Button>
                                         )}
-                                        <button className="btn btn-secondary btn-sm">Logs</button>
+                                        <Button size="sm" variant="outline">Logs</Button>
                                     </div>
                                 </div>
                             ))}

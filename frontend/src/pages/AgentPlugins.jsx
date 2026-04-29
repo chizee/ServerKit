@@ -5,6 +5,11 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 const AgentPlugins = () => {
     const navigate = useNavigate();
@@ -128,9 +133,9 @@ const AgentPlugins = () => {
                         <option value="deprecated">Deprecated</option>
                     </select>
                     {user?.is_admin && (
-                        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                        <Button onClick={() => setShowCreateModal(true)}>
                             Register Plugin
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -143,9 +148,9 @@ const AgentPlugins = () => {
                                 <h3>{plugin.display_name}</h3>
                                 <span className="plugin-card__version">v{plugin.version}</span>
                             </div>
-                            <span className={`badge badge--${plugin.status === 'available' ? 'success' : 'warning'}`}>
+                            <Badge variant={plugin.status === 'available' ? 'success' : 'warning'}>
                                 {plugin.status}
-                            </span>
+                            </Badge>
                         </div>
                         {plugin.description && (
                             <p className="plugin-card__desc">{plugin.description}</p>
@@ -156,22 +161,22 @@ const AgentPlugins = () => {
                         </div>
                         <div className="plugin-card__capabilities">
                             {(plugin.capabilities || []).map(cap => (
-                                <span key={cap} className="badge badge--outline">{capabilityLabels[cap] || cap}</span>
+                                <Badge key={cap} variant="outline">{capabilityLabels[cap] || cap}</Badge>
                             ))}
                         </div>
                         <div className="plugin-card__permissions">
                             {(plugin.permissions || []).map(perm => (
-                                <span key={perm} className="badge badge--subtle">{permissionLabels[perm] || perm}</span>
+                                <Badge key={perm} variant="secondary">{permissionLabels[perm] || perm}</Badge>
                             ))}
                         </div>
                         <div className="plugin-card__actions">
-                            <button className="btn btn-sm btn-primary" onClick={() => { setSelectedPlugin(plugin); setShowInstallModal(true); }}>
+                            <Button size="sm" onClick={() => { setSelectedPlugin(plugin); setShowInstallModal(true); }}>
                                 Install
-                            </button>
+                            </Button>
                             {user?.is_admin && (
-                                <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm(plugin)}>
+                                <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(plugin)}>
                                     Delete
-                                </button>
+                                </Button>
                             )}
                         </div>
                     </div>
@@ -193,27 +198,27 @@ const AgentPlugins = () => {
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Plugin Name (identifier)</label>
-                                <input className="form-input" value={newPlugin.name} onChange={e => setNewPlugin({...newPlugin, name: e.target.value})} placeholder="my-plugin" />
+                                <Label>Plugin Name (identifier)</Label>
+                                <Input value={newPlugin.name} onChange={e => setNewPlugin({...newPlugin, name: e.target.value})} placeholder="my-plugin" />
                             </div>
                             <div className="form-group">
-                                <label>Display Name</label>
-                                <input className="form-input" value={newPlugin.display_name} onChange={e => setNewPlugin({...newPlugin, display_name: e.target.value})} placeholder="My Plugin" />
+                                <Label>Display Name</Label>
+                                <Input value={newPlugin.display_name} onChange={e => setNewPlugin({...newPlugin, display_name: e.target.value})} placeholder="My Plugin" />
                             </div>
                             <div className="form-group">
-                                <label>Version</label>
-                                <input className="form-input" value={newPlugin.version} onChange={e => setNewPlugin({...newPlugin, version: e.target.value})} />
+                                <Label>Version</Label>
+                                <Input value={newPlugin.version} onChange={e => setNewPlugin({...newPlugin, version: e.target.value})} />
                             </div>
                             <div className="form-group">
-                                <label>Description</label>
-                                <textarea className="form-input" value={newPlugin.description} onChange={e => setNewPlugin({...newPlugin, description: e.target.value})} rows={3} />
+                                <Label>Description</Label>
+                                <Textarea value={newPlugin.description} onChange={e => setNewPlugin({...newPlugin, description: e.target.value})} rows={3} />
                             </div>
                             <div className="form-group">
-                                <label>Author</label>
-                                <input className="form-input" value={newPlugin.author} onChange={e => setNewPlugin({...newPlugin, author: e.target.value})} />
+                                <Label>Author</Label>
+                                <Input value={newPlugin.author} onChange={e => setNewPlugin({...newPlugin, author: e.target.value})} />
                             </div>
                             <div className="form-group">
-                                <label>Capabilities</label>
+                                <Label>Capabilities</Label>
                                 <div className="checkbox-group">
                                     {Object.entries(capabilityLabels).map(([key, label]) => (
                                         <label key={key} className="checkbox-label">
@@ -224,7 +229,7 @@ const AgentPlugins = () => {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label>Permissions</label>
+                                <Label>Permissions</Label>
                                 <div className="checkbox-group">
                                     {Object.entries(permissionLabels).map(([key, label]) => (
                                         <label key={key} className="checkbox-label">
@@ -236,18 +241,18 @@ const AgentPlugins = () => {
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Max Memory (MB)</label>
-                                    <input className="form-input" type="number" value={newPlugin.max_memory_mb} onChange={e => setNewPlugin({...newPlugin, max_memory_mb: parseInt(e.target.value) || 128})} />
+                                    <Label>Max Memory (MB)</Label>
+                                    <Input type="number" value={newPlugin.max_memory_mb} onChange={e => setNewPlugin({...newPlugin, max_memory_mb: parseInt(e.target.value) || 128})} />
                                 </div>
                                 <div className="form-group">
-                                    <label>Max CPU (%)</label>
-                                    <input className="form-input" type="number" value={newPlugin.max_cpu_percent} onChange={e => setNewPlugin({...newPlugin, max_cpu_percent: parseInt(e.target.value) || 10})} />
+                                    <Label>Max CPU (%)</Label>
+                                    <Input type="number" value={newPlugin.max_cpu_percent} onChange={e => setNewPlugin({...newPlugin, max_cpu_percent: parseInt(e.target.value) || 10})} />
                                 </div>
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleCreate} disabled={!newPlugin.name || !newPlugin.display_name}>Register</button>
+                            <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                            <Button onClick={handleCreate} disabled={!newPlugin.name || !newPlugin.display_name}>Register</Button>
                         </div>
                     </div>
                 </div>

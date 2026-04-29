@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
 
 const QuarantineTab = () => {
     const [files, setFiles] = useState([]);
@@ -52,7 +53,7 @@ const QuarantineTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>Quarantined Files</h3>
-                    <button className="btn btn-sm btn-secondary" onClick={loadFiles}>Refresh</button>
+                    <Button variant="outline" size="sm" onClick={loadFiles}>Refresh</Button>
                 </div>
                 <div className="card-body">
                     {loading ? (
@@ -83,12 +84,13 @@ const QuarantineTab = () => {
                                         <td>{formatBytes(file.size)}</td>
                                         <td>{new Date(file.quarantined_at).toLocaleString()}</td>
                                         <td>
-                                            <button
-                                                className="btn btn-sm btn-danger"
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
                                                 onClick={() => handleDelete(file.name)}
                                             >
                                                 Delete
-                                            </button>
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))}

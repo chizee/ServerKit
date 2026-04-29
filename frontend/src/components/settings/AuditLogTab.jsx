@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const AuditLogTab = () => {
     const [logs, setLogs] = useState([]);
@@ -54,12 +56,6 @@ const AuditLogTab = () => {
         } catch (err) {
             console.error('Failed to load action types:', err);
         }
-    }
-
-    function handleFilterChange(e) {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-        setPagination(prev => ({ ...prev, page: 1 }));
     }
 
     function handlePageChange(newPage) {
@@ -162,19 +158,31 @@ const AuditLogTab = () => {
             <div className="filters-bar">
                 <div className="filter-group">
                     <label>Action Type</label>
-                    <select name="action" value={filters.action} onChange={handleFilterChange}>
-                        <option value="">All Actions</option>
-                        {actions.map(action => (
-                            <option key={action} value={action}>{formatActionName(action)}</option>
-                        ))}
-                    </select>
+                    <Select
+                        value={filters.action || '__all__'}
+                        onValueChange={(val) => {
+                            const value = val === '__all__' ? '' : val;
+                            setFilters(prev => ({ ...prev, action: value }));
+                            setPagination(prev => ({ ...prev, page: 1 }));
+                        }}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="All Actions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__all__">All Actions</SelectItem>
+                            {actions.map(action => (
+                                <SelectItem key={action} value={action}>{formatActionName(action)}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
-                <button className="btn btn-ghost" onClick={() => {
+                <Button variant="ghost" onClick={() => {
                     setFilters({ action: '', user_id: '' });
                     setPagination(prev => ({ ...prev, page: 1 }));
                 }}>
                     Clear Filters
-                </button>
+                </Button>
             </div>
 
             {error && <div className="error-message">{error}</div>}
@@ -219,24 +227,26 @@ const AuditLogTab = () => {
 
                     {pagination.pages > 1 && (
                         <div className="pagination">
-                            <button
-                                className="btn btn-sm btn-ghost"
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 disabled={pagination.page <= 1}
                                 onClick={() => handlePageChange(pagination.page - 1)}
                             >
                                 Previous
-                            </button>
+                            </Button>
                             <span className="pagination-info">
                                 Page {pagination.page} of {pagination.pages}
                                 ({pagination.total} total)
                             </span>
-                            <button
-                                className="btn btn-sm btn-ghost"
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 disabled={pagination.page >= pagination.pages}
                                 onClick={() => handlePageChange(pagination.page + 1)}
                             >
                                 Next
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </>

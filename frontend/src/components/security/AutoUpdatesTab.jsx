@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const AutoUpdatesTab = () => {
     const [status, setStatus] = useState(null);
@@ -86,7 +88,7 @@ const AutoUpdatesTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>Automatic Security Updates</h3>
-                    <button className="btn btn-sm btn-secondary" onClick={loadStatus}>Refresh</button>
+                    <Button variant="outline" size="sm" onClick={loadStatus}>Refresh</Button>
                 </div>
                 <div className="card-body">
                     <div className="info-list">
@@ -96,31 +98,31 @@ const AutoUpdatesTab = () => {
                         </div>
                         <div className="info-item">
                             <span className="info-label">Installed</span>
-                            <span className={`badge ${status.installed ? 'badge-success' : 'badge-warning'}`}>
+                            <Badge variant={status.installed ? 'success' : 'warning'}>
                                 {status.installed ? 'Yes' : 'No'}
-                            </span>
+                            </Badge>
                         </div>
                         <div className="info-item">
                             <span className="info-label">Status</span>
-                            <span className={`badge ${status.enabled ? 'badge-success' : 'badge-secondary'}`}>
+                            <Badge variant={status.enabled ? 'success' : 'secondary'}>
                                 {status.enabled ? 'Enabled' : 'Disabled'}
-                            </span>
+                            </Badge>
                         </div>
                     </div>
 
                     <div className="auto-updates-actions" style={{ marginTop: '1.5rem' }}>
                         {!status.installed ? (
-                            <button className="btn btn-primary" onClick={handleInstall} disabled={actionLoading}>
+                            <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
                                 {actionLoading ? 'Installing...' : 'Install Auto-Updates'}
-                            </button>
+                            </Button>
                         ) : status.enabled ? (
-                            <button className="btn btn-warning" onClick={handleDisable} disabled={actionLoading}>
+                            <Button variant="secondary" onClick={handleDisable} disabled={actionLoading}>
                                 {actionLoading ? 'Disabling...' : 'Disable Auto-Updates'}
-                            </button>
+                            </Button>
                         ) : (
-                            <button className="btn btn-success" onClick={handleEnable} disabled={actionLoading}>
+                            <Button variant="default" onClick={handleEnable} disabled={actionLoading}>
                                 {actionLoading ? 'Enabling...' : 'Enable Auto-Updates'}
-                            </button>
+                            </Button>
                         )}
                     </div>
 

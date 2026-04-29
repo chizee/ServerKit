@@ -3,6 +3,11 @@ import api from '../../services/api';
 import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const FirewallTab = () => {
     const [status, setStatus] = useState(null);
@@ -227,9 +232,9 @@ const FirewallTab = () => {
                     </svg>
                     <h3>No Firewall Installed</h3>
                     <p>Install a firewall to protect your server from unauthorized access.</p>
-                    <button className="btn btn-primary" onClick={() => setShowInstallModal(true)}>
+                    <Button variant="default" onClick={() => setShowInstallModal(true)}>
                         Install Firewall
-                    </button>
+                    </Button>
                 </div>
             ) : (
                 <>
@@ -243,20 +248,20 @@ const FirewallTab = () => {
                                 <span className="firewall-type">({activeFirewall?.toUpperCase()})</span>
                             </div>
                             <div className="firewall-actions">
-                                <button className="btn btn-sm btn-secondary" onClick={() => setShowBlockIPModal(true)}>
+                                <Button variant="outline" size="sm" onClick={() => setShowBlockIPModal(true)}>
                                     Block IP
-                                </button>
-                                <button className="btn btn-sm btn-secondary" onClick={() => setShowPortModal(true)}>
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => setShowPortModal(true)}>
                                     Allow Port
-                                </button>
+                                </Button>
                                 {isActive ? (
-                                    <button className="btn btn-sm btn-danger" onClick={handleDisable} disabled={actionLoading}>
+                                    <Button variant="destructive" size="sm" onClick={handleDisable} disabled={actionLoading}>
                                         Disable
-                                    </button>
+                                    </Button>
                                 ) : (
-                                    <button className="btn btn-sm btn-success" onClick={handleEnable} disabled={actionLoading}>
+                                    <Button variant="default" size="sm" onClick={handleEnable} disabled={actionLoading}>
                                         Enable
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         </div>
@@ -296,7 +301,7 @@ const FirewallTab = () => {
                         <div className="card">
                             <div className="card-header">
                                 <h3>Firewall Information</h3>
-                                <button className="btn btn-sm btn-secondary" onClick={loadData}>Refresh</button>
+                                <Button variant="outline" size="sm" onClick={loadData}>Refresh</Button>
                             </div>
                             <div className="card-body">
                                 <div className="info-list">
@@ -306,9 +311,9 @@ const FirewallTab = () => {
                                     </div>
                                     <div className="info-item">
                                         <span className="info-label">Status</span>
-                                        <span className={`badge ${isActive ? 'badge-success' : 'badge-danger'}`}>
+                                        <Badge variant={isActive ? 'success' : 'destructive'}>
                                             {isActive ? 'Active' : 'Inactive'}
-                                        </span>
+                                        </Badge>
                                     </div>
                                     {activeFirewall === 'firewalld' && status?.firewalld?.default_zone && (
                                         <div className="info-item">
@@ -325,7 +330,7 @@ const FirewallTab = () => {
                         <div className="card">
                             <div className="card-header">
                                 <h3>Firewall Rules</h3>
-                                <button className="btn btn-sm btn-primary" onClick={() => setShowPortModal(true)}>Add Rule</button>
+                                <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
                             </div>
                             <div className="card-body">
                                 {rules.length === 0 ? (
@@ -343,7 +348,7 @@ const FirewallTab = () => {
                                         <tbody>
                                             {rules.map((rule, index) => (
                                                 <tr key={index}>
-                                                    <td><span className="badge badge-info">{rule.type}</span></td>
+                                                    <td><Badge variant="info">{rule.type}</Badge></td>
                                                     <td>
                                                         {rule.type === 'service' && rule.service}
                                                         {rule.type === 'port' && rule.port}
@@ -352,9 +357,9 @@ const FirewallTab = () => {
                                                     <td>{rule.protocol || '-'}</td>
                                                     <td>
                                                         {rule.type === 'port' && (
-                                                            <button className="btn btn-sm btn-danger" onClick={() => handleRemovePort(rule.port, rule.protocol)}>
+                                                            <Button variant="destructive" size="sm" onClick={() => handleRemovePort(rule.port, rule.protocol)}>
                                                                 Remove
-                                                            </button>
+                                                            </Button>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -370,7 +375,7 @@ const FirewallTab = () => {
                         <div className="card">
                             <div className="card-header">
                                 <h3>Blocked IP Addresses</h3>
-                                <button className="btn btn-sm btn-primary" onClick={() => setShowBlockIPModal(true)}>Block IP</button>
+                                <Button variant="default" size="sm" onClick={() => setShowBlockIPModal(true)}>Block IP</Button>
                             </div>
                             <div className="card-body">
                                 {blockedIPs.length === 0 ? (
@@ -384,9 +389,9 @@ const FirewallTab = () => {
                                                 <div className="blocked-info">
                                                     <span className="blocked-ip">{item.ip}</span>
                                                 </div>
-                                                <button className="btn btn-sm btn-warning" onClick={() => handleUnblockIP(item.ip)}>
+                                                <Button variant="secondary" size="sm" onClick={() => handleUnblockIP(item.ip)}>
                                                     Unblock
-                                                </button>
+                                                </Button>
                                             </div>
                                         ))}
                                     </div>
@@ -414,13 +419,13 @@ const FirewallTab = () => {
                                                     <span className="port-number">{port}/{protocol}</span>
                                                 </div>
                                                 {isAllowed ? (
-                                                    <button className="btn btn-sm btn-danger" onClick={() => handleRemovePort(port, protocol)} disabled={actionLoading}>
+                                                    <Button variant="destructive" size="sm" onClick={() => handleRemovePort(port, protocol)} disabled={actionLoading}>
                                                         Block
-                                                    </button>
+                                                    </Button>
                                                 ) : (
-                                                    <button className="btn btn-sm btn-success" onClick={() => handleQuickAllowPort(port, protocol)} disabled={actionLoading}>
+                                                    <Button variant="default" size="sm" onClick={() => handleQuickAllowPort(port, protocol)} disabled={actionLoading}>
                                                         Allow
-                                                    </button>
+                                                    </Button>
                                                 )}
                                             </div>
                                         );
@@ -434,76 +439,86 @@ const FirewallTab = () => {
 
             {/* Block IP Modal */}
             <Modal open={showBlockIPModal} onClose={() => setShowBlockIPModal(false)} title="Block IP Address">
-                            <div className="form-group">
-                                <label>IP Address</label>
-                                <input
-                                    type="text"
-                                    value={blockIP}
-                                    onChange={(e) => setBlockIP(e.target.value)}
-                                    placeholder="192.168.1.100 or 10.0.0.0/24"
-                                />
-                            </div>
-                            <p className="text-muted">You can block a single IP or a range using CIDR notation.</p>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowBlockIPModal(false)}>Cancel</button>
-                            <button className="btn btn-danger" onClick={handleBlockIP} disabled={actionLoading || !blockIP.trim()}>
-                                {actionLoading ? 'Blocking...' : 'Block IP'}
-                            </button>
-                        </div>
+                <div className="form-group">
+                    <Label>IP Address</Label>
+                    <Input
+                        type="text"
+                        value={blockIP}
+                        onChange={(e) => setBlockIP(e.target.value)}
+                        placeholder="192.168.1.100 or 10.0.0.0/24"
+                    />
+                </div>
+                <p className="text-muted">You can block a single IP or a range using CIDR notation.</p>
+                <div className="modal-footer">
+                    <Button variant="outline" onClick={() => setShowBlockIPModal(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={handleBlockIP} disabled={actionLoading || !blockIP.trim()}>
+                        {actionLoading ? 'Blocking...' : 'Block IP'}
+                    </Button>
+                </div>
             </Modal>
 
             {/* Allow Port Modal */}
             <Modal open={showPortModal} onClose={() => setShowPortModal(false)} title="Allow Port">
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Port Number</label>
-                                    <input
-                                        type="number"
-                                        value={newPort.port}
-                                        onChange={(e) => setNewPort({ ...newPort, port: e.target.value })}
-                                        placeholder="8080"
-                                        min="1"
-                                        max="65535"
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Protocol</label>
-                                    <select value={newPort.protocol} onChange={(e) => setNewPort({ ...newPort, protocol: e.target.value })}>
-                                        <option value="tcp">TCP</option>
-                                        <option value="udp">UDP</option>
-                                    </select>
-                                </div>
-                            </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowPortModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleAllowPort} disabled={actionLoading || !newPort.port}>
-                                {actionLoading ? 'Adding...' : 'Allow Port'}
-                            </button>
-                        </div>
+                <div className="form-row">
+                    <div className="form-group">
+                        <Label>Port Number</Label>
+                        <Input
+                            type="number"
+                            value={newPort.port}
+                            onChange={(e) => setNewPort({ ...newPort, port: e.target.value })}
+                            placeholder="8080"
+                            min="1"
+                            max="65535"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <Label>Protocol</Label>
+                        <Select value={newPort.protocol} onValueChange={(value) => setNewPort({ ...newPort, protocol: value })}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="tcp">TCP</SelectItem>
+                                <SelectItem value="udp">UDP</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <Button variant="outline" onClick={() => setShowPortModal(false)}>Cancel</Button>
+                    <Button variant="default" onClick={handleAllowPort} disabled={actionLoading || !newPort.port}>
+                        {actionLoading ? 'Adding...' : 'Allow Port'}
+                    </Button>
+                </div>
             </Modal>
 
             {/* Install Firewall Modal */}
             <Modal open={showInstallModal} onClose={() => setShowInstallModal(false)} title="Install Firewall">
-                            <div className="form-group">
-                                <label>Select Firewall</label>
-                                <select value={selectedFirewall} onChange={(e) => setSelectedFirewall(e.target.value)}>
-                                    <option value="ufw">UFW (Recommended for Ubuntu)</option>
-                                    <option value="firewalld">firewalld (CentOS/RHEL)</option>
-                                </select>
-                            </div>
-                            <div className="install-info">
-                                {selectedFirewall === 'ufw' ? (
-                                    <p><strong>UFW (Uncomplicated Firewall)</strong> is simple and easy to use for Ubuntu/Debian systems.</p>
-                                ) : (
-                                    <p><strong>firewalld</strong> is a dynamically managed firewall with zone-based configuration for CentOS/RHEL.</p>
-                                )}
-                            </div>
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowInstallModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleInstall} disabled={actionLoading}>
-                                {actionLoading ? 'Installing...' : 'Install'}
-                            </button>
-                        </div>
+                <div className="form-group">
+                    <Label>Select Firewall</Label>
+                    <Select value={selectedFirewall} onValueChange={setSelectedFirewall}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ufw">UFW (Recommended for Ubuntu)</SelectItem>
+                            <SelectItem value="firewalld">firewalld (CentOS/RHEL)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="install-info">
+                    {selectedFirewall === 'ufw' ? (
+                        <p><strong>UFW (Uncomplicated Firewall)</strong> is simple and easy to use for Ubuntu/Debian systems.</p>
+                    ) : (
+                        <p><strong>firewalld</strong> is a dynamically managed firewall with zone-based configuration for CentOS/RHEL.</p>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <Button variant="outline" onClick={() => setShowInstallModal(false)}>Cancel</Button>
+                    <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
+                        {actionLoading ? 'Installing...' : 'Install'}
+                    </Button>
+                </div>
             </Modal>
 
             {confirmDialog && (

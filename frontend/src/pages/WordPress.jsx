@@ -5,6 +5,10 @@ import { useToast } from '../contexts/ToastContext';
 import { useResourceTier } from '../contexts/ResourceTierContext';
 import ResourceGate from '../components/ResourceGate';
 import Spinner from '../components/Spinner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 function WordPress() {
     const [sites, setSites] = useState([]);
@@ -114,10 +118,10 @@ function WordPress() {
                     <p className="page-description">Manage your WordPress sites</p>
                 </div>
                 <div className="page-header-actions">
-                    <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                    <Button onClick={() => setShowCreateModal(true)}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Create Site
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -132,9 +136,9 @@ function WordPress() {
                     </div>
                     <h2>No WordPress Sites</h2>
                     <p>Create your first WordPress site powered by Docker. Each site gets its own isolated environment with MySQL.</p>
-                    <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                    <Button onClick={() => setShowCreateModal(true)}>
                         Create Site
-                    </button>
+                    </Button>
                 </div>
             ) : (
                 <div className="wp-sites-grid">
@@ -228,10 +232,10 @@ function WordPress() {
                             </div>
 
                             <div className="form-group">
-                                <label>
+                                <Label>
                                     Site Name <span className="required">*</span>
-                                </label>
-                                <input
+                                </Label>
+                                <Input
                                     type="text"
                                     value={createForm.name}
                                     onChange={e => setCreateForm({ ...createForm, name: e.target.value })}
@@ -242,8 +246,8 @@ function WordPress() {
                             </div>
 
                             <div className="form-group">
-                                <label>Admin Email</label>
-                                <input
+                                <Label>Admin Email</Label>
+                                <Input
                                     type="email"
                                     value={createForm.adminEmail}
                                     onChange={e => setCreateForm({ ...createForm, adminEmail: e.target.value })}
@@ -253,20 +257,19 @@ function WordPress() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button
-                                className="btn btn-secondary"
+                            <Button
+                                variant="outline"
                                 onClick={() => setShowCreateModal(false)}
                                 disabled={createLoading}
                             >
                                 Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
+                            </Button>
+                            <Button
                                 onClick={handleCreate}
                                 disabled={createLoading || !createForm.name}
                             >
                                 {createLoading ? <><Spinner size="sm" /> Creating...</> : 'Create Site'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

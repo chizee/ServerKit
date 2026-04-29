@@ -16,6 +16,7 @@ import GunicornTab from '../components/service-detail/GunicornTab';
 import CommandsTab from '../components/service-detail/CommandsTab';
 import GitConnectModal from '../components/service-detail/GitConnectModal';
 import OverviewTab from '../components/service-detail/OverviewTab';
+import { Button } from '@/components/ui/button';
 
 const TAB_LABELS = {
     overview: 'Overview',
@@ -104,9 +105,9 @@ const ServiceDetail = () => {
             <div className="empty-state">
                 <h3>Service not found</h3>
                 <p>{error || 'The service you are looking for does not exist.'}</p>
-                <button className="btn btn-primary" onClick={() => navigate('/services')}>
+                <Button onClick={() => navigate('/services')}>
                     Back to Services
-                </button>
+                </Button>
             </div>
         );
     }
@@ -156,15 +157,12 @@ const ServiceDetail = () => {
                 <div className="svc-detail__header-actions">
                     {/* Deploy dropdown */}
                     <div className="svc-detail__dropdown" ref={deployMenuRef}>
-                        <button
-                            className="btn btn-primary"
-                            onClick={() => setShowDeployMenu(!showDeployMenu)}
-                        >
+                        <Button onClick={() => setShowDeployMenu(!showDeployMenu)}>
                             Deploy
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-1">
                                 <polyline points="6 9 12 15 18 9"/>
                             </svg>
-                        </button>
+                        </Button>
                         {showDeployMenu && (
                             <div className="svc-detail__dropdown-menu">
                                 <button onClick={() => handleAction('restart')} disabled={actionLoading === 'restart'}>
@@ -193,30 +191,31 @@ const ServiceDetail = () => {
 
                     {/* Restart button */}
                     {service.isRunning && (
-                        <button
-                            className="btn btn-secondary"
+                        <Button
+                            variant="outline"
                             onClick={() => handleAction('restart')}
                             disabled={actionLoading === 'restart'}
                         >
                             {actionLoading === 'restart' ? 'Restarting...' : 'Restart'}
-                        </button>
+                        </Button>
                     )}
 
                     {/* Start/Stop */}
                     {!service.isRunning && (
-                        <button
-                            className="btn btn-secondary"
+                        <Button
+                            variant="outline"
                             onClick={() => handleAction('start')}
                             disabled={actionLoading === 'start'}
                         >
                             {actionLoading === 'start' ? 'Starting...' : 'Start'}
-                        </button>
+                        </Button>
                     )}
 
                     {/* Three-dot menu */}
                     <div className="svc-detail__dropdown" ref={moreMenuRef}>
-                        <button
-                            className="btn btn-ghost btn-icon"
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => setShowMoreMenu(!showMoreMenu)}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -224,7 +223,7 @@ const ServiceDetail = () => {
                                 <circle cx="12" cy="12" r="2"/>
                                 <circle cx="12" cy="19" r="2"/>
                             </svg>
-                        </button>
+                        </Button>
                         {showMoreMenu && (
                             <div className="svc-detail__dropdown-menu svc-detail__dropdown-menu--right">
                                 {service.isRunning && (

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import ContributionGraph from './ContributionGraph';
 import { Search, Filter, X, ChevronRight, User as UserIcon, Activity as ActivityIcon, Terminal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const ActivityTab = () => {
     const [summary, setSummary] = useState(null);
@@ -205,41 +207,53 @@ const ActivityTab = () => {
                 <div className="section-header">
                     <h4>Audit Log</h4>
                 </div>
-                
+
                 <div className="filters-bar">
                     <div className="filter-group">
                         <label><Filter size={12} /> Action Type</label>
-                        <select
-                            className="form-control"
-                            value={filters.action}
-                            onChange={e => handleFilterChange('action', e.target.value)}
+                        <Select
+                            value={filters.action || '__all__'}
+                            onValueChange={(val) => handleFilterChange('action', val === '__all__' ? '' : val)}
                         >
-                            <option value="">All Actions</option>
-                            {actions.map(action => (
-                                <option key={action} value={action}>{formatActionName(action)}</option>
-                            ))}
-                        </select>
+                            <SelectTrigger>
+                                <SelectValue placeholder="All Actions" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">All Actions</SelectItem>
+                                {actions.map(action => (
+                                    <SelectItem key={action} value={action}>{formatActionName(action)}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="filter-group">
                         <label><UserIcon size={12} /> User</label>
-                        <select
-                            className="form-control"
-                            value={filters.user_id}
-                            onChange={e => handleFilterChange('user_id', e.target.value)}
+                        <Select
+                            value={filters.user_id || '__all__'}
+                            onValueChange={(val) => handleFilterChange('user_id', val === '__all__' ? '' : val)}
                         >
-                            <option value="">All Users</option>
-                            {users.map(u => (
-                                <option key={u.id} value={u.id}>{u.username}</option>
-                            ))}
-                        </select>
+                            <SelectTrigger>
+                                <SelectValue placeholder="All Users" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">All Users</SelectItem>
+                                {users.map(u => (
+                                    <SelectItem key={u.id} value={String(u.id)}>{u.username}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     {(filters.action || filters.user_id) && (
-                        <button className="btn btn-ghost btn-sm btn-clear" onClick={() => {
-                            setFilters({ action: '', user_id: '' });
-                            setPagination(prev => ({ ...prev, page: 1 }));
-                        }}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setFilters({ action: '', user_id: '' });
+                                setPagination(prev => ({ ...prev, page: 1 }));
+                            }}
+                        >
                             <X size={14} /> Clear
-                        </button>
+                        </Button>
                     )}
                 </div>
 
@@ -287,23 +301,25 @@ const ActivityTab = () => {
 
                 {pagination.pages > 1 && (
                     <div className="pagination">
-                        <button
-                            className="btn btn-sm btn-outline"
+                        <Button
+                            variant="outline"
+                            size="sm"
                             disabled={pagination.page <= 1}
                             onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                         >
                             Previous
-                        </button>
+                        </Button>
                         <span className="pagination-info">
                             Page {pagination.page} of {pagination.pages}
                         </span>
-                        <button
-                            className="btn btn-sm btn-outline"
+                        <Button
+                            variant="outline"
+                            size="sm"
                             disabled={pagination.page >= pagination.pages}
                             onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
                         >
                             Next
-                        </button>
+                        </Button>
                     </div>
                 )}
             </div>

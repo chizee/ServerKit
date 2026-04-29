@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
@@ -6,6 +6,9 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import QueryRunner from '../components/QueryRunner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['mysql', 'postgresql', 'docker', 'backups', 'sqlite'];
 
@@ -60,46 +63,33 @@ const Databases = () => {
                 </div>
             </header>
 
-            <div className="tabs">
-                <button
-                    className={`tab ${activeTab === 'mysql' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('mysql')}
-                >
-                    MySQL / MariaDB
-                </button>
-                <button
-                    className={`tab ${activeTab === 'postgresql' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('postgresql')}
-                >
-                    PostgreSQL
-                </button>
-                <button
-                    className={`tab ${activeTab === 'docker' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('docker')}
-                >
-                    Docker Apps
-                </button>
-                <button
-                    className={`tab ${activeTab === 'backups' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('backups')}
-                >
-                    Backups
-                </button>
-                <button
-                    className={`tab ${activeTab === 'sqlite' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('sqlite')}
-                >
-                    SQLite
-                </button>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList>
+                    <TabsTrigger value="mysql">MySQL / MariaDB</TabsTrigger>
+                    <TabsTrigger value="postgresql">PostgreSQL</TabsTrigger>
+                    <TabsTrigger value="docker">Docker Apps</TabsTrigger>
+                    <TabsTrigger value="backups">Backups</TabsTrigger>
+                    <TabsTrigger value="sqlite">SQLite</TabsTrigger>
+                </TabsList>
 
-            <div className="tab-content">
-                {activeTab === 'mysql' && <MySQLTab status={status?.mysql} />}
-                {activeTab === 'postgresql' && <PostgreSQLTab status={status?.postgresql} />}
-                {activeTab === 'docker' && <DockerDatabasesTab />}
-                {activeTab === 'backups' && <BackupsTab />}
-                {activeTab === 'sqlite' && <SQLiteTab />}
-            </div>
+                <div className="tab-content">
+                    <TabsContent value="mysql">
+                        <MySQLTab status={status?.mysql} />
+                    </TabsContent>
+                    <TabsContent value="postgresql">
+                        <PostgreSQLTab status={status?.postgresql} />
+                    </TabsContent>
+                    <TabsContent value="docker">
+                        <DockerDatabasesTab />
+                    </TabsContent>
+                    <TabsContent value="backups">
+                        <BackupsTab />
+                    </TabsContent>
+                    <TabsContent value="sqlite">
+                        <SQLiteTab />
+                    </TabsContent>
+                </div>
+            </Tabs>
         </div>
     );
 };
@@ -206,27 +196,29 @@ const MySQLTab = ({ status }) => {
         <div>
             <div className="section-header">
                 <div className="view-toggle">
-                    <button
-                        className={`btn btn-sm ${view === 'databases' ? 'btn-primary' : 'btn-secondary'}`}
+                    <Button
+                        size="sm"
+                        variant={view === 'databases' ? 'default' : 'outline'}
                         onClick={() => setView('databases')}
                     >
                         Databases ({databases.length})
-                    </button>
-                    <button
-                        className={`btn btn-sm ${view === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={view === 'users' ? 'default' : 'outline'}
                         onClick={() => setView('users')}
                     >
                         Users ({users.length})
-                    </button>
+                    </Button>
                 </div>
                 {view === 'databases' ? (
-                    <button className="btn btn-primary" onClick={() => setShowCreateDbModal(true)}>
+                    <Button onClick={() => setShowCreateDbModal(true)}>
                         Create Database
-                    </button>
+                    </Button>
                 ) : (
-                    <button className="btn btn-primary" onClick={() => setShowCreateUserModal(true)}>
+                    <Button onClick={() => setShowCreateUserModal(true)}>
                         Create User
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -257,30 +249,18 @@ const MySQLTab = ({ status }) => {
                                     </div>
                                 </div>
                                 <div className="db-item-actions">
-                                    <button
-                                        className="btn btn-primary btn-sm"
-                                        onClick={() => setQueryDb(db)}
-                                    >
+                                    <Button size="sm" onClick={() => setQueryDb(db)}>
                                         Query
-                                    </button>
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => setSelectedDb(db)}
-                                    >
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setSelectedDb(db)}>
                                         Tables
-                                    </button>
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => handleBackupDatabase(db.name)}
-                                    >
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleBackupDatabase(db.name)}>
                                         Backup
-                                    </button>
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => handleDropDatabase(db.name)}
-                                    >
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleDropDatabase(db.name)}>
                                         Drop
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         ))}
@@ -311,12 +291,9 @@ const MySQLTab = ({ status }) => {
                                     </div>
                                 </div>
                                 <div className="db-item-actions">
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => handleDropUser(user.user, user.host)}
-                                    >
+                                    <Button size="sm" variant="outline" onClick={() => handleDropUser(user.user, user.host)}>
                                         Drop
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         ))}
@@ -470,27 +447,29 @@ const PostgreSQLTab = ({ status }) => {
         <div>
             <div className="section-header">
                 <div className="view-toggle">
-                    <button
-                        className={`btn btn-sm ${view === 'databases' ? 'btn-primary' : 'btn-secondary'}`}
+                    <Button
+                        size="sm"
+                        variant={view === 'databases' ? 'default' : 'outline'}
                         onClick={() => setView('databases')}
                     >
                         Databases ({databases.length})
-                    </button>
-                    <button
-                        className={`btn btn-sm ${view === 'users' ? 'btn-primary' : 'btn-secondary'}`}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant={view === 'users' ? 'default' : 'outline'}
                         onClick={() => setView('users')}
                     >
                         Users ({users.length})
-                    </button>
+                    </Button>
                 </div>
                 {view === 'databases' ? (
-                    <button className="btn btn-primary" onClick={() => setShowCreateDbModal(true)}>
+                    <Button onClick={() => setShowCreateDbModal(true)}>
                         Create Database
-                    </button>
+                    </Button>
                 ) : (
-                    <button className="btn btn-primary" onClick={() => setShowCreateUserModal(true)}>
+                    <Button onClick={() => setShowCreateUserModal(true)}>
                         Create User
-                    </button>
+                    </Button>
                 )}
             </div>
 
@@ -521,30 +500,18 @@ const PostgreSQLTab = ({ status }) => {
                                     </div>
                                 </div>
                                 <div className="db-item-actions">
-                                    <button
-                                        className="btn btn-primary btn-sm"
-                                        onClick={() => setQueryDb(db)}
-                                    >
+                                    <Button size="sm" onClick={() => setQueryDb(db)}>
                                         Query
-                                    </button>
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => setSelectedDb(db)}
-                                    >
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setSelectedDb(db)}>
                                         Tables
-                                    </button>
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => handleBackupDatabase(db.name)}
-                                    >
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleBackupDatabase(db.name)}>
                                         Backup
-                                    </button>
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => handleDropDatabase(db.name)}
-                                    >
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleDropDatabase(db.name)}>
                                         Drop
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         ))}
@@ -575,12 +542,9 @@ const PostgreSQLTab = ({ status }) => {
                                     </div>
                                 </div>
                                 <div className="db-item-actions">
-                                    <button
-                                        className="btn btn-secondary btn-sm"
-                                        onClick={() => handleDropUser(user.user)}
-                                    >
+                                    <Button size="sm" variant="outline" onClick={() => handleDropUser(user.user)}>
                                         Drop
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         ))}
@@ -675,24 +639,15 @@ const BackupsTab = () => {
         <div>
             <div className="section-header">
                 <div className="view-toggle">
-                    <button
-                        className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setFilter('all')}
-                    >
+                    <Button size="sm" variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')}>
                         All
-                    </button>
-                    <button
-                        className={`btn btn-sm ${filter === 'mysql' ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setFilter('mysql')}
-                    >
+                    </Button>
+                    <Button size="sm" variant={filter === 'mysql' ? 'default' : 'outline'} onClick={() => setFilter('mysql')}>
                         MySQL
-                    </button>
-                    <button
-                        className={`btn btn-sm ${filter === 'postgresql' ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setFilter('postgresql')}
-                    >
+                    </Button>
+                    <Button size="sm" variant={filter === 'postgresql' ? 'default' : 'outline'} onClick={() => setFilter('postgresql')}>
                         PostgreSQL
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -726,12 +681,9 @@ const BackupsTab = () => {
                                 <span className={`db-type-badge ${backup.type}`}>
                                     {backup.type === 'mysql' ? 'MySQL' : 'PostgreSQL'}
                                 </span>
-                                <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => handleDelete(backup.filename)}
-                                >
+                                <Button size="sm" variant="outline" onClick={() => handleDelete(backup.filename)}>
                                     Delete
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -799,7 +751,7 @@ const CreateMySQLDatabaseModal = ({ onClose, onCreated }) => {
                     </div>
                     <div className="modal-body">
                         <div className="credentials-box">
-                            <p>Save these credentials - the password won't be shown again!</p>
+                            <p>Save these credentials - the password won&apos;t be shown again!</p>
                             <div className="credential-item">
                                 <label>Database:</label>
                                 <code>{createdInfo.database}</code>
@@ -815,9 +767,9 @@ const CreateMySQLDatabaseModal = ({ onClose, onCreated }) => {
                         </div>
                     </div>
                     <div className="modal-actions">
-                        <button className="btn btn-primary" onClick={() => { onCreated(); onClose(); }}>
+                        <Button onClick={() => { onCreated(); onClose(); }}>
                             Done
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -837,7 +789,7 @@ const CreateMySQLDatabaseModal = ({ onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Database Name *</label>
-                        <input
+                        <Input
                             type="text"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -884,12 +836,12 @@ const CreateMySQLDatabaseModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Database'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -965,9 +917,9 @@ const CreateMySQLUserModal = ({ databases, onClose, onCreated }) => {
                         </div>
                     </div>
                     <div className="modal-actions">
-                        <button className="btn btn-primary" onClick={() => { onCreated(); onClose(); }}>
+                        <Button onClick={() => { onCreated(); onClose(); }}>
                             Done
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -987,7 +939,7 @@ const CreateMySQLUserModal = ({ databases, onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Username *</label>
-                        <input
+                        <Input
                             type="text"
                             value={formData.username}
                             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -999,15 +951,15 @@ const CreateMySQLUserModal = ({ databases, onClose, onCreated }) => {
                     <div className="form-group">
                         <label>Password</label>
                         <div className="input-with-button">
-                            <input
+                            <Input
                                 type="text"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 placeholder="Leave empty to auto-generate"
                             />
-                            <button type="button" className="btn btn-secondary btn-sm" onClick={generatePassword}>
+                            <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
                                 Generate
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
@@ -1037,12 +989,12 @@ const CreateMySQLUserModal = ({ databases, onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create User'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1112,9 +1064,9 @@ const CreatePostgreSQLDatabaseModal = ({ onClose, onCreated }) => {
                         </div>
                     </div>
                     <div className="modal-actions">
-                        <button className="btn btn-primary" onClick={() => { onCreated(); onClose(); }}>
+                        <Button onClick={() => { onCreated(); onClose(); }}>
                             Done
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -1134,7 +1086,7 @@ const CreatePostgreSQLDatabaseModal = ({ onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Database Name *</label>
-                        <input
+                        <Input
                             type="text"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -1167,12 +1119,12 @@ const CreatePostgreSQLDatabaseModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Database'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1241,9 +1193,9 @@ const CreatePostgreSQLUserModal = ({ databases, onClose, onCreated }) => {
                         </div>
                     </div>
                     <div className="modal-actions">
-                        <button className="btn btn-primary" onClick={() => { onCreated(); onClose(); }}>
+                        <Button onClick={() => { onCreated(); onClose(); }}>
                             Done
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -1263,7 +1215,7 @@ const CreatePostgreSQLUserModal = ({ databases, onClose, onCreated }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Username *</label>
-                        <input
+                        <Input
                             type="text"
                             value={formData.username}
                             onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -1275,15 +1227,15 @@ const CreatePostgreSQLUserModal = ({ databases, onClose, onCreated }) => {
                     <div className="form-group">
                         <label>Password</label>
                         <div className="input-with-button">
-                            <input
+                            <Input
                                 type="text"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 placeholder="Leave empty to auto-generate"
                             />
-                            <button type="button" className="btn btn-secondary btn-sm" onClick={generatePassword}>
+                            <Button type="button" variant="outline" size="sm" onClick={generatePassword}>
                                 Generate
-                            </button>
+                            </Button>
                         </div>
                     </div>
 
@@ -1301,12 +1253,12 @@ const CreatePostgreSQLUserModal = ({ databases, onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-actions">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <Button type="button" variant="outline" onClick={onClose}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
                             {loading ? 'Creating...' : 'Create User'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -1362,7 +1314,7 @@ const TablesModal = ({ database, dbType, onClose }) => {
                     )}
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>
@@ -1401,9 +1353,9 @@ const SQLiteTab = () => {
                 <div className="hint">
                     Showing .db, .sqlite, and .sqlite3 files found in /var/www, /home, and /opt
                 </div>
-                <button className="btn btn-secondary" onClick={loadDatabases}>
+                <Button variant="outline" onClick={loadDatabases}>
                     Refresh
-                </button>
+                </Button>
             </div>
 
             {databases.length === 0 ? (
@@ -1432,18 +1384,12 @@ const SQLiteTab = () => {
                                 </div>
                             </div>
                             <div className="db-item-actions">
-                                <button
-                                    className="btn btn-primary btn-sm"
-                                    onClick={() => setQueryDb(db)}
-                                >
+                                <Button size="sm" onClick={() => setQueryDb(db)}>
                                     Query
-                                </button>
-                                <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => setSelectedDb(db)}
-                                >
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setSelectedDb(db)}>
                                     Tables
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -1511,7 +1457,7 @@ const SQLiteTablesModal = ({ database, onClose }) => {
                     )}
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>
@@ -1570,9 +1516,9 @@ const DockerDatabasesTab = () => {
                 <div className="hint">
                     Databases running inside Docker containers from your deployed apps
                 </div>
-                <button className="btn btn-secondary" onClick={loadData}>
+                <Button variant="outline" onClick={loadData}>
                     Refresh
-                </button>
+                </Button>
             </div>
 
             {apps.length === 0 ? (
@@ -1603,12 +1549,9 @@ const DockerDatabasesTab = () => {
                                 </div>
                             </div>
                             <div className="db-item-actions">
-                                <button
-                                    className="btn btn-primary btn-sm"
-                                    onClick={() => loadAppDbInfo(app)}
-                                >
+                                <Button size="sm" onClick={() => loadAppDbInfo(app)}>
                                     View Databases
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -1662,7 +1605,7 @@ const DockerAppDbModal = ({ app, databases, onClose, onQuery }) => {
                 </div>
                 <div className="modal-body">
                     {databases.length === 0 ? (
-                        <p className="hint">No databases found in this app's containers.</p>
+                        <p className="hint">No databases found in this app&apos;s containers.</p>
                     ) : (
                         <div className="db-list">
                             {databases.map((db, idx) => (
@@ -1685,8 +1628,8 @@ const DockerAppDbModal = ({ app, databases, onClose, onQuery }) => {
                                         </div>
                                     </div>
                                     <div className="db-item-actions">
-                                        <button
-                                            className="btn btn-primary btn-sm"
+                                        <Button
+                                            size="sm"
                                             onClick={() => onQuery({
                                                 name: db.database,
                                                 container: db.container,
@@ -1695,13 +1638,10 @@ const DockerAppDbModal = ({ app, databases, onClose, onQuery }) => {
                                             })}
                                         >
                                             Query
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary btn-sm"
-                                            onClick={() => loadTables(db)}
-                                        >
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => loadTables(db)}>
                                             Tables
-                                        </button>
+                                        </Button>
                                     </div>
                                     {tables[db.container + db.database] && (
                                         <div className="tables-inline">
@@ -1754,7 +1694,7 @@ const DockerAppDbModal = ({ app, databases, onClose, onQuery }) => {
                     </div>
                 </div>
                 <div className="modal-actions">
-                    <button className="btn btn-primary" onClick={onClose}>Close</button>
+                    <Button onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>

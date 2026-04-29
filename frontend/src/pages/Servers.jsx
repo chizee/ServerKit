@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 const Servers = () => {
     const [servers, setServers] = useState([]);
@@ -198,12 +201,12 @@ const Servers = () => {
                     <p>{servers.length} {servers.length === 1 ? 'machine' : 'machines'} · {fleetStats.online} online · {availability}% availability</p>
                 </div>
                 <div className="servers-header__actions">
-                    <button className="btn btn-secondary" onClick={() => setShowGroupModal(true)}>
+                    <Button variant="outline" onClick={() => setShowGroupModal(true)}>
                         <FolderIcon /> Groups
-                    </button>
-                    <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                    </Button>
+                    <Button onClick={() => setShowAddModal(true)}>
                         <PlusIcon /> Add Server
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -230,7 +233,7 @@ const Servers = () => {
                 <div className="servers-toolbar">
                     <label className="search-box">
                         <SearchIcon />
-                        <input
+                        <Input
                             type="text"
                             placeholder="Search by name, host, or IP..."
                             value={searchTerm}
@@ -275,12 +278,12 @@ const Servers = () => {
                         <span>selected</span>
                     </div>
                     <div className="servers-bulk-bar__actions">
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setSelectedIds(new Set())}>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
                             Clear selection
-                        </button>
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => setBulkDeleteOpen(true)}>
+                        </Button>
+                        <Button type="button" variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
                             <TrashIcon /> Delete {selectedIds.size}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -297,13 +300,13 @@ const Servers = () => {
                             : 'Try a different status, group, or search term to bring machines back into view.'}
                     </p>
                     {servers.length === 0 ? (
-                        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+                        <Button onClick={() => setShowAddModal(true)}>
                             <PlusIcon /> Add your first server
-                        </button>
+                        </Button>
                     ) : (
-                        <button
+                        <Button
                             type="button"
-                            className="btn btn-secondary"
+                            variant="outline"
                             onClick={() => {
                                 setSelectedGroup('all');
                                 setSelectedStatus('all');
@@ -311,7 +314,7 @@ const Servers = () => {
                             }}
                         >
                             Clear filters
-                        </button>
+                        </Button>
                     )}
                 </div>
             ) : (
@@ -658,7 +661,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
 
                 <div className="form-group">
                     <label>Pair code</label>
-                    <input
+                    <Input
                         type="text"
                         value={formatDisplay(formattedCode)}
                         onChange={(e) => {
@@ -695,7 +698,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
 
                 <div className="form-group">
                     <label>Passphrase *</label>
-                    <input
+                    <Input
                         type="password"
                         value={passphrase}
                         onChange={(e) => setPassphrase(e.target.value)}
@@ -708,7 +711,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                 <div className="form-row">
                     <div className="form-group">
                         <label>Server name</label>
-                        <input
+                        <Input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -731,12 +734,12 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
             </div>
 
             <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                <Button type="button" variant="outline" onClick={onClose}>
                     Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={loading || formattedCode.length !== 6}>
+                </Button>
+                <Button type="submit" disabled={loading || formattedCode.length !== 6}>
                     {loading ? 'Pairing…' : 'Pair Agent'}
-                </button>
+                </Button>
             </div>
         </form>
     );
@@ -842,7 +845,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <div className="form-group">
                                 <label>Server Name *</label>
-                                <input
+                                <Input
                                     type="text"
                                     name="name"
                                     value={formData.name}
@@ -901,7 +904,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                     <div className="form-row">
                                         <div className="form-group">
                                             <label>Hostname</label>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 name="hostname"
                                                 value={formData.hostname}
@@ -911,7 +914,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                         </div>
                                         <div className="form-group">
                                             <label>IP Address</label>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 name="ip_address"
                                                 value={formData.ip_address}
@@ -925,12 +928,12 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                         </div>
 
                         <div className="modal-actions">
-                            <button type="button" className="btn btn-secondary" onClick={onClose}>
+                            <Button type="button" variant="outline" onClick={onClose}>
                                 Cancel
-                            </button>
-                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                            </Button>
+                            <Button type="submit" disabled={loading}>
                                 {loading ? 'Creating…' : 'Create & Get Install Script'}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 ) : (
@@ -975,9 +978,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                         </div>
 
                         <div className="modal-actions">
-                            <button className="btn btn-primary" onClick={onCreated}>
+                            <Button onClick={onCreated}>
                                 Close
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -995,9 +998,9 @@ const InstallTab = ({ title, description, icon, script, onCopy }) => {
                     <span>{title}</span>
                     {description && <span className="install-tab-description">{description}</span>}
                 </div>
-                <button className="btn btn-sm btn-secondary" onClick={onCopy}>
+                <Button variant="outline" size="sm" onClick={onCopy}>
                     <CopyIcon /> Copy
-                </button>
+                </Button>
             </div>
             <pre className="install-script">{script}</pre>
         </div>
@@ -1066,16 +1069,16 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                 </div>
 
                 <form onSubmit={handleCreateGroup} className="group-form">
-                    <input
+                    <Input
                         type="text"
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
                         placeholder="New group name..."
                         disabled={loading}
                     />
-                    <button type="submit" className="btn btn-primary" disabled={loading || !newGroupName.trim()}>
+                    <Button type="submit" disabled={loading || !newGroupName.trim()}>
                         <PlusIcon /> Add
-                    </button>
+                    </Button>
                 </form>
 
                 <div className="groups-list">
@@ -1085,7 +1088,7 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                         groupList.map(group => (
                             <div key={group.id} className="group-item">
                                 {editingGroup === group.id ? (
-                                    <input
+                                    <Input
                                         type="text"
                                         defaultValue={group.name}
                                         onBlur={(e) => handleUpdateGroup(group.id, e.target.value)}
@@ -1126,7 +1129,7 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                 </div>
 
                 <div className="modal-actions">
-                    <button className="btn btn-primary" onClick={onClose}>Done</button>
+                    <Button onClick={onClose}>Done</Button>
                 </div>
             </div>
         </div>

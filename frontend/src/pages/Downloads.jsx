@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { Button } from '@/components/ui/button';
 
 // Platform icons as SVG components
 const LinuxIcon = () => (
@@ -159,10 +160,10 @@ function Downloads() {
                         Download and install the ServerKit Agent on your servers to enable remote management.
                     </p>
                 </div>
-                <button className="btn btn-secondary" onClick={fetchVersionInfo}>
+                <Button variant="outline" onClick={fetchVersionInfo}>
                     <RefreshIcon />
                     Refresh
-                </button>
+                </Button>
             </div>
 
             {error && (
@@ -225,14 +226,14 @@ function Downloads() {
                                             <h3>{platform.name}</h3>
                                             <span className="platform-arch">{platform.arch}</span>
                                         </div>
-                                        <button
-                                            className="btn btn-primary download-btn"
+                                        <Button
+                                            className="download-btn"
                                             onClick={() => handleDownload(platform.os, platform.archKey)}
                                             disabled={!isAvailable}
                                         >
                                             <DownloadIcon />
                                             {isAvailable ? 'Download' : 'Not Available'}
-                                        </button>
+                                        </Button>
                                     </div>
                                 );
                             })}
@@ -335,15 +336,16 @@ function Downloads() {
                             Verify your download using the SHA256 checksums:
                         </p>
                         {versionInfo.checksums_url && (
-                            <a
-                                href={versionInfo.checksums_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-secondary"
-                            >
-                                <DownloadIcon />
-                                Download Checksums
-                            </a>
+                            <Button variant="outline" asChild>
+                                <a
+                                    href={versionInfo.checksums_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <DownloadIcon />
+                                    Download Checksums
+                                </a>
+                            </Button>
                         )}
                         <div className="verification-command">
                             <pre><code>sha256sum -c checksums.txt</code></pre>

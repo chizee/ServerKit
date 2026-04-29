@@ -10,6 +10,11 @@ import EnvironmentVariables from '../components/EnvironmentVariables';
 import PrivateURLSection from '../components/PrivateURLSection';
 import LinkedAppsSection from '../components/LinkedAppsSection';
 import LinkAppModal from '../components/LinkAppModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['overview', 'environment', 'packages', 'gunicorn', 'commands', 'build', 'deploy', 'logs', 'settings'];
 
@@ -97,9 +102,9 @@ const ApplicationDetail = () => {
         return (
             <div className="empty-state">
                 <h3>Application not found</h3>
-                <button className="btn btn-primary" onClick={() => navigate('/apps')}>
+                <Button onClick={() => navigate('/apps')}>
                     Back to Applications
-                </button>
+                </Button>
             </div>
         );
     }
@@ -119,45 +124,46 @@ const ApplicationDetail = () => {
                 </div>
                 <div className="app-detail-actions">
                     {app.port && (
-                        <a
-                            href={`http://localhost:${app.port}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-ghost"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                <polyline points="15 3 21 3 21 9"/>
-                                <line x1="10" y1="14" x2="21" y2="3"/>
-                            </svg>
-                            Open App
-                        </a>
+                        <Button variant="ghost" asChild>
+                            <a
+                                href={`http://localhost:${app.port}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                                Open App
+                            </a>
+                        </Button>
                     )}
                     {isRunning && (
                         <>
-                            <button className="btn btn-ghost" onClick={() => handleAction('restart')}>
+                            <Button variant="ghost" onClick={() => handleAction('restart')}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <polyline points="23 4 23 10 17 10"/>
                                     <polyline points="1 20 1 14 7 14"/>
                                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                                 </svg>
                                 Restart
-                            </button>
-                            <button className="btn btn-danger-outline" onClick={() => handleAction('stop')}>
+                            </Button>
+                            <Button variant="outline" onClick={() => handleAction('stop')}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                     <rect x="6" y="6" width="12" height="12"/>
                                 </svg>
                                 Stop
-                            </button>
+                            </Button>
                         </>
                     )}
                     {!isRunning && (
-                        <button className="btn btn-primary" onClick={() => handleAction('start')}>
+                        <Button onClick={() => handleAction('start')}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <polygon points="5 3 19 12 5 21 5 3"/>
                             </svg>
                             Start
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -192,79 +198,58 @@ const ApplicationDetail = () => {
             </div>
 
             {/* Tabs */}
-            <div className="app-detail-tabs">
-                <div
-                    className={`app-detail-tab ${activeTab === 'overview' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('overview')}
-                >
-                    Overview
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'environment' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('environment')}
-                >
-                    Environment
-                </div>
-                {isPythonApp && (
-                    <>
-                        <div
-                            className={`app-detail-tab ${activeTab === 'packages' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('packages')}
-                        >
-                            Packages
-                        </div>
-                        <div
-                            className={`app-detail-tab ${activeTab === 'gunicorn' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('gunicorn')}
-                        >
-                            Gunicorn
-                        </div>
-                        <div
-                            className={`app-detail-tab ${activeTab === 'commands' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('commands')}
-                        >
-                            Commands
-                        </div>
-                    </>
-                )}
-                <div
-                    className={`app-detail-tab ${activeTab === 'build' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('build')}
-                >
-                    Build
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'deploy' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('deploy')}
-                >
-                    Deploy
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'logs' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('logs')}
-                >
-                    Logs
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'settings' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('settings')}
-                >
-                    Settings
-                </div>
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="app-detail-tabs">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="environment">Environment</TabsTrigger>
+                    {isPythonApp && (
+                        <>
+                            <TabsTrigger value="packages">Packages</TabsTrigger>
+                            <TabsTrigger value="gunicorn">Gunicorn</TabsTrigger>
+                            <TabsTrigger value="commands">Commands</TabsTrigger>
+                        </>
+                    )}
+                    <TabsTrigger value="build">Build</TabsTrigger>
+                    <TabsTrigger value="deploy">Deploy</TabsTrigger>
+                    <TabsTrigger value="logs">Logs</TabsTrigger>
+                    <TabsTrigger value="settings">Settings</TabsTrigger>
+                </TabsList>
 
-            {/* Tab Content */}
-            <div className="app-detail-content">
-                {activeTab === 'overview' && <OverviewTab app={app} onUpdate={loadApp} />}
-                {activeTab === 'environment' && <EnvironmentVariables appId={app.id} />}
-                {activeTab === 'packages' && isPythonApp && <PackagesTab appId={app.id} />}
-                {activeTab === 'gunicorn' && isPythonApp && <GunicornTab appId={app.id} />}
-                {activeTab === 'commands' && isPythonApp && <CommandsTab appId={app.id} appType={app.app_type} />}
-                {activeTab === 'build' && <BuildTab appId={app.id} appPath={app.path} />}
-                {activeTab === 'deploy' && <DeployTab appId={app.id} appPath={app.path} />}
-                {activeTab === 'logs' && <LogsTab app={app} />}
-                {activeTab === 'settings' && <SettingsTab app={app} onUpdate={loadApp} />}
-            </div>
+                {/* Tab Content */}
+                <div className="app-detail-content">
+                    <TabsContent value="overview">
+                        <OverviewTab app={app} onUpdate={loadApp} />
+                    </TabsContent>
+                    <TabsContent value="environment">
+                        <EnvironmentVariables appId={app.id} />
+                    </TabsContent>
+                    {isPythonApp && (
+                        <>
+                            <TabsContent value="packages">
+                                <PackagesTab appId={app.id} />
+                            </TabsContent>
+                            <TabsContent value="gunicorn">
+                                <GunicornTab appId={app.id} />
+                            </TabsContent>
+                            <TabsContent value="commands">
+                                <CommandsTab appId={app.id} appType={app.app_type} />
+                            </TabsContent>
+                        </>
+                    )}
+                    <TabsContent value="build">
+                        <BuildTab appId={app.id} appPath={app.path} />
+                    </TabsContent>
+                    <TabsContent value="deploy">
+                        <DeployTab appId={app.id} appPath={app.path} />
+                    </TabsContent>
+                    <TabsContent value="logs">
+                        <LogsTab app={app} />
+                    </TabsContent>
+                    <TabsContent value="settings">
+                        <SettingsTab app={app} onUpdate={loadApp} />
+                    </TabsContent>
+                </div>
+            </Tabs>
         </div>
     );
 };
@@ -581,13 +566,14 @@ const RoutingDiagnosticsPanel = ({ appId }) => {
         <div className="app-panel">
             <div className="app-panel-header">
                 <span>Routing Diagnostics</span>
-                <button
-                    className="btn btn-ghost btn-sm"
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={runDiagnostics}
                     disabled={loading}
                 >
                     {loading ? 'Checking...' : 'Run Diagnostics'}
-                </button>
+                </Button>
             </div>
             <div className="app-panel-body">
                 {diagnostics ? (
@@ -691,21 +677,21 @@ const PackagesTab = ({ appId }) => {
         <div>
             <div className="section-header">
                 <h3>Installed Packages</h3>
-                <button className="btn btn-secondary btn-sm" onClick={handleFreeze}>
+                <Button variant="outline" size="sm" onClick={handleFreeze}>
                     Freeze to requirements.txt
-                </button>
+                </Button>
             </div>
 
             <form className="install-form" onSubmit={handleInstall}>
-                <input
+                <Input
                     type="text"
                     value={newPackage}
                     onChange={(e) => setNewPackage(e.target.value)}
                     placeholder="Package name (e.g., requests, flask==2.0.0)"
                 />
-                <button type="submit" className="btn btn-primary" disabled={installing}>
+                <Button type="submit" disabled={installing}>
                     {installing ? 'Installing...' : 'Install'}
-                </button>
+                </Button>
             </form>
 
             <div className="packages-list">
@@ -762,9 +748,9 @@ const GunicornTab = ({ appId }) => {
         <div>
             <div className="section-header">
                 <h3>Gunicorn Configuration</h3>
-                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                <Button onClick={handleSave} disabled={saving}>
                     {saving ? 'Saving...' : 'Save'}
-                </button>
+                </Button>
             </div>
             <textarea
                 className="code-editor"
@@ -818,32 +804,32 @@ const CommandsTab = ({ appId, appType }) => {
 
             <div className="quick-commands">
                 {quickCommands.map(({ label, cmd }) => (
-                    <button
+                    <Button
                         key={cmd}
-                        className="btn btn-secondary btn-sm"
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleRun(cmd)}
                         disabled={running}
                     >
                         {label}
-                    </button>
+                    </Button>
                 ))}
             </div>
 
             <div className="command-input">
-                <input
+                <Input
                     type="text"
                     value={command}
                     onChange={(e) => setCommand(e.target.value)}
                     placeholder="Enter command..."
                     onKeyDown={(e) => e.key === 'Enter' && handleRun()}
                 />
-                <button
-                    className="btn btn-primary"
+                <Button
                     onClick={() => handleRun()}
                     disabled={running}
                 >
                     {running ? 'Running...' : 'Run'}
-                </button>
+                </Button>
             </div>
 
             {output && (
@@ -1003,15 +989,15 @@ const BuildTab = ({ appId, appPath }) => {
         }
     }
 
-    function getStatusBadgeClass(status) {
+    function getStatusBadgeVariant(status) {
         switch (status) {
-            case 'live': return 'badge-success';
+            case 'live': return 'success';
             case 'building':
             case 'deploying':
-            case 'pending': return 'badge-warning';
-            case 'failed': return 'badge-danger';
-            case 'rolled_back': return 'badge-secondary';
-            default: return 'badge-default';
+            case 'pending': return 'warning';
+            case 'failed': return 'destructive';
+            case 'rolled_back': return 'secondary';
+            default: return 'default';
         }
     }
 
@@ -1061,9 +1047,9 @@ const BuildTab = ({ appId, appPath }) => {
             <div className="card">
                 <div className="card-header-row">
                     <h3>Build Configuration</h3>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowConfigModal(true)}>
+                    <Button variant="outline" size="sm" onClick={() => setShowConfigModal(true)}>
                         Configure
-                    </button>
+                    </Button>
                 </div>
                 {buildConfig ? (
                     <div className="info-list">
@@ -1080,20 +1066,19 @@ const BuildTab = ({ appId, appPath }) => {
                     <p className="hint">No build configuration. Click Configure to set up.</p>
                 )}
                 <div className="card-actions">
-                    <button
-                        className="btn btn-primary"
+                    <Button
                         onClick={() => handleDeploy(false)}
                         disabled={deploying || building}
                     >
                         {deploying ? 'Deploying...' : 'Build & Deploy'}
-                    </button>
-                    <button
-                        className="btn btn-secondary"
+                    </Button>
+                    <Button
+                        variant="outline"
                         onClick={() => handleBuild(false)}
                         disabled={building || deploying}
                     >
                         {building ? 'Building...' : 'Build Only'}
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -1105,20 +1090,21 @@ const BuildTab = ({ appId, appPath }) => {
                             <div key={dep.version} className={`deployment-item ${dep.status === 'live' ? 'current' : ''}`}>
                                 <div className="deployment-info">
                                     <span className="deployment-version">v{dep.version}</span>
-                                    <span className={`badge ${getStatusBadgeClass(dep.status)}`}>{dep.status}</span>
+                                    <Badge variant={getStatusBadgeVariant(dep.status)}>{dep.status}</Badge>
                                 </div>
                                 <div className="deployment-meta">
                                     <span>{new Date(dep.created_at).toLocaleString()}</span>
                                     <span>{formatDuration(dep.build_duration)}</span>
                                 </div>
                                 {dep.status !== 'live' && (
-                                    <button
-                                        className="btn btn-secondary btn-sm"
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() => handleRollback(dep.version)}
                                         disabled={deploying}
                                     >
                                         Rollback
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         ))}
@@ -1149,7 +1135,7 @@ const BuildTab = ({ appId, appPath }) => {
                             {configForm.buildMethod === 'dockerfile' && (
                                 <div className="form-group">
                                     <label>Dockerfile Path</label>
-                                    <input
+                                    <Input
                                         type="text"
                                         value={configForm.dockerfilePath}
                                         onChange={e => setConfigForm({...configForm, dockerfilePath: e.target.value})}
@@ -1160,7 +1146,7 @@ const BuildTab = ({ appId, appPath }) => {
                                 <>
                                     <div className="form-group">
                                         <label>Build Command</label>
-                                        <input
+                                        <Input
                                             type="text"
                                             value={configForm.customBuildCmd}
                                             onChange={e => setConfigForm({...configForm, customBuildCmd: e.target.value})}
@@ -1169,7 +1155,7 @@ const BuildTab = ({ appId, appPath }) => {
                                     </div>
                                     <div className="form-group">
                                         <label>Start Command</label>
-                                        <input
+                                        <Input
                                             type="text"
                                             value={configForm.customStartCmd}
                                             onChange={e => setConfigForm({...configForm, customStartCmd: e.target.value})}
@@ -1180,19 +1166,19 @@ const BuildTab = ({ appId, appPath }) => {
                             )}
                             <div className="form-group">
                                 <label>Timeout (seconds)</label>
-                                <input
+                                <Input
                                     type="number"
                                     value={configForm.timeout}
                                     onChange={e => setConfigForm({...configForm, timeout: parseInt(e.target.value)})}
                                 />
                             </div>
                             <div className="modal-actions">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowConfigModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowConfigModal(false)}>
                                     Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary">
+                                </Button>
+                                <Button type="submit">
                                     Save Configuration
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -1268,9 +1254,9 @@ const LogsTab = ({ app }) => {
                         />
                         Auto-refresh
                     </label>
-                    <button className="btn btn-secondary btn-sm" onClick={loadLogs}>
+                    <Button variant="outline" size="sm" onClick={loadLogs}>
                         Refresh
-                    </button>
+                    </Button>
                 </div>
             </div>
             <pre className="log-viewer">{loading ? 'Loading...' : logs}</pre>
@@ -1386,13 +1372,13 @@ const SettingsTab = ({ app, onUpdate }) => {
                             </span>
                         </div>
                         <div className="settings-control">
-                            <button
-                                className="btn btn-secondary"
+                            <Button
+                                variant="outline"
                                 onClick={handleUnlink}
                                 disabled={unlinking}
                             >
                                 {unlinking ? 'Unlinking...' : 'Unlink Application'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -1401,13 +1387,13 @@ const SettingsTab = ({ app, onUpdate }) => {
             <div className="card danger-zone">
                 <h4>Danger Zone</h4>
                 <p>Once you delete an application, there is no going back.</p>
-                <button
-                    className="btn btn-danger"
+                <Button
+                    variant="destructive"
                     onClick={handleDelete}
                     disabled={deleting}
                 >
                     {deleting ? 'Deleting...' : 'Delete Application'}
-                </button>
+                </Button>
             </div>
             <ConfirmDialog
                 isOpen={confirmAppSettingsState.isOpen}
@@ -1548,12 +1534,12 @@ const DeployTab = ({ appId, appPath }) => {
         }
     }
 
-    function getStatusBadgeClass(status) {
+    function getStatusBadgeVariant(status) {
         switch (status) {
-            case 'success': return 'badge-success';
-            case 'failed': return 'badge-danger';
-            case 'in_progress': return 'badge-warning';
-            default: return 'badge-secondary';
+            case 'success': return 'success';
+            case 'failed': return 'destructive';
+            case 'in_progress': return 'warning';
+            default: return 'secondary';
         }
     }
 
@@ -1580,9 +1566,9 @@ const DeployTab = ({ appId, appPath }) => {
                         </svg>
                         <h3>Git Deployment Not Configured</h3>
                         <p>Connect a Git repository to enable automatic deployments via webhooks or manual triggers.</p>
-                        <button className="btn btn-primary" onClick={() => setShowConfigModal(true)}>
+                        <Button onClick={() => setShowConfigModal(true)}>
                             Configure Deployment
-                        </button>
+                        </Button>
                     </div>
                 </div>
             ) : (
@@ -1599,20 +1585,20 @@ const DeployTab = ({ appId, appPath }) => {
                                 </div>
                             </div>
                             <div className="deploy-actions">
-                                <button
-                                    className="btn btn-secondary btn-sm"
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     onClick={handlePull}
                                     disabled={deploying}
                                 >
                                     Pull Only
-                                </button>
-                                <button
-                                    className="btn btn-primary"
+                                </Button>
+                                <Button
                                     onClick={() => handleDeploy(false)}
                                     disabled={deploying}
                                 >
                                     {deploying ? 'Deploying...' : 'Deploy Now'}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -1635,12 +1621,12 @@ const DeployTab = ({ appId, appPath }) => {
                                 </div>
                             </div>
                             <div className="card-actions">
-                                <button className="btn btn-secondary btn-sm" onClick={() => setShowConfigModal(true)}>
+                                <Button variant="outline" size="sm" onClick={() => setShowConfigModal(true)}>
                                     Edit
-                                </button>
-                                <button className="btn btn-danger btn-sm" onClick={handleRemoveDeployment}>
+                                </Button>
+                                <Button variant="destructive" size="sm" onClick={handleRemoveDeployment}>
                                     Remove
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -1650,7 +1636,7 @@ const DeployTab = ({ appId, appPath }) => {
                                 <div className="deployments-list">
                                     {history.slice(0, 5).map((dep, idx) => (
                                         <div key={idx} className="deployment-item">
-                                            <span className={`badge ${getStatusBadgeClass(dep.status)}`}>{dep.status}</span>
+                                            <Badge variant={getStatusBadgeVariant(dep.status)}>{dep.status}</Badge>
                                             <span className="deployment-date">{new Date(dep.timestamp).toLocaleString()}</span>
                                         </div>
                                     ))}
@@ -1671,7 +1657,7 @@ const DeployTab = ({ appId, appPath }) => {
                         <form onSubmit={handleConfigureDeployment}>
                             <div className="form-group">
                                 <label>Repository URL</label>
-                                <input
+                                <Input
                                     type="text"
                                     value={configForm.repoUrl}
                                     onChange={e => setConfigForm({...configForm, repoUrl: e.target.value})}
@@ -1681,7 +1667,7 @@ const DeployTab = ({ appId, appPath }) => {
                             </div>
                             <div className="form-group">
                                 <label>Branch</label>
-                                <input
+                                <Input
                                     type="text"
                                     value={configForm.branch}
                                     onChange={e => setConfigForm({...configForm, branch: e.target.value})}
@@ -1700,7 +1686,7 @@ const DeployTab = ({ appId, appPath }) => {
                             </div>
                             <div className="form-group">
                                 <label>Pre-deploy Script</label>
-                                <textarea
+                                <Textarea
                                     value={configForm.preDeployScript}
                                     onChange={e => setConfigForm({...configForm, preDeployScript: e.target.value})}
                                     placeholder="npm install"
@@ -1709,7 +1695,7 @@ const DeployTab = ({ appId, appPath }) => {
                             </div>
                             <div className="form-group">
                                 <label>Post-deploy Script</label>
-                                <textarea
+                                <Textarea
                                     value={configForm.postDeployScript}
                                     onChange={e => setConfigForm({...configForm, postDeployScript: e.target.value})}
                                     placeholder="npm run build"
@@ -1717,12 +1703,12 @@ const DeployTab = ({ appId, appPath }) => {
                                 />
                             </div>
                             <div className="modal-actions">
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowConfigModal(false)}>
+                                <Button type="button" variant="outline" onClick={() => setShowConfigModal(false)}>
                                     Cancel
-                                </button>
-                                <button type="submit" className="btn btn-primary">
+                                </Button>
+                                <Button type="submit">
                                     Save Configuration
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

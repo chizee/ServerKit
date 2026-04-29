@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 // Featured templates (curated list)
 const FEATURED_TEMPLATES = [
@@ -309,16 +311,16 @@ const Templates = () => {
             <div className="templates-filters">
                 <div className="search-box">
                     <Search size={18} className="search-icon" />
-                    <input
+                    <Input
                         type="text"
                         placeholder="Search templates..."
                         value={searchQuery}
                         onChange={(e) => setSearchQueryFilter(e.target.value)}
                     />
                     {searchQuery && (
-                        <button className="search-clear" onClick={() => setSearchQueryFilter('')}>
+                        <Button variant="ghost" size="icon" className="search-clear" onClick={() => setSearchQueryFilter('')}>
                             <X size={16} />
-                        </button>
+                        </Button>
                     )}
                 </div>
                 <div className="category-filters">
@@ -361,9 +363,9 @@ const Templates = () => {
                             </button>
                         </span>
                     )}
-                    <button className="clear-all-btn" onClick={clearAllFilters}>
+                    <Button variant="ghost" size="sm" className="clear-all-btn" onClick={clearAllFilters}>
                         Clear All
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -390,9 +392,9 @@ const Templates = () => {
                         <Layers size={48} />
                         <p>No templates found</p>
                         {hasActiveFilters && (
-                            <button className="btn btn-secondary btn-sm" onClick={clearAllFilters}>
+                            <Button variant="outline" size="sm" onClick={clearAllFilters}>
                                 Clear Filters
-                            </button>
+                            </Button>
                         )}
                     </div>
                 ) : (
@@ -456,13 +458,17 @@ const Templates = () => {
 
                             <div className="template-links">
                                 {selectedTemplate.website && (
-                                    <a href={selectedTemplate.website} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-                                        <ExternalLink size={14} /> Website
+                                    <a href={selectedTemplate.website} target="_blank" rel="noopener noreferrer">
+                                        <Button variant="outline" size="sm">
+                                            <ExternalLink size={14} /> Website
+                                        </Button>
                                     </a>
                                 )}
                                 {selectedTemplate.documentation && (
-                                    <a href={selectedTemplate.documentation} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-                                        <BookOpen size={14} /> Documentation
+                                    <a href={selectedTemplate.documentation} target="_blank" rel="noopener noreferrer">
+                                        <Button variant="outline" size="sm">
+                                            <BookOpen size={14} /> Documentation
+                                        </Button>
                                     </a>
                                 )}
                             </div>
@@ -546,7 +552,9 @@ const Templates = () => {
                                     <div className="detail-section">
                                         <h4>
                                             <Container size={16} /> Docker Compose
-                                            <button
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 className="copy-btn"
                                                 onClick={() => {
                                                     navigator.clipboard.writeText('docker-compose.yml available after install');
@@ -555,7 +563,7 @@ const Templates = () => {
                                                 }}
                                             >
                                                 {copiedCompose ? <Check size={14} /> : <Copy size={14} />}
-                                            </button>
+                                            </Button>
                                         </h4>
                                         <div className="compose-preview">
                                             <code>Docker Compose configuration will be generated during installation</code>
@@ -565,17 +573,16 @@ const Templates = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setSelectedTemplate(null)}>
+                            <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
                                 Close
-                            </button>
-                            <button
-                                className="btn btn-primary"
+                            </Button>
+                            <Button
                                 onClick={() => {
                                     setShowInstallModal(true);
                                 }}
                             >
                                 Install Template
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -732,7 +739,7 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
 
                         <div className="form-group">
                             <label>Application Name *</label>
-                            <input
+                            <Input
                                 type="text"
                                 value={appName}
                                 onChange={(e) => setAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
@@ -779,7 +786,7 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                                                 ))}
                                             </select>
                                         ) : variable.type === 'password' ? (
-                                            <input
+                                            <Input
                                                 type="password"
                                                 value={variables[variable.name] || ''}
                                                 onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
@@ -787,7 +794,7 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                                                 required={variable.required && !variable.default}
                                             />
                                         ) : (
-                                            <input
+                                            <Input
                                                 type={variable.type === 'port' ? 'number' : 'text'}
                                                 value={variables[variable.name] || ''}
                                                 onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
@@ -825,12 +832,12 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                         )}
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose} disabled={installing}>
+                        <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
                             Cancel
-                        </button>
-                        <button type="submit" className="btn btn-primary" disabled={installing}>
+                        </Button>
+                        <Button type="submit" disabled={installing}>
                             {installing ? 'Installing...' : 'Install'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

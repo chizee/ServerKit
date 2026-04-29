@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const SiteSettingsTab = ({ onDevModeChange }) => {
     const [settings, setSettings] = useState({
@@ -65,18 +67,16 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
                 <p>Allow new users to create accounts on the login page.</p>
 
                 <div className="form-group">
-                    <label className="toggle-switch-label">
-                        <span>Enable public registration</span>
-                        <label className="toggle-switch">
-                            <input
-                                type="checkbox"
-                                checked={settings.registration_enabled}
-                                onChange={() => handleToggleSetting('registration_enabled', 'User registration')}
-                                disabled={saving}
-                            />
-                            <span className="toggle-slider"></span>
-                        </label>
-                    </label>
+                    <div className="settings-row">
+                        <div className="settings-label">
+                            <Label>Enable public registration</Label>
+                        </div>
+                        <Switch
+                            checked={settings.registration_enabled}
+                            onCheckedChange={() => handleToggleSetting('registration_enabled', 'User registration')}
+                            disabled={saving}
+                        />
+                    </div>
                     <span className="form-help">
                         When disabled, only administrators can create new user accounts.
                     </span>
@@ -88,18 +88,16 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
                 <p>Enable developer tools and diagnostics.</p>
 
                 <div className="form-group">
-                    <label className="toggle-switch-label">
-                        <span>Enable developer mode</span>
-                        <label className="toggle-switch">
-                            <input
-                                type="checkbox"
-                                checked={settings.dev_mode}
-                                onChange={() => handleToggleSetting('dev_mode', 'Developer mode')}
-                                disabled={saving}
-                            />
-                            <span className="toggle-slider"></span>
-                        </label>
-                    </label>
+                    <div className="settings-row">
+                        <div className="settings-label">
+                            <Label>Enable developer mode</Label>
+                        </div>
+                        <Switch
+                            checked={settings.dev_mode}
+                            onCheckedChange={() => handleToggleSetting('dev_mode', 'Developer mode')}
+                            disabled={saving}
+                        />
+                    </div>
                     <span className="form-help">
                         Enables the Developer tab with icon reference and diagnostic tools.
                     </span>

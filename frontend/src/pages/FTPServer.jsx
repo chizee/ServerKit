@@ -4,6 +4,11 @@ import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['overview', 'users', 'connections', 'logs'];
 
@@ -240,43 +245,42 @@ function FTPServer() {
                 </div>
                 <div className="page-header-actions">
                     {!isInstalled ? (
-                        <button className="btn btn-primary" onClick={() => setShowInstallModal(true)}>
+                        <Button onClick={() => setShowInstallModal(true)}>
                             Install FTP Server
-                        </button>
+                        </Button>
                     ) : (
                         <>
-                            <button
-                                className="btn btn-secondary"
+                            <Button
+                                variant="outline"
                                 onClick={handleTestConnection}
                                 disabled={actionLoading}
                             >
                                 Test Connection
-                            </button>
+                            </Button>
                             {isRunning ? (
                                 <>
-                                    <button
-                                        className="btn btn-secondary"
+                                    <Button
+                                        variant="outline"
                                         onClick={() => handleServiceAction('restart')}
                                         disabled={actionLoading}
                                     >
                                         Restart
-                                    </button>
-                                    <button
-                                        className="btn btn-danger"
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
                                         onClick={() => handleServiceAction('stop')}
                                         disabled={actionLoading}
                                     >
                                         Stop
-                                    </button>
+                                    </Button>
                                 </>
                             ) : (
-                                <button
-                                    className="btn btn-primary"
+                                <Button
                                     onClick={() => handleServiceAction('start')}
                                     disabled={actionLoading}
                                 >
                                     Start
-                                </button>
+                                </Button>
                             )}
                         </>
                     )}
@@ -288,9 +292,9 @@ function FTPServer() {
                     <span className="icon">cloud_upload</span>
                     <h2>No FTP Server Installed</h2>
                     <p>Install an FTP server to enable file transfers on your server.</p>
-                    <button className="btn btn-primary btn-lg" onClick={() => setShowInstallModal(true)}>
+                    <Button size="lg" onClick={() => setShowInstallModal(true)}>
                         Install FTP Server
-                    </button>
+                    </Button>
                 </div>
             ) : (
                 <>
@@ -333,35 +337,19 @@ function FTPServer() {
                         </div>
                     </div>
 
-                    <div className="tabs">
-                        <button
-                            className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('overview')}
-                        >
-                            Overview
-                        </button>
-                        <button
-                            className={`tab ${activeTab === 'users' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('users')}
-                        >
-                            Users
-                        </button>
-                        <button
-                            className={`tab ${activeTab === 'connections' ? 'active' : ''}`}
-                            onClick={() => { setActiveTab('connections'); loadConnections(); }}
-                        >
-                            Connections
-                        </button>
-                        <button
-                            className={`tab ${activeTab === 'logs' ? 'active' : ''}`}
-                            onClick={() => { setActiveTab('logs'); loadLogs(); }}
-                        >
-                            Logs
-                        </button>
-                    </div>
+                    <Tabs value={activeTab} onValueChange={(val) => {
+                        setActiveTab(val);
+                        if (val === 'connections') loadConnections();
+                        if (val === 'logs') loadLogs();
+                    }}>
+                        <TabsList>
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="users">Users</TabsTrigger>
+                            <TabsTrigger value="connections">Connections</TabsTrigger>
+                            <TabsTrigger value="logs">Logs</TabsTrigger>
+                        </TabsList>
 
-                    <div className="tab-content">
-                        {activeTab === 'overview' && (
+                        <TabsContent value="overview">
                             <div className="overview-tab">
                                 <div className="config-section">
                                     <h3>Server Configuration</h3>
@@ -425,23 +413,23 @@ function FTPServer() {
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </TabsContent>
 
-                        {activeTab === 'users' && (
+                        <TabsContent value="users">
                             <div className="users-tab">
                                 <div className="section-header">
                                     <h3>FTP Users</h3>
-                                    <button className="btn btn-primary" onClick={() => setShowUserModal(true)}>
+                                    <Button onClick={() => setShowUserModal(true)}>
                                         Add User
-                                    </button>
+                                    </Button>
                                 </div>
                                 {users.length === 0 ? (
                                     <div className="empty-state">
                                         <span className="icon">person_add</span>
                                         <p>No FTP users configured</p>
-                                        <button className="btn btn-primary" onClick={() => setShowUserModal(true)}>
+                                        <Button onClick={() => setShowUserModal(true)}>
                                             Create First User
-                                        </button>
+                                        </Button>
                                     </div>
                                 ) : (
                                     <div className="users-table">
@@ -461,13 +449,13 @@ function FTPServer() {
                                                         <td>
                                                             <span className="user-name">{user.username}</span>
                                                             {user.in_userlist && (
-                                                                <span className="badge badge-info">FTP</span>
+                                                                <Badge variant="info">FTP</Badge>
                                                             )}
                                                         </td>
                                                         <td>
                                                             <code>{user.home}</code>
                                                             {!user.home_exists && (
-                                                                <span className="badge badge-warning">Missing</span>
+                                                                <Badge variant="warning">Missing</Badge>
                                                             )}
                                                         </td>
                                                         <td>{user.home_size_human}</td>
@@ -477,27 +465,30 @@ function FTPServer() {
                                                             </span>
                                                         </td>
                                                         <td className="actions">
-                                                            <button
-                                                                className="btn btn-sm btn-secondary"
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
                                                                 onClick={() => openPasswordModal(user.username)}
                                                                 title="Change Password"
                                                             >
                                                                 <span className="icon">key</span>
-                                                            </button>
-                                                            <button
-                                                                className={`btn btn-sm ${user.is_active ? 'btn-warning' : 'btn-success'}`}
+                                                            </Button>
+                                                            <Button
+                                                                variant={user.is_active ? 'secondary' : 'outline'}
+                                                                size="sm"
                                                                 onClick={() => handleToggleUser(user.username, user.is_active)}
                                                                 title={user.is_active ? 'Disable' : 'Enable'}
                                                             >
                                                                 <span className="icon">{user.is_active ? 'block' : 'check'}</span>
-                                                            </button>
-                                                            <button
-                                                                className="btn btn-sm btn-danger"
+                                                            </Button>
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
                                                                 onClick={() => handleDeleteUser(user.username)}
                                                                 title="Delete"
                                                             >
                                                                 <span className="icon">delete</span>
-                                                            </button>
+                                                            </Button>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -506,16 +497,16 @@ function FTPServer() {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </TabsContent>
 
-                        {activeTab === 'connections' && (
+                        <TabsContent value="connections">
                             <div className="connections-tab">
                                 <div className="section-header">
                                     <h3>Active Connections</h3>
-                                    <button className="btn btn-secondary" onClick={loadConnections}>
+                                    <Button variant="outline" onClick={loadConnections}>
                                         <span className="icon">refresh</span>
                                         Refresh
-                                    </button>
+                                    </Button>
                                 </div>
                                 {connections.length === 0 ? (
                                     <div className="empty-state">
@@ -542,13 +533,14 @@ function FTPServer() {
                                                             <span className="status-badge active">{conn.state}</span>
                                                         </td>
                                                         <td>
-                                                            <button
-                                                                className="btn btn-sm btn-danger"
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
                                                                 onClick={() => handleDisconnect(conn.pid)}
                                                                 title="Disconnect"
                                                             >
                                                                 <span className="icon">close</span>
-                                                            </button>
+                                                            </Button>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -557,23 +549,23 @@ function FTPServer() {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </TabsContent>
 
-                        {activeTab === 'logs' && (
+                        <TabsContent value="logs">
                             <div className="logs-tab">
                                 <div className="section-header">
                                     <h3>Server Logs</h3>
-                                    <button className="btn btn-secondary" onClick={loadLogs}>
+                                    <Button variant="outline" onClick={loadLogs}>
                                         <span className="icon">refresh</span>
                                         Refresh
-                                    </button>
+                                    </Button>
                                 </div>
                                 <div className="log-viewer">
                                     <pre>{logs}</pre>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        </TabsContent>
+                    </Tabs>
                 </>
             )}
 
@@ -589,7 +581,7 @@ function FTPServer() {
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Select FTP Server</label>
+                                <Label>Select FTP Server</Label>
                                 <select
                                     value={selectedService}
                                     onChange={(e) => setSelectedService(e.target.value)}
@@ -613,16 +605,15 @@ function FTPServer() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowInstallModal(false)}>
+                            <Button variant="outline" onClick={() => setShowInstallModal(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
+                            </Button>
+                            <Button
                                 onClick={handleInstall}
                                 disabled={actionLoading}
                             >
                                 {actionLoading ? 'Installing...' : 'Install'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -640,8 +631,8 @@ function FTPServer() {
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>Username *</label>
-                                <input
+                                <Label>Username *</Label>
+                                <Input
                                     type="text"
                                     value={newUser.username}
                                     onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
@@ -649,8 +640,8 @@ function FTPServer() {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Password (leave empty to auto-generate)</label>
-                                <input
+                                <Label>Password (leave empty to auto-generate)</Label>
+                                <Input
                                     type="password"
                                     value={newUser.password}
                                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
@@ -658,8 +649,8 @@ function FTPServer() {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Home Directory (optional)</label>
-                                <input
+                                <Label>Home Directory (optional)</Label>
+                                <Input
                                     type="text"
                                     value={newUser.homeDir}
                                     onChange={(e) => setNewUser({ ...newUser, homeDir: e.target.value })}
@@ -668,16 +659,15 @@ function FTPServer() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowUserModal(false)}>
+                            <Button variant="outline" onClick={() => setShowUserModal(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
+                            </Button>
+                            <Button
                                 onClick={handleCreateUser}
                                 disabled={actionLoading || !newUser.username.trim()}
                             >
                                 {actionLoading ? 'Creating...' : 'Create User'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -696,8 +686,8 @@ function FTPServer() {
                         <div className="modal-body">
                             <p>Changing password for user: <strong>{passwordTarget}</strong></p>
                             <div className="form-group">
-                                <label>New Password (leave empty to auto-generate)</label>
-                                <input
+                                <Label>New Password (leave empty to auto-generate)</Label>
+                                <Input
                                     type="password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
@@ -706,16 +696,15 @@ function FTPServer() {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowPasswordModal(false)}>
+                            <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
                                 Cancel
-                            </button>
-                            <button
-                                className="btn btn-primary"
+                            </Button>
+                            <Button
                                 onClick={handleChangePassword}
                                 disabled={actionLoading}
                             >
                                 {actionLoading ? 'Changing...' : 'Change Password'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const ConfigPanel = ({
     isOpen,
@@ -38,9 +39,9 @@ const ConfigPanel = ({
                     )}
                     <h3>{title}</h3>
                 </div>
-                <button className="config-panel-close" onClick={onClose}>
+                <Button variant="ghost" size="icon" className="config-panel-close" onClick={onClose}>
                     <X size={18} />
-                </button>
+                </Button>
             </div>
 
             <div className="config-panel-body">

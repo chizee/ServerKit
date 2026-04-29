@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import PermissionEditor from './PermissionEditor';
 import Modal from '../Modal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const InviteModal = ({ onClose, onCreated }) => {
     const [email, setEmail] = useState('');
@@ -24,8 +28,7 @@ const InviteModal = ({ onClose, onCreated }) => {
         }).catch(() => {});
     }, []);
 
-    function handleRoleChange(e) {
-        const newRole = e.target.value;
+    function handleRoleChange(newRole) {
         setRole(newRole);
         if (templates[newRole]) {
             setPermissions(templates[newRole]);
@@ -72,9 +75,9 @@ const InviteModal = ({ onClose, onCreated }) => {
                         <p>Share this invitation link:</p>
                         <div className="invite-link-display">
                             <code>{result.invite_url}</code>
-                            <button className="btn btn-sm btn-ghost" onClick={copyLink}>
+                            <Button variant="ghost" size="sm" onClick={copyLink}>
                                 {copied ? 'Copied!' : 'Copy'}
-                            </button>
+                            </Button>
                         </div>
                         {result.email_sent && (
                             <p className="text-success" style={{ marginTop: 12 }}>
@@ -87,7 +90,7 @@ const InviteModal = ({ onClose, onCreated }) => {
                             </p>
                         )}
                     <div className="modal-footer">
-                        <button className="btn btn-primary" onClick={onClose}>Done</button>
+                        <Button variant="default" onClick={onClose}>Done</Button>
                     </div>
             </Modal>
         );
@@ -100,8 +103,8 @@ const InviteModal = ({ onClose, onCreated }) => {
                         {error && <div className="error-message">{error}</div>}
 
                         <div className="form-group">
-                            <label htmlFor="invite-email">Email (optional)</label>
-                            <input
+                            <Label htmlFor="invite-email">Email (optional)</Label>
+                            <Input
                                 type="email"
                                 id="invite-email"
                                 value={email}
@@ -115,31 +118,45 @@ const InviteModal = ({ onClose, onCreated }) => {
 
                         <div className="form-row">
                             <div className="form-group">
-                                <label htmlFor="invite-role">Role</label>
-                                <select id="invite-role" value={role} onChange={handleRoleChange}>
-                                    <option value="admin">Admin</option>
-                                    <option value="developer">Developer</option>
-                                    <option value="viewer">Viewer</option>
-                                </select>
+                                <Label htmlFor="invite-role">Role</Label>
+                                <Select value={role} onValueChange={handleRoleChange}>
+                                    <SelectTrigger id="invite-role">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="admin">Admin</SelectItem>
+                                        <SelectItem value="developer">Developer</SelectItem>
+                                        <SelectItem value="viewer">Viewer</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="invite-expiry">Expires</label>
-                                <select id="invite-expiry" value={expiryDays} onChange={e => setExpiryDays(Number(e.target.value))}>
-                                    <option value={1}>1 day</option>
-                                    <option value={3}>3 days</option>
-                                    <option value={7}>7 days</option>
-                                    <option value={30}>30 days</option>
-                                    <option value={0}>Never</option>
-                                </select>
+                                <Label htmlFor="invite-expiry">Expires</Label>
+                                <Select
+                                    value={String(expiryDays)}
+                                    onValueChange={(val) => setExpiryDays(Number(val))}
+                                >
+                                    <SelectTrigger id="invite-expiry">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">1 day</SelectItem>
+                                        <SelectItem value="3">3 days</SelectItem>
+                                        <SelectItem value="7">7 days</SelectItem>
+                                        <SelectItem value="30">30 days</SelectItem>
+                                        <SelectItem value="0">Never</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
                         {role !== 'admin' && (
                             <div className="customize-permissions-section">
-                                <button
+                                <Button
                                     type="button"
-                                    className="btn btn-ghost btn-sm"
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => {
                                         if (!showPermissions && templates[role]) {
                                             setPermissions(templates[role]);
@@ -154,7 +171,7 @@ const InviteModal = ({ onClose, onCreated }) => {
                                             : <polyline points="6 9 12 15 18 9"/>
                                         }
                                     </svg>
-                                </button>
+                                </Button>
                                 {showPermissions && (
                                     <PermissionEditor
                                         permissions={permissions}
@@ -166,10 +183,10 @@ const InviteModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                        <Button type="submit" variant="default" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Invitation'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
         </Modal>

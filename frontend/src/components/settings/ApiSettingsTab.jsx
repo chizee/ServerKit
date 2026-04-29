@@ -7,6 +7,10 @@ import {
     Key, Plus, Trash2, RotateCcw, Activity, AlertCircle,
     Check, Send, ChevronDown, ChevronUp, Zap, BarChart3, RefreshCw
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 const ApiSettingsTab = () => {
     const { isAdmin } = useAuth();
@@ -72,9 +76,9 @@ const ApiKeysSection = () => {
                         <p>Manage programmatic access to the ServerKit API</p>
                     </div>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
                     <Plus size={14} /> Create Key
-                </button>
+                </Button>
             </div>
 
             {loading ? (
@@ -103,7 +107,7 @@ const ApiKeysSection = () => {
                                     <td className="api-settings__key-name">{key.name}</td>
                                     <td><code className="api-settings__key-prefix">{key.key_prefix}...</code></td>
                                     <td>
-                                        <span className={`badge badge--${key.tier}`}>{key.tier}</span>
+                                        <Badge variant="outline">{key.tier}</Badge>
                                     </td>
                                     <td className="api-settings__muted">
                                         {key.last_used_at
@@ -112,28 +116,31 @@ const ApiKeysSection = () => {
                                     </td>
                                     <td>
                                         {key.is_active && !key.revoked_at ? (
-                                            <span className="badge badge--success">Active</span>
+                                            <Badge variant="success">Active</Badge>
                                         ) : (
-                                            <span className="badge badge--danger">Revoked</span>
+                                            <Badge variant="destructive">Revoked</Badge>
                                         )}
                                     </td>
                                     <td className="api-settings__actions">
                                         {key.is_active && !key.revoked_at && (
                                             <>
-                                                <button
-                                                    className="btn btn-sm btn-ghost"
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={() => handleRotate(key.id)}
                                                     title="Rotate"
                                                 >
                                                     <RotateCcw size={14} />
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm btn-ghost btn-danger"
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     onClick={() => handleRevoke(key.id)}
                                                     title="Revoke"
+                                                    className="text-destructive hover:text-destructive"
                                                 >
                                                     <Trash2 size={14} />
-                                                </button>
+                                                </Button>
                                             </>
                                         )}
                                     </td>
@@ -221,10 +228,9 @@ const RateLimitsSection = () => {
             <div className="api-settings__rate-limits">
                 {Object.entries(limits).map(([key, value]) => (
                     <div key={key} className="form-group form-group--inline">
-                        <label>{labels[key]}</label>
-                        <input
+                        <Label>{labels[key]}</Label>
+                        <Input
                             type="text"
-                            className="form-input"
                             value={value}
                             onChange={e => setLimits(prev => ({ ...prev, [key]: e.target.value }))}
                             placeholder="e.g. 100 per minute"
@@ -234,9 +240,9 @@ const RateLimitsSection = () => {
             </div>
 
             <div className="settings-card__footer">
-                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                <Button variant="default" onClick={handleSave} disabled={saving}>
                     {saving ? 'Saving...' : 'Save Rate Limits'}
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -311,9 +317,9 @@ const WebhookSection = () => {
                         <p>Receive HTTP notifications when events occur</p>
                     </div>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
+                <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
                     <Plus size={14} /> Add Webhook
-                </button>
+                </Button>
             </div>
 
             {loading ? (
@@ -333,35 +339,40 @@ const WebhookSection = () => {
                                     <span className="api-settings__webhook-url">{sub.url}</span>
                                     <div className="api-settings__webhook-events">
                                         {sub.events.slice(0, 3).map(e => (
-                                            <span key={e} className="badge badge--subtle">{e}</span>
+                                            <Badge key={e} variant="secondary">{e}</Badge>
                                         ))}
                                         {sub.events.length > 3 && (
-                                            <span className="badge badge--subtle">+{sub.events.length - 3}</span>
+                                            <Badge variant="secondary">+{sub.events.length - 3}</Badge>
                                         )}
                                     </div>
                                 </div>
                                 <div className="api-settings__webhook-controls">
-                                    <span className={`badge ${sub.is_active ? 'badge--success' : 'badge--danger'}`}>
+                                    <Badge variant={sub.is_active ? 'success' : 'destructive'}>
                                         {sub.is_active ? 'Active' : 'Inactive'}
-                                    </span>
+                                    </Badge>
                                     {expandedId === sub.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                 </div>
                             </div>
                             {expandedId === sub.id && (
                                 <div className="api-settings__webhook-details">
                                     <div className="api-settings__webhook-actions">
-                                        <button className="btn btn-sm btn-secondary" onClick={() => handleTest(sub.id)}>
+                                        <Button variant="outline" size="sm" onClick={() => handleTest(sub.id)}>
                                             <Send size={14} /> Test
-                                        </button>
-                                        <button className="btn btn-sm btn-secondary" onClick={() => setEditingSub(sub)}>
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => setEditingSub(sub)}>
                                             Edit
-                                        </button>
-                                        <button className="btn btn-sm btn-ghost btn-danger" onClick={() => handleDelete(sub.id)}>
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDelete(sub.id)}
+                                            className="text-destructive hover:text-destructive"
+                                        >
                                             <Trash2 size={14} /> Delete
-                                        </button>
-                                        <button className="btn btn-sm btn-ghost" onClick={() => loadDeliveries(sub.id)}>
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => loadDeliveries(sub.id)}>
                                             <RefreshCw size={14} />
-                                        </button>
+                                        </Button>
                                     </div>
                                     {deliveries[sub.id] && (
                                         <div className="api-settings__deliveries">
@@ -384,9 +395,9 @@ const WebhookSection = () => {
                                                             <tr key={d.id}>
                                                                 <td><code>{d.event_type}</code></td>
                                                                 <td>
-                                                                    <span className={`badge badge--${d.status === 'success' ? 'success' : d.status === 'failed' ? 'danger' : 'warning'}`}>
+                                                                    <Badge variant={d.status === 'success' ? 'success' : d.status === 'failed' ? 'destructive' : 'warning'}>
                                                                         {d.status}
-                                                                    </span>
+                                                                    </Badge>
                                                                 </td>
                                                                 <td>{d.http_status || '-'}</td>
                                                                 <td>{d.duration_ms ? `${d.duration_ms}ms` : '-'}</td>
@@ -461,13 +472,14 @@ const AnalyticsSection = () => {
                 </div>
                 <div className="api-settings__period-select">
                     {['1h', '24h', '7d', '30d'].map(p => (
-                        <button
+                        <Button
                             key={p}
-                            className={`btn btn-sm ${period === p ? 'btn-primary' : 'btn-ghost'}`}
+                            size="sm"
+                            variant={period === p ? 'default' : 'ghost'}
                             onClick={() => setPeriod(p)}
                         >
                             {p}
-                        </button>
+                        </Button>
                     ))}
                 </div>
             </div>
@@ -535,7 +547,7 @@ const AnalyticsSection = () => {
                                 <tbody>
                                     {endpoints.slice(0, 10).map((ep, i) => (
                                         <tr key={i}>
-                                            <td><span className={`badge badge--method badge--${ep.method.toLowerCase()}`}>{ep.method}</span></td>
+                                            <td><Badge variant="outline">{ep.method}</Badge></td>
                                             <td><code>{ep.endpoint}</code></td>
                                             <td>{ep.count.toLocaleString()}</td>
                                             <td>{ep.avg_response_time_ms}ms</td>

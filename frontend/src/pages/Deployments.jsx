@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Button } from '@/components/ui/button';
 
 const STATUS_COLORS = {
     pending: { bg: 'rgba(148,163,184,0.15)', fg: '#94a3b8', icon: Clock },
@@ -158,17 +159,17 @@ const Deployments = () => {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                        className={`btn ${autoRefresh ? 'btn-primary' : 'btn-secondary'}`}
+                    <Button
+                        variant={autoRefresh ? 'default' : 'outline'}
                         onClick={() => setAutoRefresh((v) => !v)}
                         title="Auto-refresh every 3s"
                     >
                         <RefreshCw size={16} className={autoRefresh ? 'spin' : ''} />
                         {autoRefresh ? 'Live' : 'Paused'}
-                    </button>
-                    <button className="btn btn-secondary" onClick={loadJobs}>
+                    </Button>
+                    <Button variant="outline" onClick={loadJobs}>
                         <RefreshCw size={16} /> Refresh
-                    </button>
+                    </Button>
                 </div>
             </div>
 

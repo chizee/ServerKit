@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 function formatBytes(bytes) {
     if (!bytes) return '-';
@@ -228,23 +230,27 @@ const SystemTab = () => {
                 <div className="form-group">
                     <label>Change Timezone</label>
                     <div className="timezone-selector">
-                        <select
-                            value={selectedTimezone}
-                            onChange={(e) => setSelectedTimezone(e.target.value)}
-                            className="form-control"
+                        <Select
+                            value={selectedTimezone || '__none__'}
+                            onValueChange={(val) => setSelectedTimezone(val === '__none__' ? '' : val)}
                         >
-                            <option value="">Select timezone...</option>
-                            {timezones.map((tz) => (
-                                <option key={tz} value={tz}>{tz}</option>
-                            ))}
-                        </select>
-                        <button
-                            className="btn btn-primary"
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select timezone..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">Select timezone...</SelectItem>
+                                {timezones.map((tz) => (
+                                    <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="default"
                             onClick={handleTimezoneChange}
                             disabled={savingTimezone || !selectedTimezone || selectedTimezone === metrics?.time?.timezone_id}
                         >
                             {savingTimezone ? 'Saving...' : 'Apply'}
-                        </button>
+                        </Button>
                     </div>
                     {timezoneMessage && (
                         <div className={`timezone-message ${timezoneMessage.type}`}>

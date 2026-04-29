@@ -4,6 +4,11 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const ServerTemplates = () => {
     const toast = useToast();
@@ -18,7 +23,6 @@ const ServerTemplates = () => {
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [servers, setServers] = useState([]);
-    const [tab, setTab] = useState('templates');
 
     const [form, setForm] = useState({
         name: '', description: '', category: 'general',
@@ -128,14 +132,14 @@ const ServerTemplates = () => {
                     <h1>Server Templates</h1>
                     <p className="page-description">
                         {templates.length} template{templates.length !== 1 ? 's' : ''}
-                        {compliance && ` \u2022 ${compliance.compliance_pct}% fleet compliance`}
+                        {compliance && ` • ${compliance.compliance_pct}% fleet compliance`}
                     </p>
                 </div>
                 <div className="page-header-actions">
                     {user?.is_admin && (
-                        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                        <Button onClick={() => setShowCreateModal(true)}>
                             Create Template
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -162,71 +166,73 @@ const ServerTemplates = () => {
                 </div>
             )}
 
-            <div className="tabs">
-                <button className={`tab ${tab === 'templates' ? 'active' : ''}`} onClick={() => setTab('templates')}>Templates</button>
-                <button className={`tab ${tab === 'library' ? 'active' : ''}`} onClick={() => setTab('library')}>Library</button>
-            </div>
+            <Tabs defaultValue="templates">
+                <TabsList>
+                    <TabsTrigger value="templates">Templates</TabsTrigger>
+                    <TabsTrigger value="library">Library</TabsTrigger>
+                </TabsList>
 
-            {tab === 'templates' && (
-                <div className="templates-grid">
-                    {templates.map(tmpl => (
-                        <div key={tmpl.id} className="template-card card" onClick={() => setSelectedDetail(selectedDetail?.id === tmpl.id ? null : tmpl)}>
-                            <div className="template-card__header">
-                                <h3>{tmpl.name}</h3>
-                                <span className="badge badge--outline">{categoryLabels[tmpl.category] || tmpl.category}</span>
+                <TabsContent value="templates">
+                    <div className="templates-grid">
+                        {templates.map(tmpl => (
+                            <div key={tmpl.id} className="template-card card" onClick={() => setSelectedDetail(selectedDetail?.id === tmpl.id ? null : tmpl)}>
+                                <div className="template-card__header">
+                                    <h3>{tmpl.name}</h3>
+                                    <Badge variant="outline">{categoryLabels[tmpl.category] || tmpl.category}</Badge>
+                                </div>
+                                {tmpl.description && <p className="template-card__desc">{tmpl.description}</p>}
+                                <div className="template-card__meta">
+                                    <span>v{tmpl.version}</span>
+                                    <span>{tmpl.assignment_count} server{tmpl.assignment_count !== 1 ? 's' : ''}</span>
+                                    {tmpl.parent_name && <span>Inherits: {tmpl.parent_name}</span>}
+                                </div>
+                                <div className="template-card__spec">
+                                    {tmpl.packages?.length > 0 && <span>{tmpl.packages.length} packages</span>}
+                                    {tmpl.services?.length > 0 && <span>{tmpl.services.length} services</span>}
+                                    {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} firewall rules</span>}
+                                </div>
+                                <div className="template-card__actions" onClick={e => e.stopPropagation()}>
+                                    <Button size="sm" onClick={() => { setSelectedTemplate(tmpl); setShowAssignModal(true); }}>
+                                        Assign
+                                    </Button>
+                                    {user?.is_admin && (
+                                        <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(tmpl)}>Delete</Button>
+                                    )}
+                                </div>
                             </div>
-                            {tmpl.description && <p className="template-card__desc">{tmpl.description}</p>}
-                            <div className="template-card__meta">
-                                <span>v{tmpl.version}</span>
-                                <span>{tmpl.assignment_count} server{tmpl.assignment_count !== 1 ? 's' : ''}</span>
-                                {tmpl.parent_name && <span>Inherits: {tmpl.parent_name}</span>}
+                        ))}
+                        {templates.length === 0 && (
+                            <div className="empty-state">
+                                <p>No templates yet. Create one or use a library template.</p>
                             </div>
-                            <div className="template-card__spec">
-                                {tmpl.packages?.length > 0 && <span>{tmpl.packages.length} packages</span>}
-                                {tmpl.services?.length > 0 && <span>{tmpl.services.length} services</span>}
-                                {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} firewall rules</span>}
-                            </div>
-                            <div className="template-card__actions" onClick={e => e.stopPropagation()}>
-                                <button className="btn btn-sm btn-primary" onClick={() => { setSelectedTemplate(tmpl); setShowAssignModal(true); }}>
-                                    Assign
-                                </button>
-                                {user?.is_admin && (
-                                    <button className="btn btn-sm btn-danger" onClick={() => setDeleteConfirm(tmpl)}>Delete</button>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                    {templates.length === 0 && (
-                        <div className="empty-state">
-                            <p>No templates yet. Create one or use a library template.</p>
-                        </div>
-                    )}
-                </div>
-            )}
+                        )}
+                    </div>
+                </TabsContent>
 
-            {tab === 'library' && (
-                <div className="templates-grid">
-                    {Object.entries(library).map(([key, tmpl]) => (
-                        <div key={key} className="template-card card">
-                            <div className="template-card__header">
-                                <h3>{tmpl.name}</h3>
-                                <span className="badge badge--outline">{categoryLabels[tmpl.category] || tmpl.category}</span>
+                <TabsContent value="library">
+                    <div className="templates-grid">
+                        {Object.entries(library).map(([key, tmpl]) => (
+                            <div key={key} className="template-card card">
+                                <div className="template-card__header">
+                                    <h3>{tmpl.name}</h3>
+                                    <Badge variant="outline">{categoryLabels[tmpl.category] || tmpl.category}</Badge>
+                                </div>
+                                <p className="template-card__desc">{tmpl.description}</p>
+                                <div className="template-card__spec">
+                                    {tmpl.packages?.length > 0 && <span>{tmpl.packages.length} packages</span>}
+                                    {tmpl.services?.length > 0 && <span>{tmpl.services.length} services</span>}
+                                    {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} firewall rules</span>}
+                                </div>
+                                <div className="template-card__actions">
+                                    <Button size="sm" onClick={() => handleCreateFromLibrary(key)}>
+                                        Use Template
+                                    </Button>
+                                </div>
                             </div>
-                            <p className="template-card__desc">{tmpl.description}</p>
-                            <div className="template-card__spec">
-                                {tmpl.packages?.length > 0 && <span>{tmpl.packages.length} packages</span>}
-                                {tmpl.services?.length > 0 && <span>{tmpl.services.length} services</span>}
-                                {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} firewall rules</span>}
-                            </div>
-                            <div className="template-card__actions">
-                                <button className="btn btn-sm btn-primary" onClick={() => handleCreateFromLibrary(key)}>
-                                    Use Template
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                </TabsContent>
+            </Tabs>
 
             {/* Create Modal */}
             {showCreateModal && (
@@ -239,11 +245,11 @@ const ServerTemplates = () => {
                         <div className="modal-body">
                             <div className="form-group">
                                 <label>Name</label>
-                                <input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                             </div>
                             <div className="form-group">
                                 <label>Description</label>
-                                <textarea className="form-input" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
+                                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
                             </div>
                             <div className="form-group">
                                 <label>Category</label>
@@ -253,7 +259,7 @@ const ServerTemplates = () => {
                             </div>
                             <div className="form-group">
                                 <label>Packages (one per line)</label>
-                                <textarea className="form-input form-input--mono" value={form.packages} onChange={e => setForm({...form, packages: e.target.value})} rows={4} placeholder="nginx&#10;php-fpm&#10;certbot" />
+                                <Textarea className="form-input--mono" value={form.packages} onChange={e => setForm({...form, packages: e.target.value})} rows={4} placeholder={"nginx\nphp-fpm\ncertbot"} />
                             </div>
                             <div className="form-group">
                                 <label className="checkbox-label">
@@ -263,8 +269,8 @@ const ServerTemplates = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleCreate} disabled={!form.name}>Create</button>
+                            <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+                            <Button onClick={handleCreate} disabled={!form.name}>Create</Button>
                         </div>
                     </div>
                 </div>

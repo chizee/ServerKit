@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const AuditTab = () => {
     const [audit, setAudit] = useState(null);
@@ -19,13 +21,13 @@ const AuditTab = () => {
         }
     };
 
-    const getSeverityClass = (severity) => {
+    const getSeverityVariant = (severity) => {
         switch (severity) {
-            case 'pass': return 'badge-success';
-            case 'critical': return 'badge-danger';
-            case 'warning': return 'badge-warning';
-            case 'info': return 'badge-info';
-            default: return 'badge-secondary';
+            case 'pass': return 'success';
+            case 'critical': return 'destructive';
+            case 'warning': return 'warning';
+            case 'info': return 'info';
+            default: return 'secondary';
         }
     };
 
@@ -41,9 +43,9 @@ const AuditTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>Security Audit</h3>
-                    <button className="btn btn-primary" onClick={runAudit} disabled={loading}>
+                    <Button variant="default" onClick={runAudit} disabled={loading}>
                         {loading ? 'Running Audit...' : 'Run Audit'}
-                    </button>
+                    </Button>
                 </div>
                 <div className="card-body">
                     {error && <div className="alert alert-danger">{error}</div>}
@@ -81,9 +83,9 @@ const AuditTab = () => {
                                     <div className="findings-list">
                                         {data.findings?.map((finding, idx) => (
                                             <div key={idx} className="finding-item">
-                                                <span className={`badge ${getSeverityClass(finding.severity)}`}>
+                                                <Badge variant={getSeverityVariant(finding.severity)}>
                                                     {finding.severity}
-                                                </span>
+                                                </Badge>
                                                 <span className="finding-message">{finding.message}</span>
                                             </div>
                                         ))}

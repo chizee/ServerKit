@@ -1,4 +1,5 @@
 import React from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const PERMISSION_GROUPS = [
     {
@@ -72,22 +73,20 @@ const PermissionEditor = ({ permissions = {}, onChange, disabled = false }) => {
                                 <span className="permission-feature-name">
                                     {FEATURE_LABELS[feature]}
                                 </span>
-                                <label className="permission-checkbox">
-                                    <input
-                                        type="checkbox"
+                                <div className="permission-checkbox">
+                                    <Checkbox
                                         checked={!!featurePerms.read}
-                                        onChange={() => handleToggle(feature, 'read')}
+                                        onCheckedChange={() => handleToggle(feature, 'read')}
                                         disabled={disabled}
                                     />
-                                </label>
-                                <label className="permission-checkbox">
-                                    <input
-                                        type="checkbox"
+                                </div>
+                                <div className="permission-checkbox">
+                                    <Checkbox
                                         checked={!!featurePerms.write}
-                                        onChange={() => handleToggle(feature, 'write')}
+                                        onCheckedChange={() => handleToggle(feature, 'write')}
                                         disabled={disabled}
                                     />
-                                </label>
+                                </div>
                             </div>
                         );
                     })}

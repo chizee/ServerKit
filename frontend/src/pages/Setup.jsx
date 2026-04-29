@@ -7,6 +7,7 @@ import SetupStepAccount from '../components/setup/SetupStepAccount';
 import SetupStepIntent from '../components/setup/SetupStepIntent';
 import SetupStepTier from '../components/setup/SetupStepTier';
 import SetupStepSummary from '../components/setup/SetupStepSummary';
+import { Button } from '@/components/ui/button';
 
 const TOTAL_STEPS = 4;
 
@@ -124,13 +125,14 @@ const Setup = () => {
                 {renderProgressBar()}
 
                 {currentStep > 2 && (
-                    <button
+                    <Button
+                        variant="ghost"
                         className="btn-wizard-prev mb-4"
                         onClick={handleBack}
                     >
                         <ArrowLeft size={16} />
                         Back
-                    </button>
+                    </Button>
                 )}
 
                 {renderStep()}
