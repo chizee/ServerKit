@@ -600,26 +600,31 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
         .replace(/[01OIL]/g, '')
         .slice(0, 6);
 
-    async function handleLookup() {
+    // Auto-lookup as soon as the user finishes typing all 6 characters.
+    // Avoids showing "must be 6 chars" while the user is still mid-entry or
+    // just clicking around — the previous onBlur trigger fired too eagerly.
+    useEffect(() => {
+        if (formattedCode.length !== 6) return;
+        let cancelled = false;
         setLookupError('');
-        setLookupResult(null);
-        if (formattedCode.length === 0) return;
-        if (formattedCode.length !== 6) {
-            setLookupError('Pair code must be 6 characters');
-            return;
-        }
         setLoading(true);
-        try {
-            const res = await api.lookupPairCode(formattedCode);
-            setLookupResult(res);
-            const suggestedName = res.system_info?.hostname;
-            if (!name && suggestedName) setName(suggestedName);
-        } catch (err) {
-            setLookupError(err.message || 'Pair code not found');
-        } finally {
-            setLoading(false);
-        }
-    }
+        api.lookupPairCode(formattedCode)
+            .then((res) => {
+                if (cancelled) return;
+                setLookupResult(res);
+                const suggestedName = res.system_info?.hostname;
+                if (!name && suggestedName) setName(suggestedName);
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                setLookupError(err.message || 'Pair code not found');
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formattedCode]);
 
     async function handleClaim(e) {
         e.preventDefault();
@@ -656,7 +661,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
             <div className="server-setup-form__body">
                 <div className="pair-instructions">
                     <p>
-                        On the target machine run <code>serverkit-agent pair</code>. It prints a&nbsp;6-character code — enter it below. Then supply the passphrase you chose when starting pairing.
+                        On the target machine, start the agent. It will display a&nbsp;6-character pair code and a passphrase — enter both below.
                     </p>
                 </div>
 
@@ -670,7 +675,6 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                             setLookupResult(null);
                             setLookupError('');
                         }}
-                        onBlur={handleLookup}
                         placeholder="ABC-123"
                         autoFocus
                         autoComplete="off"
@@ -703,7 +707,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                         type="password"
                         value={passphrase}
                         onChange={(e) => setPassphrase(e.target.value)}
-                        placeholder="The passphrase set when pairing started"
+                        placeholder="Shown on the agent's pairing screen"
                         autoComplete="new-password"
                         required
                     />

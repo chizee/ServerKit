@@ -90,13 +90,13 @@ type wizardUI struct {
 
 	// stage 1 widgets
 	urlEdit  *walk.LineEdit
-	passEdit *walk.LineEdit
 	nameEdit *walk.LineEdit
 	formErr  *walk.Label
 	startBtn *walk.PushButton
 
 	// stage 2 widgets
 	codeLabel    *walk.Label
+	passLabel    *walk.Label
 	statusLabel  *walk.Label
 	pairErrLabel *walk.Label
 	cancelBtn    *walk.PushButton
@@ -242,31 +242,6 @@ func (w *wizardUI) show() error {
 
 							dec.VSpacer{Size: 20},
 
-							// Passphrase
-							dec.Label{
-								Text:       "Passphrase",
-								Font:       dec.Font{Bold: true, PointSize: bodySize, Family: "Segoe UI"},
-								TextColor:  rgbHex(textLabel),
-								Background: bgCardBrush,
-							},
-							dec.VSpacer{Size: 6},
-							dec.LineEdit{
-								AssignTo:     &w.passEdit,
-								PasswordMode: true,
-								CueBanner:    "Set in the panel under Add Server",
-								MaxLength:    200,
-								MinSize:      dec.Size{Height: 28},
-							},
-							dec.VSpacer{Size: 6},
-							dec.Label{
-								Text:       "Generated in your panel under Servers → Add Server.",
-								Font:       dec.Font{PointSize: smallSize, Family: "Segoe UI"},
-								TextColor:  rgbHex(textHelper),
-								Background: bgCardBrush,
-							},
-
-							dec.VSpacer{Size: 20},
-
 							dec.Label{
 								AssignTo:   &w.formErr,
 								TextColor:  rgbHex(errorRed),
@@ -301,12 +276,20 @@ func (w *wizardUI) show() error {
 							},
 							dec.VSpacer{Size: 4},
 							dec.Label{
-								Text:          "Enter this code in the Pair code field:",
+								Text:          "Enter both values in the Pair code and Passphrase fields:",
 								Font:          dec.Font{PointSize: bodySize, Family: "Segoe UI"},
 								TextColor:     rgbHex(textMuted),
 								Background:    bgCardBrush,
 							},
-							dec.VSpacer{Size: 24},
+							dec.VSpacer{Size: 20},
+							dec.Label{
+								Text:          "Pair code",
+								Font:          dec.Font{Bold: true, PointSize: smallSize, Family: "Segoe UI"},
+								TextColor:     rgbHex(textLabel),
+								Background:    bgCardBrush,
+								TextAlignment: dec.AlignCenter,
+							},
+							dec.VSpacer{Size: 6},
 							// Code "field" — visually echoes the panel's letter-spaced
 							// input. We can't render a real bordered box, but a
 							// centered Composite with the card colour at least
@@ -327,7 +310,32 @@ func (w *wizardUI) show() error {
 									dec.HSpacer{},
 								},
 							},
-							dec.VSpacer{Size: 24},
+							dec.VSpacer{Size: 18},
+							dec.Label{
+								Text:          "Passphrase",
+								Font:          dec.Font{Bold: true, PointSize: smallSize, Family: "Segoe UI"},
+								TextColor:     rgbHex(textLabel),
+								Background:    bgCardBrush,
+								TextAlignment: dec.AlignCenter,
+							},
+							dec.VSpacer{Size: 6},
+							dec.Composite{
+								Layout:     dec.HBox{MarginsZero: true},
+								Background: bgCardBrush,
+								Children: []dec.Widget{
+									dec.HSpacer{},
+									dec.Label{
+										AssignTo:      &w.passLabel,
+										Text:          "",
+										Font:          dec.Font{PointSize: 18, Bold: true, Family: "Consolas"},
+										TextColor:     rgbHex(textPrimary),
+										Background:    bgCardBrush,
+										TextAlignment: dec.AlignCenter,
+									},
+									dec.HSpacer{},
+								},
+							},
+							dec.VSpacer{Size: 20},
 							dec.Label{
 								AssignTo:      &w.statusLabel,
 								Text:          "Waiting for the panel to claim this server…",
@@ -441,15 +449,15 @@ func (w *wizardUI) show() error {
 // pairing in a goroutine, and transitions to the pairing stage on success.
 func (w *wizardUI) handleConnect() {
 	url := w.urlEdit.Text()
-	pass := w.passEdit.Text()
 	name := w.nameEdit.Text()
 
 	if url == "" {
 		w.formErr.SetText("Panel URL is required.")
 		return
 	}
-	if len(pass) < 4 {
-		w.formErr.SetText("Passphrase must be at least 4 characters.")
+	pass, err := generatePassphrase()
+	if err != nil {
+		w.formErr.SetText("Could not generate a passphrase: " + err.Error())
 		return
 	}
 	w.formErr.SetText("")
@@ -465,6 +473,7 @@ func (w *wizardUI) handleConnect() {
 		onEnrolled: func(code, formatted string) {
 			w.mw.Synchronize(func() {
 				w.codeLabel.SetText(displayCode(code, formatted))
+				w.passLabel.SetText(pass)
 				w.showStage(stagePairing)
 			})
 		},
@@ -507,6 +516,7 @@ func (w *wizardUI) handleCancel() {
 	w.formErr.SetText("")
 	w.pairErrLabel.SetText("")
 	w.codeLabel.SetText("")
+	w.passLabel.SetText("")
 	w.cancelBtn.SetText("Cancel")
 	w.startBtn.SetEnabled(true)
 	w.startBtn.SetText("Connect")

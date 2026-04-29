@@ -5,7 +5,9 @@ package setupui
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +19,28 @@ import (
 	"github.com/serverkit/agent/internal/metrics"
 	"github.com/serverkit/agent/internal/pairing"
 )
+
+// passphraseAlphabet excludes 0/O/1/I/L for readability — same convention as
+// the panel's pair codes — so an operator reading the value off one screen and
+// typing it into another doesn't mis-key.
+const passphraseAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+
+// generatePassphrase returns a fresh 8-char passphrase for an enroll request.
+// 8 chars from this 30-char alphabet ≈ 39 bits of entropy, which is overkill
+// for a one-shot value that becomes useless once the panel claims the agent.
+func generatePassphrase() (string, error) {
+	const n = 8
+	max := big.NewInt(int64(len(passphraseAlphabet)))
+	buf := make([]byte, n)
+	for i := 0; i < n; i++ {
+		idx, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", err
+		}
+		buf[i] = passphraseAlphabet[idx.Int64()]
+	}
+	return string(buf), nil
+}
 
 // Run shows the pairing wizard and blocks until the user closes it.
 // configPath may be empty to use the default location.
