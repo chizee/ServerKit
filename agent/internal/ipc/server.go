@@ -19,6 +19,7 @@ type StatusProvider interface {
 	GetMetricsHistory() []MetricSample
 	GetConnectionInfo() ConnectionInfo
 	GetRecentLogs(lines int) []string
+	ClearLogs() error
 	GetEvents(since int64) []events.Event
 	Restart() error
 }
@@ -129,6 +130,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/metrics", handlers.HandleMetrics)
 	mux.HandleFunc("/metrics/history", handlers.HandleMetricsHistory)
 	mux.HandleFunc("/events", handlers.HandleEvents)
+	mux.HandleFunc("/logs/clear", handlers.HandleLogsClear)
 	mux.HandleFunc("/connection", handlers.HandleConnection)
 	mux.HandleFunc("/logs", handlers.HandleLogs)
 	mux.HandleFunc("/restart", handlers.HandleRestart)

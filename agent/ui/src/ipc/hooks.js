@@ -56,3 +56,8 @@ export function useEvents(intervalMs = 3000) {
     const { data, error } = usePolling(() => ipc.events(0), intervalMs);
     return { events: data?.events || [], error };
 }
+
+export function useLogs(lines = 500, intervalMs = 2000) {
+    const { data, error } = usePolling(() => ipc.logs(lines), intervalMs);
+    return { lines: data?.lines || [], count: data?.count || 0, error };
+}

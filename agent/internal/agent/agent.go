@@ -1432,6 +1432,20 @@ func (a *Agent) GetEvents(since int64) []events.Event {
 	return a.events.Snapshot(since)
 }
 
+// ClearLogs rotates agent.log so the desktop console can start with a
+// clean tail. Existing content moves to an automatic backup file. Records
+// the action in the activity log so the user has an audit trail.
+func (a *Agent) ClearLogs() error {
+	if err := a.log.Rotate(); err != nil {
+		return err
+	}
+	if a.events != nil {
+		a.events.Append(events.KindInfo, events.SeverityInfo,
+			"Logs cleared from console", nil)
+	}
+	return nil
+}
+
 // GetConnectionInfo returns WebSocket connection information for the IPC API
 func (a *Agent) GetConnectionInfo() ipc.ConnectionInfo {
 	info := ipc.ConnectionInfo{

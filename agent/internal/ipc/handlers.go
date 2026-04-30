@@ -63,6 +63,25 @@ func (h *Handlers) HandleMetricsHistory(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// HandleLogsClear rotates the agent log so the live tail in the desktop
+// console starts fresh. Existing entries move to a timestamped backup file
+// (lumberjack handles the rename) and the agent continues writing to a
+// brand-new agent.log without re-opening or interrupting any goroutine.
+func (h *Handlers) HandleLogsClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := h.provider.ClearLogs(); err != nil {
+		h.writeJSON(w, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+	h.writeJSON(w, map[string]bool{"success": true})
+}
+
 // HandleEvents returns the agent's recent activity events. Optional `since`
 // query param (unix milliseconds) makes the endpoint cheap to poll: clients
 // pass the timestamp of the most recent event they've seen and only get

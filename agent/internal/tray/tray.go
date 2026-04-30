@@ -290,17 +290,10 @@ func (a *App) stopAgent() {
 }
 
 func (a *App) restartAgent() {
-	// Try IPC restart first (graceful)
-	if a.client.IsAgentRunning() {
-		if err := a.client.Restart(); err == nil {
-			a.showNotification("Agent Restarting", "ServerKit agent is restarting")
-			time.Sleep(2 * time.Second)
-			a.refresh()
-			return
-		}
-	}
-
-	// Fall back to service restart
+	// IPC "restart" is actually just a graceful stop — SCM doesn't
+	// auto-relaunch a service that exits cleanly, so the previous
+	// IPC-first path silently left the user with a stopped agent and
+	// required a second click. Always do sc stop + sc start instead.
 	if err := restartService(); err != nil {
 		a.showNotification("Failed to Restart", err.Error())
 		return

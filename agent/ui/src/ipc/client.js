@@ -47,5 +47,52 @@ export const ipc = {
     events: (since = 0) => get(`/events${since ? `?since=${since}` : ''}`),
     connection: () => get('/connection'),
     logs: (lines = 200) => get(`/logs?lines=${lines}`),
+    clearLogs: () => post('/logs/clear'),
     restart: () => post('/restart'),
+};
+
+// "local" calls hit the asset server in the *console process*, not the
+// agent service. These are the operations that have to happen even when
+// the agent service is down (Start the service, Re-pair) or that need an
+// interactive Windows session (Open in Explorer / browser).
+async function localCall(path, body) {
+    const res = await fetch(path, {
+        method: 'POST',
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : null,
+    });
+    if (!res.ok) {
+        let msg = res.statusText;
+        try {
+            const j = await res.json();
+            if (j && j.error) msg = j.error;
+        } catch { /* keep statusText */ }
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+    }
+    return res.json();
+}
+
+async function localGet(path) {
+    const res = await fetch(path);
+    if (!res.ok) {
+        const err = new Error(res.statusText);
+        err.status = res.status;
+        throw err;
+    }
+    return res.json();
+}
+
+export const local = {
+    serviceStart: () => localCall('/local/service/start'),
+    serviceStop: () => localCall('/local/service/stop'),
+    serviceRestart: () => localCall('/local/service/restart'),
+    open: (target) => localCall('/local/open', target),
+    repair: () => localCall('/local/wizard'),
+    diag: () => localCall('/local/diag'),
+    pairStart: (panelUrl, serverName) =>
+        localCall('/local/pair/start', { panel_url: panelUrl, server_name: serverName }),
+    pairState: () => localGet('/local/pair/state'),
+    pairCancel: () => localCall('/local/pair/cancel'),
 };

@@ -19,6 +19,7 @@ import (
 	dec "github.com/lxn/walk/declarative"
 
 	"github.com/serverkit/agent/internal/logger"
+	"github.com/serverkit/agent/internal/pairdriver"
 )
 
 //go:embed serverkit.ico
@@ -496,7 +497,7 @@ func (w *wizardUI) handleConnect() {
 		w.formErr.SetText("Panel URL is required.")
 		return
 	}
-	pass, err := generatePassphrase()
+	pass, err := pairdriver.GeneratePassphrase()
 	if err != nil {
 		w.formErr.SetText("Could not generate a passphrase: " + err.Error())
 		return
@@ -511,8 +512,8 @@ func (w *wizardUI) handleConnect() {
 	w.pairCancel = cancel
 	w.mu.Unlock()
 
-	cb := pairingCallbacks{
-		onEnrolled: func(code, formatted string) {
+	cb := pairdriver.Callbacks{
+		OnEnrolled: func(code, formatted string) {
 			w.mw.Synchronize(func() {
 				w.rawCode = code
 				w.codeLabel.SetText(displayCode(code, formatted))
@@ -520,7 +521,7 @@ func (w *wizardUI) handleConnect() {
 				w.showStage(stagePairing)
 			})
 		},
-		onClaimed: func(serverName string) {
+		OnClaimed: func(serverName string) {
 			w.mw.Synchronize(func() {
 				if serverName == "" {
 					serverName = "this server"
@@ -528,8 +529,9 @@ func (w *wizardUI) handleConnect() {
 				w.doneSub.SetText(fmt.Sprintf("This machine is now connected to ServerKit as %q.\n\nThe agent service has been started in the background. You can close this window.", serverName))
 				w.showStage(stageDone)
 			})
+			startServiceIfInstalled()
 		},
-		onError: func(err error) {
+		OnError: func(err error) {
 			w.mw.Synchronize(func() {
 				msg := errorPretty(err)
 				if w.pairPanel.Visible() {
@@ -544,7 +546,7 @@ func (w *wizardUI) handleConnect() {
 		},
 	}
 
-	go runPairing(pairCtx, w.log, w.configPath, url, pass, name, cb)
+	go pairdriver.Run(pairCtx, w.log, w.configPath, url, pass, name, cb)
 }
 
 // handleCancel rolls back to the form stage and cancels any in-flight pairing.

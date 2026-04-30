@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	stdlog "log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -10,9 +11,9 @@ import (
 	"syscall"
 
 	"github.com/serverkit/agent/internal/agent"
+	"github.com/serverkit/agent/internal/agentui"
 	"github.com/serverkit/agent/internal/config"
 	"github.com/serverkit/agent/internal/logger"
-	"github.com/serverkit/agent/internal/agentui"
 	"github.com/serverkit/agent/internal/setupui"
 	"github.com/serverkit/agent/internal/tray"
 	"github.com/serverkit/agent/internal/updater"
@@ -392,12 +393,19 @@ func setupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup",
 		Short: "Open the pairing wizard",
-		Long: `Opens the native pairing wizard window. Enter the panel URL and a
-passphrase, then type the displayed code into the panel UI to claim this server.
+		Long: `Opens the desktop console at the pairing wizard. Enter the panel
+URL and a server name; the agent generates a code and passphrase to type
+into the panel UI to claim this server.
 
 For headless servers, use 'serverkit-agent pair' instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSetup()
+			// The wizard now lives inside the React console; setup is a
+			// thin alias that opens it. The PairGate component routes the
+			// user straight to /pair when no config is present.
+			if legacyWizard {
+				return runSetup()
+			}
+			return runConsole()
 		},
 	}
 }
@@ -423,6 +431,17 @@ func runConsole() error {
 	defer dbg.Close()
 	dbg.Logf("--- runConsole start, version=%s pid=%d ---", Version, os.Getpid())
 
+	// go-webview2 uses the stdlib log package internally for fatal errors
+	// during chromium init. Without this redirect, "Error calling
+	// Webview2Loader: ..." goes to a hidden stdout and we'd never see it
+	// on a blank-window report. Path is the same desktop.log so all the
+	// diagnostic breadcrumbs end up in one file.
+	if f := dbg.File(); f != nil {
+		stdlog.SetOutput(f)
+		stdlog.SetFlags(stdlog.LstdFlags | stdlog.Lmicroseconds)
+		stdlog.SetPrefix("[stdlib] ")
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("ServerKit Agent console crashed:\n\n%v\n\nLog: %s", r, dbg.Path())
@@ -431,7 +450,18 @@ func runConsole() error {
 		}
 	}()
 
-	log := logger.New(config.LoggingConfig{Level: "info"})
+	// Point the slog logger at the same desktop.log so internal log.Info
+	// calls in agentui land alongside the dbg.Logf trail. Without this, any
+	// diagnostic logging from the package goes to a hidden stdout (the
+	// console binary uses the windowsgui subsystem) and we end up debugging
+	// blank windows blind.
+	log := logger.New(config.LoggingConfig{
+		Level:      "info",
+		File:       dbg.Path(),
+		MaxSize:    10,
+		MaxBackups: 2,
+		MaxAge:     7,
+	})
 
 	configPath := cfgFile
 	if configPath == "" {
@@ -460,21 +490,14 @@ func runConsole() error {
 	return err
 }
 
-// runSetup shows the pairing wizard and exits when it closes.
-// runDesktop runs the unified desktop app (wizard if needed, then tray).
-// The shared body lives in setupui.Run.
+// runSetup is retained as a fallback into the legacy walk wizard. The
+// current setup command points at runConsole, but if WebView2 is somehow
+// unavailable on a target machine the user can still pair via this path
+// by setting SERVERKIT_AGENT_LEGACY_WIZARD=1.
 func runSetup() error {
 	dbg := openDesktopLog()
 	defer dbg.Close()
-	dbg.Logf("--- runSetup start, version=%s pid=%d ---", Version, os.Getpid())
-
-	defer func() {
-		if r := recover(); r != nil {
-			msg := fmt.Sprintf("ServerKit Agent setup crashed:\n\n%v\n\nLog: %s", r, dbg.Path())
-			dbg.Logf("PANIC: %v", r)
-			showMessageBox("ServerKit Agent", msg, mbIconError)
-		}
-	}()
+	dbg.Logf("--- runSetup (legacy) start, version=%s pid=%d ---", Version, os.Getpid())
 
 	log := logger.New(config.LoggingConfig{Level: "info"})
 
@@ -482,7 +505,6 @@ func runSetup() error {
 	if configPath == "" {
 		configPath = config.DefaultConfigPath()
 	}
-	dbg.Logf("configPath=%s", configPath)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -494,16 +516,19 @@ func runSetup() error {
 		cancel()
 	}()
 
-	dbg.Logf("calling setupui.Run …")
-	err := setupui.Run(ctx, log, configPath)
-	dbg.Logf("setupui.Run returned: %v", err)
-	if err != nil {
-		showMessageBox("ServerKit Agent",
-			fmt.Sprintf("Couldn't open the pairing wizard.\n\n%v\n\nLog: %s", err, dbg.Path()),
-			mbIconError)
-	}
-	return err
+	return setupui.Run(ctx, log, configPath)
 }
+
+// init wires the legacy fallback when explicitly requested, replacing the
+// console-based setup runner with the walk wizard. This is purely an escape
+// hatch — primary path is the React console.
+func init() {
+	if os.Getenv("SERVERKIT_AGENT_LEGACY_WIZARD") == "1" {
+		legacyWizard = true
+	}
+}
+
+var legacyWizard bool
 
 // runDesktop is what `serverkit-agent` (no args) does on a desktop install.
 // First-run: shows the pairing wizard. Subsequent runs (config exists): goes

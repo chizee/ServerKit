@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/serverkit/agent/internal/logger"
 )
 
 // startAssetServer binds an HTTP server to a free 127.0.0.1 port and serves
@@ -15,7 +17,7 @@ import (
 // panel all behave the same as when running the dev server, which keeps
 // surprises out of the migration. Returns the URL to navigate to and a
 // shutdown func that stops the server cleanly.
-func startAssetServer(ctx context.Context) (url string, shutdown func(), err error) {
+func startAssetServer(ctx context.Context, log *logger.Logger, configPath string) (url string, shutdown func(), err error) {
 	dist, err := distFS()
 	if err != nil {
 		return "", nil, fmt.Errorf("load embedded ui: %w", err)
@@ -29,6 +31,8 @@ func startAssetServer(ctx context.Context) (url string, shutdown func(), err err
 	}
 
 	mux := http.NewServeMux()
+	newLocalActions().register(mux)
+	newPairer(log, configPath).register(mux)
 	mux.Handle("/", http.FileServer(http.FS(dist)))
 
 	srv := &http.Server{

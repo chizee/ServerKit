@@ -9,9 +9,16 @@ LDFLAGS := -s -w \
 	-X main.BuildTime=$(BUILD_TIME) \
 	-X main.GitCommit=$(GIT_COMMIT)
 
-# Agent-specific LDFLAGS (includes agent package version var)
+# Agent-specific LDFLAGS (includes agent package version var). On Windows
+# we MUST select the GUI subsystem; otherwise Windows attaches a console to
+# every launch (the desktop console then renders behind a stray black
+# cmd.exe-looking window). attachParentConsole() in console_windows.go
+# still re-hooks stdio for CLI subcommands like `status` when invoked from
+# a real terminal.
 AGENT_LDFLAGS := $(LDFLAGS) \
 	-X github.com/serverkit/agent/internal/agent.Version=$(VERSION)
+
+WINDOWS_LDFLAGS := $(AGENT_LDFLAGS) -H=windowsgui
 
 BINARY_NAME := serverkit-agent
 DIST_DIR := dist
@@ -45,9 +52,9 @@ build-all:
 	@echo "Building for Linux arm64..."
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-linux-arm64 ./cmd/agent
 	@echo "Building for Windows amd64..."
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-windows-amd64.exe ./cmd/agent
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-windows-amd64.exe ./cmd/agent
 	@echo "Building for Windows arm64..."
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-windows-arm64.exe ./cmd/agent
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-windows-arm64.exe ./cmd/agent
 	@echo "Building for macOS amd64..."
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-darwin-amd64 ./cmd/agent
 	@echo "Building for macOS arm64..."
@@ -63,7 +70,7 @@ build-linux:
 # Build Windows only
 build-windows:
 	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/agent
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/agent
 
 # Run tests
 test:

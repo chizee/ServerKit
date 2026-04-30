@@ -1,0 +1,129 @@
+package agentui
+
+import (
+	"encoding/json"
+	"net/http"
+	"os/exec"
+	"time"
+)
+
+// localActions exposes a small set of console-process-level operations to
+// the React app: things that need to happen even when the agent service is
+// down, or that need to be performed by a Windows interactive session
+// rather than by SYSTEM-context service code.
+//
+// All endpoints live under /local/ so they're trivially distinguishable
+// from agent-service IPC calls (which target a different port entirely).
+type localActions struct {
+	exePath string
+}
+
+func newLocalActions() *localActions {
+	exe, _ := exeForSpawn()
+	return &localActions{exePath: exe}
+}
+
+// register hooks the action handlers into the asset server's mux.
+func (a *localActions) register(mux *http.ServeMux) {
+	mux.HandleFunc("/local/service/restart", a.handleServiceAction("restart"))
+	mux.HandleFunc("/local/service/start", a.handleServiceAction("start"))
+	mux.HandleFunc("/local/service/stop", a.handleServiceAction("stop"))
+	mux.HandleFunc("/local/open", a.handleOpen)
+	mux.HandleFunc("/local/wizard", a.handleWizard)
+	mux.HandleFunc("/local/diag", a.handleDiag)
+}
+
+func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+// handleServiceAction performs sc.exe stop/start/restart against the
+// installed ServerKitAgent service. Restart is "stop, brief wait, start"
+// because sc.exe has no native restart verb and the agent's IPC restart
+// is just a graceful stop with no auto-spin-up.
+func (a *localActions) handleServiceAction(action string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		switch action {
+		case "start":
+			if err := runServiceCmd("start"); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		case "stop":
+			if err := runServiceCmd("stop"); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		case "restart":
+			// Best-effort stop — ignore "service not running" errors and
+			// move on. Then start. This is what the tray's restart button
+			// should have been doing all along.
+			_ = runServiceCmd("stop")
+			time.Sleep(1500 * time.Millisecond)
+			if err := runServiceCmd("start"); err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// handleOpen launches a path in Explorer or a URL in the default browser.
+// Body: {"path": "C:\\..."} OR {"url": "https://..."}.
+func (a *localActions) handleOpen(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		Path string `json:"path"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+	target := body.URL
+	if target == "" {
+		target = body.Path
+	}
+	if target == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "path or url required"})
+		return
+	}
+	if err := openTarget(target); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// handleWizard spawns the pairing wizard as a detached child process.
+// Used by the Re-pair button — gives the user a fresh form without
+// interrupting the running console window.
+func (a *localActions) handleWizard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if a.exePath == "" {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "agent executable path unknown"})
+		return
+	}
+	cmd := exec.Command(a.exePath, "setup")
+	if err := cmd.Start(); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	// We don't Wait on the child — it lives on its own.
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}

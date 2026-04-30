@@ -20,6 +20,16 @@ type desktopLog struct {
 
 func (d *desktopLog) Path() string { return d.p }
 
+// File exposes the underlying append-only handle so callers can redirect
+// other writers (stdlib log, slog handlers) into the same file. Returns
+// nil if the desktop log couldn't be opened — callers must guard.
+func (d *desktopLog) File() *os.File {
+	if d == nil {
+		return nil
+	}
+	return d.f
+}
+
 func (d *desktopLog) Logf(format string, args ...interface{}) {
 	if d == nil || d.f == nil {
 		return
