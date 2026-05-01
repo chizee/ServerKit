@@ -126,6 +126,18 @@ func (m *Manager) Close() error {
 	return m.active.Close()
 }
 
+// Stability thresholds for the WS-flap detector. CF tunnels and other
+// proxies can let WS connect successfully but kill it every couple of
+// minutes — the symptom your events.json shows is "ws_connected →
+// ws_disconnected" cycling forever, which generates pointless reconnect
+// traffic without ever delivering live streams. Once we see the
+// connection prove itself unstable, drop to polling permanently and
+// stop wasting bandwidth on retries.
+const (
+	wsFlapWindow    = 10 * time.Minute
+	wsFlapThreshold = 3 // disconnects within wsFlapWindow that trigger fallback
+)
+
 // Run executes the WS transport and watches for tunnel-incompat
 // failures. When detected, it cancels WS and runs the poll transport.
 // Blocks until ctx is cancelled.
@@ -145,6 +157,14 @@ func (m *Manager) Run(ctx context.Context) error {
 
 	check := time.NewTicker(2 * time.Second)
 	defer check.Stop()
+
+	// Stability monitor: ticks at 1Hz to sample IsConnected and record
+	// transitions. When we see wsFlapThreshold disconnects within
+	// wsFlapWindow, give up on WS and run the fallback.
+	stabilityTicker := time.NewTicker(1 * time.Second)
+	defer stabilityTicker.Stop()
+	wasConnected := false
+	disconnectTimes := make([]time.Time, 0, wsFlapThreshold+1)
 
 	for {
 		select {
@@ -201,6 +221,38 @@ func (m *Manager) Run(ctx context.Context) error {
 				// WS got through. Stop the deadline timer — we're good.
 				deadline.Stop()
 			}
+
+		case now := <-stabilityTicker.C:
+			// Sample the WS connection state and detect flap patterns:
+			// repeatedly connecting then dropping within minutes
+			// indicates an intermediary (CF tunnel, ngrok, NAT timeout)
+			// that won't keep a long-lived WS open. Counting drops in a
+			// sliding window catches both rapid churn and the slower
+			// "drops every couple minutes" pattern reported in
+			// events.json.
+			isConn := m.primary.IsConnected()
+			if !isConn && wasConnected {
+				disconnectTimes = append(disconnectTimes, now)
+				// Trim drops outside the window.
+				cutoff := now.Add(-wsFlapWindow)
+				kept := disconnectTimes[:0]
+				for _, t := range disconnectTimes {
+					if t.After(cutoff) {
+						kept = append(kept, t)
+					}
+				}
+				disconnectTimes = kept
+				m.log.Info("WS disconnected", "drops_in_window", len(disconnectTimes))
+				if len(disconnectTimes) >= wsFlapThreshold {
+					m.log.Warn("WS connection unstable — falling back to polling permanently",
+						"drops", len(disconnectTimes),
+						"window_minutes", int(wsFlapWindow.Minutes()))
+					cancelWS()
+					<-wsDone
+					return m.runFallback(ctx)
+				}
+			}
+			wasConnected = isConn
 		}
 	}
 }
