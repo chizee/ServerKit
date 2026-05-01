@@ -771,6 +771,19 @@ class AgentRegistry:
         clean_paths = [str(p) for p in raw_paths if isinstance(p, str) and p.strip()] \
             if isinstance(raw_paths, list) else []
 
+        # Newer payloads carry sudo mode + runtime managers + systemd_json.
+        # Coerce defensively — older agents won't include these keys.
+        sudo_mode = payload.get('sudo')
+        if not isinstance(sudo_mode, str):
+            sudo_mode = ''
+        raw_managers = payload.get('runtime_managers') or {}
+        clean_managers: Dict[str, str] = {}
+        if isinstance(raw_managers, dict):
+            for k, v in raw_managers.items():
+                if isinstance(k, str) and isinstance(v, (str, type(None))):
+                    clean_managers[k] = v or ''
+        systemd_json = bool(payload.get('systemd_json'))
+
         with self._lock:
             agent = self._agents.get(server_id)
             if not agent:
@@ -781,6 +794,32 @@ class AgentRegistry:
             agent.distro_version = payload.get('distro_version') or None
             agent.runtimes = clean_runtimes
             agent.allowed_paths = clean_paths
+
+        # Persist a snapshot to the Server row so the Overview tab can
+        # render even when the agent is offline. Wrapped in a try/except
+        # so a transient DB hiccup doesn't drop the in-memory update —
+        # the cache is best-effort, the live value above is the source
+        # of truth while the agent is connected.
+        try:
+            from app import db
+            from app.models.server import Server
+            server = Server.query.get(server_id)
+            if server is not None:
+                server.cached_capabilities = clean_caps
+                server.cached_runtimes = clean_runtimes
+                server.cached_runtime_managers = clean_managers
+                server.cached_allowed_paths = clean_paths
+                server.cached_sudo = sudo_mode
+                server.cached_systemd_json = systemd_json
+                server.capabilities_at = datetime.utcnow()
+                if payload.get('platform'):
+                    server.platform = payload.get('platform')
+                if payload.get('distro'):
+                    server.os_version = payload.get('distro_version') or server.os_version
+                db.session.commit()
+        except Exception as exc:
+            # Don't let cache persistence failures break live updates.
+            logger.warning("Failed to persist capability snapshot for %s: %s", server_id, exc)
 
         logger.info(
             "Capabilities updated for server %s: %s",

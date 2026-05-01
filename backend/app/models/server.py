@@ -119,6 +119,18 @@ class Server(db.Model):
     registered_at = db.Column(db.DateTime)
     registered_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
+    # Cached capability snapshot — written every time the agent reports
+    # a Capabilities message, so the panel can render the full Overview
+    # tab even when the agent is offline. Old agents that pre-date these
+    # fields just have NULL here; the UI falls back gracefully.
+    cached_capabilities = db.Column(db.JSON)            # {docker:bool, files:bool, ...}
+    cached_runtimes = db.Column(db.JSON)                # {python:"3.11.4", node:"20.10.0", ...}
+    cached_runtime_managers = db.Column(db.JSON)        # {python:"pyenv-win"|"pyenv"|""}
+    cached_allowed_paths = db.Column(db.JSON)           # ["/var/www", ...]
+    cached_sudo = db.Column(db.String(20))              # "root"|"passwordless"|"unavailable"
+    cached_systemd_json = db.Column(db.Boolean)         # systemctl --output=json supported?
+    capabilities_at = db.Column(db.DateTime)            # when the snapshot was last refreshed
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

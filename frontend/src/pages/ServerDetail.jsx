@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import PackagesTab from '../components/serverdetail/PackagesTab';
 import ServicesTab from '../components/serverdetail/ServicesTab';
+import SystemStatusCard from '../components/serverdetail/SystemStatusCard';
 
 const ServerDetail = () => {
     const { id, tab } = useParams();
@@ -251,10 +252,11 @@ const ServerDetail = () => {
                             server={server}
                             metrics={metrics}
                             systemInfo={systemInfo}
+                            onRefreshServer={loadServer}
                         />
                     </TabsContent>
                     <TabsContent value="docker">
-                        <DockerTab serverId={id} serverStatus={server.status} />
+                        <DockerTab serverId={id} serverStatus={server.status} server={server} />
                     </TabsContent>
                     {server.capabilities?.cron && (
                         <TabsContent value="cron">
@@ -310,7 +312,7 @@ const ServerDetail = () => {
     );
 };
 
-const OverviewTab = ({ server, metrics, systemInfo }) => {
+const OverviewTab = ({ server, metrics, systemInfo, onRefreshServer }) => {
     const formatBytes = (bytes) => {
         if (!bytes) return 'N/A';
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -397,6 +399,8 @@ const OverviewTab = ({ server, metrics, systemInfo }) => {
                         </div>
                     </div>
                 )}
+
+                <SystemStatusCard server={server} onRefresh={onRefreshServer} />
             </div>
         </div>
     );
@@ -433,10 +437,11 @@ const unwrapList = (response) => {
     return [];
 };
 
-const DockerTab = ({ serverId, serverStatus }) => {
+const DockerTab = ({ serverId, serverStatus, server }) => {
     const [containers, setContainers] = useState([]);
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
     const [subTab, setSubTab] = useState('containers');
     const toast = useToast();
     const { confirm: confirmDocker, confirmState: confirmDockerState, handleConfirm: handleDockerConfirm, handleCancel: handleDockerCancel } = useConfirm();
@@ -451,6 +456,7 @@ const DockerTab = ({ serverId, serverStatus }) => {
 
     async function loadDockerData() {
         setLoading(true);
+        setLoadError(null);
         try {
             const [containersRes, imagesRes] = await Promise.all([
                 api.getRemoteContainers(serverId, true),
@@ -461,9 +467,38 @@ const DockerTab = ({ serverId, serverStatus }) => {
             setImages(unwrapList(imagesRes));
         } catch (err) {
             console.error('Failed to load Docker data:', err);
+            setLoadError(err.message || 'Failed to load Docker data');
         } finally {
             setLoading(false);
         }
+    }
+
+    // If the agent reports docker capability false (Docker daemon not
+    // reachable from the agent process — common on Windows when the
+    // service hasn't been started, or on hosts where the agent user
+    // isn't in the docker group), explain that instead of pretending
+    // there are no containers.
+    const dockerCapability = server?.capabilities?.docker;
+    if (serverStatus === 'online' && server && dockerCapability === false) {
+        return (
+            <div className="empty-state docker-empty-state">
+                <h4>Docker not reachable from this agent</h4>
+                <p>
+                    The agent connected successfully but couldn&apos;t talk to a Docker daemon.
+                    Common causes:
+                </p>
+                <ul>
+                    <li>Docker Desktop / dockerd is not running on the host</li>
+                    <li>The agent user isn&apos;t in the <code>docker</code> group (Linux)</li>
+                    <li>The npipe socket <code>//./pipe/docker_engine</code> isn&apos;t accessible (Windows)</li>
+                </ul>
+                <p>
+                    Start Docker on the host, then click <strong>Refresh</strong> on the Overview tab to
+                    re-probe capabilities. The Docker tab will appear normally once the agent
+                    can reach the daemon.
+                </p>
+            </div>
+        );
     }
 
     async function handleContainerAction(containerId, action) {
@@ -506,6 +541,12 @@ const DockerTab = ({ serverId, serverStatus }) => {
 
     return (
         <div className="docker-tab">
+            {loadError && (
+                <div className="docker-tab__error">
+                    <strong>Couldn&apos;t load Docker data:</strong> {loadError}
+                    <Button size="sm" variant="outline" onClick={loadDockerData}>Retry</Button>
+                </div>
+            )}
             <div className="docker-sub-tabs">
                 <button
                     className={`sub-tab ${subTab === 'containers' ? 'active' : ''}`}

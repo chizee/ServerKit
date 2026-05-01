@@ -286,15 +286,33 @@ def get_server(server_id):
     agent = agent_registry.get_agent(server.id)
     result['is_connected'] = agent is not None
     result['transport'] = agent.transport if agent else None
-    # Capability map the agent advertised on connect; empty for older
-    # agents that don't speak the protocol yet. Consumers (UI target
-    # pickers, etc.) should treat missing keys as false.
-    result['capabilities'] = dict(agent.capabilities) if agent else {}
-    result['runtimes'] = dict(agent.runtimes) if agent else {}
+    # Capability map the agent advertised on connect. When the agent is
+    # connected, prefer the live in-memory copy; when offline, fall back
+    # to the snapshot persisted by update_capabilities so the Overview
+    # tab can still render the last-known state instead of an empty
+    # screen. capabilities_stale + capabilities_at let the UI badge the
+    # data as cached.
     if agent:
+        result['capabilities'] = dict(agent.capabilities)
+        result['runtimes'] = dict(agent.runtimes)
+        result['runtime_managers'] = dict(getattr(agent, 'runtime_managers', {}) or {})
+        result['allowed_paths'] = list(getattr(agent, 'allowed_paths', []) or [])
+        result['sudo'] = getattr(agent, 'sudo', '') or (server.cached_sudo or '')
+        result['systemd_json'] = bool(getattr(agent, 'systemd_json', server.cached_systemd_json or False))
         result['platform'] = agent.platform
         result['distro'] = agent.distro
         result['distro_version'] = agent.distro_version
+        result['capabilities_stale'] = False
+        result['capabilities_at'] = server.capabilities_at.isoformat() + 'Z' if server.capabilities_at else None
+    else:
+        result['capabilities'] = dict(server.cached_capabilities or {})
+        result['runtimes'] = dict(server.cached_runtimes or {})
+        result['runtime_managers'] = dict(server.cached_runtime_managers or {})
+        result['allowed_paths'] = list(server.cached_allowed_paths or [])
+        result['sudo'] = server.cached_sudo or ''
+        result['systemd_json'] = bool(server.cached_systemd_json)
+        result['capabilities_stale'] = bool(server.capabilities_at)
+        result['capabilities_at'] = server.capabilities_at.isoformat() + 'Z' if server.capabilities_at else None
 
     return jsonify(result)
 

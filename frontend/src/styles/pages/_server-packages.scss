@@ -120,6 +120,114 @@
     }
 }
 
+// System Status card on Overview — surfaces what the agent has detected
+// (capabilities, runtimes, sudo mode, allowed paths). Designed to feel
+// like the existing info-card but with chip rows for the multi-value
+// fields.
+.system-status-card {
+    grid-column: span 2;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+
+        h3 {
+            margin: 0;
+        }
+    }
+
+    &__header-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--muted-foreground);
+    }
+
+    &__probed-at {
+        font-size: 0.8rem;
+    }
+
+    &__rows {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+
+    &__row-label {
+        font-size: 0.85rem;
+        color: var(--muted-foreground);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    &__row-value {
+        font-size: 0.9rem;
+    }
+
+    &__chips {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    &__paths {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+}
+
+// Docker tab error banner + capability-empty state
+.docker-tab__error {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--destructive, #ef4444);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--destructive, #ef4444) 8%, transparent);
+    font-size: 0.9rem;
+}
+
+.docker-empty-state {
+    padding: 1.5rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.5rem;
+    background: var(--muted);
+
+    h4 {
+        margin: 0 0 0.5rem;
+    }
+
+    ul {
+        margin: 0.5rem 0;
+        padding-left: 1.25rem;
+    }
+
+    code {
+        font-family: var(--font-mono, monospace);
+        font-size: 0.85rem;
+        padding: 0.05rem 0.3rem;
+        border-radius: 0.25rem;
+        background: var(--card);
+    }
+}
+
 // Shared by JobProgressModal — kept here because Packages is its primary
 // consumer. Services tab logs use a different component path.
 .job-progress-modal {
