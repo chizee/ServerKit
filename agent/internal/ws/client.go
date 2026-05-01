@@ -482,6 +482,27 @@ func (c *Client) Run(ctx context.Context) error {
 
 // readLoop reads Socket.IO messages from the WebSocket
 func (c *Client) readLoop(ctx context.Context) error {
+	// Read deadline = pingInterval * 2.5 + 5s grace. Any inbound message
+	// (server ping, app frame, WS-level pong) resets the deadline. If
+	// nothing arrives within this window, the connection is presumed
+	// dead at the network layer and the read errors out, which is what
+	// the Manager's flap detector relies on. Without this, CF/ngrok
+	// killing the connection at the network layer (without sending a
+	// WS close frame) makes ReadMessage hang for minutes — exactly the
+	// "ws_disconnected every 2-3 min" pattern in the user's events.json.
+	readWait := c.pingInterval*5/2 + 5*time.Second
+	if readWait < 30*time.Second {
+		readWait = 30 * time.Second
+	}
+	resetDeadline := func() {
+		_ = c.conn.SetReadDeadline(time.Now().Add(readWait))
+	}
+	resetDeadline()
+	c.conn.SetPongHandler(func(string) error {
+		resetDeadline()
+		return nil
+	})
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -493,6 +514,8 @@ func (c *Client) readLoop(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("read error: %w", err)
 		}
+		// Any successful read = liveness signal. Reset the window.
+		resetDeadline()
 
 		msgStr := string(msg)
 

@@ -240,11 +240,17 @@ def create_server():
     # Generate registration token
     registration_token = Server.generate_registration_token()
 
-    # Get permissions from profile or custom list
-    permissions = data.get('permissions', [])
+    # Get permissions from profile or custom list. Default is `['*']`
+    # (full access) — ServerKit is single-tenant by default and the
+    # previous default of `[]` left every new server 403'ing on every
+    # action. Users who want a locked-down ACL pass an explicit list
+    # or `permission_profile`.
+    permissions = data.get('permissions')
     profile = data.get('permission_profile')
     if profile and profile in PERMISSION_PROFILES:
         permissions = PERMISSION_PROFILES[profile]['permissions']
+    elif permissions is None:
+        permissions = ['*']
 
     server = Server(
         name=data['name'],
