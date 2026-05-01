@@ -146,19 +146,82 @@ def install_from_url(url, user_id=None):
     Returns:
         InstalledPlugin instance
     """
-    _ensure_dirs()
-
-    # Download
     try:
         buf = _download_zip(url)
     except Exception as e:
         raise ValueError(f'Failed to download plugin: {e}')
 
+    return _install_from_buffer(
+        buf, source_url=url, source_type='url', user_id=user_id,
+    )
+
+
+def install_from_path(path, user_id=None):
+    """Install a plugin from a local directory.
+
+    Useful during plugin development: point at the working tree, install,
+    iterate. Internally we zip the folder in memory and reuse the same
+    install pipeline as URL/upload installs so behavior is identical.
+    """
+    if not path:
+        raise ValueError('path is required')
+    path = os.path.abspath(os.path.expanduser(path))
+    if not os.path.isdir(path):
+        raise ValueError(f'Not a directory: {path}')
+    if not os.path.exists(os.path.join(path, 'plugin.json')):
+        raise ValueError(f'No plugin.json in {path}')
+
+    # Zip the folder in memory, skipping dev junk that bloats the bundle.
+    skip_dirs = {
+        '.git', '.github', 'node_modules', '__pycache__',
+        '.venv', 'venv', 'dist', 'build', '.pytest_cache',
+        '.idea', '.vscode',
+    }
+    skip_files_endswith = ('.pyc', '.pyo')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(path):
+            # mutate dirs in place so os.walk skips them
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+            for name in files:
+                if name.endswith(skip_files_endswith):
+                    continue
+                full = os.path.join(root, name)
+                rel = os.path.relpath(full, path).replace(os.sep, '/')
+                zf.write(full, rel)
+    buf.seek(0)
+
+    return _install_from_buffer(
+        buf, source_url=path, source_type='local', user_id=user_id,
+    )
+
+
+def install_from_zip(zip_bytes, user_id=None, source_name=None):
+    """Install a plugin from raw zip bytes (e.g. a multipart upload)."""
+    if not zip_bytes:
+        raise ValueError('Empty upload')
+    buf = io.BytesIO(zip_bytes)
+    return _install_from_buffer(
+        buf,
+        source_url=source_name or 'uploaded.zip',
+        source_type='upload',
+        user_id=user_id,
+    )
+
+
+def _install_from_buffer(buf, source_url, source_type, user_id=None):
+    """Shared install pipeline: takes a seekable BytesIO containing a zip,
+    extracts it into the panel's plugin dirs, and registers / hot-loads
+    the resulting blueprint. All public install_* helpers funnel here so
+    behavior matches across URL / local / upload sources.
+    """
+    _ensure_dirs()
+
     # Open zip
     try:
         zf = zipfile.ZipFile(buf)
     except zipfile.BadZipFile:
-        raise ValueError('Downloaded file is not a valid zip archive')
+        raise ValueError('File is not a valid zip archive')
 
     # Find and read manifest
     manifest_path, prefix = _find_manifest(zf)
@@ -181,7 +244,8 @@ def install_from_url(url, user_id=None):
         plugin.status = InstalledPlugin.STATUS_INSTALLING
         plugin.error_message = None
         plugin.version = manifest['version']
-        plugin.source_url = url
+        plugin.source_url = source_url
+        plugin.source_type = source_type
         plugin.manifest = manifest
     else:
         plugin = InstalledPlugin(
@@ -195,8 +259,8 @@ def install_from_url(url, user_id=None):
             repository=manifest.get('repository', ''),
             license=manifest.get('license', ''),
             category=manifest.get('category', 'utility'),
-            source_url=url,
-            source_type='url',
+            source_url=source_url,
+            source_type=source_type,
             installed_by=user_id,
             status=InstalledPlugin.STATUS_INSTALLING,
         )

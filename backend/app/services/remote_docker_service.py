@@ -359,7 +359,86 @@ class RemoteDockerService:
     # ==================== System ====================
 
     @staticmethod
-    def get_system_metrics(server_id: str, user_id: int = None) -> Dict[str, Any]:
+    def _human_bytes(n: int) -> str:
+        n = float(n or 0)
+        for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+            if n < 1024:
+                return f"{n:.1f}{unit}"
+            n /= 1024
+        return f"{n:.1f}PB"
+
+    @classmethod
+    def _normalize_agent_metrics(cls, flat: Dict[str, Any]) -> Dict[str, Any]:
+        # Agent emits a flat shape (cpu_percent, memory_used, …); the panel
+        # frontend (Dashboard, MetricsGraph) was designed against the nested
+        # shape that local SystemService.get_all_metrics returns. Project the
+        # flat agent payload into the nested shape and keep the flat fields
+        # for callers that still consume them (ServerDetail MetricsTab).
+        if not isinstance(flat, dict):
+            return flat
+        h = cls._human_bytes
+        mem_total = flat.get('memory_total', 0) or 0
+        mem_used = flat.get('memory_used', 0) or 0
+        mem_avail = max(mem_total - mem_used, 0)
+        nested = {
+            'cpu': {
+                'percent': flat.get('cpu_percent', 0),
+                'count_logical': len(flat.get('cpu_per_core') or []) or None,
+                'per_cpu': flat.get('cpu_per_core') or [],
+            },
+            'memory': {
+                'ram': {
+                    'total': mem_total,
+                    'used': mem_used,
+                    'available': mem_avail,
+                    'cached': 0,
+                    'percent': flat.get('memory_percent', 0),
+                    'total_human': h(mem_total),
+                    'used_human': h(mem_used),
+                    'available_human': h(mem_avail),
+                    'cached_human': h(0),
+                },
+                'swap': {
+                    'total': flat.get('swap_total', 0),
+                    'used': flat.get('swap_used', 0),
+                    'percent': flat.get('swap_percent', 0),
+                    'total_human': h(flat.get('swap_total', 0)),
+                    'used_human': h(flat.get('swap_used', 0)),
+                },
+            },
+            'disk': {
+                'partitions': [{
+                    'mountpoint': '/',
+                    'total': flat.get('disk_total', 0),
+                    'used': flat.get('disk_used', 0),
+                    'free': max((flat.get('disk_total', 0) or 0) - (flat.get('disk_used', 0) or 0), 0),
+                    'percent': flat.get('disk_percent', 0),
+                    'total_human': h(flat.get('disk_total', 0)),
+                    'used_human': h(flat.get('disk_used', 0)),
+                    'free_human': h(max((flat.get('disk_total', 0) or 0) - (flat.get('disk_used', 0) or 0), 0)),
+                }],
+            },
+            'network': {
+                'io': {
+                    'bytes_sent': flat.get('network_tx', 0),
+                    'bytes_recv': flat.get('network_rx', 0),
+                    'bytes_sent_human': h(flat.get('network_tx', 0)),
+                    'bytes_recv_human': h(flat.get('network_rx', 0)),
+                },
+            },
+            'load_average': {
+                '1min': flat.get('load_avg_1', 0),
+                '5min': flat.get('load_avg_5', 0),
+                '15min': flat.get('load_avg_15', 0),
+            },
+        }
+        # Merge — flat keys preserved for legacy consumers
+        merged = dict(flat)
+        merged.update(nested)
+        return merged
+
+    @classmethod
+    def get_system_metrics(cls, server_id: str, user_id: int = None) -> Dict[str, Any]:
         """Get system metrics from a remote server"""
         if not server_id or server_id == 'local':
             from app.services.system_service import SystemService
@@ -369,12 +448,16 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        result = agent_registry.send_command(
             server_id=server_id,
             action='system:metrics',
             params={},
             user_id=user_id
         )
+        if result.get('success') and isinstance(result.get('data'), dict):
+            result = dict(result)
+            result['data'] = cls._normalize_agent_metrics(result['data'])
+        return result
 
     @staticmethod
     def get_system_info(server_id: str, user_id: int = None) -> Dict[str, Any]:
@@ -420,13 +503,19 @@ class RemoteDockerService:
 
         for server in remote_servers:
             has_docker_perm = server.has_permission('docker:container:read')
+            # Capabilities and allowed_paths are only meaningful when the
+            # agent is actually connected (in-memory registry state).
+            caps = agent_registry.get_capabilities(server.id) if server.id in connected_ids else None
+            allowed_paths = agent_registry.get_allowed_paths(server.id) if server.id in connected_ids else []
             servers.append({
                 'id': server.id,
                 'name': server.name,
                 'status': 'online' if server.id in connected_ids else server.status,
                 'is_local': False,
                 'has_docker': has_docker_perm,
-                'group_name': server.group.name if server.group else None
+                'group_name': server.group.name if server.group else None,
+                'capabilities': caps or {},
+                'allowed_paths': allowed_paths,
             })
 
         return servers

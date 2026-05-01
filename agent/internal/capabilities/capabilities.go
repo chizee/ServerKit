@@ -31,13 +31,24 @@ import (
 // dockerAvailable is passed in by the agent because it has already
 // dialled the docker socket during startup; re-probing here would just
 // duplicate that work.
-func Probe(ctx context.Context, log *logger.Logger, dockerAvailable bool) protocol.CapabilitiesMessage {
+//
+// fileAccess + allowedPaths come from agent config (Features.FileAccess /
+// Security.AllowedPaths). Surfacing them here lets the panel hide
+// remote-file features on agents that have file access disabled, and
+// show the user which roots they can browse instead of guessing.
+func Probe(ctx context.Context, log *logger.Logger, dockerAvailable bool, fileAccess bool, allowedPaths []string) protocol.CapabilitiesMessage {
 	caps := protocol.Capabilities{}
 
 	// Docker — the agent's own client is the source of truth. If the
 	// agent couldn't dial dockerd, nothing this layer probes will fix
 	// it.
 	caps["docker"] = dockerAvailable
+
+	// File access — exposed via the Features.FileAccess config bit.
+	// The agent already gates file:* handler registration on this; we
+	// advertise it so the panel can hide the file manager target picker
+	// for agents where it's off (and Phase 3+ verbs that depend on it).
+	caps["files"] = fileAccess && len(allowedPaths) > 0
 
 	// Linux service surfaces. On non-Linux these stay false; the
 	// panel's UI is already conditional on them.
@@ -88,12 +99,20 @@ func Probe(ctx context.Context, log *logger.Logger, dockerAvailable bool) protoc
 		)
 	}
 
+	// Only forward allowed_paths when files capability is true — saves
+	// the panel from having to defensively check both fields.
+	var advertisedPaths []string
+	if caps["files"] {
+		advertisedPaths = append(advertisedPaths, allowedPaths...)
+	}
+
 	return protocol.CapabilitiesMessage{
 		Capabilities:  caps,
 		Platform:      platform,
 		Distro:        distro,
 		DistroVersion: distroVer,
 		Runtimes:      runtimes,
+		AllowedPaths:  advertisedPaths,
 	}
 }
 

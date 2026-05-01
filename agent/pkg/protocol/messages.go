@@ -174,6 +174,11 @@ type CapabilitiesMessage struct {
 	// "installed but the version probe failed." Forward-compatible —
 	// new keys just light up in the panel without protocol changes.
 	Runtimes map[string]string `json:"runtimes,omitempty"`
+	// AllowedPaths advertises the file-access roots the agent is willing
+	// to expose. Sent only when capabilities["files"] is true so the
+	// panel's file manager can render the available browse roots without
+	// guessing. Empty/missing => the panel must hide remote file features.
+	AllowedPaths []string `json:"allowed_paths,omitempty"`
 }
 
 // SystemInfo contains detailed system information
@@ -233,6 +238,24 @@ const (
 	ActionSystemInfo      = "system:info"
 	ActionSystemProcesses = "system:processes"
 	ActionSystemExec      = "system:exec"
+
+	// Package management actions — Phase 4 primitives the workflow
+	// engine sequences for "install Docker", "install LAMP" templates.
+	// Linux-only; the agent picks the right manager (apt/dnf/apk/…)
+	// based on what's on PATH. Calls are idempotent — installing an
+	// already-installed package is a no-op success.
+	ActionPackagesInstall       = "packages:install"
+	ActionPackagesRemove        = "packages:remove"
+	ActionPackagesListInstalled = "packages:list_installed"
+
+	// Systemd unit actions. Linux-only and require systemd as PID 1
+	// (the capability probe already gates this).
+	ActionSystemdStatus  = "systemd:status"
+	ActionSystemdStart   = "systemd:start"
+	ActionSystemdStop    = "systemd:stop"
+	ActionSystemdRestart = "systemd:restart"
+	ActionSystemdEnable  = "systemd:enable"
+	ActionSystemdDisable = "systemd:disable"
 
 	// Cron actions — manage entries in the agent host's user crontab.
 	// Linux-only; non-Linux agents return an "unsupported" error.

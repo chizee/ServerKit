@@ -57,6 +57,10 @@ class ConnectedAgent:
     # ({"python": "3.11.4", "node": "20.10.0"}). Empty for older
     # agents and for hosts where no runtime probes matched.
     runtimes: Dict[str, str] = field(default_factory=dict)
+    # File-access roots advertised when capabilities["files"] is true.
+    # Used by the file manager to seed the browse picker. Empty for
+    # agents that have file access disabled or don't speak the protocol.
+    allowed_paths: list = field(default_factory=list)
 
 
 @dataclass
@@ -761,6 +765,12 @@ class AgentRegistry:
                 if isinstance(k, str) and isinstance(v, (str, type(None))):
                     clean_runtimes[k] = v or ''
 
+        # Allowed paths — only meaningful when capabilities["files"] is
+        # true; coerce to list of strings either way for safety.
+        raw_paths = payload.get('allowed_paths') or []
+        clean_paths = [str(p) for p in raw_paths if isinstance(p, str) and p.strip()] \
+            if isinstance(raw_paths, list) else []
+
         with self._lock:
             agent = self._agents.get(server_id)
             if not agent:
@@ -770,6 +780,7 @@ class AgentRegistry:
             agent.distro = payload.get('distro') or None
             agent.distro_version = payload.get('distro_version') or None
             agent.runtimes = clean_runtimes
+            agent.allowed_paths = clean_paths
 
         logger.info(
             "Capabilities updated for server %s: %s",
@@ -794,6 +805,14 @@ class AgentRegistry:
         if not caps:
             return False
         return bool(caps.get(feature))
+
+    def get_allowed_paths(self, server_id: str) -> list:
+        """File roots the agent advertised on connect, empty if not advertised."""
+        with self._lock:
+            agent = self._agents.get(server_id)
+            if not agent:
+                return []
+            return list(agent.allowed_paths)
 
     # ==================== System Info ====================
 

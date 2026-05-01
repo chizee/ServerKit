@@ -44,9 +44,8 @@ const ServerDetail = () => {
         if (!server || server.status !== 'online') return;
         try {
             const data = await api.getRemoteSystemMetrics(id);
-            if (data.success) {
-                setMetrics(data.data);
-            }
+            // Endpoint returns the metrics payload directly, not a {success,data} envelope.
+            if (data) setMetrics(data);
         } catch (err) {
             console.error('Failed to load metrics:', err);
         }
@@ -56,9 +55,7 @@ const ServerDetail = () => {
         if (!server || server.status !== 'online') return;
         try {
             const data = await api.getRemoteSystemInfo(id);
-            if (data.success) {
-                setSystemInfo(data.data);
-            }
+            if (data) setSystemInfo(data);
         } catch (err) {
             console.error('Failed to load system info:', err);
         }
@@ -412,6 +409,16 @@ const ResourceMeter = ({ label, value, color }) => {
     );
 };
 
+// The /servers/<id>/docker/* endpoints return raw arrays from Flask
+// (route extracts result.get('data') before jsonify). The agent envelope's
+// {success, data} shape is gone by the time it reaches the client, so unwrap
+// both forms defensively.
+const unwrapList = (response) => {
+    if (Array.isArray(response)) return response;
+    if (response?.success && Array.isArray(response.data)) return response.data;
+    return [];
+};
+
 const DockerTab = ({ serverId, serverStatus }) => {
     const [containers, setContainers] = useState([]);
     const [images, setImages] = useState([]);
@@ -436,8 +443,8 @@ const DockerTab = ({ serverId, serverStatus }) => {
                 api.getRemoteImages(serverId)
             ]);
 
-            if (containersRes.success) setContainers(containersRes.data || []);
-            if (imagesRes.success) setImages(imagesRes.data || []);
+            setContainers(unwrapList(containersRes));
+            setImages(unwrapList(imagesRes));
         } catch (err) {
             console.error('Failed to load Docker data:', err);
         } finally {

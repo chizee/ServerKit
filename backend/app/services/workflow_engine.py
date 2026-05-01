@@ -35,6 +35,49 @@ DEFAULT_RETRY_DELAY = 5  # seconds
 MAX_OUTPUT_SIZE = 1024 * 512  # 512 KB
 
 
+def _parse_version(s: str) -> tuple:
+    """Turn '3.11.4' / 'v20.10.0' / '8.2' into a comparable tuple of ints.
+    Trailing non-numeric parts are dropped silently."""
+    if not s:
+        return ()
+    s = s.lstrip('vV').strip()
+    parts = []
+    for part in s.split('.'):
+        digits = ''.join(c for c in part if c.isdigit())
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _runtime_satisfies(actual: str, spec: str) -> bool:
+    """Compare actual version against a spec like '>=3.11', '>=18',
+    '==8.2', or just '3.11' (treated as >=). Naive but covers the
+    realistic gate cases without an extra dep."""
+    spec = spec.strip()
+    op = '>='
+    for prefix in ('>=', '<=', '==', '>', '<'):
+        if spec.startswith(prefix):
+            op = prefix
+            spec = spec[len(prefix):].strip()
+            break
+    a = _parse_version(actual)
+    b = _parse_version(spec)
+    if not a or not b:
+        return False
+    if op == '>=':
+        return a >= b
+    if op == '<=':
+        return a <= b
+    if op == '==':
+        return a == b
+    if op == '>':
+        return a > b
+    if op == '<':
+        return a < b
+    return False
+
+
 class CycleDetectedError(Exception):
     """Raised when a cycle is detected in the workflow graph."""
     pass
@@ -348,7 +391,196 @@ class WorkflowEngine:
         elif node_type == 'logic_if':
             return WorkflowEngine._execute_logic_if(node, context, results)
 
+        # Phase 4 — fleet workflow primitives. Each routes to an agent
+        # via the registry; on failure they short-circuit the workflow
+        # so a missing capability or wrong runtime doesn't silently
+        # mutate the target host.
+        elif node_type == 'agent_command':
+            return WorkflowEngine._execute_agent_command(node, execution, context, results)
+        elif node_type == 'capability_gate':
+            return WorkflowEngine._execute_capability_gate(node)
+        elif node_type == 'runtime_gate':
+            return WorkflowEngine._execute_runtime_gate(node)
+
         return {'success': True, 'message': f"Node type {node_type} passed through"}
+
+    # ------------------------------------------------------------------
+    # Phase 4: Agent Command + Gate Execution
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_target(node_data: Dict) -> Optional[str]:
+        """Pull a `{kind, server_id}` target from node_data and return
+        the server_id for agent dispatch, or None for the local panel
+        host. Raises if the target dict is malformed."""
+        target = node_data.get('target') or {'kind': 'local'}
+        kind = target.get('kind')
+        if kind == 'local' or kind is None:
+            return None
+        if kind == 'agent':
+            sid = target.get('server_id')
+            if not sid:
+                raise ValueError("agent target missing server_id")
+            return sid
+        # 'agent_group' lands when multi-target execution does — for
+        # now reject so a user authoring a template against a
+        # not-yet-implemented mode gets a clear error instead of
+        # silent passthrough.
+        raise ValueError(f"unsupported target kind: {kind}")
+
+    @staticmethod
+    def _execute_agent_command(node: Dict, execution: WorkflowExecution,
+                               context: Dict, results: Dict) -> Dict:
+        """Dispatch an action to an agent and return the result. The
+        node's data carries the action verb, params, and target — see
+        plan §Phase 4 for the schema."""
+        from app.services.agent_registry import agent_registry
+
+        node_data = node.get('data', {})
+        action = (node_data.get('action') or '').strip()
+        if not action:
+            return {'success': False, 'error': 'agent_command node missing action'}
+
+        try:
+            server_id = WorkflowEngine._resolve_target(node_data)
+        except ValueError as e:
+            return {'success': False, 'error': str(e)}
+
+        if server_id is None:
+            # Local target on an agent_command node is unusual — the
+            # equivalent panel-local action belongs in the original
+            # node types. Treat as a config error rather than guessing.
+            return {
+                'success': False,
+                'error': "agent_command requires an agent target; use the matching local node type instead",
+            }
+
+        # Interpolate params so templates can reference earlier results.
+        raw_params = node_data.get('params') or {}
+        params: Dict[str, Any] = {}
+        for k, v in raw_params.items():
+            if isinstance(v, str):
+                params[k] = WorkflowEngine._interpolate(v, context, results, execution)
+            else:
+                params[k] = v
+
+        timeout = float(node_data.get('timeout_s') or DEFAULT_TIMEOUT)
+        timeout = min(timeout, MAX_TIMEOUT)
+
+        WorkflowEngine._log(
+            execution.id,
+            f"agent {server_id}: {action} {params}",
+            node_id=node.get('id'),
+        )
+
+        result = agent_registry.send_command(
+            server_id=server_id,
+            action=action,
+            params=params,
+            user_id=execution.workflow.user_id if execution.workflow else None,
+            timeout=timeout,
+        )
+
+        # Translate agent_registry's envelope into the engine's
+        # standard {success, output|error} shape so downstream nodes
+        # can branch on it uniformly.
+        if not result.get('success'):
+            on_failure = (node_data.get('on_failure') or 'abort').lower()
+            return {
+                'success': False,
+                'error': result.get('error') or 'agent command failed',
+                'code': result.get('code'),
+                'critical': on_failure == 'abort',
+            }
+        return {
+            'success': True,
+            'output': result.get('data'),
+            'action': action,
+            'server_id': server_id,
+        }
+
+    @staticmethod
+    def _execute_capability_gate(node: Dict) -> Dict:
+        """Pass the workflow only if the target server reports every
+        listed capability. A gate failure aborts by default — gates
+        exist precisely to prevent the next step from running on an
+        unsupported host."""
+        from app.services.agent_registry import agent_registry
+
+        node_data = node.get('data', {})
+        try:
+            server_id = WorkflowEngine._resolve_target(node_data)
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'critical': True}
+
+        require = node_data.get('require') or []
+        if isinstance(require, str):
+            require = [require]
+        require = [str(r).strip() for r in require if str(r).strip()]
+        if not require:
+            return {'success': True, 'message': 'no capabilities required'}
+
+        if server_id is None:
+            # Panel host — every "capability" we ask about is implicitly
+            # available (it's the panel itself). Tighter modelling can
+            # come later; refusing here would break local-only workflows
+            # that want to use the same gate node for clarity.
+            return {'success': True, 'satisfied': require, 'target': 'local'}
+
+        caps = agent_registry.get_capabilities(server_id) or {}
+        missing = [r for r in require if not caps.get(r)]
+        if missing:
+            on_missing = (node_data.get('on_missing') or 'abort').lower()
+            return {
+                'success': False,
+                'error': f"target missing capabilities: {', '.join(missing)}",
+                'missing': missing,
+                'satisfied': [r for r in require if caps.get(r)],
+                'critical': on_missing == 'abort',
+            }
+        return {'success': True, 'satisfied': require, 'server_id': server_id}
+
+    @staticmethod
+    def _execute_runtime_gate(node: Dict) -> Dict:
+        """Pass the workflow only if every required runtime is present
+        at >= the requested version. Comparison is naive lexicographic
+        on tuples-of-ints — good enough for "python >= 3.11" style
+        gates without dragging in a semver dependency."""
+        from app.services.agent_registry import agent_registry
+
+        node_data = node.get('data', {})
+        try:
+            server_id = WorkflowEngine._resolve_target(node_data)
+        except ValueError as e:
+            return {'success': False, 'error': str(e), 'critical': True}
+
+        require = node_data.get('require') or {}
+        if not isinstance(require, dict) or not require:
+            return {'success': True, 'message': 'no runtimes required'}
+
+        if server_id is None:
+            # Local panel — we don't track runtime versions for the
+            # panel itself; accept and move on.
+            return {'success': True, 'target': 'local'}
+
+        # agent_registry stores the runtime map alongside capabilities.
+        agent = agent_registry._agents.get(server_id) if hasattr(agent_registry, '_agents') else None
+        runtimes = dict(getattr(agent, 'runtimes', {})) if agent else {}
+
+        unmet = []
+        for name, spec in require.items():
+            actual = runtimes.get(name) or ''
+            if not _runtime_satisfies(actual, str(spec)):
+                unmet.append({'runtime': name, 'required': spec, 'actual': actual or 'not installed'})
+
+        if unmet:
+            return {
+                'success': False,
+                'error': 'runtime requirements not met',
+                'unmet': unmet,
+                'critical': True,
+            }
+        return {'success': True, 'satisfied': require}
 
     # ------------------------------------------------------------------
     # Logic If Evaluation

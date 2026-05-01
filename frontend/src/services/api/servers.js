@@ -199,6 +199,26 @@ export async function toggleRemoteCronJob(serverId, jobId, enabled) {
     });
 }
 
+// Remote Files (via agent)
+export async function getRemoteAllowedPaths(serverId) {
+    return this.request(`/servers/${serverId}/files/allowed-paths`);
+}
+
+export async function browseRemoteFiles(serverId, path) {
+    return this.request(`/servers/${serverId}/files/browse?path=${encodeURIComponent(path)}`);
+}
+
+export async function readRemoteFile(serverId, path) {
+    return this.request(`/servers/${serverId}/files/read?path=${encodeURIComponent(path)}`);
+}
+
+export async function writeRemoteFile(serverId, path, content) {
+    return this.request(`/servers/${serverId}/files/write`, {
+        method: 'POST',
+        body: { path, content }
+    });
+}
+
 // Remote Cloudflared (Tunnels)
 export async function getRemoteCloudflaredStatus(serverId) {
     return this.request(`/servers/${serverId}/cloudflared/status`);

@@ -147,7 +147,13 @@ func New(cfg *config.Config, log *logger.Logger) (*Agent, error) {
 	// from whether NewClient succeeded above; the capability layer
 	// doesn't redo that work.
 	probeCtx, probeCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	agent.capabilities = capabilities.Probe(probeCtx, log, dockerClient != nil)
+	agent.capabilities = capabilities.Probe(
+		probeCtx,
+		log,
+		dockerClient != nil,
+		cfg.Features.FileAccess,
+		cfg.Security.AllowedPaths,
+	)
 	probeCancel()
 
 	// Register command handlers
@@ -242,6 +248,21 @@ func (a *Agent) registerHandlers() {
 	a.handlers[protocol.ActionCloudflaredTunnelCreate] = a.handleCloudflaredTunnelCreate
 	a.handlers[protocol.ActionCloudflaredTunnelRoute] = a.handleCloudflaredTunnelRoute
 	a.handlers[protocol.ActionCloudflaredTunnelDelete] = a.handleCloudflaredTunnelDelete
+
+	// Phase 4 primitives — packages, systemd, exec. Registered
+	// unconditionally so non-Linux agents return a clear error rather
+	// than "unknown action"; the capability probe gates the panel's
+	// target picker so users don't normally hit this on Windows.
+	a.handlers[protocol.ActionPackagesInstall] = a.handlePackagesInstall
+	a.handlers[protocol.ActionPackagesRemove] = a.handlePackagesRemove
+	a.handlers[protocol.ActionPackagesListInstalled] = a.handlePackagesListInstalled
+	a.handlers[protocol.ActionSystemdStatus] = a.handleSystemdStatus
+	a.handlers[protocol.ActionSystemdStart] = a.handleSystemdStart
+	a.handlers[protocol.ActionSystemdStop] = a.handleSystemdStop
+	a.handlers[protocol.ActionSystemdRestart] = a.handleSystemdRestart
+	a.handlers[protocol.ActionSystemdEnable] = a.handleSystemdEnable
+	a.handlers[protocol.ActionSystemdDisable] = a.handleSystemdDisable
+	a.handlers[protocol.ActionSystemExec] = a.handleSystemExec
 
 	// Agent commands
 	a.handlers[protocol.ActionAgentUpdate] = a.handleAgentUpdate
@@ -475,6 +496,8 @@ func (a *Agent) sendCapabilities() {
 		Platform:      a.capabilities.Platform,
 		Distro:        a.capabilities.Distro,
 		DistroVersion: a.capabilities.DistroVersion,
+		Runtimes:      a.capabilities.Runtimes,
+		AllowedPaths:  a.capabilities.AllowedPaths,
 	}
 	if err := a.ws.Send(msg); err != nil {
 		a.log.Warn("Failed to send capabilities", "error", err)

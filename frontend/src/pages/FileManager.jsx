@@ -23,7 +23,31 @@ import FileCard from '../components/file-manager/FileCard';
 import FileRow from '../components/file-manager/FileRow';
 import PreviewDrawer from '../components/file-manager/PreviewDrawer';
 import ContextMenu from '../components/file-manager/ContextMenu';
+import TargetPicker from '../components/TargetPicker';
 import { TREE_ROOTS, DEFAULT_PINNED, getFileType, formatBytes } from '../components/file-manager/fileTypes';
+
+// File manager operations that the agent can serve over file:* commands.
+// Anything else (mkdir, delete, rename, copy, chmod, search, disk usage,
+// upload/download) is panel-host-only until the matching agent verbs land.
+const REMOTE_SUPPORTED = new Set(['browse', 'read', 'write']);
+
+function deriveParent(path) {
+    if (!path || path === '/' || path === '') return null;
+    const trimmed = path.replace(/\/+$/, '');
+    const idx = trimmed.lastIndexOf('/');
+    if (idx <= 0) return '/';
+    return trimmed.slice(0, idx);
+}
+
+function unwrapAgentData(res) {
+    // Remote endpoints return the agent payload directly
+    // (RemoteFileService → _agent_result unwraps {data}). Defensive
+    // unwrap covers both shapes for older agent responses.
+    if (res && typeof res === 'object' && 'success' in res && 'data' in res) {
+        return res.data;
+    }
+    return res;
+}
 
 const STORAGE = {
     sidebar: 'serverkit-fm-sidebar',
@@ -51,6 +75,13 @@ const FILTER_CHIPS = [
 ];
 
 function FileManager() {
+    // ─── target ──────────────────────────────────────────
+    // Local panel host by default. Switching to an agent re-routes the
+    // browse/read/write verbs through /servers/<id>/files/* and disables
+    // operations the agent can't serve yet.
+    const [target, setTarget] = useState({ kind: 'local' });
+    const isRemote = target.kind === 'agent';
+
     // ─── core ────────────────────────────────────────────
     const [currentPath, setCurrentPath] = useState('/home');
     const [entries, setEntries] = useState([]);
@@ -161,6 +192,54 @@ function FileManager() {
         localStorage.setItem(STORAGE.expanded, JSON.stringify([...treeExpanded]));
     }, [treeExpanded]);
 
+    // ─── file API adapter ────────────────────────────────
+    // Routes the three verbs the agent supports through the remote
+    // endpoints when target is an agent; falls back to the panel-local
+    // FileService otherwise. Other ops keep going to panel-local — the
+    // remoteGuard helper short-circuits them with a toast when the user
+    // is on a remote target so we don't accidentally write to the panel
+    // host while they think they're editing a remote server.
+    const fileApi = useMemo(() => ({
+        browse: async (path, hidden) => {
+            if (isRemote) {
+                return unwrapAgentData(await api.browseRemoteFiles(target.server_id, path));
+            }
+            return api.browseFiles(path, hidden);
+        },
+        read: async (path) => {
+            if (isRemote) {
+                return unwrapAgentData(await api.readRemoteFile(target.server_id, path));
+            }
+            return api.readFile(path);
+        },
+        write: async (path, content) => {
+            if (isRemote) {
+                return unwrapAgentData(await api.writeRemoteFile(target.server_id, path, content));
+            }
+            return api.writeFile(path, content);
+        },
+    }), [isRemote, target]);
+
+    const remoteGuard = useCallback((op) => {
+        if (isRemote && !REMOTE_SUPPORTED.has(op)) {
+            toast.error(`${op} is not yet supported on remote agents`);
+            return true;
+        }
+        return false;
+    }, [isRemote, toast]);
+
+    // When the user switches to a remote target, jump to its first
+    // advertised allowed_path so they don't see a "panel /home" view
+    // that doesn't exist on the remote host.
+    useEffect(() => {
+        if (target.kind === 'agent' && Array.isArray(target.allowedPaths) && target.allowedPaths.length > 0) {
+            setCurrentPath(target.allowedPaths[0]);
+        } else if (target.kind === 'local') {
+            setCurrentPath('/home');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target.kind, target.server_id]);
+
     // ─── load directory ──────────────────────────────────
     const loadDirectory = useCallback(async (path) => {
         setLoading(true);
@@ -169,16 +248,21 @@ function FileManager() {
         setTypeBreakdown(null);
         setSelectedPaths(new Set());
         try {
-            const data = await api.browseFiles(path, showHidden);
-            setEntries(data.entries || []);
-            setParentPath(data.parent);
-            setCurrentPath(data.path);
+            const data = await fileApi.browse(path, showHidden);
+            // Agent file:list returns {path, files: [...]} with a flat
+            // entry shape; panel browseFiles returns {path, parent,
+            // entries: [...]}. Normalize so the UI can keep using
+            // entries/parent.
+            const entriesList = data.entries || data.files || [];
+            setEntries(entriesList);
+            setParentPath(data.parent ?? deriveParent(data.path || path));
+            setCurrentPath(data.path || path);
         } catch (error) {
             toast.error(`Failed to load directory: ${error.message}`);
         } finally {
             setLoading(false);
         }
-    }, [showHidden, toast]);
+    }, [showHidden, toast, fileApi]);
 
     useEffect(() => {
         loadDirectory(currentPath);
@@ -245,8 +329,9 @@ function FileManager() {
         if (!treeCache.has(path)) {
             setTreeLoading((s) => { const n = new Set(s); n.add(path); return n; });
             try {
-                const data = await api.browseFiles(path, false);
-                const folders = (data.entries || []).filter((e) => e.is_dir).map((e) => ({
+                const data = await fileApi.browse(path, false);
+                const entries = data.entries || data.files || [];
+                const folders = entries.filter((e) => e.is_dir).map((e) => ({
                     path: e.path,
                     name: e.name,
                 }));
@@ -258,7 +343,7 @@ function FileManager() {
             }
         }
         setTreeExpanded((s) => { const n = new Set(s); n.add(path); return n; });
-    }, [treeExpanded, treeCache]);
+    }, [treeExpanded, treeCache, fileApi]);
 
     // Auto-expand the tree along the current path so the active row is visible.
     useEffect(() => {
@@ -279,6 +364,7 @@ function FileManager() {
 
     // ─── search ──────────────────────────────────────────
     const handleSearch = async () => {
+        if (remoteGuard('search')) { setSearchResults([]); return; }
         if (!searchQuery.trim()) { setSearchResults(null); return; }
         setLoading(true);
         try {
@@ -322,7 +408,7 @@ function FileManager() {
             setEditing(false);
             if (entry.is_editable) {
                 try {
-                    const data = await api.readFile(entry.path);
+                    const data = await fileApi.read(entry.path);
                     setFileContent(data.content);
                 } catch (error) {
                     toast.error(`Failed to read file: ${error.message}`);
@@ -357,7 +443,7 @@ function FileManager() {
     const handleSaveFile = async () => {
         if (!previewFile) return;
         try {
-            await api.writeFile(previewFile.path, fileContent);
+            await fileApi.write(previewFile.path, fileContent);
             toast.success('File saved');
             setEditing(false);
             loadDirectory(currentPath);
@@ -368,6 +454,7 @@ function FileManager() {
 
     const handleCreateFile = async () => {
         if (!newFileName.trim()) return;
+        if (remoteGuard('create file')) return;
         try {
             await api.createFile(`${currentPath}/${newFileName}`);
             toast.success('File created');
@@ -381,6 +468,7 @@ function FileManager() {
 
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) return;
+        if (remoteGuard('create folder')) return;
         try {
             await api.createDirectory(`${currentPath}/${newFolderName}`);
             toast.success('Folder created');
@@ -404,6 +492,7 @@ function FileManager() {
     const handleDelete = (target) => {
         const items = Array.isArray(target) ? target : [target];
         if (items.length === 0) return;
+        if (remoteGuard('delete')) return;
         const message = items.length === 1
             ? `Delete "${items[0].name}"?${items[0].is_dir ? ' All contents inside will be removed.' : ''}`
             : `Delete ${items.length} items? This cannot be undone.`;
@@ -434,6 +523,7 @@ function FileManager() {
 
     const handleRename = async () => {
         if (!renameTarget || !newName.trim()) return;
+        if (remoteGuard('rename')) return;
         try {
             await api.renameFile(renameTarget.path, newName);
             toast.success('Renamed');
@@ -448,6 +538,7 @@ function FileManager() {
 
     const handleChangePermissions = async () => {
         if (!permissionsTarget || !newPermissions.trim()) return;
+        if (remoteGuard('change permissions')) return;
         try {
             await api.changeFilePermissions(permissionsTarget.path, newPermissions);
             toast.success('Permissions updated');
@@ -475,6 +566,7 @@ function FileManager() {
     const uploadFiles = async (files) => {
         const fileList = Array.from(files);
         if (fileList.length === 0) return;
+        if (remoteGuard('upload')) return;
         const queue = fileList.map((f, i) => ({
             id: `${Date.now()}-${i}`,
             name: f.name,
@@ -668,13 +760,14 @@ function FileManager() {
                     <p className="page-description">Browse, edit, and manage your server files</p>
                 </div>
                 <div className="page-header-actions">
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <TargetPicker feature="files" value={target} onChange={setTarget} />
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isRemote}>
                         <Upload size={16} /> Upload
                     </Button>
-                    <Button variant="outline" onClick={() => setShowNewFolderModal(true)}>
+                    <Button variant="outline" onClick={() => setShowNewFolderModal(true)} disabled={isRemote}>
                         <FolderPlus size={16} /> New Folder
                     </Button>
-                    <Button onClick={() => setShowNewFileModal(true)}>
+                    <Button onClick={() => setShowNewFileModal(true)} disabled={isRemote}>
                         <FilePlus size={16} /> New File
                     </Button>
                     <input
@@ -686,6 +779,13 @@ function FileManager() {
                     />
                 </div>
             </div>
+
+            {isRemote && (
+                <div className="file-manager-target-banner">
+                    Browsing on <strong>{target.name}</strong> — read/write only.
+                    Mkdir/delete/rename/upload aren&apos;t yet supported on remote agents.
+                </div>
+            )}
 
             {uploads.length > 0 && (
                 <div className="upload-tray">

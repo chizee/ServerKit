@@ -2296,3 +2296,61 @@ def remote_cloudflared_delete(server_id, tunnel_ref):
     user_id = get_jwt_identity()
     result = RemoteCloudflaredService.delete_tunnel(server_id, tunnel_ref, user_id=user_id)
     return _agent_result(result)
+
+
+# ==================== Remote File Operations ====================
+#
+# Endpoints under /servers/<id>/files/ proxy to the agent's file:*
+# command handlers. Phase 3b ships browse/read/write only — the broader
+# verb set (delete, mkdir, rename, copy, chmod, search, disk_usage)
+# requires new agent handlers and lands in a follow-up. The agent owns
+# allowed_paths enforcement; the panel just transports.
+
+from app.services.remote_file_service import RemoteFileService
+
+
+@servers_bp.route('/<server_id>/files/allowed-paths', methods=['GET'])
+@jwt_required()
+def remote_file_allowed_paths(server_id):
+    """Return the file roots the agent advertised on connect. Lets the
+    file manager seed the browse picker without guessing or hardcoding."""
+    paths = RemoteFileService.get_allowed_paths(server_id)
+    return jsonify({'allowed_paths': paths})
+
+
+@servers_bp.route('/<server_id>/files/browse', methods=['GET'])
+@jwt_required()
+def remote_file_browse(server_id):
+    user_id = get_jwt_identity()
+    path = request.args.get('path')
+    if not path:
+        return jsonify({'error': 'path is required'}), 400
+    result = RemoteFileService.list_directory(server_id, path, user_id=user_id)
+    return _agent_result(result)
+
+
+@servers_bp.route('/<server_id>/files/read', methods=['GET'])
+@jwt_required()
+def remote_file_read(server_id):
+    user_id = get_jwt_identity()
+    path = request.args.get('path')
+    if not path:
+        return jsonify({'error': 'path is required'}), 400
+    result = RemoteFileService.read_file(server_id, path, user_id=user_id)
+    return _agent_result(result)
+
+
+@servers_bp.route('/<server_id>/files/write', methods=['POST'])
+@jwt_required()
+@developer_required
+def remote_file_write(server_id):
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    path = (data.get('path') or '').strip()
+    content = data.get('content')
+    if not path:
+        return jsonify({'error': 'path is required'}), 400
+    if content is None:
+        return jsonify({'error': 'content is required'}), 400
+    result = RemoteFileService.write_file(server_id, path, content, user_id=user_id)
+    return _agent_result(result)

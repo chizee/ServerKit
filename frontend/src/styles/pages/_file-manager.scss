@@ -1777,3 +1777,32 @@ $drawer-width: 520px;
         .file-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; }
     }
 }
+
+.file-manager-target-banner {
+    margin: $space-2 0 $space-3;
+    padding: $space-2 $space-3;
+    border-radius: $radius-md;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--text-primary);
+    font-size: $text-sm;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.target-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
+    padding: $space-1 $space-2;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: $radius-md;
+    .target-picker__select {
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-size: $text-sm;
+        outline: none;
+        cursor: pointer;
+    }
+    .target-picker__icon { color: var(--text-secondary); }
+}
