@@ -19,6 +19,7 @@ import (
 
 	"github.com/serverkit/agent/internal/auth"
 	"github.com/serverkit/agent/internal/capabilities"
+	"github.com/serverkit/agent/internal/cloudflared"
 	"github.com/serverkit/agent/internal/config"
 	"github.com/serverkit/agent/internal/cron"
 	"github.com/serverkit/agent/internal/docker"
@@ -44,11 +45,12 @@ type Agent struct {
 	// fallback Manager that wraps WS+poll. Named "ws" for compatibility
 	// with the dozens of existing call sites in this file.
 	ws       transport.Transport
-	docker   *docker.Client
-	metrics  *metrics.Collector
-	terminal *terminal.Manager
-	cron     cron.Manager
-	ipc      *ipc.Server
+	docker      *docker.Client
+	metrics     *metrics.Collector
+	terminal    *terminal.Manager
+	cron        cron.Manager
+	cloudflared cloudflared.Manager
+	ipc         *ipc.Server
 	sampler  *metricSampler
 	events   *events.Store
 	gui      *gui.SDK
@@ -130,6 +132,7 @@ func New(cfg *config.Config, log *logger.Logger) (*Agent, error) {
 		metrics:       metricsCollector,
 		terminal:      termManager,
 		cron:          cron.New(),
+		cloudflared:   cloudflared.New(),
 		sampler:       newMetricSampler(300), // 5 min @ 1 Hz
 		events:        eventStore,
 		gui:           gui.New(log),
@@ -229,6 +232,16 @@ func (a *Agent) registerHandlers() {
 	a.handlers[protocol.ActionCronAdd] = a.handleCronAdd
 	a.handlers[protocol.ActionCronRemove] = a.handleCronRemove
 	a.handlers[protocol.ActionCronToggle] = a.handleCronToggle
+
+	// Cloudflared commands — same Linux-only/stub pattern. Auth state
+	// (cert.pem present) is exposed via :status, not via the
+	// capabilities probe, so the panel can distinguish "binary
+	// installed but not logged in" from "not installed at all."
+	a.handlers[protocol.ActionCloudflaredStatus] = a.handleCloudflaredStatus
+	a.handlers[protocol.ActionCloudflaredTunnelList] = a.handleCloudflaredTunnelList
+	a.handlers[protocol.ActionCloudflaredTunnelCreate] = a.handleCloudflaredTunnelCreate
+	a.handlers[protocol.ActionCloudflaredTunnelRoute] = a.handleCloudflaredTunnelRoute
+	a.handlers[protocol.ActionCloudflaredTunnelDelete] = a.handleCloudflaredTunnelDelete
 
 	// Agent commands
 	a.handlers[protocol.ActionAgentUpdate] = a.handleAgentUpdate

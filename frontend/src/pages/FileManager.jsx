@@ -331,7 +331,7 @@ function FileManager() {
     const displayedEntries = searchResults || entries;
 
     return (
-        <div className={`file-manager ${sidebarVisible ? 'sidebar-open' : ''}`}>
+        <div className={`page-container file-manager-page file-manager ${sidebarVisible ? 'sidebar-open' : ''}`}>
             <div className="page-header">
                 <div className="page-header-content">
                     <h1>File Manager</h1>

@@ -24,7 +24,13 @@ export function ProcessTable({
 }) {
     return (
         <div className="processes-table-wrapper">
-            <table className="table processes-table">
+            <table
+                className="table processes-table"
+                spellCheck={false}
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+            >
                 <thead>
                     <tr>
                         <th>PID</th>

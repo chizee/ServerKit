@@ -168,6 +168,12 @@ type CapabilitiesMessage struct {
 	Platform      string       `json:"platform"`                 // "linux", "windows", "darwin"
 	Distro        string       `json:"distro,omitempty"`         // "ubuntu", "debian", "rhel", ...
 	DistroVersion string       `json:"distro_version,omitempty"` // "22.04"
+	// Runtimes is a name → version map for language runtimes the agent
+	// detected at startup ("python": "3.11.4", "node": "20.10.0").
+	// Missing keys mean "not installed"; an empty string value means
+	// "installed but the version probe failed." Forward-compatible —
+	// new keys just light up in the panel without protocol changes.
+	Runtimes map[string]string `json:"runtimes,omitempty"`
 }
 
 // SystemInfo contains detailed system information
@@ -235,6 +241,17 @@ const (
 	ActionCronAdd    = "cron:add"
 	ActionCronRemove = "cron:remove"
 	ActionCronToggle = "cron:toggle"
+
+	// Cloudflared actions — manage Cloudflare named tunnels via the
+	// cloudflared CLI. The agent never stores Cloudflare API tokens;
+	// the user authenticates once on the host with
+	// `cloudflared tunnel login` (approach A from the design notes).
+	// Status reflects "is binary installed AND has cert.pem".
+	ActionCloudflaredStatus       = "cloudflared:status"
+	ActionCloudflaredTunnelList   = "cloudflared:tunnel:list"
+	ActionCloudflaredTunnelCreate = "cloudflared:tunnel:create"
+	ActionCloudflaredTunnelRoute  = "cloudflared:tunnel:route"
+	ActionCloudflaredTunnelDelete = "cloudflared:tunnel:delete"
 
 	// File actions
 	ActionFileRead  = "file:read"

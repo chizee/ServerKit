@@ -14,7 +14,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/serverkit/agent/internal/logger"
@@ -45,6 +47,18 @@ func Probe(ctx context.Context, log *logger.Logger, dockerAvailable bool) protoc
 	caps["php_fpm"] = probePHPFPM()
 	caps["packages"] = probePackageManager()
 
+	// Cloudflared — present if the binary is on PATH. The panel uses
+	// this to decide whether to show the Cloudflare Tunnels tab; it
+	// doesn't imply the user has authenticated yet (cert.pem check
+	// happens in the cloudflared:status action).
+	caps["cloudflared"] = probeCloudflared()
+
+	// Language runtimes — best-effort version probes. A missing key
+	// means "not installed"; an empty string means "installed but
+	// `--version` parse failed" so the panel can still light up the
+	// runtime indicator without claiming a wrong version.
+	runtimes := probeRuntimes(ctx)
+
 	// Platform / distro for any code that needs more than the booleans
 	// (e.g. "use apt vs dnf" — Phase 4 territory, but we capture it
 	// now so we don't have to add another roundtrip later).
@@ -69,6 +83,8 @@ func Probe(ctx context.Context, log *logger.Logger, dockerAvailable bool) protoc
 			"nginx", caps["nginx"],
 			"php_fpm", caps["php_fpm"],
 			"packages", caps["packages"],
+			"cloudflared", caps["cloudflared"],
+			"runtimes", runtimes,
 		)
 	}
 
@@ -77,7 +93,82 @@ func Probe(ctx context.Context, log *logger.Logger, dockerAvailable bool) protoc
 		Platform:      platform,
 		Distro:        distro,
 		DistroVersion: distroVer,
+		Runtimes:      runtimes,
 	}
+}
+
+// probeCloudflared — true if cloudflared is on PATH. The capability
+// flips to true at install time, well before the user has logged in
+// (cloudflared tunnel login). The auth state is exposed separately by
+// the cloudflared:status action so the UI can show "binary installed,
+// not authenticated" without having to teach the panel about
+// /etc/cloudflared/cert.pem locations.
+func probeCloudflared() bool {
+	return hasOnPath("cloudflared")
+}
+
+// probeRuntimes detects common language runtimes by shelling out to
+// each "<bin> --version" and parsing the first line. Versions are kept
+// as raw strings (e.g. "3.11.4", "20.10.0", "8.2.0") so consumers can
+// do their own semver compares without us guessing the schema.
+//
+// Per-binary timeout is short — every probe is bounded so a hung
+// subprocess can't block the agent from connecting.
+func probeRuntimes(ctx context.Context) map[string]string {
+	results := map[string]string{}
+	probes := []struct {
+		key  string
+		bins []string // try in order; first match wins
+	}{
+		{key: "python", bins: []string{"python3", "python"}},
+		{key: "node", bins: []string{"node", "nodejs"}},
+		{key: "php", bins: []string{"php"}},
+		{key: "go", bins: []string{"go"}},
+		{key: "ruby", bins: []string{"ruby"}},
+		{key: "java", bins: []string{"java"}},
+	}
+	for _, p := range probes {
+		for _, bin := range p.bins {
+			if !hasOnPath(bin) {
+				continue
+			}
+			ver := readVersion(ctx, bin)
+			results[p.key] = ver
+			break // don't keep trying once we found one
+		}
+	}
+	return results
+}
+
+// versionPattern grabs the first dotted-number sequence in a version
+// string. Works across the messy outputs:
+//   - python:  "Python 3.11.4"
+//   - node:    "v20.10.0"
+//   - php:     "PHP 8.2.0 (cli) ..."
+//   - go:      "go version go1.22.0 linux/amd64"
+//   - ruby:    "ruby 3.2.2p53 ..."
+//   - java:    "openjdk version \"17.0.6\" 2023-01-17"
+var versionPattern = regexp.MustCompile(`(\d+\.\d+(?:\.\d+)?)`)
+
+func readVersion(ctx context.Context, bin string) string {
+	// java and a few others print version on stderr; capture both.
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	out, err := cmd.CombinedOutput()
+	if err != nil || len(out) == 0 {
+		// Some binaries reject "--version" but accept "-version" (java).
+		cmd = exec.CommandContext(ctx, bin, "-version")
+		out, _ = cmd.CombinedOutput()
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	first := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
+	if m := versionPattern.FindString(first); m != "" {
+		return m
+	}
+	// Fall through with the raw first line so the panel at least shows
+	// something rather than a blank.
+	return first
 }
 
 // probeCron — present if `crontab` is on PATH OR a cron daemon is

@@ -25,7 +25,7 @@ const ServerDetail = () => {
     const [showTokenModal, setShowTokenModal] = useState(false);
     const toast = useToast();
 
-    const validTabs = ['overview', 'docker', 'cron', 'metrics', 'settings'];
+    const validTabs = ['overview', 'docker', 'cron', 'cloudflared', 'metrics', 'settings'];
     const activeTab = validTabs.includes(tab) ? tab : 'overview';
 
     const loadServer = useCallback(async () => {
@@ -167,6 +167,7 @@ const ServerDetail = () => {
         { id: 'overview', label: 'Overview' },
         { id: 'docker', label: 'Docker' },
         ...(server.capabilities?.cron ? [{ id: 'cron', label: 'Cron' }] : []),
+        ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', label: 'Tunnels' }] : []),
         { id: 'metrics', label: 'Metrics' },
         { id: 'settings', label: 'Settings' }
     ];
@@ -257,6 +258,11 @@ const ServerDetail = () => {
                     {server.capabilities?.cron && (
                         <TabsContent value="cron">
                             <CronTab serverId={id} serverStatus={server.status} />
+                        </TabsContent>
+                    )}
+                    {server.capabilities?.cloudflared && (
+                        <TabsContent value="cloudflared">
+                            <CloudflaredTab serverId={id} serverStatus={server.status} />
                         </TabsContent>
                     )}
                     <TabsContent value="metrics">
@@ -897,6 +903,309 @@ const CronTab = ({ serverId, serverStatus }) => {
                 variant={confirmCronState.variant}
                 onConfirm={handleCronConfirm}
                 onCancel={handleCronCancel}
+            />
+        </div>
+    );
+};
+
+// CloudflaredTab — manage Cloudflare named tunnels via the agent.
+//
+// Auth model: the user runs `cloudflared tunnel login` once on the
+// server. That writes ~/.cloudflared/cert.pem (or
+// /etc/cloudflared/cert.pem when run as root). The panel never sees
+// a Cloudflare API token — every action shells out to cloudflared
+// using that cert. /status surfaces both "binary present" and
+// "cert present" so we can show "log in first" before users hit
+// CRUD actions and get confusing errors back.
+const CloudflaredTab = ({ serverId, serverStatus }) => {
+    const toast = useToast();
+    const { confirm: confirmCf, confirmState: confirmCfState, handleConfirm: handleCfConfirm, handleCancel: handleCfCancel } = useConfirm();
+    const [status, setStatus] = useState(null);
+    const [tunnels, setTunnels] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [createName, setCreateName] = useState('');
+    const [creating, setCreating] = useState(false);
+
+    const [showRouteModal, setShowRouteModal] = useState(false);
+    const [routeTunnel, setRouteTunnel] = useState(null);
+    const [routeHostname, setRouteHostname] = useState('');
+    const [routing, setRouting] = useState(false);
+
+    const loadStatus = useCallback(async () => {
+        try {
+            const s = await api.getRemoteCloudflaredStatus(serverId);
+            setStatus(s);
+        } catch (err) {
+            console.error('Failed to load cloudflared status:', err);
+        }
+    }, [serverId]);
+
+    const loadTunnels = useCallback(async () => {
+        try {
+            const data = await api.getRemoteCloudflaredTunnels(serverId);
+            setTunnels(data?.tunnels || []);
+            setError(null);
+        } catch (err) {
+            // Auth errors here are common when the user hasn't logged
+            // in yet — the status banner already explains; don't show
+            // a redundant scary alert.
+            setError(err.message || 'Failed to load tunnels');
+        }
+    }, [serverId]);
+
+    useEffect(() => {
+        if (serverStatus !== 'online') {
+            setLoading(false);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            await loadStatus();
+            await loadTunnels();
+            if (!cancelled) setLoading(false);
+        })();
+        return () => { cancelled = true; };
+    }, [serverStatus, loadStatus, loadTunnels]);
+
+    async function handleCreate(e) {
+        e.preventDefault();
+        const name = createName.trim();
+        if (!name) {
+            toast.error('Name is required');
+            return;
+        }
+        setCreating(true);
+        try {
+            await api.createRemoteCloudflaredTunnel(serverId, name);
+            toast.success(`Tunnel "${name}" created`);
+            setShowCreateModal(false);
+            setCreateName('');
+            loadTunnels();
+        } catch (err) {
+            toast.error(err.message || 'Failed to create tunnel');
+        } finally {
+            setCreating(false);
+        }
+    }
+
+    async function handleRoute(e) {
+        e.preventDefault();
+        const hostname = routeHostname.trim();
+        if (!hostname || !routeTunnel) return;
+        setRouting(true);
+        try {
+            await api.routeRemoteCloudflaredTunnel(serverId, routeTunnel.id || routeTunnel.name, hostname);
+            toast.success(`${hostname} → ${routeTunnel.name}`);
+            setShowRouteModal(false);
+            setRouteHostname('');
+            setRouteTunnel(null);
+        } catch (err) {
+            toast.error(err.message || 'Failed to add route');
+        } finally {
+            setRouting(false);
+        }
+    }
+
+    async function handleDelete(tunnel) {
+        const ok = await confirmCf({
+            title: 'Delete Tunnel',
+            message: `Delete tunnel "${tunnel.name}"? Active connections will be force-closed.`,
+            variant: 'danger',
+        });
+        if (!ok) return;
+        try {
+            await api.deleteRemoteCloudflaredTunnel(serverId, tunnel.id || tunnel.name);
+            toast.success('Tunnel deleted');
+            loadTunnels();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete tunnel');
+        }
+    }
+
+    if (serverStatus !== 'online') {
+        return (
+            <div className="offline-notice">
+                <OfflineIcon />
+                <h4>Server Offline</h4>
+                <p>Tunnel management requires the server to be online.</p>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return <div className="loading">Loading tunnels...</div>;
+    }
+
+    // Status banner — three distinct states the UI cares about:
+    //   1. binary missing      → "install cloudflared"
+    //   2. binary, no cert     → "log in once"
+    //   3. binary + cert       → ready to manage tunnels
+    const notInstalled = status?.available === false;
+    const notAuthed = status?.available && status?.authenticated === false;
+
+    return (
+        <div className="cloudflared-tab">
+            <div className="cron-tab__header">
+                <div className="cron-tab__status">
+                    {notInstalled ? (
+                        <Badge variant="warning">cloudflared not installed</Badge>
+                    ) : notAuthed ? (
+                        <Badge variant="warning">not authenticated — run cloudflared tunnel login</Badge>
+                    ) : (
+                        <Badge variant="success">cloudflared ready{status?.version ? ` (${status.version})` : ''}</Badge>
+                    )}
+                    <span className="cron-tab__count">{tunnels.length} tunnel{tunnels.length === 1 ? '' : 's'}</span>
+                </div>
+                <div className="cron-tab__actions">
+                    <Button variant="outline" onClick={loadTunnels} disabled={notInstalled}>Refresh</Button>
+                    <Button onClick={() => setShowCreateModal(true)} disabled={notInstalled || notAuthed}>
+                        Create Tunnel
+                    </Button>
+                </div>
+            </div>
+
+            {(notInstalled || notAuthed) && (
+                <div className="cloudflared-tab__hint">
+                    {notInstalled ? (
+                        <>
+                            Install cloudflared on the server, then return here. See the{' '}
+                            <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/" target="_blank" rel="noreferrer">
+                                Cloudflare docs
+                            </a>.
+                        </>
+                    ) : (
+                        <>
+                            On the server, run <code>sudo cloudflared tunnel login</code>. A browser
+                            window will open and ask you to pick a Cloudflare zone. After that, click
+                            Refresh here.
+                        </>
+                    )}
+                </div>
+            )}
+
+            {error && !notAuthed && !notInstalled && (
+                <div className="alert alert-danger">{error}</div>
+            )}
+
+            {!notInstalled && !notAuthed && (
+                tunnels.length === 0 ? (
+                    <div className="empty-list">
+                        No tunnels on this server. Click &quot;Create Tunnel&quot; to make one.
+                    </div>
+                ) : (
+                    <table className="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>ID</th>
+                                <th>Connections</th>
+                                <th className="actions-cell">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tunnels.map(t => (
+                                <tr key={t.id || t.name}>
+                                    <td><span className="cron-tab__name">{t.name}</span></td>
+                                    <td className="mono">{(t.id || '').substring(0, 8)}…</td>
+                                    <td>{t.connections?.length || 0}</td>
+                                    <td className="actions-cell">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => { setRouteTunnel(t); setShowRouteModal(true); }}
+                                        >
+                                            Route subdomain
+                                        </Button>
+                                        <button
+                                            className="btn-icon danger"
+                                            onClick={() => handleDelete(t)}
+                                            title="Delete"
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )
+            )}
+
+            {showCreateModal && (
+                <div className="modal-overlay" onClick={() => !creating && setShowCreateModal(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Create Tunnel</h3>
+                            <button className="modal-close" onClick={() => setShowCreateModal(false)} disabled={creating}>×</button>
+                        </div>
+                        <form onSubmit={handleCreate}>
+                            <div className="modal-body">
+                                <div className="form-group">
+                                    <label htmlFor="cf-name">Tunnel Name</label>
+                                    <Input
+                                        id="cf-name"
+                                        value={createName}
+                                        onChange={(e) => setCreateName(e.target.value)}
+                                        placeholder="my-app"
+                                        required
+                                        autoFocus
+                                    />
+                                    <p className="form-hint">Letters, numbers, dashes, underscores. Up to 32 chars.</p>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} disabled={creating}>Cancel</Button>
+                                <Button type="submit" disabled={creating}>{creating ? 'Creating…' : 'Create'}</Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {showRouteModal && routeTunnel && (
+                <div className="modal-overlay" onClick={() => !routing && setShowRouteModal(false)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Route Subdomain → {routeTunnel.name}</h3>
+                            <button className="modal-close" onClick={() => setShowRouteModal(false)} disabled={routing}>×</button>
+                        </div>
+                        <form onSubmit={handleRoute}>
+                            <div className="modal-body">
+                                <div className="form-group">
+                                    <label htmlFor="cf-host">Hostname</label>
+                                    <Input
+                                        id="cf-host"
+                                        value={routeHostname}
+                                        onChange={(e) => setRouteHostname(e.target.value)}
+                                        placeholder="app.example.com"
+                                        required
+                                        autoFocus
+                                    />
+                                    <p className="form-hint">A CNAME for this hostname will be created in Cloudflare DNS, pointing at the tunnel.</p>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <Button type="button" variant="outline" onClick={() => setShowRouteModal(false)} disabled={routing}>Cancel</Button>
+                                <Button type="submit" disabled={routing}>{routing ? 'Adding…' : 'Add Route'}</Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <ConfirmDialog
+                isOpen={confirmCfState.isOpen}
+                title={confirmCfState.title}
+                message={confirmCfState.message}
+                confirmText={confirmCfState.confirmText}
+                cancelText={confirmCfState.cancelText}
+                variant={confirmCfState.variant}
+                onConfirm={handleCfConfirm}
+                onCancel={handleCfCancel}
             />
         </div>
     );

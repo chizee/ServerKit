@@ -199,6 +199,35 @@ export async function toggleRemoteCronJob(serverId, jobId, enabled) {
     });
 }
 
+// Remote Cloudflared (Tunnels)
+export async function getRemoteCloudflaredStatus(serverId) {
+    return this.request(`/servers/${serverId}/cloudflared/status`);
+}
+
+export async function getRemoteCloudflaredTunnels(serverId) {
+    return this.request(`/servers/${serverId}/cloudflared/tunnels`);
+}
+
+export async function createRemoteCloudflaredTunnel(serverId, name) {
+    return this.request(`/servers/${serverId}/cloudflared/tunnels`, {
+        method: 'POST',
+        body: { name }
+    });
+}
+
+export async function routeRemoteCloudflaredTunnel(serverId, tunnelRef, hostname) {
+    return this.request(`/servers/${serverId}/cloudflared/tunnels/${encodeURIComponent(tunnelRef)}/route`, {
+        method: 'POST',
+        body: { hostname }
+    });
+}
+
+export async function deleteRemoteCloudflaredTunnel(serverId, tunnelRef) {
+    return this.request(`/servers/${serverId}/cloudflared/tunnels/${encodeURIComponent(tunnelRef)}`, {
+        method: 'DELETE'
+    });
+}
+
 // Get available servers for Docker operations
 export async function getAvailableServers() {
     return this.request('/servers/available');

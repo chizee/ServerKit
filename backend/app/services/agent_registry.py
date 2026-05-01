@@ -53,6 +53,10 @@ class ConnectedAgent:
     platform: Optional[str] = None
     distro: Optional[str] = None
     distro_version: Optional[str] = None
+    # Runtimes is name → version detected at agent startup
+    # ({"python": "3.11.4", "node": "20.10.0"}). Empty for older
+    # agents and for hosts where no runtime probes matched.
+    runtimes: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -748,6 +752,15 @@ class AgentRegistry:
         # casting protects the API consumer (UI) from malformed types.
         clean_caps = {str(k): bool(v) for k, v in caps.items() if isinstance(k, str)}
 
+        # Coerce runtimes the same way — agents are trusted but we
+        # don't want a malformed payload to crash the consumer.
+        raw_runtimes = payload.get('runtimes') or {}
+        clean_runtimes: Dict[str, str] = {}
+        if isinstance(raw_runtimes, dict):
+            for k, v in raw_runtimes.items():
+                if isinstance(k, str) and isinstance(v, (str, type(None))):
+                    clean_runtimes[k] = v or ''
+
         with self._lock:
             agent = self._agents.get(server_id)
             if not agent:
@@ -756,6 +769,7 @@ class AgentRegistry:
             agent.platform = payload.get('platform') or None
             agent.distro = payload.get('distro') or None
             agent.distro_version = payload.get('distro_version') or None
+            agent.runtimes = clean_runtimes
 
         logger.info(
             "Capabilities updated for server %s: %s",

@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, RefreshCw, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 
 export function LogViewer({
     files = [],
@@ -77,7 +78,7 @@ export function LogViewer({
                             <select
                                 value={lineCount}
                                 onChange={(e) => onLineCountChange(parseInt(e.target.value, 10))}
-                                className="lines-select"
+                                className="form-select lines-select"
                             >
                                 {lineCountOptions.map(n => (
                                     <option key={n} value={n}>{n} lines</option>
@@ -88,10 +89,9 @@ export function LogViewer({
                     <div className="toolbar-right">
                         {onAutoRefreshChange && (
                             <label className="auto-refresh-toggle">
-                                <input
-                                    type="checkbox"
+                                <Switch
                                     checked={autoRefresh}
-                                    onChange={(e) => onAutoRefreshChange(e.target.checked)}
+                                    onCheckedChange={onAutoRefreshChange}
                                 />
                                 <span>Auto-refresh</span>
                             </label>

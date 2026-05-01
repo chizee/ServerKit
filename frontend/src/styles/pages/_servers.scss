@@ -1287,6 +1287,39 @@
     }
 }
 
+// Cloudflared tab — reuses .cron-tab__* helpers; add only the auth
+// hint banner since it's unique to this surface.
+.cloudflared-tab {
+    background: $bg-card;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-lg;
+    overflow: hidden;
+
+    &__hint {
+        margin: $space-4;
+        padding: $space-3 $space-4;
+        background: rgba($accent-primary, 0.08);
+        border: 1px solid rgba($accent-primary, 0.3);
+        border-radius: $radius-md;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+
+        code {
+            background: $bg-elevated;
+            padding: 0 $space-1;
+            border-radius: $radius-sm;
+            font-family: $font-mono;
+            font-size: $font-size-xs;
+            color: $text-primary;
+        }
+
+        a {
+            color: $accent-primary;
+            text-decoration: underline;
+        }
+    }
+}
+
 .docker-sub-tabs {
     display: flex;
     border-bottom: 1px solid $border-subtle;

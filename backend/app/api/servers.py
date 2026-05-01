@@ -290,6 +290,7 @@ def get_server(server_id):
     # agents that don't speak the protocol yet. Consumers (UI target
     # pickers, etc.) should treat missing keys as false.
     result['capabilities'] = dict(agent.capabilities) if agent else {}
+    result['runtimes'] = dict(agent.runtimes) if agent else {}
     if agent:
         result['platform'] = agent.platform
         result['distro'] = agent.distro
@@ -2224,4 +2225,74 @@ def remote_cron_toggle(server_id, job_id):
     data = request.get_json(silent=True) or {}
     enabled = bool(data.get('enabled', True))
     result = RemoteCronService.toggle_job(server_id, job_id, enabled, user_id=user_id)
+    return _agent_result(result)
+
+
+# ==================== Remote Cloudflared Operations ====================
+#
+# Auth: the user runs `cloudflared tunnel login` once per server.
+# That writes ~/.cloudflared/cert.pem (or /etc/cloudflared/cert.pem
+# when run as root). The panel never sees a Cloudflare API token —
+# every cloudflared:* action just shells out to the binary, which
+# uses the cert for auth.
+#
+# /status surfaces both "binary installed" and "cert present" so the
+# UI can show a "log in first" prompt before letting users hit the
+# CRUD actions and getting confusing errors.
+
+from app.services.remote_cloudflared_service import RemoteCloudflaredService
+
+
+@servers_bp.route('/<server_id>/cloudflared/status', methods=['GET'])
+@jwt_required()
+def remote_cloudflared_status(server_id):
+    user_id = get_jwt_identity()
+    result = RemoteCloudflaredService.status(server_id, user_id=user_id)
+    return _agent_result(result)
+
+
+@servers_bp.route('/<server_id>/cloudflared/tunnels', methods=['GET'])
+@jwt_required()
+def remote_cloudflared_list(server_id):
+    user_id = get_jwt_identity()
+    result = RemoteCloudflaredService.list_tunnels(server_id, user_id=user_id)
+    return _agent_result(result)
+
+
+@servers_bp.route('/<server_id>/cloudflared/tunnels', methods=['POST'])
+@jwt_required()
+@developer_required
+def remote_cloudflared_create(server_id):
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+
+    result = RemoteCloudflaredService.create_tunnel(server_id, name, user_id=user_id)
+    return _agent_result(result, ok_status=201)
+
+
+@servers_bp.route('/<server_id>/cloudflared/tunnels/<tunnel_ref>/route', methods=['POST'])
+@jwt_required()
+@developer_required
+def remote_cloudflared_route(server_id, tunnel_ref):
+    user_id = get_jwt_identity()
+    data = request.get_json(silent=True) or {}
+    hostname = (data.get('hostname') or '').strip()
+    if not hostname:
+        return jsonify({'error': 'hostname is required'}), 400
+
+    result = RemoteCloudflaredService.route_tunnel(
+        server_id, tunnel_ref, hostname, user_id=user_id,
+    )
+    return _agent_result(result)
+
+
+@servers_bp.route('/<server_id>/cloudflared/tunnels/<tunnel_ref>', methods=['DELETE'])
+@jwt_required()
+@developer_required
+def remote_cloudflared_delete(server_id, tunnel_ref):
+    user_id = get_jwt_identity()
+    result = RemoteCloudflaredService.delete_tunnel(server_id, tunnel_ref, user_id=user_id)
     return _agent_result(result)

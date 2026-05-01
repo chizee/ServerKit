@@ -72,18 +72,16 @@ export default function StyleGuide() {
                 </div>
             </div>
 
-            <div className="styleguide__nav">
-                {sections.map(s => (
-                    <button
-                        key={s.id}
-                        className={`styleguide__nav-btn ${activeSection === s.id ? 'active' : ''}`}
-                        onClick={() => setActiveSection(s.id)}
-                    >
-                        <s.icon size={14} />
-                        {s.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs value={activeSection} onValueChange={setActiveSection}>
+                <TabsList>
+                    {sections.map(s => (
+                        <TabsTrigger key={s.id} value={s.id}>
+                            <s.icon size={14} />
+                            {s.label}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+            </Tabs>
 
             <div className="styleguide__content">
 
