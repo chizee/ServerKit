@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { StatCard, StatsGrid } from '../components/StatCard';
+import { Circle, Bell, Clock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -195,65 +197,31 @@ const Monitoring = () => {
 
                 <TabsContent value="overview">
                     <div className="monitoring-overview">
-                        <div className="stats-grid">
-                            <div className="stat-card">
-                                <div className="stat-icon status">
-                                    <svg viewBox="0 0 24 24" width="24" height="24">
-                                        <circle cx="12" cy="12" r="10"/>
-                                    </svg>
-                                </div>
-                                <div className="stat-content">
-                                    <span className="stat-label">Monitoring Status</span>
-                                    <span className={`stat-value ${status?.monitoring_active ? 'text-success' : 'text-muted'}`}>
-                                        {status?.monitoring_active ? 'Active' : 'Inactive'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="stat-card">
-                                <div className="stat-icon alerts">
-                                    <svg viewBox="0 0 24 24" width="24" height="24">
-                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                                    </svg>
-                                </div>
-                                <div className="stat-content">
-                                    <span className="stat-label">Recent Alerts</span>
-                                    <span className="stat-value">{alertHistory.length}</span>
-                                </div>
-                            </div>
-
-                            <div className="stat-card">
-                                <div className="stat-icon interval">
-                                    <svg viewBox="0 0 24 24" width="24" height="24">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <polyline points="12 6 12 12 16 14"/>
-                                    </svg>
-                                </div>
-                                <div className="stat-content">
-                                    <span className="stat-label">Check Interval</span>
-                                    <span className="stat-value">{config?.check_interval || 60}s</span>
-                                </div>
-                            </div>
-
-                            <div className="stat-card">
-                                <div className="stat-icon notifications">
-                                    <svg viewBox="0 0 24 24" width="24" height="24">
-                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                        <polyline points="22,6 12,13 2,6"/>
-                                    </svg>
-                                </div>
-                                <div className="stat-content">
-                                    <span className="stat-label">Notifications</span>
-                                    <span className="stat-value">
-                                        {config?.alert_email ? 'Email' : ''}
-                                        {config?.alert_email && config?.alert_webhook ? ' + ' : ''}
-                                        {config?.alert_webhook ? 'Webhook' : ''}
-                                        {!config?.alert_email && !config?.alert_webhook ? 'None' : ''}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        <StatsGrid>
+                            <StatCard
+                                icon={Circle}
+                                iconVariant="status"
+                                label="Monitoring Status"
+                                value={status?.monitoring_active ? 'Active' : 'Inactive'}
+                                valueClassName={status?.monitoring_active ? 'text-success' : 'text-muted'}
+                            />
+                            <StatCard icon={Bell} iconVariant="alerts" label="Recent Alerts" value={alertHistory.length} />
+                            <StatCard icon={Clock} iconVariant="interval" label="Check Interval" value={`${config?.check_interval || 60}s`} />
+                            <StatCard
+                                icon={Mail}
+                                iconVariant="notifications"
+                                label="Notifications"
+                                value={
+                                    config?.alert_email && config?.alert_webhook
+                                        ? 'Email + Webhook'
+                                        : config?.alert_email
+                                            ? 'Email'
+                                            : config?.alert_webhook
+                                                ? 'Webhook'
+                                                : 'None'
+                                }
+                            />
+                        </StatsGrid>
 
                         <div className="card">
                             <div className="card-header">

@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { DangerZone } from '../components/DangerZone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -1370,12 +1371,10 @@ function Git() {
                                             </Button>
                                         </div>
                                     </div>
-                                    <div className="info-card danger-zone">
-                                        <h3>Danger Zone</h3>
-                                        <p className="text-muted">
-                                            Uninstalling will stop the Gitea container. Your data will be preserved unless you choose to remove it.
-                                        </p>
-                                    </div>
+                                    <DangerZone
+                                        title="Danger Zone"
+                                        description="Uninstalling will stop the Gitea container. Your data will be preserved unless you choose to remove it."
+                                    />
                                 </div>
                             </TabsContent>
                         </div>

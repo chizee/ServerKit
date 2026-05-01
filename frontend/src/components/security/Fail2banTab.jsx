@@ -3,6 +3,7 @@ import api from '../../services/api';
 import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../Modal';
+import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -121,26 +122,16 @@ const Fail2banTab = () => {
                             </div>
                         </div>
                         <div className="card-body">
-                            <div className="info-list">
-                                <div className="info-item">
-                                    <span className="info-label">Service</span>
+                            <InfoList>
+                                <InfoItem label="Service">
                                     <Badge variant={status.service_running ? 'success' : 'destructive'}>
                                         {status.service_running ? 'Running' : 'Stopped'}
                                     </Badge>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Version</span>
-                                    <span className="info-value">{status.version || 'Unknown'}</span>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Active Jails</span>
-                                    <span className="info-value">{status.jails?.join(', ') || 'None'}</span>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Total Banned IPs</span>
-                                    <span className="info-value">{bans.length}</span>
-                                </div>
-                            </div>
+                                </InfoItem>
+                                <InfoItem label="Version" value={status.version || 'Unknown'} />
+                                <InfoItem label="Active Jails" value={status.jails?.join(', ') || 'None'} />
+                                <InfoItem label="Total Banned IPs" value={bans.length} />
+                            </InfoList>
                         </div>
                     </div>
 

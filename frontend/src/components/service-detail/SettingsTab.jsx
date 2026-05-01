@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { DangerZone } from '../DangerZone';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
@@ -152,16 +153,14 @@ const SettingsTab = ({ app, deployConfig, onUpdate, onOpenGitModal }) => {
             {/* Danger Zone */}
             <div className="svc-settings__section">
                 <h3 className="svc-settings__section-title">Danger Zone</h3>
-                <div className="card danger-zone">
-                    <p>Once you delete a service, there is no going back. All data will be permanently removed.</p>
-                    <Button
-                        variant="destructive"
-                        onClick={handleDelete}
-                        disabled={deleting}
-                    >
-                        {deleting ? 'Deleting...' : 'Delete Service'}
-                    </Button>
-                </div>
+                <DangerZone
+                    description="Once you delete a service, there is no going back. All data will be permanently removed."
+                    action={
+                        <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                            {deleting ? 'Deleting...' : 'Delete Service'}
+                        </Button>
+                    }
+                />
             </div>
         </div>
     );

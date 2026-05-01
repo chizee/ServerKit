@@ -258,6 +258,26 @@ func runUpdate(force, checkOnly bool) error {
 }
 
 func runAgent() error {
+	// SCM detection: when launched as a Windows Service, the binary must
+	// implement the Service Control dispatcher protocol or SCM kills it
+	// with error 1053 within 30s. Older versions of the agent skipped
+	// this entirely — every "Start-Service ServerKitAgent" was silently
+	// failing while manual `serverkit-agent start` worked, which had
+	// users running the agent in foreground console windows as a
+	// workaround. Now: if SCM started us, route through svc.Run; if
+	// the user ran it from CLI, run directly with signal handling.
+	if isWindowsService() {
+		return runAsService(agentMainLoop)
+	}
+	return agentMainLoop(nil)
+}
+
+// agentMainLoop is the actual run logic, factored out so both the
+// SCM-driven path (svc.Run dispatching to serviceHandler.Execute) and
+// the CLI path can share it. Pass nil for ctx to use a fresh
+// signal-handled context (CLI mode); pass the SCM-supplied ctx for
+// service mode.
+func agentMainLoop(parentCtx context.Context) error {
 	// Load configuration
 	cfg, err := config.Load(cfgFile)
 	if err != nil {
@@ -274,6 +294,7 @@ func runAgent() error {
 	log.Info("Starting ServerKit Agent",
 		"version", Version,
 		"config", config.DefaultConfigPath(),
+		"mode", map[bool]string{true: "service", false: "cli"}[isWindowsService()],
 	)
 
 	// Single-instance enforcement for the service. Multiple "start"
@@ -316,8 +337,23 @@ func runAgent() error {
 		return fmt.Errorf("agent not registered. Run 'serverkit-agent register' first")
 	}
 
-	// Create and start agent
-	ctx, cancel := context.WithCancel(context.Background())
+	// Build the run context. Service mode supplies its own (cancelled
+	// when SCM sends Stop). CLI mode wires SIGINT/SIGTERM as the
+	// cancellation signal.
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if parentCtx != nil {
+		ctx, cancel = context.WithCancel(parentCtx)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			sig := <-sigCh
+			log.Info("Received shutdown signal", "signal", sig.String())
+			cancel()
+		}()
+	}
 	defer cancel()
 
 	ag, err := agent.New(cfg, log)
@@ -328,16 +364,6 @@ func runAgent() error {
 	// Start update checker in background
 	updateChecker := updater.NewChecker(cfg, log, Version)
 	go updateChecker.Start(ctx)
-
-	// Handle graceful shutdown
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigCh
-		log.Info("Received shutdown signal", "signal", sig.String())
-		cancel()
-	}()
 
 	// Start agent
 	if err := ag.Run(ctx); err != nil && err != context.Canceled {

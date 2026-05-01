@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -91,24 +92,19 @@ const AutoUpdatesTab = () => {
                     <Button variant="outline" size="sm" onClick={loadStatus}>Refresh</Button>
                 </div>
                 <div className="card-body">
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Package</span>
-                            <span className="info-value">{status.package}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Installed</span>
+                    <InfoList>
+                        <InfoItem label="Package" value={status.package} />
+                        <InfoItem label="Installed">
                             <Badge variant={status.installed ? 'success' : 'warning'}>
                                 {status.installed ? 'Yes' : 'No'}
                             </Badge>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Status</span>
+                        </InfoItem>
+                        <InfoItem label="Status">
                             <Badge variant={status.enabled ? 'success' : 'secondary'}>
                                 {status.enabled ? 'Enabled' : 'Disabled'}
                             </Badge>
-                        </div>
-                    </div>
+                        </InfoItem>
+                    </InfoList>
 
                     <div className="auto-updates-actions" style={{ marginTop: '1.5rem' }}>
                         {!status.installed ? (

@@ -5,6 +5,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { StatCard, StatsGrid } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -390,59 +391,15 @@ const Backups = () => {
             )}
 
             {/* Stats Cards */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-icon backups">
-                        <Download size={24} />
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Total Backups</span>
-                        <span className="stat-value">{stats?.total_backups || 0}</span>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon apps">
-                        <Package size={24} />
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Application Backups</span>
-                        <span className="stat-value">{stats?.application_backups || 0}</span>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon databases">
-                        <Database size={24} />
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Database Backups</span>
-                        <span className="stat-value">{stats?.database_backups || 0}</span>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon size">
-                        <HardDrive size={24} />
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Local Size</span>
-                        <span className="stat-value">{stats?.total_size_human || '0 B'}</span>
-                    </div>
-                </div>
-
+            <StatsGrid>
+                <StatCard icon={Download} iconVariant="backups" label="Total Backups" value={stats?.total_backups || 0} />
+                <StatCard icon={Package} iconVariant="apps" label="Application Backups" value={stats?.application_backups || 0} />
+                <StatCard icon={Database} iconVariant="databases" label="Database Backups" value={stats?.database_backups || 0} />
+                <StatCard icon={HardDrive} iconVariant="size" label="Local Size" value={stats?.total_size_human || '0 B'} />
                 {storageConfig?.provider !== 'local' && (
-                    <div className="stat-card">
-                        <div className="stat-icon cloud">
-                            <Cloud size={24} />
-                        </div>
-                        <div className="stat-content">
-                            <span className="stat-label">Remote Backups</span>
-                            <span className="stat-value">{stats?.remote_count || 0}</span>
-                        </div>
-                    </div>
+                    <StatCard icon={Cloud} iconVariant="cloud" label="Remote Backups" value={stats?.remote_count || 0} />
                 )}
-            </div>
+            </StatsGrid>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>

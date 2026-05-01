@@ -6,6 +6,8 @@ import useTabParam from '../hooks/useTabParam';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DangerZone } from '../components/DangerZone';
+import { InfoList, InfoItem } from '../components/InfoList';
 import EnvironmentVariables from '../components/EnvironmentVariables';
 import PrivateURLSection from '../components/PrivateURLSection';
 import LinkedAppsSection from '../components/LinkedAppsSection';
@@ -1052,16 +1054,10 @@ const BuildTab = ({ appId, appPath }) => {
                     </Button>
                 </div>
                 {buildConfig ? (
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Method</span>
-                            <span className="info-value">{buildConfig.build_method}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Timeout</span>
-                            <span className="info-value">{buildConfig.timeout}s</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Method" value={buildConfig.build_method} />
+                        <InfoItem label="Timeout" value={`${buildConfig.timeout}s`} />
+                    </InfoList>
                 ) : (
                     <p className="hint">No build configuration. Click Configure to set up.</p>
                 )}
@@ -1384,17 +1380,15 @@ const SettingsTab = ({ app, onUpdate }) => {
                 )}
             </div>
 
-            <div className="card danger-zone">
-                <h4>Danger Zone</h4>
-                <p>Once you delete an application, there is no going back.</p>
-                <Button
-                    variant="destructive"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                >
-                    {deleting ? 'Deleting...' : 'Delete Application'}
-                </Button>
-            </div>
+            <DangerZone
+                title="Danger Zone"
+                description="Once you delete an application, there is no going back."
+                action={
+                    <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                        {deleting ? 'Deleting...' : 'Delete Application'}
+                    </Button>
+                }
+            />
             <ConfirmDialog
                 isOpen={confirmAppSettingsState.isOpen}
                 title={confirmAppSettingsState.title}
@@ -1606,20 +1600,11 @@ const DeployTab = ({ appId, appPath }) => {
                     <div className="deploy-grid">
                         <div className="card">
                             <h3>Configuration</h3>
-                            <div className="info-list">
-                                <div className="info-item">
-                                    <span className="info-label">Repository</span>
-                                    <span className="info-value mono">{config.repo_url}</span>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Branch</span>
-                                    <span className="info-value">{config.branch}</span>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Auto Deploy</span>
-                                    <span className="info-value">{config.auto_deploy ? 'Enabled' : 'Disabled'}</span>
-                                </div>
-                            </div>
+                            <InfoList>
+                                <InfoItem label="Repository" value={config.repo_url} mono />
+                                <InfoItem label="Branch" value={config.branch} />
+                                <InfoItem label="Auto Deploy" value={config.auto_deploy ? 'Enabled' : 'Disabled'} />
+                            </InfoList>
                             <div className="card-actions">
                                 <Button variant="outline" size="sm" onClick={() => setShowConfigModal(true)}>
                                     Edit

@@ -27,6 +27,7 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { StatCard, StatsGrid } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -240,44 +241,12 @@ const AgentFleet = () => {
                 {/* ==================== Dashboard ==================== */}
                 {activeTab === 'dashboard' && health && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="stat-card">
-                                <div className="stat-icon bg-blue-100 text-blue-600">
-                                    <Server size={24} />
-                                </div>
-                                <div className="stat-content">
-                                    <div className="stat-value">{health.total_servers}</div>
-                                    <div className="stat-label">Total Agents</div>
-                                </div>
-                            </div>
-                            <div className="stat-card">
-                                <div className="stat-icon bg-green-100 text-green-600">
-                                    <CheckCircle size={24} />
-                                </div>
-                                <div className="stat-content">
-                                    <div className="stat-value">{health.online_servers}</div>
-                                    <div className="stat-label">Online</div>
-                                </div>
-                            </div>
-                            <div className="stat-card">
-                                <div className="stat-icon bg-red-100 text-red-600">
-                                    <AlertCircle size={24} />
-                                </div>
-                                <div className="stat-content">
-                                    <div className="stat-value">{health.offline_servers}</div>
-                                    <div className="stat-label">Offline</div>
-                                </div>
-                            </div>
-                            <div className="stat-card">
-                                <div className="stat-icon bg-purple-100 text-purple-600">
-                                    <Zap size={24} />
-                                </div>
-                                <div className="stat-content">
-                                    <div className="stat-value">{health.command_success_rate}%</div>
-                                    <div className="stat-label">Success Rate</div>
-                                </div>
-                            </div>
-                        </div>
+                        <StatsGrid>
+                            <StatCard icon={Server} iconVariant="backups" label="Total Agents" value={health.total_servers} />
+                            <StatCard icon={CheckCircle} iconVariant="apps" label="Online" value={health.online_servers} />
+                            <StatCard icon={AlertCircle} iconVariant="alerts" label="Offline" value={health.offline_servers} />
+                            <StatCard icon={Zap} iconVariant="schedules" label="Success Rate" value={`${health.command_success_rate}%`} />
+                        </StatsGrid>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="card">

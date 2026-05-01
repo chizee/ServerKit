@@ -208,9 +208,17 @@ const Settings = () => {
                                 <Code size={18} />
                                 Icon Reference
                             </Button>
+                            <Button
+                                variant="ghost"
+                                className="settings-nav-item"
+                                onClick={() => navigate('/style-guide')}
+                            >
+                                <PaintBucket size={18} />
+                                Style Guide
+                            </Button>
                         </>
                     )}
-                    {import.meta.env.DEV && (
+                    {import.meta.env.DEV && !devMode && (
                         <>
                             <div className="settings-nav-divider">Local Dev</div>
                             <Button

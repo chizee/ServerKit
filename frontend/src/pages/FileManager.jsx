@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { ProgressBar } from '../components/ProgressBar';
 import {
     Folder, File, FileCode, FileText, FileImage, FileVideo, FileAudio,
     FileArchive, Database, Terminal, Upload, FolderPlus, FilePlus,
@@ -360,9 +361,7 @@ function FileManager() {
 
             {uploadProgress !== null && (
                 <div className="upload-progress">
-                    <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
-                    </div>
+                    <ProgressBar percent={uploadProgress} />
                     <span>{Math.round(uploadProgress)}%</span>
                 </div>
             )}

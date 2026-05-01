@@ -238,6 +238,7 @@ function AppRoutes() {
                 <Route path="cloud" element={<CloudProvision />} />
                 <Route path="marketplace" element={<Marketplace />} />
                 <Route path="style-guide" element={<StyleGuide />} />
+                <Route path="style-guide/:tab" element={<StyleGuide />} />
                 <Route path="downloads" element={<Downloads />} />
                 <Route path="firewall" element={<Navigate to="/security/firewall" replace />} />
                 <Route path="git" element={<Git />} />

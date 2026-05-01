@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
+import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -116,24 +117,18 @@ const OverviewTab = ({ status, onRefresh }) => {
                         {loading ? (
                             <div className="loading-sm">Loading...</div>
                         ) : clamavStatus?.installed ? (
-                            <div className="info-list">
-                                <div className="info-item">
-                                    <span className="info-label">Version</span>
-                                    <span className="info-value">{clamavStatus.version || 'Unknown'}</span>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Service</span>
+                            <InfoList>
+                                <InfoItem label="Version" value={clamavStatus.version || 'Unknown'} />
+                                <InfoItem label="Service">
                                     <Badge variant={clamavStatus.service_running ? 'success' : 'warning'}>
                                         {clamavStatus.service_running ? 'Running' : 'Stopped'}
                                     </Badge>
-                                </div>
-                                <div className="info-item">
-                                    <span className="info-label">Last Definition Update</span>
-                                    <span className="info-value">
-                                        {clamavStatus.last_update ? new Date(clamavStatus.last_update).toLocaleString() : 'Unknown'}
-                                    </span>
-                                </div>
-                            </div>
+                                </InfoItem>
+                                <InfoItem
+                                    label="Last Definition Update"
+                                    value={clamavStatus.last_update ? new Date(clamavStatus.last_update).toLocaleString() : 'Unknown'}
+                                />
+                            </InfoList>
                         ) : (
                             <div className="not-installed">
                                 <p>ClamAV is not installed on this server.</p>
@@ -148,24 +143,19 @@ const OverviewTab = ({ status, onRefresh }) => {
                         <h3>File Integrity Monitoring</h3>
                     </div>
                     <div className="card-body">
-                        <div className="info-list">
-                            <div className="info-item">
-                                <span className="info-label">Status</span>
+                        <InfoList>
+                            <InfoItem label="Status">
                                 <Badge variant={status?.file_integrity?.enabled ? 'success' : 'secondary'}>
                                     {status?.file_integrity?.enabled ? 'Enabled' : 'Disabled'}
                                 </Badge>
-                            </div>
-                            <div className="info-item">
-                                <span className="info-label">Database</span>
+                            </InfoItem>
+                            <InfoItem label="Database">
                                 <Badge variant={status?.file_integrity?.database_exists ? 'success' : 'warning'}>
                                     {status?.file_integrity?.database_exists ? 'Initialized' : 'Not Initialized'}
                                 </Badge>
-                            </div>
-                            <div className="info-item">
-                                <span className="info-label">Changes Detected (24h)</span>
-                                <span className="info-value">{alerts.integrity_changes || 0}</span>
-                            </div>
-                        </div>
+                            </InfoItem>
+                            <InfoItem label="Changes Detected (24h)" value={alerts.integrity_changes || 0} />
+                        </InfoList>
                     </div>
                 </div>
 
@@ -174,14 +164,13 @@ const OverviewTab = ({ status, onRefresh }) => {
                         <h3>Notifications</h3>
                     </div>
                     <div className="card-body">
-                        <div className="info-list">
-                            <div className="info-item">
-                                <span className="info-label">Security Alerts</span>
+                        <InfoList>
+                            <InfoItem label="Security Alerts">
                                 <Badge variant={status?.notifications_enabled ? 'success' : 'secondary'}>
                                     {status?.notifications_enabled ? 'Enabled' : 'Disabled'}
                                 </Badge>
-                            </div>
-                        </div>
+                            </InfoItem>
+                        </InfoList>
                         <p className="help-text" style={{ marginTop: '1rem' }}>
                             Configure notification channels in Settings → Notifications to receive security alerts via Discord, Slack, or Telegram.
                         </p>

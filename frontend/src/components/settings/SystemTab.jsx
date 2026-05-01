@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
@@ -115,96 +116,52 @@ const SystemTab = () => {
             <div className="system-info-grid">
                 <div className="settings-card">
                     <h3>CPU</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Usage</span>
-                            <span className="info-value">{metrics?.cpu?.percent?.toFixed(1) || 0}%</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Cores</span>
-                            <span className="info-value">{metrics?.cpu?.count || '-'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Load Average</span>
-                            <span className="info-value">
-                                {metrics?.cpu?.load_avg ? metrics.cpu.load_avg.map(l => l.toFixed(2)).join(', ') : '-'}
-                            </span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Usage" value={`${metrics?.cpu?.percent?.toFixed(1) || 0}%`} />
+                        <InfoItem label="Cores" value={metrics?.cpu?.count || '-'} />
+                        <InfoItem
+                            label="Load Average"
+                            value={metrics?.cpu?.load_avg ? metrics.cpu.load_avg.map(l => l.toFixed(2)).join(', ') : '-'}
+                        />
+                    </InfoList>
                 </div>
 
                 <div className="settings-card">
                     <h3>Memory</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Usage</span>
-                            <span className="info-value">{metrics?.memory?.percent?.toFixed(1) || 0}%</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Used</span>
-                            <span className="info-value">{formatBytes(metrics?.memory?.used)}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Total</span>
-                            <span className="info-value">{formatBytes(metrics?.memory?.total)}</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Usage" value={`${metrics?.memory?.percent?.toFixed(1) || 0}%`} />
+                        <InfoItem label="Used" value={formatBytes(metrics?.memory?.used)} />
+                        <InfoItem label="Total" value={formatBytes(metrics?.memory?.total)} />
+                    </InfoList>
                 </div>
 
                 <div className="settings-card">
                     <h3>Disk</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Usage</span>
-                            <span className="info-value">{metrics?.disk?.percent?.toFixed(1) || 0}%</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Used</span>
-                            <span className="info-value">{formatBytes(metrics?.disk?.used)}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Total</span>
-                            <span className="info-value">{formatBytes(metrics?.disk?.total)}</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Usage" value={`${metrics?.disk?.percent?.toFixed(1) || 0}%`} />
+                        <InfoItem label="Used" value={formatBytes(metrics?.disk?.used)} />
+                        <InfoItem label="Total" value={formatBytes(metrics?.disk?.total)} />
+                    </InfoList>
                 </div>
 
                 <div className="settings-card">
                     <h3>Network</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Bytes Sent</span>
-                            <span className="info-value">{formatBytes(metrics?.network?.bytes_sent)}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Bytes Received</span>
-                            <span className="info-value">{formatBytes(metrics?.network?.bytes_recv)}</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Bytes Sent" value={formatBytes(metrics?.network?.bytes_sent)} />
+                        <InfoItem label="Bytes Received" value={formatBytes(metrics?.network?.bytes_recv)} />
+                    </InfoList>
                 </div>
             </div>
 
             {metrics?.system && (
                 <div className="settings-card">
                     <h3>System Details</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Hostname</span>
-                            <span className="info-value">{metrics.system.hostname || '-'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Platform</span>
-                            <span className="info-value">{metrics.system.platform || '-'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">OS Version</span>
-                            <span className="info-value">{metrics.system.version || '-'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Uptime</span>
-                            <span className="info-value">{formatUptime(metrics.system.uptime)}</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Hostname" value={metrics.system.hostname || '-'} />
+                        <InfoItem label="Platform" value={metrics.system.platform || '-'} />
+                        <InfoItem label="OS Version" value={metrics.system.version || '-'} />
+                        <InfoItem label="Uptime" value={formatUptime(metrics.system.uptime)} />
+                    </InfoList>
                 </div>
             )}
 
@@ -212,20 +169,11 @@ const SystemTab = () => {
             <div className="settings-card">
                 <h3>Server Time & Timezone</h3>
                 {metrics?.time && (
-                    <div className="info-list" style={{ marginBottom: '1rem' }}>
-                        <div className="info-item">
-                            <span className="info-label">Current Time</span>
-                            <span className="info-value">{metrics.time.current_time_formatted}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">UTC Offset</span>
-                            <span className="info-value">{metrics.time.utc_offset}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Current Timezone</span>
-                            <span className="info-value">{metrics.time.timezone_id || metrics.time.timezone_name}</span>
-                        </div>
-                    </div>
+                    <InfoList style={{ marginBottom: '1rem' }}>
+                        <InfoItem label="Current Time" value={metrics.time.current_time_formatted} />
+                        <InfoItem label="UTC Offset" value={metrics.time.utc_offset} />
+                        <InfoItem label="Current Timezone" value={metrics.time.timezone_id || metrics.time.timezone_name} />
+                    </InfoList>
                 )}
                 <div className="form-group">
                     <label>Change Timezone</label>

@@ -4,9 +4,12 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { LogViewer } from '../components/LogViewer';
+import { ProcessTable, ProcessDetailsPanel } from '../components/ProcessTable';
+import { ServiceCard, ServicesGrid } from '../components/ServiceCard';
+import { JournalControls } from '../components/JournalControls';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['logs', 'journal', 'processes', 'services'];
@@ -200,125 +203,27 @@ const LogFilesTab = () => {
                 </div>
             )}
 
-            <div className="logs-layout">
-                <div className="logs-sidebar">
-                    <div className="sidebar-header">
-                        <h3>Log Files</h3>
-                        <Button variant="outline" size="sm" onClick={loadLogFiles}>
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="23 4 23 10 17 10"/>
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                            </svg>
-                        </Button>
-                    </div>
-                    <div className="log-files-list">
-                        {logFiles.length === 0 ? (
-                            <div className="empty-hint">No log files found</div>
-                        ) : (
-                            logFiles.map((log, index) => (
-                                <div
-                                    key={index}
-                                    className={`log-file-item ${selectedLog === log.path ? 'active' : ''}`}
-                                    onClick={() => loadLogContent(log.path)}
-                                >
-                                    <div className={`log-icon ${getLogIcon(log.path)}`}>
-                                        <svg viewBox="0 0 24 24" width="16" height="16">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                            <polyline points="14 2 14 8 20 8"/>
-                                        </svg>
-                                    </div>
-                                    <div className="log-file-info">
-                                        <span className="log-file-name">{log.name}</span>
-                                        <span className="log-file-path">{log.path}</span>
-                                    </div>
-                                    <span className="log-file-size">{formatFileSize(log.size)}</span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                <div className="logs-viewer">
-                    <div className="viewer-toolbar">
-                        <div className="toolbar-left">
-                            <div className="search-input">
-                                <svg viewBox="0 0 24 24" width="16" height="16">
-                                    <circle cx="11" cy="11" r="8"/>
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                                </svg>
-                                <Input
-                                    type="text"
-                                    value={searchPattern}
-                                    onChange={(e) => setSearchPattern(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && selectedLog && loadLogContent(selectedLog)}
-                                    placeholder="Search pattern..."
-                                />
-                            </div>
-                            <select
-                                value={lineCount}
-                                onChange={(e) => setLineCount(parseInt(e.target.value))}
-                                className="lines-select"
-                            >
-                                <option value={50}>50 lines</option>
-                                <option value={100}>100 lines</option>
-                                <option value={200}>200 lines</option>
-                                <option value={500}>500 lines</option>
-                                <option value={1000}>1000 lines</option>
-                            </select>
-                        </div>
-                        <div className="toolbar-right">
-                            <label className="auto-refresh-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={autoRefresh}
-                                    onChange={(e) => setAutoRefresh(e.target.checked)}
-                                />
-                                <span>Auto-refresh</span>
-                            </label>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => selectedLog && loadLogContent(selectedLog)}
-                                disabled={!selectedLog || loadingContent}
-                            >
-                                Refresh
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleDownload}
-                                disabled={!logContent}
-                            >
-                                Download
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={handleClearLog}
-                                disabled={!selectedLog}
-                            >
-                                Clear
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="log-content" ref={logViewerRef}>
-                        {!selectedLog ? (
-                            <div className="empty-viewer">
-                                <svg viewBox="0 0 24 24" width="48" height="48">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                </svg>
-                                <p>Select a log file to view its contents</p>
-                            </div>
-                        ) : loadingContent ? (
-                            <div className="loading">Loading log content...</div>
-                        ) : (
-                            <pre>{logContent}</pre>
-                        )}
-                    </div>
-                </div>
-            </div>
+            <LogViewer
+                files={logFiles}
+                selectedPath={selectedLog}
+                onSelectFile={(log) => loadLogContent(log.path)}
+                onRefreshFiles={loadLogFiles}
+                content={selectedLog ? logContent : ''}
+                contentLoading={loadingContent}
+                contentEmpty="Select a log file to view its contents."
+                searchPattern={searchPattern}
+                onSearchChange={setSearchPattern}
+                onSearchSubmit={() => selectedLog && loadLogContent(selectedLog)}
+                lineCount={lineCount}
+                onLineCountChange={setLineCount}
+                autoRefresh={autoRefresh}
+                onAutoRefreshChange={setAutoRefresh}
+                onRefreshContent={() => selectedLog && loadLogContent(selectedLog)}
+                onDownload={handleDownload}
+                onClear={handleClearLog}
+                formatFileSize={formatFileSize}
+                getLogIconType={(log) => getLogIcon(log.path)}
+            />
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 title={confirmState.title}
@@ -399,63 +304,20 @@ const JournalTab = () => {
 
     return (
         <div className="journal-container">
-            <div className="journal-controls">
-                <div className="control-group">
-                    <label>{isJournalctl ? 'Service/Unit' : 'Filter by service'}</label>
-                    <div className="input-with-suggestions">
-                        <Input
-                            type="text"
-                            value={unit}
-                            onChange={(e) => setUnit(e.target.value)}
-                            placeholder="All services"
-                        />
-                        {isJournalctl && (
-                            <div className="quick-units">
-                                {commonUnits.map(u => (
-                                    <button
-                                        key={u}
-                                        className={`unit-chip ${unit === u ? 'active' : ''}`}
-                                        onClick={() => setUnit(unit === u ? '' : u)}
-                                    >
-                                        {u}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="control-group">
-                    <label>Lines</label>
-                    <select value={lineCount} onChange={(e) => setLineCount(parseInt(e.target.value))}>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                        <option value={200}>200</option>
-                        <option value={500}>500</option>
-                    </select>
-                </div>
-
-                {isJournalctl && (
-                    <div className="control-group">
-                        <label>Priority</label>
-                        <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-                            <option value="">All</option>
-                            <option value="0">Emergency</option>
-                            <option value="1">Alert</option>
-                            <option value="2">Critical</option>
-                            <option value="3">Error</option>
-                            <option value="4">Warning</option>
-                            <option value="5">Notice</option>
-                            <option value="6">Info</option>
-                            <option value="7">Debug</option>
-                        </select>
-                    </div>
-                )}
-
-                <Button onClick={loadJournalLogs} disabled={loading}>
-                    {loading ? 'Loading...' : 'Load Logs'}
-                </Button>
-            </div>
+            <JournalControls
+                unit={unit}
+                onUnitChange={setUnit}
+                unitLabel={isJournalctl ? 'Service/Unit' : 'Filter by service'}
+                quickUnits={commonUnits}
+                showQuickUnits={isJournalctl}
+                lineCount={lineCount}
+                onLineCountChange={setLineCount}
+                priority={priority}
+                onPriorityChange={setPriority}
+                showPriority={isJournalctl}
+                loading={loading}
+                onLoad={loadJournalLogs}
+            />
 
             {!isJournalctl && source && (
                 <div className="journal-source-notice">
@@ -564,153 +426,21 @@ const ProcessesTab = () => {
                 </div>
             </div>
 
-            <div className="processes-table-wrapper">
-                <table className="table processes-table">
-                    <thead>
-                        <tr>
-                            <th>PID</th>
-                            <th>Name</th>
-                            <th>User</th>
-                            <th>CPU %</th>
-                            <th>Memory %</th>
-                            <th>Memory</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredProcesses.map(process => (
-                            <tr
-                                key={process.pid}
-                                className={selectedProcess?.pid === process.pid ? 'selected' : ''}
-                                onClick={() => setSelectedProcess(process)}
-                            >
-                                <td className="mono">{process.pid}</td>
-                                <td>
-                                    <div className="process-name">
-                                        <span>{process.name}</span>
-                                    </div>
-                                </td>
-                                <td>{process.user}</td>
-                                <td>
-                                    <div className="usage-cell">
-                                        <div
-                                            className="usage-bar cpu"
-                                            style={{ width: `${Math.min(process.cpu_percent || 0, 100)}%` }}
-                                        />
-                                        <span>{(process.cpu_percent || 0).toFixed(1)}%</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="usage-cell">
-                                        <div
-                                            className="usage-bar memory"
-                                            style={{ width: `${Math.min(process.memory_percent || 0, 100)}%` }}
-                                        />
-                                        <span>{(process.memory_percent || 0).toFixed(1)}%</span>
-                                    </div>
-                                </td>
-                                <td>{formatMemory(process.memory_info?.rss)}</td>
-                                <td>
-                                    <Badge variant={getStatusVariant(process.status)}>
-                                        {process.status}
-                                    </Badge>
-                                </td>
-                                <td>
-                                    <div className="action-buttons">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleKillProcess(process.pid);
-                                            }}
-                                            title="Kill"
-                                        >
-                                            <svg viewBox="0 0 24 24" width="12" height="12">
-                                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                                <line x1="6" y1="6" x2="18" y2="18"/>
-                                            </svg>
-                                        </Button>
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleKillProcess(process.pid, true);
-                                            }}
-                                            title="Force Kill"
-                                        >
-                                            <svg viewBox="0 0 24 24" width="12" height="12">
-                                                <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
-                                                <line x1="15" y1="9" x2="9" y2="15"/>
-                                                <line x1="9" y1="9" x2="15" y2="15"/>
-                                            </svg>
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <ProcessTable
+                processes={filteredProcesses}
+                selectedPid={selectedProcess?.pid}
+                onSelect={setSelectedProcess}
+                onKill={(p) => handleKillProcess(p.pid)}
+                onForceKill={(p) => handleKillProcess(p.pid, true)}
+                formatMemory={formatMemory}
+                getStatusVariant={getStatusVariant}
+            />
 
-            {selectedProcess && (
-                <div className="process-details-panel">
-                    <div className="panel-header">
-                        <h3>Process Details</h3>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedProcess(null)}>
-                            Close
-                        </Button>
-                    </div>
-                    <div className="panel-body">
-                        <div className="details-grid">
-                            <div className="detail-item">
-                                <span className="detail-label">PID</span>
-                                <span className="detail-value mono">{selectedProcess.pid}</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">Name</span>
-                                <span className="detail-value">{selectedProcess.name}</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">User</span>
-                                <span className="detail-value">{selectedProcess.user}</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">Status</span>
-                                <span className="detail-value">{selectedProcess.status}</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">CPU</span>
-                                <span className="detail-value">{(selectedProcess.cpu_percent || 0).toFixed(2)}%</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">Memory</span>
-                                <span className="detail-value">{formatMemory(selectedProcess.memory_info?.rss)}</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">Threads</span>
-                                <span className="detail-value">{selectedProcess.num_threads}</span>
-                            </div>
-                            <div className="detail-item">
-                                <span className="detail-label">Created</span>
-                                <span className="detail-value">
-                                    {selectedProcess.create_time
-                                        ? new Date(selectedProcess.create_time * 1000).toLocaleString()
-                                        : '-'}
-                                </span>
-                            </div>
-                        </div>
-                        {selectedProcess.command && (
-                            <div className="command-line">
-                                <span className="detail-label">Command</span>
-                                <code>{selectedProcess.command}</code>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
+            <ProcessDetailsPanel
+                process={selectedProcess}
+                onClose={() => setSelectedProcess(null)}
+                formatMemory={formatMemory}
+            />
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 title={confirmState.title}
@@ -796,82 +526,70 @@ const ServicesTab = () => {
                 </Button>
             </div>
 
-            <div className="services-grid">
-                {services.length === 0 ? (
-                    <div className="empty-state">
-                        <p>No services found</p>
-                    </div>
-                ) : (
-                    services.map(service => (
-                        <div key={service.name} className="service-card">
-                            <div className="service-header">
-                                <div className="service-info">
-                                    <span className={`status-dot ${getServiceStatusVariant(service.status)}`} />
-                                    <h4>{service.name}</h4>
-                                </div>
-                                <Badge variant={getServiceStatusVariant(service.status)}>
-                                    {service.status}
-                                </Badge>
-                            </div>
-
-                            {service.description && (
-                                <p className="service-description">{service.description}</p>
-                            )}
-
-                            <div className="service-meta">
-                                {service.pid && (
-                                    <span className="meta-item">
-                                        <span className="meta-label">PID:</span> {service.pid}
-                                    </span>
-                                )}
-                                {service.memory && (
-                                    <span className="meta-item">
-                                        <span className="meta-label">Memory:</span> {service.memory}
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="service-actions">
-                                {service.status === 'running' || service.status === 'active' ? (
+            {services.length === 0 ? (
+                <div className="empty-state">
+                    <p>No services found</p>
+                </div>
+            ) : (
+                <ServicesGrid>
+                    {services.map(service => {
+                        const meta = [
+                            service.pid && { label: 'PID', value: service.pid },
+                            service.memory && { label: 'Memory', value: service.memory },
+                        ].filter(Boolean);
+                        const isRunning = service.status === 'running' || service.status === 'active';
+                        return (
+                            <ServiceCard
+                                key={service.name}
+                                name={service.name}
+                                description={service.description}
+                                status={service.status}
+                                statusVariant={getServiceStatusVariant(service.status)}
+                                meta={meta}
+                                actions={
                                     <>
+                                        {isRunning ? (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleServiceAction(service.name, 'restart')}
+                                                    disabled={actionLoading === `${service.name}-restart`}
+                                                >
+                                                    {actionLoading === `${service.name}-restart` ? '...' : 'Restart'}
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleServiceAction(service.name, 'stop')}
+                                                    disabled={actionLoading === `${service.name}-stop`}
+                                                >
+                                                    {actionLoading === `${service.name}-stop` ? '...' : 'Stop'}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                onClick={() => handleServiceAction(service.name, 'start')}
+                                                disabled={actionLoading === `${service.name}-start`}
+                                            >
+                                                {actionLoading === `${service.name}-start` ? '...' : 'Start'}
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => handleServiceAction(service.name, 'restart')}
-                                            disabled={actionLoading === `${service.name}-restart`}
+                                            onClick={() => viewServiceLogs(service.name)}
                                         >
-                                            {actionLoading === `${service.name}-restart` ? '...' : 'Restart'}
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleServiceAction(service.name, 'stop')}
-                                            disabled={actionLoading === `${service.name}-stop`}
-                                        >
-                                            {actionLoading === `${service.name}-stop` ? '...' : 'Stop'}
+                                            Logs
                                         </Button>
                                     </>
-                                ) : (
-                                    <Button
-                                        size="sm"
-                                        onClick={() => handleServiceAction(service.name, 'start')}
-                                        disabled={actionLoading === `${service.name}-start`}
-                                    >
-                                        {actionLoading === `${service.name}-start` ? '...' : 'Start'}
-                                    </Button>
-                                )}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => viewServiceLogs(service.name)}
-                                >
-                                    Logs
-                                </Button>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                                }
+                            />
+                        );
+                    })}
+                </ServicesGrid>
+            )}
 
             {/* Service Logs Modal */}
             {showLogsModal && (

@@ -3,6 +3,7 @@ import api from '../../services/api';
 import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../Modal';
+import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -304,24 +305,17 @@ const FirewallTab = () => {
                                 <Button variant="outline" size="sm" onClick={loadData}>Refresh</Button>
                             </div>
                             <div className="card-body">
-                                <div className="info-list">
-                                    <div className="info-item">
-                                        <span className="info-label">Type</span>
-                                        <span className="info-value">{activeFirewall?.toUpperCase()}</span>
-                                    </div>
-                                    <div className="info-item">
-                                        <span className="info-label">Status</span>
+                                <InfoList>
+                                    <InfoItem label="Type" value={activeFirewall?.toUpperCase()} />
+                                    <InfoItem label="Status">
                                         <Badge variant={isActive ? 'success' : 'destructive'}>
                                             {isActive ? 'Active' : 'Inactive'}
                                         </Badge>
-                                    </div>
+                                    </InfoItem>
                                     {activeFirewall === 'firewalld' && status?.firewalld?.default_zone && (
-                                        <div className="info-item">
-                                            <span className="info-label">Default Zone</span>
-                                            <span className="info-value">{status.firewalld.default_zone}</span>
-                                        </div>
+                                        <InfoItem label="Default Zone" value={status.firewalld.default_zone} />
                                     )}
-                                </div>
+                                </InfoList>
                             </div>
                         </div>
                     )}

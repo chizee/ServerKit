@@ -3,6 +3,8 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { StatCard, StatsGrid } from '../components/StatCard';
+import { Clock, FileText, CheckCircle, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -223,63 +225,12 @@ const CronJobs = () => {
             )}
 
             {/* Status Cards */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-icon cron">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12 6 12 12 16 14"/>
-                        </svg>
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Cron Service</span>
-                        <span className="stat-value">{status?.available ? 'Available' : 'Not Available'}</span>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon jobs">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
-                        </svg>
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Total Jobs</span>
-                        <span className="stat-value">{jobs.length}</span>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon active">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Active Jobs</span>
-                        <span className="stat-value">{jobs.filter(j => j.enabled).length}</span>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon platform">
-                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                            <line x1="8" y1="21" x2="16" y2="21"/>
-                            <line x1="12" y1="17" x2="12" y2="21"/>
-                        </svg>
-                    </div>
-                    <div className="stat-content">
-                        <span className="stat-label">Platform</span>
-                        <span className="stat-value">{status?.platform || 'Unknown'}</span>
-                    </div>
-                </div>
-            </div>
+            <StatsGrid>
+                <StatCard icon={Clock} iconVariant="cron" label="Cron Service" value={status?.available ? 'Available' : 'Not Available'} />
+                <StatCard icon={FileText} iconVariant="jobs" label="Total Jobs" value={jobs.length} />
+                <StatCard icon={CheckCircle} iconVariant="active" label="Active Jobs" value={jobs.filter(j => j.enabled).length} />
+                <StatCard icon={Monitor} iconVariant="platform" label="Platform" value={status?.platform || 'Unknown'} />
+            </StatsGrid>
 
             {/* Jobs List */}
             <div className="card">

@@ -5,6 +5,8 @@ import { useToast } from '../contexts/ToastContext';
 import MetricsGraph from '../components/MetricsGraph';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DangerZone } from '../components/DangerZone';
+import { InfoList, InfoItem } from '../components/InfoList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -301,84 +303,45 @@ const OverviewTab = ({ server, metrics, systemInfo }) => {
             <div className="overview-grid">
                 <div className="info-card">
                     <h3>Server Information</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Status</span>
+                    <InfoList>
+                        <InfoItem label="Status">
                             <span className={`status-badge ${server.status}`}>{server.status}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Hostname</span>
-                            <span className="info-value">{server.hostname || 'N/A'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">IP Address</span>
-                            <span className="info-value">{server.ip_address || 'N/A'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Group</span>
-                            <span className="info-value">{server.group_name || 'Ungrouped'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Last Seen</span>
-                            <span className="info-value">
-                                {server.last_seen ? new Date(server.last_seen).toLocaleString() : 'Never'}
-                            </span>
-                        </div>
-                    </div>
+                        </InfoItem>
+                        <InfoItem label="Hostname" value={server.hostname || 'N/A'} />
+                        <InfoItem label="IP Address" value={server.ip_address || 'N/A'} />
+                        <InfoItem label="Group" value={server.group_name || 'Ungrouped'} />
+                        <InfoItem
+                            label="Last Seen"
+                            value={server.last_seen ? new Date(server.last_seen).toLocaleString() : 'Never'}
+                        />
+                    </InfoList>
                 </div>
 
                 <div className="info-card">
                     <h3>System Information</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Operating System</span>
-                            <span className="info-value">
-                                {systemInfo?.os || server.os_type || 'Unknown'}
-                                {systemInfo?.os_version && ` ${systemInfo.os_version}`}
-                            </span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Architecture</span>
-                            <span className="info-value">{systemInfo?.architecture || server.architecture || 'N/A'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">CPU</span>
-                            <span className="info-value">
-                                {systemInfo?.cpu_model || 'N/A'}
-                                {systemInfo?.cpu_cores && ` (${systemInfo.cpu_cores} cores)`}
-                            </span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Total Memory</span>
-                            <span className="info-value">{formatBytes(systemInfo?.total_memory)}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Total Disk</span>
-                            <span className="info-value">{formatBytes(systemInfo?.total_disk)}</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem
+                            label="Operating System"
+                            value={`${systemInfo?.os || server.os_type || 'Unknown'}${systemInfo?.os_version ? ` ${systemInfo.os_version}` : ''}`}
+                        />
+                        <InfoItem label="Architecture" value={systemInfo?.architecture || server.architecture || 'N/A'} />
+                        <InfoItem
+                            label="CPU"
+                            value={`${systemInfo?.cpu_model || 'N/A'}${systemInfo?.cpu_cores ? ` (${systemInfo.cpu_cores} cores)` : ''}`}
+                        />
+                        <InfoItem label="Total Memory" value={formatBytes(systemInfo?.total_memory)} />
+                        <InfoItem label="Total Disk" value={formatBytes(systemInfo?.total_disk)} />
+                    </InfoList>
                 </div>
 
                 <div className="info-card">
                     <h3>Agent Information</h3>
-                    <div className="info-list">
-                        <div className="info-item">
-                            <span className="info-label">Agent Version</span>
-                            <span className="info-value">{server.agent_version || 'Not installed'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Agent ID</span>
-                            <span className="info-value mono">{server.agent_id || 'N/A'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Docker Version</span>
-                            <span className="info-value">{server.docker_version || systemInfo?.docker_version || 'N/A'}</span>
-                        </div>
-                        <div className="info-item">
-                            <span className="info-label">Uptime</span>
-                            <span className="info-value">{formatUptime(metrics?.uptime)}</span>
-                        </div>
-                    </div>
+                    <InfoList>
+                        <InfoItem label="Agent Version" value={server.agent_version || 'Not installed'} />
+                        <InfoItem label="Agent ID" value={server.agent_id || 'N/A'} mono />
+                        <InfoItem label="Docker Version" value={server.docker_version || systemInfo?.docker_version || 'N/A'} />
+                        <InfoItem label="Uptime" value={formatUptime(metrics?.uptime)} />
+                    </InfoList>
                 </div>
 
                 {server.status === 'online' && metrics && (
@@ -1102,15 +1065,15 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                 </div>
             )}
 
-            <div className="form-section danger-zone">
-                <h3>Danger Zone</h3>
-                <p className="section-description">
-                    Removing this server will disconnect the agent and delete all associated data.
-                </p>
-                <Button variant="destructive" onClick={onDelete}>
-                    <TrashIcon /> Remove Server
-                </Button>
-            </div>
+            <DangerZone
+                title="Danger Zone"
+                description="Removing this server will disconnect the agent and delete all associated data."
+                action={
+                    <Button variant="destructive" onClick={onDelete}>
+                        <TrashIcon /> Remove Server
+                    </Button>
+                }
+            />
             <ConfirmDialog
                 isOpen={confirmSettingsState.isOpen}
                 title={confirmSettingsState.title}
