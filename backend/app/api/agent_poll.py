@@ -106,6 +106,19 @@ def poll():
     sysinfo = body.get('system_info')
     caps = body.get('capabilities')
 
+    # Diagnostic: log whenever the agent ships state. Helps debug the
+    # "panel shows N/A" failure mode where the agent is connected but
+    # the periodic resend isn't actually reaching us.
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+    _log.info(
+        "agent /poll from %s: metrics=%s sysinfo_keys=%s caps_keys=%s",
+        agent.server_id,
+        bool(metrics),
+        list(sysinfo.keys()) if isinstance(sysinfo, dict) else None,
+        list(caps.keys()) if isinstance(caps, dict) else None,
+    )
+
     agent_registry.update_heartbeat(agent.server_id, metrics)
     if sysinfo:
         agent_registry.update_system_info(agent.server_id, sysinfo)

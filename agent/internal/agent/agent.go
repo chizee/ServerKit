@@ -664,6 +664,11 @@ func (a *Agent) sendCapabilities() {
 		SystemdJSON:     caps.SystemdJSON,
 		ProbedAt:        caps.ProbedAt,
 	}
+	a.log.Info("Sending capabilities to panel",
+		"sudo", caps.Sudo,
+		"cap_count", len(caps.Capabilities),
+		"runtime_count", len(caps.Runtimes),
+	)
 	if err := a.ws.Send(msg); err != nil {
 		a.log.Warn("Failed to send capabilities", "error", err)
 		return

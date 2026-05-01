@@ -63,6 +63,18 @@ class Server(db.Model):
     }
     SYSTEM_READ_ACTIONS = {'metrics', 'info', 'processes'}
 
+    # Control-plane actions that aren't gated by per-server permissions:
+    # the panel issues these to discover state or refresh metadata, not
+    # to mutate the host. Without this list, an agent with the
+    # 'docker_manager' profile (no 'agent:*' grant) would 403 on the
+    # Refresh button in the System Status card. Authentication still
+    # happens at the JWT layer; this only short-circuits the per-server
+    # ACL.
+    CONTROL_PLANE_ACTIONS = {
+        'agent:recapabilities',
+        'agent:update',
+    }
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Basic Info
@@ -268,6 +280,11 @@ class Server(db.Model):
 
     def has_permission(self, scope):
         """Check if server/agent has a specific permission scope"""
+        # Control-plane actions (agent:recapabilities, agent:update) are
+        # not gated — they're issued by the panel to discover state and
+        # refresh metadata. Authentication is enforced at the JWT layer.
+        if scope in self.CONTROL_PLANE_ACTIONS:
+            return True
         if not self.permissions:
             return False
         if '*' in self.permissions:
