@@ -284,6 +284,19 @@ def get_server(server_id):
     #   "poll" — REST polling fallback, streams unavailable
     #   None   — agent not connected
     agent = agent_registry.get_agent(server.id)
+    # Self-healing inconsistency check: if the Server row claims
+    # "online" but there's no in-memory agent (panel was restarted, or
+    # the agent process died without a clean disconnect), the status
+    # is lying. Flip it to "offline" so the UI doesn't show the user
+    # an "online" pill while the Docker tab errors with "Agent not
+    # connected." Persist the correction so subsequent reads agree.
+    if not agent and server.status == 'online':
+        server.status = 'offline'
+        try:
+            db.session.commit()
+            result['status'] = 'offline'
+        except Exception:
+            db.session.rollback()
     result['is_connected'] = agent is not None
     result['transport'] = agent.transport if agent else None
     # Capability map the agent advertised on connect. When the agent is
