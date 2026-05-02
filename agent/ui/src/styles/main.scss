@@ -756,6 +756,52 @@ a {
     padding: $space-sm 0;
 }
 
+// Tabs sit above the wizard body — let the user pick between the
+// connection-string and pair-code entry paths. Keep them visually quiet
+// so the form below remains the focal point.
+.wizard__tabs {
+    display: flex;
+    gap: 4px;
+    max-width: 460px;
+    margin: 0 auto $space-sm;
+    padding: 4px;
+    background: $bg-elevated;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+}
+
+.wizard__tab {
+    flex: 1;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $text-tertiary;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+
+    &:hover {
+        color: $text-primary;
+    }
+
+    &.is-active {
+        background: $bg-card;
+        color: $text-primary;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+    }
+}
+
+.field__input--mono {
+    font-family: 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 80px;
+    word-break: break-all;
+}
+
 // Form fields used by the wizard
 .field {
     display: flex;

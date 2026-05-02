@@ -348,6 +348,18 @@ func defaultLogPath() string {
 	return "/var/log/serverkit-agent/agent.log"
 }
 
+// IPCTokenPath returns the absolute path to the agent's IPC bearer-token
+// file. The token gates the local HTTP API the desktop console and tray
+// app use; clients must pass it as `Authorization: Bearer <token>`.
+// Living next to the existing key file means it inherits the same 0600
+// directory ACLs and ships with the same backup/restore policies.
+func IPCTokenPath() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(os.Getenv("ProgramData"), "ServerKit", "Agent", "ipc.token")
+	}
+	return "/etc/serverkit-agent/ipc.token"
+}
+
 func defaultAllowedPaths() []string {
 	if runtime.GOOS == "windows" {
 		return []string{filepath.Join(os.Getenv("ProgramData"), "ServerKit")}

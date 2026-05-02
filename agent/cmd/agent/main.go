@@ -14,6 +14,7 @@ import (
 	"github.com/serverkit/agent/internal/agent"
 	"github.com/serverkit/agent/internal/agentui"
 	"github.com/serverkit/agent/internal/config"
+	"github.com/serverkit/agent/internal/connstring"
 	"github.com/serverkit/agent/internal/logger"
 	"github.com/serverkit/agent/internal/setupui"
 	pollclient "github.com/serverkit/agent/internal/transport/poll"
@@ -103,20 +104,34 @@ func registerCmd() *cobra.Command {
 	var token string
 	var serverURL string
 	var name string
+	var connStr string
 
 	cmd := &cobra.Command{
 		Use:   "register",
 		Short: "Register this agent with a ServerKit instance",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --connection-string is the modern entry path: a single
+			// pasteable blob from the panel that already contains the
+			// URL and token. When present, it overrides the legacy
+			// flags so users don't have to copy three things.
+			if connStr != "" {
+				decoded, err := connstring.Decode(connStr)
+				if err != nil {
+					return fmt.Errorf("invalid connection string: %w", err)
+				}
+				return runRegister(decoded.Token, decoded.URL, name)
+			}
+			if token == "" || serverURL == "" {
+				return fmt.Errorf("provide either --connection-string or both --token and --server")
+			}
 			return runRegister(token, serverURL, name)
 		},
 	}
 
-	cmd.Flags().StringVarP(&token, "token", "t", "", "registration token (required)")
-	cmd.Flags().StringVarP(&serverURL, "server", "s", "", "ServerKit server URL (required)")
+	cmd.Flags().StringVarP(&connStr, "connection-string", "c", "", "panel connection string (single value, replaces --token + --server)")
+	cmd.Flags().StringVarP(&token, "token", "t", "", "registration token (use with --server)")
+	cmd.Flags().StringVarP(&serverURL, "server", "s", "", "ServerKit server URL (use with --token)")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "display name for this server")
-	cmd.MarkFlagRequired("token")
-	cmd.MarkFlagRequired("server")
 
 	return cmd
 }

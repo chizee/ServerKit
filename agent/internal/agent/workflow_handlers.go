@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -33,9 +34,11 @@ const (
 	// systemctl operations are quick; if one hangs longer than 30s
 	// something is wrong (mount-blocked unit, hung shutdown).
 	systemdOpTimeout = 30 * time.Second
-	// Default exec ceiling. Caller can override per-request via
-	// "timeout_seconds" param, capped at this value.
-	maxExecTimeout = 10 * time.Minute
+	// Hard ceiling on exec timeouts when the operator hasn't set
+	// Security.MaxExecTimeout. The configured value, if any, wins —
+	// this is just the safety net so a misconfigured agent can't run
+	// arbitrary commands forever.
+	defaultMaxExecTimeout = 10 * time.Minute
 )
 
 // ───── packages ────────────────────────────────────────────────────
@@ -363,13 +366,60 @@ func (a *Agent) handleSystemdDisable(ctx context.Context, params json.RawMessage
 
 // ───── system:exec ─────────────────────────────────────────────────
 
+// commandBlocked reports whether cmd matches one of the operator's
+// configured BlockedCommands entries. Comparison is exact-match against
+// either the full path or the basename, after both sides are
+// normalised — operators tend to write either "/usr/bin/rm" or just
+// "rm" and we want to honour both. Empty entries are ignored so a
+// stray newline in YAML doesn't deny everything.
+func commandBlocked(blocked []string, cmd string) bool {
+	if len(blocked) == 0 {
+		return false
+	}
+	cmdAbs := strings.TrimSpace(cmd)
+	cmdBase := filepath.Base(cmdAbs)
+	for _, raw := range blocked {
+		entry := strings.TrimSpace(raw)
+		if entry == "" {
+			continue
+		}
+		if entry == cmdAbs || entry == cmdBase {
+			return true
+		}
+		if filepath.Base(entry) == cmdBase {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveMaxExecTimeout honours the operator's Security.MaxExecTimeout
+// when set (any positive duration), otherwise falls back to the
+// hardcoded ceiling. Negative or zero values are treated as "unset"
+// rather than "no timeout"; the agent never runs an unbounded
+// subprocess.
+func (a *Agent) resolveMaxExecTimeout() time.Duration {
+	if a.cfg != nil && a.cfg.Security.MaxExecTimeout > 0 {
+		return a.cfg.Security.MaxExecTimeout
+	}
+	return defaultMaxExecTimeout
+}
+
 // handleSystemExec runs an arbitrary command, captures stdout/stderr,
 // and returns the exit code. The first token must be an absolute path
 // (same rule as cron commands) so a misconfigured caller can't depend
 // on $PATH state of the agent process. Output is truncated to keep the
 // command envelope reasonable; the runner can poll a file if it needs
 // the full output of a chatty install.
+//
+// This handler is only registered when cfg.Features.Exec is true (see
+// agent.go:registerHandlers). When Exec is disabled, the panel sees an
+// "unknown action" error rather than the command silently running.
 func (a *Agent) handleSystemExec(ctx context.Context, params json.RawMessage) (interface{}, error) {
+	if a.cfg == nil || !a.cfg.Features.Exec {
+		return nil, errors.New("system:exec is disabled by agent config (features.exec=false)")
+	}
+
 	var p struct {
 		Command        string   `json:"command"`
 		Args           []string `json:"args"`
@@ -389,10 +439,14 @@ func (a *Agent) handleSystemExec(ctx context.Context, params json.RawMessage) (i
 	if strings.ContainsAny(cmd, ";&|`$<>\n\r") {
 		return nil, errors.New("command contains shell metacharacters; pass arguments via args[]")
 	}
+	if commandBlocked(a.cfg.Security.BlockedCommands, cmd) {
+		return nil, fmt.Errorf("command %q is blocked by agent security config", cmd)
+	}
 
+	maxTimeout := a.resolveMaxExecTimeout()
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
-	if timeout <= 0 || timeout > maxExecTimeout {
-		timeout = maxExecTimeout
+	if timeout <= 0 || timeout > maxTimeout {
+		timeout = maxTimeout
 	}
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

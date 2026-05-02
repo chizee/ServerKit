@@ -6,6 +6,7 @@ Endpoints for managing remote servers and their agents.
 
 import os
 import hashlib
+import hmac
 import requests
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, Response, current_app, redirect
@@ -17,7 +18,57 @@ from app.models.server import Server, ServerGroup, ServerMetrics, ServerCommand,
 from app.services.agent_registry import agent_registry
 from app.services.agent_fleet_service import fleet_service
 from app.services.discovery_service import discovery_service
+from app.services import connection_string as connection_string_codec
 from app.middleware.rbac import admin_required, developer_required
+
+
+# Default token lifetime when the caller doesn't specify one. 7 days is
+# the sweet spot from the design discussion: long enough that "I'll set
+# this up later tonight" survives, short enough that an abandoned string
+# doesn't linger forever as a usable bearer credential.
+_DEFAULT_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60
+
+# Sentinel placeholder name used while a server row exists but no agent
+# has registered against it yet. The register endpoint replaces this
+# with the agent's reported hostname; the prefix check there is the
+# reason the format here must stay stable.
+_PLACEHOLDER_NAME_PREFIX = "Pending pairing ("
+
+
+def _placeholder_name(server_id: str) -> str:
+    """Generate the placeholder name shown in the panel until pairing
+    completes. Includes a short id suffix so multiple unpaired rows are
+    distinguishable."""
+    return f"{_PLACEHOLDER_NAME_PREFIX}{server_id[:8]})"
+
+
+def _is_placeholder_name(name) -> bool:
+    """True if the given name is the placeholder we issued at create
+    time. Used by the register endpoint to decide whether overwriting
+    with the agent's hostname is safe (a user-chosen name shouldn't be
+    clobbered on re-pair)."""
+    return isinstance(name, str) and name.startswith(_PLACEHOLDER_NAME_PREFIX)
+
+
+def _resolve_token_expiry(expires_in):
+    """Convert an ``expires_in`` request field to a concrete datetime.
+
+    - missing / None       → default 7 days
+    - positive int seconds → that many seconds from now
+    - -1                   → "never" (100 years out — DB-safe sentinel)
+    """
+    if expires_in is None:
+        seconds = _DEFAULT_TOKEN_TTL_SECONDS
+    elif expires_in == -1:
+        return datetime.utcnow() + timedelta(days=365 * 100)
+    else:
+        try:
+            seconds = int(expires_in)
+        except (TypeError, ValueError):
+            seconds = _DEFAULT_TOKEN_TTL_SECONDS
+        if seconds <= 0:
+            seconds = _DEFAULT_TOKEN_TTL_SECONDS
+    return datetime.utcnow() + timedelta(seconds=seconds)
 
 servers_bp = Blueprint('servers', __name__)
 
@@ -227,15 +278,20 @@ def list_servers():
 @developer_required
 def create_server():
     """
-    Create a new server and generate registration token.
+    Create a new server slot and generate a connection string.
 
-    Returns server info with registration token for agent installation.
+    The user no longer types a server name here — the agent's hostname
+    becomes the name on first register. We just allocate a row, mint a
+    single-use registration token, and bundle URL+token+expiry into one
+    pasteable string.
+
+    Body fields (all optional):
+      expires_in: token TTL in seconds. -1 = never, missing = 7 days.
+      description, group_id, tags, permissions, permission_profile,
+      allowed_ips: passed through unchanged.
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     user_id = get_jwt_identity()
-
-    if not data.get('name'):
-        return jsonify({'error': 'Name is required'}), 400
 
     # Generate registration token
     registration_token = Server.generate_registration_token()
@@ -252,24 +308,44 @@ def create_server():
     elif permissions is None:
         permissions = ['*']
 
+    expires_at = _resolve_token_expiry(data.get('expires_in'))
+
     server = Server(
-        name=data['name'],
+        # Temporary name — replaced with the agent's hostname when the
+        # agent calls /register. _is_placeholder_name() in the register
+        # endpoint detects this and overwrites it; user-chosen names are
+        # left alone.
+        name=_PLACEHOLDER_NAME_PREFIX + "...)",
         description=data.get('description'),
         group_id=data.get('group_id'),
         tags=data.get('tags', []),
         permissions=permissions,
         allowed_ips=data.get('allowed_ips', []),
         registered_by=user_id,
-        registration_token_expires=datetime.utcnow() + timedelta(hours=24)
+        registration_token_expires=expires_at,
     )
     server.set_registration_token(registration_token)
 
     db.session.add(server)
     db.session.commit()
 
+    # Now that the row has its UUID, give it a placeholder with a short
+    # id suffix so multiple unpaired rows are distinguishable in the UI.
+    server.name = _placeholder_name(server.id)
+    db.session.commit()
+
+    panel_url = _get_external_base_url()
+    conn_string = connection_string_codec.encode(
+        url=panel_url,
+        token=registration_token,
+        expires_at=expires_at,
+    )
+
     result = server.to_dict()
     result['registration_token'] = registration_token
     result['registration_expires'] = server.registration_token_expires.isoformat()
+    result['connection_string'] = conn_string
+    result['panel_url'] = panel_url
 
     return jsonify(result), 201
 
@@ -396,22 +472,41 @@ def delete_server(server_id):
 @jwt_required()
 @developer_required
 def regenerate_token(server_id):
-    """Regenerate registration token for a server"""
+    """Regenerate the registration token for a server and return a fresh
+    connection string.
+
+    Used both for first-pair (panel just created the row) and re-pair
+    (the agent was uninstalled / reinstalled and lost its credentials).
+    Body is optional; only ``expires_in`` is read (same semantics as
+    create_server).
+    """
     server = Server.query.get(server_id)
     if not server:
         return jsonify({'error': 'Server not found'}), 404
 
+    data = request.get_json(silent=True) or {}
+    expires_at = _resolve_token_expiry(data.get('expires_in'))
+
     registration_token = Server.generate_registration_token()
     server.set_registration_token(registration_token)
-    server.registration_token_expires = datetime.utcnow() + timedelta(hours=24)
+    server.registration_token_expires = expires_at
     server.status = 'pending'
     server.agent_id = None
 
     db.session.commit()
 
+    panel_url = _get_external_base_url()
+    conn_string = connection_string_codec.encode(
+        url=panel_url,
+        token=registration_token,
+        expires_at=expires_at,
+    )
+
     return jsonify({
         'registration_token': registration_token,
-        'registration_expires': server.registration_token_expires.isoformat()
+        'registration_expires': server.registration_token_expires.isoformat(),
+        'connection_string': conn_string,
+        'panel_url': panel_url,
     })
 
 
@@ -475,9 +570,15 @@ def register_agent():
 
     server.agent_version = data.get('agent_version')
 
-    # Update name if provided and different
-    if data.get('name') and not server.name:
-        server.name = data['name']
+    # Replace the panel-issued placeholder name with whatever the agent
+    # reports — preferring the OS hostname over the agent's optional
+    # top-level "name" field. Once a user has renamed the server in the
+    # UI, the placeholder check fails and we leave their name alone, so
+    # re-pair after reinstall doesn't clobber renames.
+    if _is_placeholder_name(server.name):
+        reported_name = (system_info.get('hostname') if system_info else None) or data.get('name')
+        if reported_name:
+            server.name = reported_name
 
     db.session.commit()
 
@@ -826,7 +927,30 @@ def rotate_api_key(server_id):
     new_api_key, new_api_secret, rotation_id = server.start_key_rotation()
     db.session.commit()
 
-    # Send credential update to agent
+    # Send credential update to agent. The agent verifies an HMAC over
+    # the new credentials computed with its *current* secret before
+    # applying the rotation, so a session-level WS auth bypass alone
+    # can't be used to silently rotate fleet credentials to attacker-
+    # controlled values. The agent expects:
+    #   hex(HMAC-SHA256("rotation_id:agent_id:new_api_key:new_api_secret",
+    #                    current_api_secret))
+    current_secret = server.get_api_secret() or ''
+    if not current_secret:
+        # Agents paired before the api_secret_encrypted column existed
+        # can't be verified. Better to fail the rotation than silently
+        # ship an unsigned credential update — operators can re-pair to
+        # establish a verifiable secret on disk.
+        return jsonify({
+            'error': 'Server has no recoverable secret on file; re-pair the agent before rotating.',
+            'code': 'NO_CURRENT_SECRET'
+        }), 409
+    payload = f'{rotation_id}:{server.agent_id}:{new_api_key}:{new_api_secret}'
+    sig = hmac.new(
+        current_secret.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256,
+    ).hexdigest()
+
     agent = agent_registry.get_agent(server_id)
     if agent and agent_registry._socketio:
         agent_registry._socketio.emit(
@@ -835,7 +959,8 @@ def rotate_api_key(server_id):
                 'type': 'credential_update',
                 'rotation_id': rotation_id,
                 'api_key': new_api_key,
-                'api_secret': new_api_secret
+                'api_secret': new_api_secret,
+                'hmac_sig': sig,
             },
             room=agent.socket_id,
             namespace='/agent'

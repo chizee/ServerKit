@@ -1,6 +1,8 @@
 // Tiny client for the agent's local IPC server. Always 127.0.0.1 — the IPC
-// server refuses non-loopback binds — so we don't worry about CORS, auth, or
-// retries beyond the simple ones the hooks already handle.
+// server refuses non-loopback binds — and gates every endpoint except
+// /health behind a bearer token. We fetch the token from the in-process
+// asset server (/local/ipc-token), which reads it off disk: the React UI
+// can't read filesystem paths, but the Go console process running it can.
 
 const DEFAULT_PORT = 19780;
 
@@ -15,11 +17,62 @@ const PORT =
 
 const BASE = `http://127.0.0.1:${PORT}`;
 
+// Cache the token in-module so we don't re-fetch on every IPC call.
+// Refresh on 401 so a token rotation (rare; only if the file is wiped
+// and the agent restarts) gets picked up without a UI reload.
+let _tokenPromise = null;
+
+async function fetchToken() {
+    const res = await fetch('/local/ipc-token');
+    if (!res.ok) {
+        // 503 means "agent service not running yet" — propagate so the
+        // hook can decide whether to retry.
+        const err = new Error(`token fetch failed: ${res.status}`);
+        err.status = res.status;
+        throw err;
+    }
+    const json = await res.json();
+    return json.token;
+}
+
+async function ipcToken() {
+    if (!_tokenPromise) {
+        _tokenPromise = fetchToken().catch((err) => {
+            // Don't cache failure — next call will retry.
+            _tokenPromise = null;
+            throw err;
+        });
+    }
+    return _tokenPromise;
+}
+
+function invalidateToken() {
+    _tokenPromise = null;
+}
+
+async function authedHeaders(extra) {
+    let headers = { Accept: 'application/json', ...(extra || {}) };
+    try {
+        const tok = await ipcToken();
+        if (tok) headers.Authorization = `Bearer ${tok}`;
+    } catch {
+        // Fall through with no Authorization header. /health still works
+        // and any other endpoint will return 401, which the hooks already
+        // surface as "agent unreachable".
+    }
+    return headers;
+}
+
 async function get(path) {
-    const res = await fetch(`${BASE}${path}`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-    });
+    const headers = await authedHeaders();
+    let res = await fetch(`${BASE}${path}`, { method: 'GET', headers });
+    if (res.status === 401) {
+        // Token might be stale (file rewritten on agent restart). One
+        // retry with a freshly fetched token before bubbling the error.
+        invalidateToken();
+        const retryHeaders = await authedHeaders();
+        res = await fetch(`${BASE}${path}`, { method: 'GET', headers: retryHeaders });
+    }
     if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(`IPC ${path} ${res.status}: ${text || res.statusText}`);
@@ -28,11 +81,21 @@ async function get(path) {
 }
 
 async function post(path, body) {
-    const res = await fetch(`${BASE}${path}`, {
+    const headers = await authedHeaders({ 'Content-Type': 'application/json' });
+    let res = await fetch(`${BASE}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers,
         body: body ? JSON.stringify(body) : null,
     });
+    if (res.status === 401) {
+        invalidateToken();
+        const retryHeaders = await authedHeaders({ 'Content-Type': 'application/json' });
+        res = await fetch(`${BASE}${path}`, {
+            method: 'POST',
+            headers: retryHeaders,
+            body: body ? JSON.stringify(body) : null,
+        });
+    }
     if (!res.ok) {
         const text = await res.text().catch(() => '');
         throw new Error(`IPC ${path} ${res.status}: ${text || res.statusText}`);
@@ -99,4 +162,10 @@ export const local = {
         localCall('/local/pair/start', { panel_url: panelUrl, server_name: serverName }),
     pairState: () => localGet('/local/pair/state'),
     pairCancel: () => localCall('/local/pair/cancel'),
+    // The single-string entry path. The agent decodes the string, calls
+    // /api/v1/servers/register on the panel, and lands on the same
+    // "claimed" state the pair-code flow ends in — so polling /state
+    // works unchanged.
+    pairConnectionString: (connectionString) =>
+        localCall('/local/pair/connection-string', { connection_string: connectionString }),
 };

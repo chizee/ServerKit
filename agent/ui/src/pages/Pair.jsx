@@ -29,23 +29,44 @@ function CopyValue({ value, large }) {
     );
 }
 
-function FormStage({ onSubmit, busy, defaultName }) {
+function FormStage({ onConnectionString, onPairCode, busy, defaultName }) {
+    // Default to the connection-string tab — that's the modern entry path
+    // (one paste, one click). The legacy pair-code form stays available
+    // for users who already started from the panel's "Pair existing
+    // agent" tab, or who can't paste from clipboard for some reason.
+    const [mode, setMode] = useState('connection-string');
+    const [connString, setConnString] = useState('');
     const [panelUrl, setPanelUrl] = useState('');
     const [name, setName] = useState(defaultName || '');
     const [error, setError] = useState('');
 
-    function submit(e) {
+    function submitConnString(e) {
+        e.preventDefault();
+        const trimmed = connString.trim();
+        if (!trimmed) {
+            setError('Paste the connection string from your panel.');
+            return;
+        }
+        if (!trimmed.startsWith('sk_conn_')) {
+            setError('That doesn’t look like a connection string. Generate one from the panel’s Add Server screen.');
+            return;
+        }
+        setError('');
+        onConnectionString(trimmed);
+    }
+
+    function submitPairCode(e) {
         e.preventDefault();
         if (!panelUrl.trim()) {
             setError('Panel URL is required');
             return;
         }
         setError('');
-        onSubmit(panelUrl.trim(), name.trim());
+        onPairCode(panelUrl.trim(), name.trim());
     }
 
     return (
-        <form onSubmit={submit} className="wizard">
+        <div className="wizard">
             <div className="wizard__head">
                 <div className="wizard__brand">
                     <Server size={28} />
@@ -54,45 +75,97 @@ function FormStage({ onSubmit, busy, defaultName }) {
                 <p className="wizard__sub">Connect this machine to your ServerKit panel.</p>
             </div>
 
-            <div className="wizard__body">
-                <label className="field">
-                    <span className="field__label">Panel URL</span>
-                    <input
-                        type="text"
-                        className="field__input"
-                        placeholder="https://panel.example.com"
-                        value={panelUrl}
-                        onChange={(e) => setPanelUrl(e.target.value)}
-                        autoFocus
-                        spellCheck={false}
-                    />
-                    <span className="field__hint">The full URL of your ServerKit control panel.</span>
-                </label>
-
-                <label className="field">
-                    <span className="field__label">Server name <span className="muted">(optional)</span></span>
-                    <input
-                        type="text"
-                        className="field__input"
-                        placeholder="Defaults to hostname"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        spellCheck={false}
-                    />
-                    <span className="field__hint">How this machine appears in your panel.</span>
-                </label>
-
-                {error && <div className="banner banner--warn">{error}</div>}
-
-                <button type="submit" className="btn btn--primary btn--large" disabled={busy}>
-                    {busy ? (
-                        <><Loader2 size={16} className="spin" /> Connecting…</>
-                    ) : (
-                        <>Connect <ArrowRight size={16} /></>
-                    )}
+            <div className="wizard__tabs" role="tablist">
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === 'connection-string'}
+                    className={'wizard__tab ' + (mode === 'connection-string' ? 'is-active' : '')}
+                    onClick={() => { setMode('connection-string'); setError(''); }}
+                >
+                    Connection string
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === 'pair-code'}
+                    className={'wizard__tab ' + (mode === 'pair-code' ? 'is-active' : '')}
+                    onClick={() => { setMode('pair-code'); setError(''); }}
+                >
+                    Pair code
                 </button>
             </div>
-        </form>
+
+            {mode === 'connection-string' ? (
+                <form onSubmit={submitConnString} className="wizard__body">
+                    <label className="field">
+                        <span className="field__label">Connection string</span>
+                        <textarea
+                            className="field__input field__input--mono"
+                            rows={4}
+                            placeholder="sk_conn_v1...."
+                            value={connString}
+                            onChange={(e) => setConnString(e.target.value)}
+                            autoFocus
+                            spellCheck={false}
+                        />
+                        <span className="field__hint">
+                            Generate it in the panel: <strong>Add Server → Connection string</strong>.
+                            The hostname of this machine becomes the server name automatically.
+                        </span>
+                    </label>
+
+                    {error && <div className="banner banner--warn">{error}</div>}
+
+                    <button type="submit" className="btn btn--primary btn--large" disabled={busy}>
+                        {busy ? (
+                            <><Loader2 size={16} className="spin" /> Connecting…</>
+                        ) : (
+                            <>Connect <ArrowRight size={16} /></>
+                        )}
+                    </button>
+                </form>
+            ) : (
+                <form onSubmit={submitPairCode} className="wizard__body">
+                    <label className="field">
+                        <span className="field__label">Panel URL</span>
+                        <input
+                            type="text"
+                            className="field__input"
+                            placeholder="https://panel.example.com"
+                            value={panelUrl}
+                            onChange={(e) => setPanelUrl(e.target.value)}
+                            autoFocus
+                            spellCheck={false}
+                        />
+                        <span className="field__hint">The full URL of your ServerKit control panel.</span>
+                    </label>
+
+                    <label className="field">
+                        <span className="field__label">Server name <span className="muted">(optional)</span></span>
+                        <input
+                            type="text"
+                            className="field__input"
+                            placeholder="Defaults to hostname"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            spellCheck={false}
+                        />
+                        <span className="field__hint">How this machine appears in your panel.</span>
+                    </label>
+
+                    {error && <div className="banner banner--warn">{error}</div>}
+
+                    <button type="submit" className="btn btn--primary btn--large" disabled={busy}>
+                        {busy ? (
+                            <><Loader2 size={16} className="spin" /> Connecting…</>
+                        ) : (
+                            <>Connect <ArrowRight size={16} /></>
+                        )}
+                    </button>
+                </form>
+            )}
+        </div>
     );
 }
 
@@ -202,12 +275,27 @@ export default function Pair() {
         };
     }, []);
 
-    async function handleSubmit(panelUrl, name) {
+    async function handlePairCode(panelUrl, name) {
         setBusy(true);
         try {
             await local.pairStart(panelUrl, name);
             const s = await local.pairState();
             setState(s);
+        } catch (err) {
+            setState({ state: 'error', error: err.message });
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function handleConnectionString(value) {
+        setBusy(true);
+        try {
+            await local.pairConnectionString(value);
+            // Optimistic transition: the agent's poll loop will catch up
+            // and report claimed/error within a second or two, but moving
+            // off the form right away keeps the UI from feeling stuck.
+            setState({ state: 'enrolling' });
         } catch (err) {
             setState({ state: 'error', error: err.message });
         } finally {
@@ -227,7 +315,42 @@ export default function Pair() {
         return <ErrorStage state={state} onRetry={() => setState({ state: 'idle' })} />;
     }
     if (state.state === 'enrolling' || state.state === 'waiting') {
-        return <PairCodeStage state={state} onCancel={handleCancel} />;
+        // The pair-code wizard shows a code+passphrase pane, but the
+        // connection-string flow has nothing for the user to copy at this
+        // stage — it's just "wait for /register to come back." Pick the
+        // pane based on whether we have a code yet.
+        if (state.code || state.code_formatted) {
+            return <PairCodeStage state={state} onCancel={handleCancel} />;
+        }
+        return <ConnectingStage onCancel={handleCancel} />;
     }
-    return <FormStage onSubmit={handleSubmit} busy={busy} />;
+    return (
+        <FormStage
+            onConnectionString={handleConnectionString}
+            onPairCode={handlePairCode}
+            busy={busy}
+        />
+    );
+}
+
+function ConnectingStage({ onCancel }) {
+    return (
+        <div className="wizard">
+            <div className="wizard__head">
+                <h1 className="wizard__title">Registering this server…</h1>
+                <p className="wizard__sub">
+                    Talking to the panel and saving credentials. This usually takes a few seconds.
+                </p>
+            </div>
+            <div className="wizard__body">
+                <div className="wizard__status">
+                    <Loader2 size={14} className="spin" />
+                    <span>Waiting for the panel to confirm registration…</span>
+                </div>
+                <button type="button" className="btn" onClick={onCancel}>
+                    Cancel
+                </button>
+            </div>
+        </div>
+    );
 }

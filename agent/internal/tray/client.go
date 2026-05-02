@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
+	"github.com/serverkit/agent/internal/config"
 	"github.com/serverkit/agent/internal/ipc"
 )
 
@@ -13,6 +16,13 @@ import (
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	// token is the bearer credential the IPC server requires on every
+	// endpoint except /health. Loaded lazily from disk on each request
+	// so the tray picks up token rotations without restart. An empty
+	// token still lets /health probes work (the only endpoint the
+	// IPC server leaves unauthenticated), but every other call will
+	// 401 — IsAgentRunning() therefore stays accurate.
+	token string
 }
 
 // NewClient creates a new IPC client
@@ -25,9 +35,38 @@ func NewClient(address string, port int) *Client {
 	}
 }
 
+// loadToken reads the IPC token from the well-known path the agent
+// service writes on startup. Best-effort: a missing file just means
+// "agent never finished initialising the IPC server" — the caller
+// gets a 401 and surfaces it as an unreachable agent.
+func (c *Client) loadToken() string {
+	if data, err := os.ReadFile(config.IPCTokenPath()); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+	return ""
+}
+
+// authedRequest builds a GET/POST with the Authorization header set.
+// Centralising the header lets us swap to a different scheme later
+// without touching every endpoint method.
+func (c *Client) authedRequest(method, url string) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if tok := c.loadToken(); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	return req, nil
+}
+
 // GetStatus fetches the agent status
 func (c *Client) GetStatus() (*ipc.AgentStatus, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/status")
+	req, err := c.authedRequest(http.MethodGet, c.baseURL+"/status")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +86,11 @@ func (c *Client) GetStatus() (*ipc.AgentStatus, error) {
 
 // GetMetrics fetches detailed system metrics
 func (c *Client) GetMetrics() (*ipc.DetailedMetrics, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/metrics")
+	req, err := c.authedRequest(http.MethodGet, c.baseURL+"/metrics")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +110,11 @@ func (c *Client) GetMetrics() (*ipc.DetailedMetrics, error) {
 
 // GetConnection fetches WebSocket connection info
 func (c *Client) GetConnection() (*ipc.ConnectionInfo, error) {
-	resp, err := c.httpClient.Get(c.baseURL + "/connection")
+	req, err := c.authedRequest(http.MethodGet, c.baseURL+"/connection")
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +134,11 @@ func (c *Client) GetConnection() (*ipc.ConnectionInfo, error) {
 
 // GetLogs fetches recent log lines
 func (c *Client) GetLogs(lines int) ([]string, error) {
-	resp, err := c.httpClient.Get(fmt.Sprintf("%s/logs?lines=%d", c.baseURL, lines))
+	req, err := c.authedRequest(http.MethodGet, fmt.Sprintf("%s/logs?lines=%d", c.baseURL, lines))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +160,12 @@ func (c *Client) GetLogs(lines int) ([]string, error) {
 
 // Restart requests agent restart
 func (c *Client) Restart() error {
-	resp, err := c.httpClient.Post(c.baseURL+"/restart", "application/json", nil)
+	req, err := c.authedRequest(http.MethodPost, c.baseURL+"/restart")
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}

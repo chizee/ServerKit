@@ -5,9 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/serverkit/agent/internal/agent"
+	"github.com/serverkit/agent/internal/config"
+	"github.com/serverkit/agent/internal/connstring"
 	"github.com/serverkit/agent/internal/logger"
 	"github.com/serverkit/agent/internal/pairdriver"
 )
@@ -45,6 +51,7 @@ func (p *pairer) register(mux *http.ServeMux) {
 	mux.HandleFunc("/local/pair/start", p.handleStart)
 	mux.HandleFunc("/local/pair/state", p.handleState)
 	mux.HandleFunc("/local/pair/cancel", p.handleCancel)
+	mux.HandleFunc("/local/pair/connection-string", p.handleConnectionString)
 }
 
 type pairStartRequest struct {
@@ -200,4 +207,152 @@ func (p *pairer) handleCancel(w http.ResponseWriter, r *http.Request) {
 	p.errMsg = ""
 	p.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+type connStringRequest struct {
+	ConnectionString string `json:"connection_string"`
+}
+
+// handleConnectionString accepts a single sk_conn_v1.<...> blob, decodes
+// it into a panel URL + registration token, and runs the legacy
+// /api/v1/servers/register flow against the panel — the same one the
+// `serverkit-agent register` CLI uses. We reuse the existing pairer
+// state machine ("enrolling" -> "claimed") so the React wizard's polling
+// loop doesn't need a separate state for this entry path.
+//
+// Note: this bypasses the pair-code/passphrase flow entirely. The token
+// inside the connection string IS the credential — the panel mints the
+// agent's permanent api_key/api_secret server-side once we POST to
+// /register, which is exactly what the operator wanted: "one string from
+// the panel, one paste in the agent."
+func (p *pairer) handleConnectionString(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req connStringRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+	decoded, err := connstring.Decode(req.ConnectionString)
+	if err != nil {
+		// Surface decoder errors directly: "unknown version" / "missing
+		// url or token" are actionable for the user, where as a generic
+		// "invalid input" wouldn't tell them whether to regenerate or
+		// upgrade.
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	panelURL := pairdriver.NormalizePanelURL(decoded.URL)
+
+	// Mark the pairer state machine "in-flight" so the wizard's poll
+	// loop renders a spinner instead of bouncing back to the form.
+	p.mu.Lock()
+	if p.cancel != nil {
+		p.cancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel = cancel
+	p.state = "enrolling"
+	p.errMsg = ""
+	p.code = ""
+	p.codeFmt = ""
+	p.pass = ""
+	p.panelURL = panelURL
+	p.server = ""
+	p.mu.Unlock()
+
+	go p.runConnectionStringFlow(ctx, panelURL, decoded.Token)
+
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// runConnectionStringFlow performs the actual register + persist + service
+// restart sequence. Mirrors the OnClaimed path of the pair-code flow so
+// the user-visible end state ("agent running, panel reconnected") is
+// identical regardless of which entry path they took.
+func (p *pairer) runConnectionStringFlow(ctx context.Context, panelURL, token string) {
+	reg := agent.NewRegistration(p.log)
+
+	result, err := reg.Register(panelURL, token, "")
+	if err != nil {
+		p.failConnString("register: " + err.Error())
+		return
+	}
+	if ctx.Err() != nil {
+		// User clicked Cancel between the network call and the save.
+		return
+	}
+
+	if err := saveRegistrationCredentials(p.configPath, panelURL, result); err != nil {
+		p.failConnString("save credentials: " + err.Error())
+		return
+	}
+
+	p.mu.Lock()
+	p.state = "claimed"
+	p.server = result.Name
+	p.mu.Unlock()
+
+	// Same restart-and-verify dance as the pair-code claim path. Earlier
+	// versions skipped this and left users staring at "successfully
+	// paired" on a service that never actually picked up the new config.
+	if err := runServiceCmd("stop"); err != nil {
+		p.log.Info("Service stop reported error (likely already stopped)", "error", err)
+	}
+	if err := runServiceCmd("start"); err != nil {
+		p.log.Error("Failed to start service after pairing", "error", err)
+		p.failConnString("Pairing succeeded but the agent service failed to start: " + err.Error() +
+			"\n\nTry: restart the machine, or open Actions → Restart agent.")
+		return
+	}
+	if err := waitForServiceRunning(20 * time.Second); err != nil {
+		p.log.Error("Service did not reach RUNNING after pairing", "error", err)
+		p.failConnString("Pairing succeeded but the agent service didn't come up within 20s. " +
+			"This usually means another agent process is holding port 19780 — " +
+			"try ending all serverkit-agent.exe processes from Task Manager and reopen the wizard.\n\n" +
+			"Detail: " + err.Error())
+		return
+	}
+	p.log.Info("Agent service running after connection-string pair", "server", result.Name)
+}
+
+func (p *pairer) failConnString(msg string) {
+	p.mu.Lock()
+	p.state = "error"
+	p.errMsg = msg
+	p.mu.Unlock()
+}
+
+// saveRegistrationCredentials persists the result of a /register call to
+// disk in the same shape as pairdriver.saveCredentials does for the
+// claim flow. Lives here rather than in registration.go because the CLI
+// `register` command does its own (slightly older-shaped) save and we
+// don't want to disturb that path.
+func saveRegistrationCredentials(configPath, panelURL string, r *agent.RegistrationResult) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		cfg = config.Default()
+	}
+	wsURL := strings.TrimSuffix(panelURL, "/")
+	wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
+	wsURL = strings.Replace(wsURL, "http://", "ws://", 1)
+	cfg.Server.URL = wsURL + "/agent"
+	cfg.Agent.ID = r.AgentID
+	cfg.Agent.Name = r.Name
+	cfg.Auth.APIKey = r.APIKey
+	cfg.Auth.APISecret = r.APISecret
+
+	if configPath == "" {
+		configPath = config.DefaultConfigPath()
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		return err
+	}
+	if err := cfg.Save(configPath); err != nil {
+		return err
+	}
+	return cfg.SaveCredentials()
 }

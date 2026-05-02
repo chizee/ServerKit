@@ -441,34 +441,67 @@ func (c *Client) Run(ctx context.Context) error {
 			c.mu.Unlock()
 		}
 
-		// Start read/write/ping loops
+		// Per-iteration ctx so we can cancel readLoop/writeLoop/pingLoop
+		// together when any one of them errors. The previous code only
+		// read the first error off errCh and let the other two
+		// goroutines leak until the next reconnect's conn.Close
+		// happened to cause a read error in them — every flap leaked
+		// goroutines that, in tunnel-flap scenarios, accumulated
+		// quickly. With per-iteration cancellation each connection
+		// owns exactly three goroutines for its lifetime.
+		loopCtx, cancelLoop := context.WithCancel(ctx)
 		errCh := make(chan error, 3)
 
+		var wg sync.WaitGroup
+		wg.Add(3)
 		go func() {
-			errCh <- c.readLoop(ctx)
+			defer wg.Done()
+			errCh <- c.readLoop(loopCtx)
 		}()
-
 		go func() {
-			errCh <- c.writeLoop(ctx)
+			defer wg.Done()
+			errCh <- c.writeLoop(loopCtx)
 		}()
-
 		go func() {
-			errCh <- c.pingLoop(ctx)
+			defer wg.Done()
+			errCh <- c.pingLoop(loopCtx)
 		}()
 
 		// Wait for error
 		err := <-errCh
 		c.log.Warn("Connection loop ended", "error", err)
 
-		// Mark as disconnected
+		// Mark as disconnected before draining sendCh so any
+		// concurrent Send() callers see the disconnected state and
+		// fail fast rather than queueing onto a buffer about to
+		// be flushed.
 		c.mu.Lock()
 		c.connected = false
 		c.mu.Unlock()
 
-		// Close connection
+		// Cancel siblings and close the conn so readLoop unblocks
+		// from its read deadline. Then wait for both siblings to
+		// drain their error onto errCh — leaving them running was
+		// the goroutine leak.
+		cancelLoop()
 		if c.conn != nil {
 			c.conn.Close()
 		}
+		wg.Wait()
+		// Drain the remaining errCh entries so the channel doesn't
+		// retain references to err values.
+		for len(errCh) > 0 {
+			<-errCh
+		}
+
+		// Drain stale messages buffered while the previous connection
+		// was already failing. Replaying these on a fresh session
+		// would ship heartbeats/results from a dead WS to a new auth
+		// context — and worse, if the buffer ever filled mid-flap,
+		// every subsequent Send() would return "send channel full"
+		// permanently. Replace the channel with a fresh one so we
+		// also drop any blocked senders cleanly.
+		c.drainSendCh()
 
 		// Check if context is cancelled
 		select {
@@ -476,6 +509,21 @@ func (c *Client) Run(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			c.handleReconnect(ctx)
+		}
+	}
+}
+
+// drainSendCh empties any pending outbound messages from the previous
+// connection. Called after a disconnect so we don't ship stale frames
+// (heartbeats, command results) on the next session — they were
+// computed against the old auth context and the panel will either
+// reject them or attribute them to the wrong session window.
+func (c *Client) drainSendCh() {
+	for {
+		select {
+		case <-c.sendCh:
+		default:
+			return
 		}
 	}
 }
@@ -661,6 +709,16 @@ func (c *Client) handleReconnect(ctx context.Context) {
 
 // Send queues a message for sending
 func (c *Client) Send(msg interface{}) error {
+	c.mu.RLock()
+	connected := c.connected
+	c.mu.RUnlock()
+	if !connected {
+		// Refuse to queue when there's nothing draining the channel.
+		// Otherwise a backlog accumulates while the agent is offline
+		// and floods the panel on reconnect with stale heartbeats.
+		return fmt.Errorf("not connected")
+	}
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)

@@ -3,7 +3,9 @@ package agentui
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/serverkit/agent/internal/config"
@@ -35,6 +37,39 @@ func (a *localActions) register(mux *http.ServeMux) {
 	mux.HandleFunc("/local/wizard", a.handleWizard)
 	mux.HandleFunc("/local/diag", a.handleDiag)
 	mux.HandleFunc("/local/status", a.handleStatus)
+	mux.HandleFunc("/local/ipc-token", a.handleIPCToken)
+}
+
+// handleIPCToken returns the agent's IPC bearer token to the in-process
+// React UI so it can authenticate against the agent service's HTTP API.
+// Both processes run on the same machine under the same user, so the
+// console process can read the token file directly — this endpoint
+// just hides the OS-specific path from the JS side.
+//
+// Returns 503 (not 401) when the token isn't ready yet so the UI can
+// distinguish "agent service hasn't started writing the file" from
+// "you got the wrong credential" — the former resolves itself when the
+// service starts, the latter is a real config bug.
+func (a *localActions) handleIPCToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := os.ReadFile(config.IPCTokenPath())
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "ipc token not yet available; is the agent service running?",
+		})
+		return
+	}
+	tok := strings.TrimSpace(string(data))
+	if tok == "" {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "ipc token file empty",
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"token": tok})
 }
 
 // handleStatus reports whether the agent has been paired by reading

@@ -2,9 +2,15 @@ package ipc
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/serverkit/agent/internal/config"
@@ -108,6 +114,14 @@ type Server struct {
 	server   *http.Server
 	provider StatusProvider
 	startTime time.Time
+	// token is the bearer credential that gates every endpoint except
+	// /health. Loaded from disk if present (so a tray app already
+	// running survives an agent restart) or generated on first start.
+	// Localhost binding alone isn't enough — any local process on the
+	// box (browser tab, malicious npm postinstall, low-priv service
+	// account) could otherwise read panel URL / agent ID / logs and
+	// trigger /restart without authorisation.
+	token string
 }
 
 // NewServer creates a new IPC server
@@ -126,6 +140,15 @@ func (s *Server) Start(ctx context.Context) error {
 		s.log.Info("IPC server disabled")
 		return nil
 	}
+
+	// Load or generate the bearer token before binding the listener.
+	// Token failures are fatal — running the IPC API without auth
+	// would expose /restart and /logs to any local process.
+	tok, err := loadOrGenerateToken(config.IPCTokenPath())
+	if err != nil {
+		return fmt.Errorf("ipc token: %w", err)
+	}
+	s.token = tok
 
 	mux := http.NewServeMux()
 
@@ -152,7 +175,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.server = &http.Server{
 		Addr:         addr,
-		Handler:      corsMiddleware(mux),
+		Handler:      corsMiddleware(authMiddleware(s.token, mux)),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -219,14 +242,94 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// isLocalhost checks if the origin is from localhost
+// isLocalhost checks if the origin is from localhost. Strict suffix
+// matching against a small allowlist keeps this honest — earlier
+// substring slicing was easy to mis-edit and survives only because
+// browsers send a fixed-format Origin header.
 func isLocalhost(origin string) bool {
-	return origin == "http://localhost" ||
-		origin == "https://localhost" ||
-		origin == "http://127.0.0.1" ||
-		origin == "https://127.0.0.1" ||
-		len(origin) > 17 && origin[:17] == "http://localhost:" ||
-		len(origin) > 18 && origin[:18] == "https://localhost:" ||
-		len(origin) > 17 && origin[:17] == "http://127.0.0.1:" ||
-		len(origin) > 18 && origin[:18] == "https://127.0.0.1:"
+	switch origin {
+	case "http://localhost", "https://localhost",
+		"http://127.0.0.1", "https://127.0.0.1":
+		return true
+	}
+	for _, prefix := range []string{
+		"http://localhost:", "https://localhost:",
+		"http://127.0.0.1:", "https://127.0.0.1:",
+	} {
+		if strings.HasPrefix(origin, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// authMiddleware enforces a constant-time bearer-token check on every
+// request. /health is exempt so external probes (systemd watchdog,
+// external monitoring) can verify the agent is reachable without
+// being trusted with the token. Every other endpoint exposes data
+// (panel URL, agent ID, logs, metrics) or actions (restart, log
+// rotation) that a malicious local process must not reach.
+func authMiddleware(expected string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Always allow CORS preflight to pass through; the actual
+		// request that follows still has to authenticate.
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		got := bearerToken(r)
+		if got == "" || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="serverkit-agent"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func bearerToken(r *http.Request) string {
+	h := r.Header.Get("Authorization")
+	if h == "" {
+		// Fallback to query string for places where setting headers
+		// is awkward (eg. EventSource URLs in older browsers). The
+		// token is only valid on 127.0.0.1 anyway, so this isn't a
+		// new exposure.
+		return r.URL.Query().Get("token")
+	}
+	const prefix = "Bearer "
+	if len(h) > len(prefix) && strings.EqualFold(h[:len(prefix)], prefix) {
+		return strings.TrimSpace(h[len(prefix):])
+	}
+	return ""
+}
+
+// loadOrGenerateToken returns a per-host IPC bearer token. The file is
+// reused across runs so a tray app that picked up the token on first
+// launch keeps working through agent restarts; only when the file is
+// missing or unreadable do we generate a fresh one.
+func loadOrGenerateToken(path string) (string, error) {
+	if data, err := os.ReadFile(path); err == nil {
+		tok := strings.TrimSpace(string(data))
+		if len(tok) >= 32 {
+			return tok, nil
+		}
+		// File exists but contents are too short — treat as
+		// corrupted and regenerate.
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", fmt.Errorf("create token dir: %w", err)
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate token: %w", err)
+	}
+	tok := hex.EncodeToString(buf)
+	if err := os.WriteFile(path, []byte(tok), 0o600); err != nil {
+		return "", fmt.Errorf("write token: %w", err)
+	}
+	return tok, nil
 }

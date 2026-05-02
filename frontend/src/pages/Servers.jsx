@@ -94,16 +94,15 @@ const Servers = () => {
     async function handleCopyInstall(server) {
         try {
             const result = await api.generateRegistrationToken(server.id);
-            const token = result?.registration_token || result?.token;
-            if (!token) {
-                toast.error('Could not generate install command');
+            const connString = result?.connection_string;
+            if (!connString) {
+                toast.error('Could not generate connection string');
                 return;
             }
-            const script = `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\\n  --server "${window.location.origin}" \\\n  --token "${token}"`;
-            await navigator.clipboard.writeText(script);
-            toast.success('Install command copied to clipboard');
+            await navigator.clipboard.writeText(connString);
+            toast.success('Connection string copied to clipboard');
         } catch (err) {
-            toast.error(err.message || 'Failed to generate install command');
+            toast.error(err.message || 'Failed to generate connection string');
         }
     }
 
@@ -561,7 +560,7 @@ const ServerRow = ({ server, selected, onToggle, onPing, onDelete, onCopyInstall
                             </button>
                             {status === 'pending' && (
                                 <button type="button" className="row-menu__item" role="menuitem" onClick={() => { closeMenu(); onCopyInstall(); }}>
-                                    <CopyIcon /> Copy install command
+                                    <CopyIcon /> Copy connection string
                                 </button>
                             )}
                             <Link to={`/servers/${server.id}/docker`} className="row-menu__item" role="menuitem" onClick={closeMenu}>
@@ -765,19 +764,25 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
     );
 };
 
+// Token-lifetime presets shown in the "Add Server" expiry dropdown. The value
+// is in seconds; -1 is a sentinel for "never" (the backend turns it into a
+// far-future date). Default is 7 days — long enough to set up later that
+// evening, short enough that an abandoned string doesn't linger forever as a
+// usable bearer credential.
+const EXPIRY_OPTIONS = [
+    { label: '1 hour',  value: 60 * 60 },
+    { label: '24 hours', value: 24 * 60 * 60 },
+    { label: '7 days',  value: 7 * 24 * 60 * 60 },
+    { label: '30 days', value: 30 * 24 * 60 * 60 },
+    { label: 'Never',   value: -1 },
+];
+const DEFAULT_EXPIRY = 7 * 24 * 60 * 60;
+
 const AddServerModal = ({ groups, onClose, onCreated }) => {
-    const [mode, setMode] = useState('pair');
+    const [mode, setMode] = useState('install');
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        group_id: '',
-        hostname: '',
-        ip_address: '',
-        permission_profile: 'deployment_runner',
-        permissions: []
-    });
-    const [showOptional, setShowOptional] = useState(false);
+    const [groupId, setGroupId] = useState('');
+    const [expiresIn, setExpiresIn] = useState(DEFAULT_EXPIRY);
     const [registrationData, setRegistrationData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -789,7 +794,14 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
         setLoading(true);
 
         try {
-            const result = await api.createServer(formData);
+            // The backend now derives the server name from the agent's
+            // hostname on /register, so we just send what the user can
+            // actually pick: the token's lifetime and (optionally) which
+            // group the row should land in.
+            const result = await api.createServer({
+                expires_in: expiresIn,
+                group_id: groupId || undefined,
+            });
             setRegistrationData(result);
             setStep(2);
         } catch (err) {
@@ -799,16 +811,12 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
         }
     }
 
-    function handleChange(e) {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    }
-
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text);
         toast.success('Copied to clipboard');
     }
 
+    const connectionString = registrationData?.connection_string || '';
     const linuxInstallScript = registrationData ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\
   --server "${window.location.origin}" \\
   --token "${registrationData.registration_token}"` : '';
@@ -821,10 +829,10 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
             <div className="modal server-setup-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <div>
-                        <h2>{step === 1 ? 'Add Server' : (mode === 'pair' ? 'Pair Agent' : 'Install Agent')}</h2>
+                        <h2>{step === 1 ? 'Add Server' : (mode === 'pair' ? 'Pair Agent' : 'Connect Agent')}</h2>
                         <p>
                             {step === 2 && mode !== 'pair'
-                                ? 'Run one command on the target machine to bring it online.'
+                                ? 'Paste the connection string into the agent, or run the one-liner installer.'
                                 : step === 2
                                 ? 'Enter the 6-char code shown on the agent and your passphrase.'
                                 : 'Connect an existing agent or set up a brand-new machine.'}
@@ -837,17 +845,17 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                     <div className="mode-switcher">
                         <button
                             type="button"
-                            className={`mode-switcher__tab${mode === 'pair' ? ' is-active' : ''}`}
-                            onClick={() => setMode('pair')}
-                        >
-                            Pair existing agent
-                        </button>
-                        <button
-                            type="button"
                             className={`mode-switcher__tab${mode === 'install' ? ' is-active' : ''}`}
                             onClick={() => setMode('install')}
                         >
-                            Install new agent
+                            Connection string
+                        </button>
+                        <button
+                            type="button"
+                            className={`mode-switcher__tab${mode === 'pair' ? ' is-active' : ''}`}
+                            onClick={() => setMode('pair')}
+                        >
+                            Pair code
                         </button>
                     </div>
                 )}
@@ -863,24 +871,17 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                         <div className="server-setup-form__body">
                             {error && <div className="error-message">{error}</div>}
 
-                            <div className="form-group">
-                                <label>Server Name *</label>
-                                <Input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    placeholder="prod-web-01"
-                                    autoFocus
-                                    required
-                                />
-                                <span className="form-hint">A friendly label. The agent itself reports the real hostname when it connects.</span>
-                            </div>
+                            <p className="section-description">
+                                Generate a single connection string. Paste it into the agent&apos;s
+                                pairing wizard, or use it with the one-liner installer. The
+                                agent&apos;s hostname becomes the server name on first connect — you
+                                can rename it later from the server&apos;s Settings tab.
+                            </p>
 
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Group</label>
-                                    <select name="group_id" value={formData.group_id} onChange={handleChange}>
+                                    <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
                                         <option value="">No Group</option>
                                         {groups.map(group => (
                                             <option key={group.id} value={group.id}>{group.name}</option>
@@ -888,63 +889,18 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>Access Profile</label>
-                                    <select name="permission_profile" value={formData.permission_profile} onChange={handleChange}>
-                                        <option value="deployment_runner">Deployment Runner</option>
-                                        <option value="docker_manager">Docker Manager</option>
-                                        <option value="docker_readonly">Docker Read-Only</option>
-                                        <option value="full_access">Full Access</option>
+                                    <label>Token expires</label>
+                                    <select
+                                        value={expiresIn}
+                                        onChange={(e) => setExpiresIn(Number(e.target.value))}
+                                    >
+                                        {EXPIRY_OPTIONS.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
                                     </select>
+                                    <span className="form-hint">Single-use. Burned the moment an agent registers with it.</span>
                                 </div>
                             </div>
-
-                            <button
-                                type="button"
-                                className="form-disclosure"
-                                onClick={() => setShowOptional(v => !v)}
-                                aria-expanded={showOptional}
-                            >
-                                <span className={`form-disclosure__chevron${showOptional ? ' is-open' : ''}`}>›</span>
-                                Optional details
-                                <span className="form-disclosure__hint">description, hostname, IP</span>
-                            </button>
-
-                            {showOptional && (
-                                <div className="form-disclosure__panel">
-                                    <div className="form-group">
-                                        <label>Description</label>
-                                        <textarea
-                                            name="description"
-                                            value={formData.description}
-                                            onChange={handleChange}
-                                            placeholder="What this server is used for…"
-                                            rows={2}
-                                        />
-                                    </div>
-                                    <div className="form-row">
-                                        <div className="form-group">
-                                            <label>Hostname</label>
-                                            <Input
-                                                type="text"
-                                                name="hostname"
-                                                value={formData.hostname}
-                                                onChange={handleChange}
-                                                placeholder="server.example.com"
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>IP Address</label>
-                                            <Input
-                                                type="text"
-                                                name="ip_address"
-                                                value={formData.ip_address}
-                                                onChange={handleChange}
-                                                placeholder="192.168.1.100"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         <div className="modal-actions">
@@ -952,7 +908,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={loading}>
-                                {loading ? 'Creating…' : 'Create & Get Install Script'}
+                                {loading ? 'Generating…' : 'Generate Connection String'}
                             </Button>
                         </div>
                     </form>
@@ -962,37 +918,45 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             <div className="success-banner">
                                 <CheckCircleIcon />
                                 <div>
-                                    <strong>Agent token created</strong>
-                                    <p className="success-subtitle">Run the install script on your target machine to connect the agent.</p>
+                                    <strong>Connection string ready</strong>
+                                    <p className="success-subtitle">Paste this into the agent, or run the installer.</p>
                                 </div>
                             </div>
 
-                            <div className="install-tabs">
-                                <InstallTab
-                                    title="Linux"
-                                    description="Linux server with curl, tar, sudo, and systemd"
-                                    icon={<TerminalIcon />}
-                                    script={linuxInstallScript}
-                                    onCopy={() => copyToClipboard(linuxInstallScript)}
-                                />
-                                <InstallTab
-                                    title="Windows (PowerShell)"
-                                    description="Run as Administrator"
-                                    icon={<WindowsIcon />}
-                                    script={windowsInstallScript}
-                                    onCopy={() => copyToClipboard(windowsInstallScript)}
-                                />
-                            </div>
+                            <ConnectionStringField
+                                value={connectionString}
+                                onCopy={() => copyToClipboard(connectionString)}
+                            />
+
+                            <details className="install-fallback">
+                                <summary>Need to install the agent first? Use the one-liner installer.</summary>
+                                <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
+                                    <InstallTab
+                                        title="Linux"
+                                        description="curl, tar, sudo, and systemd"
+                                        icon={<TerminalIcon />}
+                                        script={linuxInstallScript}
+                                        onCopy={() => copyToClipboard(linuxInstallScript)}
+                                    />
+                                    <InstallTab
+                                        title="Windows (PowerShell)"
+                                        description="Run as Administrator"
+                                        icon={<WindowsIcon />}
+                                        script={windowsInstallScript}
+                                        onCopy={() => copyToClipboard(windowsInstallScript)}
+                                    />
+                                </div>
+                            </details>
 
                             <div className="install-info">
                                 <h4>What happens next?</h4>
                                 <ol>
-                                    <li>Copy and run the install script on your server</li>
-                                    <li>The agent downloads, installs, and registers automatically</li>
-                                    <li>Your server will appear as <strong>Pending</strong> until the agent connects, then switch to <strong>Online</strong></li>
+                                    <li>Open the agent on your target machine and paste the connection string.</li>
+                                    <li>The agent registers automatically and reports its hostname back as the server name.</li>
+                                    <li>The row in this list will switch from <strong>Pending</strong> to <strong>Online</strong>.</li>
                                 </ol>
                                 <p className="text-muted">
-                                    The registration token expires in 24 hours. You can regenerate it from the server details page.
+                                    The token is single-use. If you reinstall the agent later, generate a new connection string from the server&apos;s Settings tab.
                                 </p>
                             </div>
                         </div>
@@ -1005,6 +969,21 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                     </div>
                 )}
             </div>
+        </div>
+    );
+};
+
+const ConnectionStringField = ({ value, onCopy }) => {
+    return (
+        <div className="connection-string-field">
+            <div className="connection-string-field__header">
+                <KeyIcon />
+                <span>Connection string</span>
+                <Button variant="outline" size="sm" onClick={onCopy}>
+                    <CopyIcon /> Copy
+                </Button>
+            </div>
+            <pre className="connection-string-field__value">{value}</pre>
         </div>
     );
 };
@@ -1264,6 +1243,12 @@ const MoreIcon = () => (
         <circle cx="5" cy="12" r="1.6"/>
         <circle cx="12" cy="12" r="1.6"/>
         <circle cx="19" cy="12" r="1.6"/>
+    </svg>
+);
+
+const KeyIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
     </svg>
 );
 

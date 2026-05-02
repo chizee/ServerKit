@@ -9,11 +9,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -162,7 +161,12 @@ func New(cfg *config.Config, log *logger.Logger) (*Agent, error) {
 		subscriptions: make(map[string]context.CancelFunc),
 		handlers:      make(map[string]CommandHandler),
 		startTime:     time.Now(),
-		restartCh:     make(chan struct{}),
+		// Buffered so an IPC restart fired before the agent's main
+		// select{} reaches the receive doesn't hang the IPC handler.
+		// At most one restart can be in-flight at a time anyway —
+		// Restart() uses a non-blocking send and returns "already in
+		// progress" if the slot is full.
+		restartCh:     make(chan struct{}, 1),
 	}
 
 	// Probe capabilities up-front so connectionWatcher can ship them on
@@ -307,7 +311,17 @@ func (a *Agent) registerHandlers() {
 	a.handlers[protocol.ActionSystemdListUnits] = a.handleSystemdListUnits
 	a.handlers[protocol.ActionSystemdLogs] = a.handleSystemdLogs
 	a.handlers[protocol.ActionSystemdLogsFollow] = a.handleSystemdLogsFollow
-	a.handlers[protocol.ActionSystemExec] = a.handleSystemExec
+
+	// system:exec is gated on Features.Exec rather than registered
+	// unconditionally — the previous version installed the handler
+	// regardless of the feature flag, which made the flag misleading
+	// (Exec=false still let the panel run any command). The handler
+	// itself enforces this too, but failing fast at registration means
+	// the panel sees a clean "unknown action" instead of a runtime
+	// error and can disable the feature in its UI.
+	if a.cfg.Features.Exec {
+		a.handlers[protocol.ActionSystemExec] = a.handleSystemExec
+	}
 
 	// Agent commands
 	a.handlers[protocol.ActionAgentUpdate] = a.handleAgentUpdate
@@ -340,8 +354,18 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.log.Info("Starting agent",
 		"agent_id", a.cfg.Agent.ID,
 		"version", Version,
-		"features", fmt.Sprintf("docker=%v metrics=%v ipc=%v", a.cfg.Features.Docker, a.cfg.Features.Metrics, a.cfg.IPC.Enabled),
+		"features", fmt.Sprintf("docker=%v metrics=%v ipc=%v exec=%v file_access=%v", a.cfg.Features.Docker, a.cfg.Features.Metrics, a.cfg.IPC.Enabled, a.cfg.Features.Exec, a.cfg.Features.FileAccess),
 	)
+	// Surface insecure-TLS at WARN every startup so a misconfigured
+	// deployment script can't silently disable certificate verification
+	// across every TLS dial in the agent (we have four independent
+	// tls.Configs respecting this env var). The user explicitly opted
+	// in via env var, so don't refuse to start — just make it loud.
+	if os.Getenv("SERVERKIT_INSECURE_TLS") == "true" {
+		a.log.Warn("SERVERKIT_INSECURE_TLS=true: TLS certificate verification is DISABLED for all panel connections; only use this for local development")
+		a.events.Append(events.KindInfo, events.SeverityWarn,
+			"Insecure TLS mode enabled (SERVERKIT_INSECURE_TLS)", nil)
+	}
 	a.events.Append(events.KindServiceStart, events.SeverityInfo,
 		"Agent service started",
 		map[string]interface{}{"version": Version})
@@ -432,6 +456,21 @@ func (a *Agent) discoveryLoop(ctx context.Context) {
 			conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 			n, remoteAddr, err := conn.ReadFromUDP(buf)
 			if err != nil {
+				// A read deadline timeout is the normal case (no
+				// inbound discovery this second) — fall through and
+				// wait again. A real socket error (closed FD, ICMP
+				// unreachable storms) used to busy-loop here at
+				// 100% CPU; sleep briefly so the loop doesn't spin
+				// while still being responsive to ctx cancellation.
+				if ne, ok := err.(net.Error); ok && ne.Timeout() {
+					continue
+				}
+				a.log.Debug("UDP discovery read error", "error", err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(250 * time.Millisecond):
+				}
 				continue
 			}
 
@@ -768,9 +807,11 @@ func (a *Agent) handleCommand(data []byte) {
 		return
 	}
 
-	// Execute command with enforced maximum timeout
+	// Execute command with enforced maximum timeout. The ceiling is
+	// configurable via Security.MaxExecTimeout; resolveMaxExecTimeout
+	// returns the operator's value or the default safety net.
 	start := time.Now()
-	maxTimeout := 5 * time.Minute
+	maxTimeout := a.resolveMaxExecTimeout()
 	cmdTimeout := time.Duration(cmd.Timeout) * time.Millisecond
 
 	if cmdTimeout <= 0 || cmdTimeout > maxTimeout {
@@ -897,8 +938,16 @@ func (a *Agent) streamMetrics(ctx context.Context, channel string) {
 	}
 }
 
-// cleanup performs cleanup on shutdown
-// handleCredentialUpdate handles credential rotation from server
+// handleCredentialUpdate handles credential rotation from server.
+//
+// Before applying the rotation we verify an HMAC over the new
+// credentials computed with the agent's current secret. The session-
+// level WS auth alone is not sufficient: the panel is a large surface
+// and a session token leak (or a panel-side bug that lets an
+// authenticated user cross server boundaries) would otherwise let an
+// attacker rotate any agent's credentials to ones they control. The
+// extra check means an attacker has to also know the agent's current
+// secret — which is exactly what we're trying to protect.
 func (a *Agent) handleCredentialUpdate(data []byte) {
 	var msg protocol.CredentialUpdateMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
@@ -907,6 +956,21 @@ func (a *Agent) handleCredentialUpdate(data []byte) {
 	}
 
 	a.log.Info("Received credential update request", "rotation_id", msg.RotationID)
+
+	if err := a.verifyCredentialRotation(msg); err != nil {
+		a.log.Warn("Rejecting credential rotation", "rotation_id", msg.RotationID, "error", err)
+		a.events.Append(events.KindAuthFailed, events.SeverityWarn,
+			"Credential rotation rejected: "+err.Error(),
+			map[string]interface{}{"rotation_id": msg.RotationID})
+		ack := protocol.CredentialUpdateAck{
+			Message:    protocol.NewMessage(protocol.TypeCredentialUpdateAck, auth.GenerateNonce()),
+			RotationID: msg.RotationID,
+			Success:    false,
+			Error:      err.Error(),
+		}
+		a.ws.Send(ack)
+		return
+	}
 
 	// Update authenticator with new credentials
 	a.auth.UpdateCredentials(msg.APIKey, msg.APISecret)
@@ -928,6 +992,35 @@ func (a *Agent) handleCredentialUpdate(data []byte) {
 	}
 
 	a.ws.Send(ack)
+}
+
+// verifyCredentialRotation checks the HMAC the panel attaches to a
+// rotation message against the agent's current secret. Returns nil
+// only when the signature is present, well-formed, and matches.
+//
+// The panel must compute hex(HMAC-SHA256(
+//     "rotation_id:agent_id:new_api_key:new_api_secret",
+//     current_api_secret)).
+func (a *Agent) verifyCredentialRotation(msg protocol.CredentialUpdateMessage) error {
+	if msg.RotationID == "" || msg.APIKey == "" || msg.APISecret == "" {
+		return fmt.Errorf("rotation message missing required fields")
+	}
+	if msg.HMACSig == "" {
+		return fmt.Errorf("rotation message missing hmac signature")
+	}
+	currentSecret := a.auth.GetAPISecret()
+	if currentSecret == "" {
+		return fmt.Errorf("agent has no current secret; refusing to rotate")
+	}
+	payload := fmt.Sprintf("%s:%s:%s:%s",
+		msg.RotationID, a.cfg.Agent.ID, msg.APIKey, msg.APISecret)
+	mac := hmac.New(sha256.New, []byte(currentSecret))
+	mac.Write([]byte(payload))
+	expected := hex.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(msg.HMACSig), []byte(expected)) {
+		return fmt.Errorf("hmac signature mismatch")
+	}
+	return nil
 }
 
 // saveCredentials saves new credentials to the key file
@@ -1068,13 +1161,20 @@ func (a *Agent) handleDockerContainerLogs(ctx context.Context, params json.RawMe
 	}
 	defer reader.Close()
 
-	// Read logs into buffer
-	buf := make([]byte, 1024*1024) // 1MB max
-	n, _ := reader.Read(buf)
-	logs := string(buf[:n])
+	// Drain the stream up to a 1 MB cap. The previous implementation
+	// did a single Read() and dropped the error — Docker's stream
+	// framing means one Read returns whatever happens to be in the
+	// first chunk (often a few KB), so the panel's "logs" command
+	// got a tiny prefix of the requested tail. io.ReadAll over a
+	// LimitReader gives the panel the full payload it asked for.
+	const maxLogBytes = 1024 * 1024
+	data, err := io.ReadAll(io.LimitReader(reader, maxLogBytes))
+	if err != nil {
+		return nil, fmt.Errorf("read docker logs: %w", err)
+	}
 
 	return map[string]interface{}{
-		"logs": logs,
+		"logs": string(data),
 	}, nil
 }
 
@@ -1167,158 +1267,7 @@ func (a *Agent) handleSystemProcesses(ctx context.Context, params json.RawMessag
 	return a.metrics.ListProcesses(ctx)
 }
 
-// File command handlers
-
-func (a *Agent) handleFileRead(ctx context.Context, params json.RawMessage) (interface{}, error) {
-	var p struct {
-		Path string `json:"path"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	if p.Path == "" {
-		return nil, fmt.Errorf("path is required")
-	}
-	if err := a.validateFileAccess(p.Path); err != nil {
-		return nil, err
-	}
-
-	data, err := os.ReadFile(p.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	return map[string]interface{}{
-		"path":    p.Path,
-		"content": base64.StdEncoding.EncodeToString(data),
-		"size":    len(data),
-	}, nil
-}
-
-func (a *Agent) handleFileWrite(ctx context.Context, params json.RawMessage) (interface{}, error) {
-	var p struct {
-		Path       string `json:"path"`
-		Content    string `json:"content"` // base64 encoded
-		Mode       uint32 `json:"mode"`
-		CreateDirs bool   `json:"create_dirs"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	if p.Path == "" {
-		return nil, fmt.Errorf("path is required")
-	}
-	if err := a.validateFileAccess(p.Path); err != nil {
-		return nil, err
-	}
-
-	data, err := base64.StdEncoding.DecodeString(p.Content)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base64 content: %w", err)
-	}
-
-	mode := os.FileMode(0644)
-	if p.Mode != 0 {
-		mode = os.FileMode(p.Mode)
-	}
-
-	if p.CreateDirs {
-		if err := os.MkdirAll(filepath.Dir(p.Path), 0755); err != nil {
-			return nil, fmt.Errorf("failed to create parent directories: %w", err)
-		}
-	}
-
-	if err := os.WriteFile(p.Path, data, mode); err != nil {
-		return nil, fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return map[string]interface{}{
-		"success": true,
-		"path":    p.Path,
-		"size":    len(data),
-	}, nil
-}
-
-func (a *Agent) handleFileList(ctx context.Context, params json.RawMessage) (interface{}, error) {
-	var p struct {
-		Path string `json:"path"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("invalid params: %w", err)
-	}
-	if p.Path == "" {
-		p.Path = "/"
-	}
-	if err := a.validateFileAccess(p.Path); err != nil {
-		return nil, err
-	}
-
-	entries, err := os.ReadDir(p.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list directory: %w", err)
-	}
-
-	var files []map[string]interface{}
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		files = append(files, map[string]interface{}{
-			"name":     entry.Name(),
-			"is_dir":   entry.IsDir(),
-			"size":     info.Size(),
-			"modified": info.ModTime().UnixMilli(),
-		})
-	}
-
-	return map[string]interface{}{
-		"path":  p.Path,
-		"files": files,
-	}, nil
-}
-
-func (a *Agent) validateFileAccess(path string) error {
-	allowedPaths := a.cfg.Security.AllowedPaths
-	if len(allowedPaths) == 0 {
-		return fmt.Errorf("file access denied: no allowed_paths configured")
-	}
-
-	target, err := filepath.Abs(filepath.Clean(path))
-	if err != nil {
-		return fmt.Errorf("invalid path: %w", err)
-	}
-
-	for _, allowedPath := range allowedPaths {
-		if strings.TrimSpace(allowedPath) == "" {
-			continue
-		}
-		allowed, err := filepath.Abs(filepath.Clean(allowedPath))
-		if err != nil {
-			continue
-		}
-
-		if pathWithinAllowedRoot(target, allowed) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("file access denied for path: %s", path)
-}
-
-func pathWithinAllowedRoot(target, allowed string) bool {
-	if runtime.GOOS == "windows" {
-		target = strings.ToLower(target)
-		allowed = strings.ToLower(allowed)
-	}
-
-	if target == allowed {
-		return true
-	}
-
-	allowedWithSeparator := strings.TrimRight(allowed, string(os.PathSeparator)) + string(os.PathSeparator)
-	return strings.HasPrefix(target, allowedWithSeparator)
-}
+// File command handlers live in file_handlers.go.
 
 // Docker Compose command handlers
 

@@ -44,9 +44,14 @@ export async function pingServer(id) {
 }
 
 // Server Registration
-export async function generateRegistrationToken(serverId) {
+//
+// Optionally pass { expires_in } to control token lifetime in seconds.
+// -1 means "never expires"; missing means the panel default (7 days).
+// Response includes connection_string + registration_token + registration_expires.
+export async function generateRegistrationToken(serverId, body = {}) {
     return this.request(`/servers/${serverId}/regenerate-token`, {
-        method: 'POST'
+        method: 'POST',
+        body
     });
 }
 

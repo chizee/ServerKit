@@ -371,12 +371,25 @@ const (
 	ChannelJob = "job:%s"
 )
 
-// CredentialUpdateMessage is sent by server to rotate credentials
+// CredentialUpdateMessage is sent by server to rotate credentials.
+//
+// HMACSig is computed by the panel as
+//   hex(HMAC-SHA256("rotation_id:agent_id:new_api_key:new_api_secret",
+//                   current_api_secret))
+// where current_api_secret is the agent's secret prior to rotation.
+// The agent recomputes this with its own current secret and rejects
+// the rotation if they don't match. This prevents a panel session
+// hijack from silently rotating an agent's credential set to ones an
+// attacker controls — the existing socket-level auth is necessary but
+// not sufficient because the panel has many ways to issue messages
+// downward and we want defence-in-depth specifically on the rotation
+// path.
 type CredentialUpdateMessage struct {
 	Message
 	RotationID string `json:"rotation_id"`
 	APIKey     string `json:"api_key"`
 	APISecret  string `json:"api_secret"`
+	HMACSig    string `json:"hmac_sig"`
 }
 
 // CredentialUpdateAck is sent by agent after updating credentials

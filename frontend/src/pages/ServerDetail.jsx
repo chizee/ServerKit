@@ -104,35 +104,26 @@ const ServerDetail = () => {
         }
     }
 
-    async function handleRegenerateToken() {
-        const tokenConfirmed = await confirm({ title: 'Regenerate Token', message: 'Generate a new registration token? The old token will be invalidated.', variant: 'warning' });
-        if (!tokenConfirmed) return;
-
-        try {
-            const result = await api.generateRegistrationToken(id);
-            toast.success('New registration token generated');
-            setServer(prev => ({
-                ...prev,
-                registration_token: result.registration_token,
-                registration_expires: result.registration_expires
-            }));
-        } catch (err) {
-            toast.error(err.message || 'Failed to generate token');
-        }
+    // Both the inline "Generate Token" header button and the SettingsTab
+    // regenerate button funnel through the same modal — the modal owns the
+    // expiry picker and the connection-string display, so the header path
+    // doesn't need its own confirm dialog. Reaching the modal effectively
+    // *is* the confirmation: the actual token mint happens when the user
+    // clicks "Generate" inside it.
+    async function handleOpenTokenModal() {
+        setShowTokenModal(true);
     }
 
-    async function handleGenerateToken() {
-        try {
-            const result = await api.generateRegistrationToken(id);
-            setServer(prev => ({
-                ...prev,
-                registration_token: result.registration_token,
-                registration_expires: result.registration_expires
-            }));
-            setShowTokenModal(true);
-        } catch (err) {
-            toast.error(err.message || 'Failed to generate token');
-        }
+    function handleTokenGenerated(result) {
+        // Mirror the new token onto the in-memory server so the existing
+        // AgentRegistrationSection (rendered in SettingsTab) reflects it
+        // without a full reload.
+        setServer(prev => ({
+            ...prev,
+            registration_token: result.registration_token,
+            registration_expires: result.registration_expires,
+            connection_string: result.connection_string,
+        }));
     }
 
     if (loading) {
@@ -190,6 +181,17 @@ const ServerDetail = () => {
                     <div className="server-detail-header__identity">
                         <div className="server-detail-header__title-row">
                             <h1>{server.name}</h1>
+                            <CopyChip
+                                label="name"
+                                value={server.name}
+                                title="Copy server name"
+                            />
+                            <CopyChip
+                                label="id"
+                                value={server.id}
+                                title="Copy server ID"
+                                mono
+                            />
                             <span className={`status-pill status-pill--${server.status || 'pending'}`}>
                                 <span className="status-pill__dot" />
                                 {server.status || 'pending'}
@@ -228,8 +230,8 @@ const ServerDetail = () => {
                     <Button variant="outline" asChild>
                         <Link to={`/servers/${id}/docker`}>Docker</Link>
                     </Button>
-                    <Button onClick={handleGenerateToken}>
-                        <KeyIcon /> Generate Token
+                    <Button onClick={handleOpenTokenModal}>
+                        <KeyIcon /> Connection String
                     </Button>
                 </div>
             </header>
@@ -285,7 +287,7 @@ const ServerDetail = () => {
                         <SettingsTab
                             server={server}
                             onUpdate={loadServer}
-                            onRegenerateToken={handleRegenerateToken}
+                            onRegenerateToken={handleOpenTokenModal}
                             onDelete={handleDeleteServer}
                         />
                     </TabsContent>
@@ -296,6 +298,7 @@ const ServerDetail = () => {
                 <TokenModal
                     server={server}
                     onClose={() => setShowTokenModal(false)}
+                    onGenerated={handleTokenGenerated}
                 />
             )}
             <ConfirmDialog
@@ -1463,76 +1466,23 @@ const MetricsTab = ({ serverId, metrics }) => {
 
 
 const AgentRegistrationSection = ({ server, onRegenerateToken }) => {
-    const [copied, setCopied] = useState(false);
-    const toast = useToast();
-
-    const token = server.registration_token;
     const expires = server.registration_expires;
     const isExpired = expires && new Date(expires) < new Date();
-
-    const linuxScript = token ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\
-  --server "${window.location.origin}" \\
-  --token "${token}"` : '';
-
-    const windowsScript = token ? `irm ${window.location.origin}/api/v1/servers/install.ps1 | iex
-Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : '';
-
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        toast.success('Copied to clipboard');
-        setTimeout(() => setCopied(false), 2000);
-    }
+    const isOnline = server.status === 'online';
 
     return (
         <div className="form-section">
-            <h3>Agent Installation</h3>
-
-            {token && !isExpired ? (
-                <div className="install-active">
-                    <div className="token-status">
-                        <span className="token-status-dot active" />
-                        <span>Token active — expires {new Date(expires).toLocaleString()}</span>
-                    </div>
-
-                    <div className="install-script-block">
-                        <div className="install-script-header">
-                            <TerminalIcon />
-                            <span>Linux</span>
-                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(linuxScript)}>
-                                <CopyIcon /> Copy
-                            </Button>
-                        </div>
-                        <pre className="install-script-code">{linuxScript}</pre>
-                    </div>
-
-                    <div className="install-script-block">
-                        <div className="install-script-header">
-                            <WindowsIcon />
-                            <span>Windows (PowerShell)</span>
-                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(windowsScript)}>
-                                <CopyIcon /> Copy
-                            </Button>
-                        </div>
-                        <pre className="install-script-code">{windowsScript}</pre>
-                    </div>
-
-                    <Button variant="outline" onClick={onRegenerateToken}>
-                        <RefreshIcon /> Regenerate Token
-                    </Button>
-                </div>
-            ) : (
-                <div className="install-inactive">
-                    <p className="section-description">
-                        {isExpired
-                            ? 'The registration token has expired. Generate a new one to install or reinstall the agent.'
-                            : 'Generate a registration token to install the agent on your server.'}
-                    </p>
-                    <Button onClick={onRegenerateToken}>
-                        <KeyIcon /> Generate Token
-                    </Button>
-                </div>
-            )}
+            <h3>Connection String</h3>
+            <p className="section-description">
+                Generate a fresh connection string to pair (or re-pair) this server.
+                Useful after reinstalling the agent — old credentials are gone, but a
+                new string brings the agent right back to this row.
+                {isOnline && ' This server is currently online; regenerating only affects re-pairing.'}
+                {isExpired && ' The previous token has expired.'}
+            </p>
+            <Button onClick={onRegenerateToken}>
+                <KeyIcon /> Generate Connection String
+            </Button>
         </div>
     );
 };
@@ -1898,84 +1848,177 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
 };
 
 
-const TokenModal = ({ server, onClose }) => {
+// Token-lifetime presets shown in the regenerate modal. Mirrors the values
+// the Add Server modal uses (frontend/src/pages/Servers.jsx). Keep them in
+// sync if you tweak either list.
+const TOKEN_EXPIRY_OPTIONS = [
+    { label: '1 hour',   value: 60 * 60 },
+    { label: '24 hours', value: 24 * 60 * 60 },
+    { label: '7 days',   value: 7 * 24 * 60 * 60 },
+    { label: '30 days',  value: 30 * 24 * 60 * 60 },
+    { label: 'Never',    value: -1 },
+];
+
+const TokenModal = ({ server, onClose, onGenerated }) => {
     const toast = useToast();
-    const token = server.registration_token;
-    const expires = server.registration_expires;
+    const [expiresIn, setExpiresIn] = useState(7 * 24 * 60 * 60);
+    const [generating, setGenerating] = useState(false);
+    // Result of the most recent generation in *this* modal session. We
+    // don't fall back to server.connection_string because the panel only
+    // ever returns the connection string at create/regenerate time — once
+    // the modal closes, the value is gone, so showing a stale one would
+    // be misleading.
+    const [result, setResult] = useState(null);
 
-    const linuxScript = token ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\
-  --server "${window.location.origin}" \\
-  --token "${token}"` : '';
-
-    const windowsScript = token ? `irm ${window.location.origin}/api/v1/servers/install.ps1 | iex
-Install-ServerKitAgent -Server "${window.location.origin}" -Token "${token}"` : '';
+    async function handleGenerate() {
+        setGenerating(true);
+        try {
+            const data = await api.generateRegistrationToken(server.id, { expires_in: expiresIn });
+            setResult(data);
+            onGenerated?.(data);
+            toast.success('Connection string generated');
+        } catch (err) {
+            toast.error(err.message || 'Failed to generate connection string');
+        } finally {
+            setGenerating(false);
+        }
+    }
 
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text);
         toast.success('Copied to clipboard');
     }
 
+    const linuxScript = result ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\
+  --server "${window.location.origin}" \\
+  --token "${result.registration_token}"` : '';
+    const windowsScript = result ? `irm ${window.location.origin}/api/v1/servers/install.ps1 | iex
+Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.registration_token}"` : '';
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>Agent Installation Token</h2>
+                    <h2>Connection String</h2>
                     <button className="modal-close" onClick={onClose}>&times;</button>
                 </div>
+
                 <div className="install-instructions">
-                    <div className="token-status">
-                        <span className="token-status-dot active" />
-                        <span>Token active — expires {new Date(expires).toLocaleString()}</span>
-                    </div>
+                    {!result ? (
+                        <>
+                            <p className="section-description">
+                                Generate a single pasteable string the agent can consume.
+                                The token inside is single-use — burned the moment any
+                                agent registers with it.
+                            </p>
 
-                    <div className="install-tabs">
-                        <div className="install-tab">
-                            <div className="install-tab-header">
-                                <TerminalIcon />
-                                <div className="install-tab-title">
-                                    <span>Linux</span>
-                                    <span className="install-tab-description">Linux server with curl, tar, sudo, and systemd</span>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Token expires</label>
+                                    <select
+                                        value={expiresIn}
+                                        onChange={(e) => setExpiresIn(Number(e.target.value))}
+                                    >
+                                        {TOKEN_EXPIRY_OPTIONS.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(linuxScript)}>
-                                    <CopyIcon /> Copy
+                            </div>
+
+                            <div className="modal-actions">
+                                <Button variant="outline" onClick={onClose}>Cancel</Button>
+                                <Button onClick={handleGenerate} disabled={generating}>
+                                    {generating ? 'Generating…' : 'Generate'}
                                 </Button>
                             </div>
-                            <pre className="install-script">{linuxScript}</pre>
-                        </div>
-
-                        <div className="install-tab">
-                            <div className="install-tab-header">
-                                <WindowsIcon />
-                                <div className="install-tab-title">
-                                    <span>Windows (PowerShell)</span>
-                                    <span className="install-tab-description">Run as Administrator</span>
-                                </div>
-                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(windowsScript)}>
-                                    <CopyIcon /> Copy
-                                </Button>
+                        </>
+                    ) : (
+                        <>
+                            <div className="token-status">
+                                <span className="token-status-dot active" />
+                                <span>
+                                    Active — expires {new Date(result.registration_expires).toLocaleString()}
+                                </span>
                             </div>
-                            <pre className="install-script">{windowsScript}</pre>
-                        </div>
-                    </div>
 
-                    <div className="install-info">
-                        <h4>What happens next?</h4>
-                        <ol>
-                            <li>Copy and run the install script on your server</li>
-                            <li>The agent downloads, installs, and registers automatically</li>
-                            <li>Your server will appear as <strong>Pending</strong> until the agent connects, then switch to <strong>Online</strong></li>
-                        </ol>
-                        <p className="text-muted">
-                            The registration token expires in 24 hours. You can regenerate it from the server settings page.
-                        </p>
-                    </div>
+                            <div className="connection-string-field">
+                                <div className="connection-string-field__header">
+                                    <KeyIcon />
+                                    <span>Connection string</span>
+                                    <Button variant="outline" size="sm" onClick={() => copyToClipboard(result.connection_string)}>
+                                        <CopyIcon /> Copy
+                                    </Button>
+                                </div>
+                                <pre className="connection-string-field__value">{result.connection_string}</pre>
+                            </div>
 
-                    <div className="modal-actions">
-                        <Button onClick={onClose}>Close</Button>
-                    </div>
+                            <details className="install-fallback">
+                                <summary>Need to install the agent first? Use the one-liner installer.</summary>
+                                <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
+                                    <div className="install-tab">
+                                        <div className="install-tab-header">
+                                            <TerminalIcon />
+                                            <div className="install-tab-title">
+                                                <span>Linux</span>
+                                                <span className="install-tab-description">curl, tar, sudo, and systemd</span>
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(linuxScript)}>
+                                                <CopyIcon /> Copy
+                                            </Button>
+                                        </div>
+                                        <pre className="install-script">{linuxScript}</pre>
+                                    </div>
+                                    <div className="install-tab">
+                                        <div className="install-tab-header">
+                                            <WindowsIcon />
+                                            <div className="install-tab-title">
+                                                <span>Windows (PowerShell)</span>
+                                                <span className="install-tab-description">Run as Administrator</span>
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(windowsScript)}>
+                                                <CopyIcon /> Copy
+                                            </Button>
+                                        </div>
+                                        <pre className="install-script">{windowsScript}</pre>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <div className="modal-actions">
+                                <Button variant="outline" onClick={() => setResult(null)}>
+                                    Generate another
+                                </Button>
+                                <Button onClick={onClose}>Done</Button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
+    );
+};
+
+const CopyChip = ({ label, value, title, mono }) => {
+    const toast = useToast();
+    const handleCopy = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!value) return;
+        navigator.clipboard.writeText(value);
+        toast.success(`${label[0].toUpperCase()}${label.slice(1)} copied`);
+    };
+    return (
+        <button
+            type="button"
+            className={`copy-chip${mono ? ' copy-chip--mono' : ''}`}
+            onClick={handleCopy}
+            title={title || `Copy ${label}`}
+        >
+            <span className="copy-chip__label">{label}</span>
+            <code className="copy-chip__value">{value}</code>
+            <CopyIcon />
+        </button>
     );
 };
 

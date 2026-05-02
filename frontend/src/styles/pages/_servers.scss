@@ -775,6 +775,12 @@
 
     &__body {
         display: grid;
+        // Pack rows to the top. Grid's default align-content is
+        // "stretch", which makes every form-group expand to fill the
+        // drawer height when the form is shorter than the panel —
+        // that's the source of the huge vertical gaps between Pair
+        // code / Passphrase / Server name when the drawer is tall.
+        align-content: start;
         gap: $space-4;
         padding: $space-5 $space-6;
         overflow-y: auto;
@@ -2164,6 +2170,61 @@
     word-break: break-all;
 }
 
+// Hero block on the "connection string ready" screen and the regenerate
+// drawer. Keeps the one pasteable blob visually heavier than the install
+// scripts (which are now an "I haven't installed the agent yet" fallback).
+.connection-string-field {
+    margin-top: $space-5;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-lg;
+    background: $bg-elevated;
+    overflow: hidden;
+}
+
+.connection-string-field__header {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+    background: $bg-card;
+    border-bottom: 1px solid $border-subtle;
+
+    > span {
+        flex: 1;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-semibold;
+        color: $text-primary;
+    }
+}
+
+.connection-string-field__value {
+    padding: $space-4 $space-5;
+    margin: 0;
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    line-height: $line-height-relaxed;
+    color: $text-primary;
+    background: $bg-body;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.install-fallback {
+    margin-top: $space-5;
+
+    summary {
+        cursor: pointer;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        padding: $space-2 0;
+
+        &:hover {
+            color: $text-primary;
+        }
+    }
+}
+
 .install-info {
     margin-top: $space-6;
     padding: $space-5;
@@ -2832,6 +2893,53 @@
             letter-spacing: -0.02em;
             color: $text-primary;
             font-weight: $font-weight-semibold;
+        }
+    }
+
+    .copy-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-2;
+        padding: 2px $space-2;
+        background: $bg-elevated;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-md;
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        cursor: pointer;
+        transition: all 0.12s ease;
+
+        &:hover {
+            color: $text-primary;
+            border-color: $border-active;
+            background: $bg-card;
+        }
+
+        &__label {
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: $font-weight-semibold;
+            color: $text-tertiary;
+        }
+
+        &__value {
+            color: $text-secondary;
+            font-family: $font-mono;
+            font-size: $font-size-xs;
+            background: transparent;
+            padding: 0;
+            max-width: 22ch;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        &--mono &__value {
+            font-size: 11px;
+        }
+
+        svg {
+            opacity: 0.6;
         }
     }
 
