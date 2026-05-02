@@ -1,50 +1,47 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
-import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center text-center gap-2 whitespace-nowrap rounded-md text-sm font-medium leading-none transition-all disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg:not([class*="size-"])]:size-4 shrink-0 cursor-pointer',
-  {
-    variants: {
-      variant: {
-        default:     'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90',
-        outline:     'border border-border bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground',
-        secondary:   'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
-        ghost:       'hover:bg-accent hover:text-accent-foreground',
-        link:        'text-primary underline-offset-4 hover:underline',
-      },
-      size: {
-        default: 'h-10 min-w-24 px-5 py-0',
-        sm:      'h-8 min-w-[4.5rem] rounded-md gap-1.5 px-3.5 py-0 text-xs',
-        lg:      'h-11 min-w-32 rounded-lg px-7 py-0 text-base',
-        icon:    'size-10 min-w-0 p-0 [&_svg:not([class*="size-"])]:size-[18px]',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
-    compoundVariants: [
-      {
-        variant: 'ghost',
-        size: 'icon',
-        className: 'border border-border bg-transparent text-muted-foreground shadow-xs hover:bg-accent hover:text-accent-foreground',
-      },
-    ],
-  }
-);
+// Map shadcn-style `variant` prop to our SCSS .btn-* classes.
+// SCSS owns all geometry, color and hover state — see styles/components/_buttons.scss
+const VARIANT_CLASS = {
+  default:     'btn-primary',
+  primary:     'btn-primary',
+  destructive: 'btn-danger',
+  danger:      'btn-danger',
+  outline:     'btn-secondary',
+  secondary:   'btn-soft',
+  ghost:       'btn-ghost',
+  link:        'btn-link',
+};
+
+const SIZE_CLASS = {
+  default: '',
+  md:      '',
+  sm:      'btn-sm',
+  lg:      'btn-lg',
+  icon:    'btn-icon',
+};
+
+function buttonVariants({ variant = 'default', size = 'default', className } = {}) {
+  return cn(
+    'btn',
+    VARIANT_CLASS[variant] ?? VARIANT_CLASS.default,
+    SIZE_CLASS[size] ?? '',
+    className,
+  );
+}
 
 function Button({ className, variant, size, asChild = false, ...props }) {
   const Comp = asChild ? Slot : 'button';
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={buttonVariants({ variant, size, className })}
       {...props}
     />
   );
 }
 
 export { Button, buttonVariants };
+

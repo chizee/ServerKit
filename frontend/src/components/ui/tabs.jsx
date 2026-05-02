@@ -161,7 +161,7 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
           <PopoverContent
             align="end"
             sideOffset={6}
-            className="w-auto min-w-[12rem] p-1"
+            className="ui-popover-content"
           >
             <div className="tabs-overflow-list">
               {hiddenIndices.map((idx) => {
