@@ -1,77 +1,84 @@
 /**
- * PluginLoader - Dynamically loads installed plugin components.
+ * PluginLoader - Renders installed plugin widgets in the global slot.
  *
- * Uses Vite's import.meta.glob to discover plugin entry points at build time.
- * Plugins installed via the plugin system are placed in src/plugins/<slug>/
- * and their components are auto-discovered here.
+ * Two ways a plugin can show a widget:
  *
- * Each plugin's index.js should export:
- *   - A default component (the widget/UI to render)
- *   - Optionally a Provider component for context wrapping
+ *   1. Declarative (preferred): manifest contributions block —
+ *        "contributions": { "widgets": [{ "slot": "global",
+ *                                          "component": "MyWidget" }] }
+ *      The host fetches contributions at runtime and resolves the
+ *      `component` name against the plugin's index module exports.
+ *
+ *   2. Legacy auto-render: any plugin with a default export from
+ *      index.js gets rendered globally with no manifest required.
+ *      Kept for backward compatibility with plugins that predate
+ *      the contribution model.
+ *
+ * Plugins that declare a widget contribution opt out of the legacy
+ * auto-render to avoid double-rendering.
  */
-import React, { Suspense, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useContributions, resolveComponent, getPluginModule } from './contributions';
 
-// Vite glob import: discovers all plugin index.js files at build time
-// Each returns { default: Component, Provider?: Component }
-const pluginModules = import.meta.glob('./**/index.js', { eager: true });
+const pluginModules = import.meta.glob('./*/index.{js,jsx}', { eager: true });
 
-/**
- * Get all discovered plugins with their components.
- */
 export function getInstalledPlugins() {
     const plugins = [];
-
     for (const [path, mod] of Object.entries(pluginModules)) {
-        // path looks like "./serverkit-ai/index.js"
-        const match = path.match(/^\.\/([^/]+)\/index\.js$/);
+        const match = path.match(/^\.\/([^/]+)\/index\.(?:js|jsx)$/);
         if (!match) continue;
-
         const slug = match[1];
-        // Skip internal files
-        if (slug === 'PluginLoader') continue;
-
+        if (slug === 'PluginLoader' || slug === 'sdk') continue;
         plugins.push({
             slug,
-            Component: mod.default || mod.AiAssistant || null,
-            Provider: mod.AiAssistantProvider || mod.Provider || null,
+            Component: mod.default || null,
+            Provider: mod.Provider || null,
             module: mod,
         });
     }
-
     return plugins;
 }
 
-/**
- * Renders all installed plugin widgets.
- * Wraps each in its Provider if one is exported.
- *
- * @param {object} props
- * @param {object} props.api - The ApiService instance to pass to plugins
- */
 const PluginLoader = ({ api }) => {
-    const plugins = useMemo(() => getInstalledPlugins(), []);
+    const { widgets } = useContributions();
+    const legacyPlugins = useMemo(() => getInstalledPlugins(), []);
 
-    if (plugins.length === 0) return null;
+    // Plugins that declare a widget contribution own their rendering
+    // through that path; skip the legacy auto-render for them.
+    const slugsWithDeclared = useMemo(() => {
+        const set = new Set();
+        for (const w of widgets || []) {
+            if (w && w.plugin) set.add(w.plugin);
+        }
+        return set;
+    }, [widgets]);
 
-    return (
-        <>
-            {plugins.map(({ slug, Component, Provider }) => {
-                if (!Component) return null;
+    const declaredWidgets = (widgets || [])
+        .filter((w) => w && (w.slot || 'global') === 'global')
+        .map((w, i) => {
+            const Component = resolveComponent(w.plugin, w.component);
+            if (!Component) return null;
+            const mod = getPluginModule(w.plugin);
+            const Provider = (mod && mod.Provider) || null;
+            const node = <Component key={`${w.plugin}:${w.component}:${i}`} api={api} />;
+            return Provider
+                ? <Provider key={`provider:${w.plugin}:${i}`}>{node}</Provider>
+                : node;
+        })
+        .filter(Boolean);
 
-                const widget = <Component key={slug} api={api} />;
+    const legacyWidgets = legacyPlugins
+        .filter(({ slug, Component }) => Component && !slugsWithDeclared.has(slug))
+        .map(({ slug, Component, Provider }) => {
+            const node = <Component key={slug} api={api} />;
+            return Provider
+                ? <Provider key={`legacy-provider:${slug}`}>{node}</Provider>
+                : node;
+        });
 
-                if (Provider) {
-                    return (
-                        <Provider key={`provider-${slug}`}>
-                            {widget}
-                        </Provider>
-                    );
-                }
+    if (declaredWidgets.length === 0 && legacyWidgets.length === 0) return null;
 
-                return widget;
-            })}
-        </>
-    );
+    return <>{declaredWidgets}{legacyWidgets}</>;
 };
 
 export default PluginLoader;

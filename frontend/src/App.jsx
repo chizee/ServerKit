@@ -55,6 +55,8 @@ import StyleGuide from './pages/StyleGuide';
 import AppMap from './pages/AppMap';
 import Documentation from './pages/Documentation';
 import Deployments from './pages/Deployments';
+import useExtensionRoutes from './plugins/ExtensionRoutes';
+import { useContributions } from './plugins/contributions';
 
 // Page title mapping
 const PAGE_TITLES = {
@@ -104,10 +106,11 @@ const PAGE_TITLES = {
 
 function PageTitleUpdater() {
     const location = useLocation();
+    const { page_titles: pluginTitles } = useContributions();
 
     useEffect(() => {
         const path = location.pathname;
-        let title = PAGE_TITLES[path];
+        let title = PAGE_TITLES[path] || (pluginTitles && pluginTitles[path]);
 
         // Handle dynamic routes and tab sub-routes
         if (!title) {
@@ -115,6 +118,8 @@ function PageTitleUpdater() {
             const basePath = '/' + path.split('/')[1];
             if (PAGE_TITLES[basePath]) {
                 title = PAGE_TITLES[basePath];
+            } else if (pluginTitles && pluginTitles[basePath]) {
+                title = pluginTitles[basePath];
             } else if (path.startsWith('/services/')) title = 'Service Details';
             else if (path.startsWith('/apps/')) title = 'Application Details';
             else if (path.startsWith('/servers/')) title = 'Server Details';
@@ -124,7 +129,7 @@ function PageTitleUpdater() {
         }
 
         document.title = title ? `${title} | ServerKit` : 'ServerKit';
-    }, [location]);
+    }, [location, pluginTitles]);
 
     return null;
 }
@@ -183,6 +188,7 @@ function SetupRoute({ children }) {
 }
 
 function AppRoutes() {
+    const extensionRoutes = useExtensionRoutes();
     return (
         <Routes>
             <Route path="/migrate" element={<DatabaseMigration />} />
@@ -276,6 +282,7 @@ function AppRoutes() {
                 <Route path="terminal/:tab" element={<Terminal />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="settings/:tab" element={<Settings />} />
+                {extensionRoutes}
             </Route>
         </Routes>
     );

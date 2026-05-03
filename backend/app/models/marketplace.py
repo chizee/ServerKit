@@ -117,6 +117,28 @@ class ExtensionInstall(db.Model):
         self.config_json = json.dumps(v)
 
     def to_dict(self):
+        # If a marketplace install also created an InstalledPlugin row
+        # (because the marketplace bridge handed off to plugin_service),
+        # surface the linked plugin's status so the UI can distinguish
+        # "metadata-only install" from "files installed and serving" from
+        # "install errored". Lookup is by extension slug (not FK) — same
+        # source URL but kept loose to avoid coupling schemas.
+        linked = None
+        try:
+            from app.models.plugin import InstalledPlugin
+            ext = self.extension
+            if ext:
+                row = InstalledPlugin.query.filter_by(slug=ext.slug).first()
+                if row:
+                    linked = {
+                        'plugin_id': row.id,
+                        'status': row.status,
+                        'has_backend': row.has_backend,
+                        'has_frontend': row.has_frontend,
+                        'error_message': row.error_message,
+                    }
+        except Exception:
+            linked = None
         return {
             'id': self.id,
             'extension_id': self.extension_id,
@@ -124,5 +146,6 @@ class ExtensionInstall(db.Model):
             'installed_version': self.installed_version,
             'config': self.config,
             'is_active': self.is_active,
+            'plugin': linked,
             'installed_at': self.installed_at.isoformat() if self.installed_at else None,
         }

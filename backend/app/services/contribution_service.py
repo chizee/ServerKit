@@ -1,0 +1,68 @@
+"""
+Contribution Service - Aggregate active-plugin contributions for the UI.
+
+A plugin manifest may declare a `contributions` block with any subset of:
+
+    {
+      "nav":            [{ id, label, route, category, icon, ... }],
+      "routes":         [{ path, component }],
+      "page_titles":    { "/some-path": "Title" },
+      "command_palette":[{ label, path, category, keywords }],
+      "widgets":        [{ slot, component }]
+    }
+
+Each entry is tagged with the source plugin's slug so the frontend knows
+which plugin a contribution came from (for error attribution + matching
+the `component` string against modules discovered by import.meta.glob).
+
+Only plugins with status == 'active' contribute. A plugin without a
+contributions block is silently skipped.
+"""
+from app.models.plugin import InstalledPlugin
+
+
+def _tag(items, slug):
+    out = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        item = dict(item)
+        item['plugin'] = slug
+        out.append(item)
+    return out
+
+
+def get_active_contributions():
+    plugins = InstalledPlugin.query.filter_by(
+        status=InstalledPlugin.STATUS_ACTIVE,
+    ).all()
+
+    nav = []
+    routes = []
+    page_titles = {}
+    command_palette = []
+    widgets = []
+
+    for p in plugins:
+        contrib = (p.manifest or {}).get('contributions') or {}
+        if not isinstance(contrib, dict):
+            continue
+
+        nav.extend(_tag(contrib.get('nav'), p.slug))
+        routes.extend(_tag(contrib.get('routes'), p.slug))
+        command_palette.extend(_tag(contrib.get('command_palette'), p.slug))
+        widgets.extend(_tag(contrib.get('widgets'), p.slug))
+
+        titles = contrib.get('page_titles')
+        if isinstance(titles, dict):
+            for path, title in titles.items():
+                if isinstance(path, str) and isinstance(title, str):
+                    page_titles[path] = title
+
+    return {
+        'nav': nav,
+        'routes': routes,
+        'page_titles': page_titles,
+        'command_palette': command_palette,
+        'widgets': widgets,
+    }

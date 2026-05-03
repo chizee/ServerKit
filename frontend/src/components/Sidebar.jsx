@@ -6,6 +6,7 @@ import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, 
 import { api } from '../services/api';
 import ServerKitLogo from './ServerKitLogo';
 import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getVisibleItems, SIDEBAR_ITEMS } from './sidebarItems';
+import { useContributions } from '../plugins/contributions';
 
 const Sidebar = () => {
     const { user, logout, updateUser } = useAuth();
@@ -89,10 +90,22 @@ const Sidebar = () => {
         api.updateCurrentUser({ sidebar_config: config }).catch(() => {});
     };
 
-    const visibleItems = useMemo(
-        () => getVisibleItems(user?.sidebar_config),
-        [user?.sidebar_config]
-    );
+    const { nav: pluginNav } = useContributions();
+
+    const visibleItems = useMemo(() => {
+        const core = getVisibleItems(user?.sidebar_config);
+        // Merge contributed nav items, dedup by id (core wins). Plugins
+        // can claim a category; default to 'system' so they always land
+        // somewhere visible.
+        const existingIds = new Set(core.map((i) => i.id));
+        const fromPlugins = (pluginNav || [])
+            .filter((item) => item && item.id && item.route && !existingIds.has(item.id))
+            .map((item) => ({
+                ...item,
+                category: item.category || 'system',
+            }));
+        return [...core, ...fromPlugins];
+    }, [user?.sidebar_config, pluginNav]);
 
     // Group visible items by category
     const groupedItems = useMemo(() => {

@@ -64,6 +64,7 @@ class InstalledPlugin(db.Model):
         self.manifest_json = json.dumps(v)
 
     def to_dict(self):
+        manifest = self.manifest or {}
         return {
             'id': self.id,
             'name': self.name,
@@ -84,6 +85,13 @@ class InstalledPlugin(db.Model):
             'has_backend': self.has_backend,
             'status': self.status,
             'error_message': self.error_message,
+            # Surface declarative manifest fields so the install UI can
+            # show the user what they're approving without making a
+            # second round-trip to fetch the manifest.
+            'permissions': manifest.get('permissions') or [],
+            'contributions': manifest.get('contributions') or {},
+            'templates': manifest.get('templates') or [],
+            'lifecycle': manifest.get('lifecycle') or {},
             'installed_at': self.installed_at.isoformat() if self.installed_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

@@ -49,3 +49,11 @@ export async function disablePlugin(pluginId) {
         method: 'POST',
     });
 }
+
+// Returns the merged contribution envelope for active plugins:
+//   { nav, routes, page_titles, command_palette, widgets }
+// Each list item carries a `plugin` slug field so the UI can resolve
+// `component` references against the right plugin module.
+export async function getPluginContributions() {
+    return this.request('/plugins/contributions');
+}

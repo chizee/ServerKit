@@ -221,3 +221,104 @@ def disable_plugin(plugin_id):
     if not plugin:
         return jsonify({'error': 'Plugin not found'}), 404
     return jsonify(plugin.to_dict())
+
+
+@plugins_bp.route('/manifest-spec', methods=['GET'])
+@jwt_required()
+def get_manifest_spec():
+    """Return the documented plugin.json contract.
+
+    Used by SDK tooling, marketplace submissions, and the in-panel
+    plugin developer UI to validate a manifest before install. The
+    spec mirrors what `plugin_service` actually consumes — keep them
+    in sync when extending the contract.
+    """
+    return jsonify({
+        'schema_version': '1.0',
+        'required': ['name', 'display_name', 'version'],
+        'fields': {
+            'name': {'type': 'string', 'pattern': '^[a-zA-Z0-9_-]+$',
+                     'description': 'Filesystem-safe slug; also used as URL prefix default.'},
+            'display_name': {'type': 'string'},
+            'slug': {'type': 'string', 'description': 'Optional; defaults to `name`.'},
+            'version': {'type': 'string', 'description': 'Semver recommended.'},
+            'description': {'type': 'string'},
+            'author': {'type': 'string'},
+            'homepage': {'type': 'string'},
+            'repository': {'type': 'string'},
+            'license': {'type': 'string'},
+            'category': {'type': 'string',
+                         'description': "monitoring|security|deployment|integration|ui|utility"},
+            'entry_point': {'type': 'string',
+                            'description': "Backend blueprint ref, format 'module:bp_var'."},
+            'url_prefix': {'type': 'string',
+                           'description': 'Defaults to /api/v1/<slug>.'},
+            'frontend_entry': {'type': 'string',
+                               'description': 'Optional path within the frontend bundle (informational).'},
+            'permissions': {'type': 'array', 'items': {'type': 'string'},
+                            'description': 'Declared host permissions (docker, shell, filesystem, network, db). Informational; surfaced to admins on install.'},
+            'templates': {'type': 'array',
+                          'description': 'App-template ids to install on plugin install. String or {id, app_name?, variables?}.'},
+            'lifecycle': {'type': 'object',
+                          'properties': {
+                              'install': {'type': 'string', 'description': "module:func — runs after install."},
+                              'uninstall': {'type': 'string', 'description': "module:func — runs before uninstall."},
+                          }},
+            'contributions': {
+                'type': 'object',
+                'properties': {
+                    'nav': {'type': 'array', 'description': 'Sidebar items: {id, label, route, category, icon}.'},
+                    'routes': {'type': 'array', 'description': 'SPA routes: {path, component}. component matches a named export of the plugin index module.'},
+                    'page_titles': {'type': 'object', 'description': 'Map of route path → document title.'},
+                    'command_palette': {'type': 'array', 'description': '{label, path, category, keywords}.'},
+                    'widgets': {'type': 'array', 'description': '{slot, component}. slot=global renders globally inside DashboardLayout.'},
+                },
+            },
+        },
+        'example': {
+            'name': 'serverkit-git',
+            'display_name': 'Git Server',
+            'version': '1.0.0',
+            'entry_point': 'blueprint:git_bp',
+            'url_prefix': '/api/v1/git',
+            'permissions': ['docker', 'filesystem'],
+            'templates': ['gitea'],
+            'lifecycle': {'install': 'lifecycle:on_install'},
+            'contributions': {
+                'nav': [{'id': 'git', 'label': 'Git', 'route': '/git',
+                         'category': 'infrastructure',
+                         'icon': '<circle cx="18" cy="18" r="3"/>'}],
+                'routes': [
+                    {'path': 'git', 'component': 'GitPage'},
+                    {'path': 'git/:tab', 'component': 'GitPage'},
+                ],
+                'page_titles': {'/git': 'Git Repositories'},
+                'command_palette': [
+                    {'label': 'Git', 'path': '/git', 'category': 'Pages',
+                     'keywords': 'repos deploy'},
+                ],
+            },
+        },
+    })
+
+
+@plugins_bp.route('/contributions', methods=['GET'])
+@jwt_required()
+def get_contributions():
+    """Return merged UI contributions from all active plugins.
+
+    Shape:
+        {
+          "nav":             [...],
+          "routes":          [...],
+          "page_titles":     {...},
+          "command_palette": [...],
+          "widgets":         [...]
+        }
+
+    Each item in the lists carries a `plugin` field with the source slug
+    so the frontend can resolve component references against the correct
+    plugin module.
+    """
+    from app.services.contribution_service import get_active_contributions
+    return jsonify(get_active_contributions())

@@ -12,6 +12,11 @@ export default defineConfig(({ mode }) => {
         resolve: {
             alias: {
                 '@': fileURLToPath(new URL('./src', import.meta.url)),
+                // Stable import path for plugin code:
+                //   import { api, useAuth } from 'serverkit-sdk';
+                // Internal restructures of src/plugins/sdk are invisible
+                // to plugins as long as the named exports stay stable.
+                'serverkit-sdk': fileURLToPath(new URL('./src/plugins/sdk/index.js', import.meta.url)),
             },
         },
         server: {

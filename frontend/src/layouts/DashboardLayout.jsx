@@ -5,6 +5,7 @@ import CommandPalette from '../components/CommandPalette';
 import LogsDrawer from '../components/LogsDrawer';
 import { LogsDrawerProvider } from '../contexts/LogsDrawerContext';
 import PluginLoader from '../plugins/PluginLoader';
+import { refreshContributions } from '../plugins/contributions';
 import api from '../services/api';
 
 const FULL_PAGE_ROUTES = ['/workflow', '/files', '/docker'];
@@ -27,6 +28,13 @@ const DashboardLayout = () => {
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [handleKeyDown]);
+
+    // Load plugin contributions once we're authenticated. Subscribers
+    // (Sidebar, CommandPalette, ExtensionRoutes, PageTitleUpdater) all
+    // pick up the result via useContributions().
+    useEffect(() => {
+        refreshContributions();
+    }, []);
 
     return (
         <LogsDrawerProvider>

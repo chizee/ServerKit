@@ -91,6 +91,12 @@ def delete_extension(ext_id):
 @jwt_required()
 def install_extension(ext_id):
     user = get_current_user()
+    # Marketplace installs now trigger a real plugin install when the
+    # extension carries a source URL — that runs arbitrary downloaded
+    # code and writes to disk, so it must require admin. /plugins/install
+    # already enforces this; we mirror the check here.
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json() or {}
     try:
         install = MarketplaceService.install_extension(ext_id, user.id, data.get('config'))

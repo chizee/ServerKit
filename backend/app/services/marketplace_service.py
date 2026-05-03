@@ -132,6 +132,29 @@ class MarketplaceService:
 
         ext.download_count += 1
         db.session.commit()
+
+        # Hand off to the plugin installer if we have a source we can fetch.
+        # Marketplace rows historically only stored metadata; if a source
+        # URL is set we now actually install the plugin so it contributes
+        # its routes/sidebar/api like any other plugin.
+        # `entry_point` doubles as a source URL for marketplace-hosted
+        # plugins (the field is reused — admins paste a github/zip URL).
+        source_url = (ext.entry_point or ext.repository or '').strip()
+        if source_url:
+            try:
+                from app.services import plugin_service
+                plugin_service.install_from_url(source_url, user_id=user_id)
+            except Exception as e:
+                # Roll back the marketplace install row so the user can
+                # retry cleanly. The download counter increment also gets
+                # undone via the rollback.
+                db.session.rollback()
+                logger.warning(
+                    f'Marketplace ext {ext.slug}: plugin install from '
+                    f'{source_url} failed: {e}'
+                )
+                raise ValueError(f'Plugin install failed: {e}')
+
         return install
 
     @staticmethod

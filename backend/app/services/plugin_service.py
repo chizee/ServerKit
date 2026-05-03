@@ -430,7 +430,21 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None):
         if has_frontend:
             _regenerate_frontend_manifest()
 
+        # Install template dependencies declared in manifest
+        # (e.g. a "git-server" extension declaring "templates": ["gitea"]).
+        # Best effort — record per-template result on the plugin row so the
+        # UI can show what happened, but a template install failure does
+        # not roll back the plugin install.
+        template_results = _install_template_dependencies(plugin, manifest)
+
+        # Run plugin's lifecycle.install hook if declared. Failure here is
+        # also non-fatal — the plugin is installed; the hook is for
+        # convenience setup (e.g. creating default rows).
+        _run_lifecycle_hook(plugin, manifest, 'install')
+
         logger.info(f'Plugin {slug} v{manifest["version"]} installed successfully')
+        if template_results:
+            plugin._template_install_results = template_results  # surfaced via to_dict if needed
         return plugin
 
     except Exception as e:
@@ -580,6 +594,11 @@ def uninstall_plugin(plugin_id):
         return False
 
     slug = plugin.slug
+    manifest = plugin.manifest or {}
+
+    # Run lifecycle.uninstall hook *before* we delete the files (the hook
+    # may need to read its own files). Best effort — never block teardown.
+    _run_lifecycle_hook(plugin, manifest, 'uninstall')
 
     # Remove backend files
     backend_dest = os.path.join(BACKEND_PLUGINS_DIR, slug)
@@ -622,6 +641,110 @@ def disable_plugin(plugin_id):
     db.session.commit()
     _regenerate_frontend_manifest()
     return plugin
+
+
+def _run_lifecycle_hook(plugin, manifest, phase):
+    """Execute a plugin's lifecycle hook.
+
+    Manifest format:
+        "lifecycle": { "install": "module:func", "uninstall": "module:func" }
+
+    The module path is resolved under ``app.plugins.<slug>``. The hook
+    receives the InstalledPlugin row as its single positional arg. Return
+    value is ignored. Failure is logged and swallowed — lifecycle hooks
+    are convenience, not correctness.
+    """
+    lifecycle = (manifest or {}).get('lifecycle') or {}
+    target = lifecycle.get(phase)
+    if not target or ':' not in target:
+        return
+
+    module_name, func_name = target.split(':', 1)
+    full_module = f'app.plugins.{plugin.slug}.{module_name}'
+
+    try:
+        import importlib
+        mod = importlib.import_module(full_module)
+        func = getattr(mod, func_name, None)
+        if not callable(func):
+            logger.warning(
+                f'Lifecycle {phase} hook {target} for {plugin.slug} is not callable'
+            )
+            return
+        func(plugin)
+        logger.info(f'Ran lifecycle.{phase} hook for {plugin.slug}')
+    except Exception as e:
+        logger.warning(f'Lifecycle {phase} hook for {plugin.slug} failed: {e}')
+
+
+def _install_template_dependencies(plugin, manifest):
+    """Install app templates declared in the manifest's `templates` key.
+
+    Format:
+        "templates": ["gitea", "umami"]            # template ids
+        "templates": [{ "id": "gitea",
+                        "app_name": "git-server",   # default: template id
+                        "variables": {"PORT": "3000"} }]
+
+    Returns a list of {template_id, success, message} dicts. Failures are
+    logged but do not abort the plugin install — the user can install the
+    template manually from /templates if it didn't auto-install.
+    """
+    deps = (manifest or {}).get('templates') or []
+    if not deps:
+        return []
+
+    try:
+        from app.services.template_service import TemplateService
+    except Exception as e:
+        logger.warning(f'TemplateService unavailable; skipping template deps: {e}')
+        return []
+
+    results = []
+    for dep in deps:
+        if isinstance(dep, str):
+            template_id, app_name, variables = dep, dep, {}
+        elif isinstance(dep, dict):
+            template_id = dep.get('id') or dep.get('template_id')
+            app_name = dep.get('app_name') or template_id
+            variables = dep.get('variables') or {}
+        else:
+            continue
+
+        if not template_id:
+            continue
+
+        try:
+            res = TemplateService.install_template(
+                template_id=template_id,
+                app_name=app_name,
+                user_variables=variables,
+                user_id=plugin.installed_by,
+            )
+            ok = bool(res and res.get('success'))
+            results.append({
+                'template_id': template_id,
+                'success': ok,
+                'message': res.get('error') if not ok else 'installed',
+            })
+            if ok:
+                logger.info(f'Plugin {plugin.slug} installed template {template_id}')
+            else:
+                logger.warning(
+                    f'Plugin {plugin.slug} template dep {template_id} failed: '
+                    f'{res.get("error")}'
+                )
+        except Exception as e:
+            logger.warning(
+                f'Plugin {plugin.slug} template dep {template_id} raised: {e}'
+            )
+            results.append({
+                'template_id': template_id,
+                'success': False,
+                'message': str(e),
+            })
+
+    return results
 
 
 def list_plugins(status=None):

@@ -9,6 +9,7 @@ import {
     CommandGroup,
     CommandItem,
 } from '@/components/ui/command';
+import { useContributions } from '../plugins/contributions';
 
 const STATIC_PAGES = [
     { label: 'Services', path: '/services', category: 'Pages', keywords: 'apps containers' },
@@ -68,6 +69,7 @@ const CommandPalette = ({ open, onClose }) => {
     const [query, setQuery] = useState('');
     const [dynamicItems, setDynamicItems] = useState([]);
     const navigate = useNavigate();
+    const { command_palette: pluginPaletteItems } = useContributions();
 
     // Fetch dynamic items (services/containers + servers) when opened
     useEffect(() => {
@@ -110,7 +112,17 @@ const CommandPalette = ({ open, onClose }) => {
         return () => { cancelled = true; };
     }, [open]);
 
-    const allItems = useMemo(() => [...STATIC_PAGES, ...dynamicItems], [dynamicItems]);
+    const allItems = useMemo(() => {
+        const fromPlugins = (pluginPaletteItems || [])
+            .filter((it) => it && it.label && it.path)
+            .map((it) => ({
+                label: it.label,
+                path: it.path,
+                category: it.category || 'Extensions',
+                keywords: it.keywords || '',
+            }));
+        return [...STATIC_PAGES, ...fromPlugins, ...dynamicItems];
+    }, [dynamicItems, pluginPaletteItems]);
 
     const results = useMemo(() => {
         if (!query.trim()) return allItems.slice(0, 20);
