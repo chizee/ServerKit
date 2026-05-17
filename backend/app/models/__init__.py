@@ -32,6 +32,7 @@ from app.models.status_page import StatusPage, StatusComponent, HealthCheck, Sta
 from app.models.cloud_server import CloudProvider, CloudServer, CloudSnapshot
 from app.models.marketplace import Extension, ExtensionInstall
 from app.models.pending_agent import PendingAgent
+from app.models.plugin import InstalledPlugin
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -52,4 +53,5 @@ __all__ = [
     'CloudProvider', 'CloudServer', 'CloudSnapshot',
     'Extension', 'ExtensionInstall',
     'PendingAgent',
+    'InstalledPlugin',
 ]
