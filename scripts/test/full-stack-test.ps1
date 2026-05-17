@@ -227,8 +227,10 @@ function Test-VagrantInstall {
     $env:SK_MEMORY_MB   = "$($MemoryGB * 1024)"
 
     Set-VmStage -Vm $Vm -Stage 'launching VM (vagrant up, ~5-10 min first time)'
-    Write-Host "  [$Vm] vagrant up..." -ForegroundColor DarkCyan
-    & $VgExe up --provider=hyperv 2>&1 | Out-File (Join-Path $VmOut 'vagrant-up.log') -Encoding utf8
+    Write-Host "  [$Vm] vagrant up... (full output below; also saved to vagrant-up.log)" -ForegroundColor DarkCyan
+    # Tee so the operator can see download progress + any prompts live,
+    # and the log file still gets a copy for later inspection.
+    & $VgExe up --provider=hyperv 2>&1 | Tee-Object -FilePath (Join-Path $VmOut 'vagrant-up.log')
     if ($LASTEXITCODE -ne 0) {
         Set-Content -Path $statusFile -Value 'LAUNCH_FAILED' -Encoding ascii
         Set-VmStage -Vm $Vm -Stage 'launch failed'
