@@ -138,7 +138,11 @@ def _read_state(run_dir: Path):
 
 def render(run_dir: Path) -> Path:
     state = _read_state(run_dir)
-    running = bool(state.get("running"))
+    state_file_present = (run_dir / "state.json").exists()
+    # If state.json is missing we're likely rendering between the orchestrator
+    # creating OutDir and the first Save-State call — treat as RUNNING so the
+    # page doesn't flash "FAIL" on first open.
+    running = state.get("running", not state_file_present)
     vm_states = state.get("vms", {})
 
     vm_dirs = sorted([p for p in run_dir.iterdir() if p.is_dir()])
@@ -156,6 +160,10 @@ def render(run_dir: Path) -> Path:
             })
     for s in summaries:
         s["stage"] = vm_states.get(s["name"], {}).get("stage", "done")
+        # While the run is in progress, a VM that hasn't produced a status
+        # file yet should display as RUNNING (not FAIL).
+        if running and s["stage"] not in ("done", "install failed") and not s["install_ok"]:
+            s["overall"] = "RUNNING"
 
     n_pass = sum(1 for s in summaries if s["overall"] == "PASS")
     n_fail = sum(1 for s in summaries if s["overall"] == "FAIL")

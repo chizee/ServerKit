@@ -58,6 +58,10 @@ $RunId    = Get-Date -Format 'yyyyMMdd-HHmmss'
 $OutDir   = Join-Path $PSScriptRoot "output\$RunId"
 $null     = New-Item -ItemType Directory -Force -Path $OutDir
 
+# Seed state.json immediately so any early refresh of the report shows
+# "running" rather than treating an empty dir as a failed run.
+Set-Content -Path (Join-Path $OutDir 'state.json') -Value '{"running":true,"vms":{}}' -Encoding utf8
+
 # --- locate multipass ----------------------------------------------------
 $MpExe = $null
 $candidates = @(
