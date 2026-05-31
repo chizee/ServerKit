@@ -106,7 +106,11 @@ nul
 SECURITY_AUDIT.md
 APP_IMPROVEMENTS.md
 UI_REPORT.md
+# Scratch screenshots dropped at the repo root. Real image assets live under
+# frontend/ or are force-included below (agent/internal/setupui/*).
 *.png
+*.jpeg
+*.jpg
 
 # MSI / build artifacts that should not be committed.
 /agent/packaging/msi/output/
