@@ -231,3 +231,59 @@ def test_register_agent_disconnects_old_ws_socket(app, clean_registry):
         assert ("socket-OLD", "/agent") in fake.server.calls
     finally:
         agent_registry._socketio = prev
+
+
+# --------------------------------------------------------------------------
+# Gateway hardening: the nonce must be consumed only AFTER the HMAC signature
+# is verified, so a forged request can't burn a legitimate agent's nonce.
+# --------------------------------------------------------------------------
+
+def test_failed_signature_does_not_consume_nonce(app, monkeypatch):
+    secret = "shared-secret-value-xyz"
+    monkeypatch.setattr(Server, "get_api_secret", lambda self: secret)
+
+    # Spy on the replay store: record every (server_id, nonce) it is asked to
+    # consume. If the ordering is wrong, a bad-signature attempt consumes the
+    # nonce here before the signature is ever checked.
+    consumed = []
+    import app.services.nonce_service as ns
+
+    def _spy_check_and_record(server_id, nonce):
+        consumed.append((server_id, nonce))
+        return True
+
+    monkeypatch.setattr(ns.nonce_service, "check_and_record",
+                        _spy_check_and_record, raising=False)
+
+    s = Server(name="t", agent_id="agent-nonce", api_key_prefix="sk_nonce12345")
+    _db.session.add(s)
+    _db.session.commit()
+
+    ts = int(time.time() * 1000)
+    nonce = "nonce-abc-123"
+
+    # Forged attempt: correct agent_id/prefix/nonce, WRONG signature.
+    bad = agent_registry.verify_agent_auth(
+        agent_id="agent-nonce",
+        api_key_prefix="sk_nonce12345",
+        signature="bad" * 8,
+        timestamp=ts,
+        nonce=nonce,
+        ip_address="203.0.113.9",
+    )
+    assert bad is None
+    assert consumed == [], "nonce was consumed before the signature was verified"
+
+    # The real agent then presents the same nonce with a valid signature and
+    # must still succeed (the forged attempt didn't burn it).
+    good_sig = _signed("agent-nonce", secret, ts, nonce)
+    ok = agent_registry.verify_agent_auth(
+        agent_id="agent-nonce",
+        api_key_prefix="sk_nonce12345",
+        signature=good_sig,
+        timestamp=ts,
+        nonce=nonce,
+        ip_address="203.0.113.9",
+    )
+    assert ok is not None
+    assert consumed == [(s.id, nonce)], "valid request should consume the nonce exactly once"

@@ -5,32 +5,59 @@ WebSocket gateway for ServerKit agents.
 Handles agent connections, authentication, and message routing.
 """
 
+import json
+import logging
+import threading
+import time
 from collections import defaultdict
+
 from flask import request
 from flask_socketio import Namespace, emit, disconnect
-import json
-import time
 
 from app.services.agent_registry import agent_registry
 from app.models.server import Server
 from app.utils.ip_utils import is_ip_allowed
 from app.services.anomaly_detection_service import anomaly_detection_service
 
-# In-memory rate limiter for agent authentication
+logger = logging.getLogger(__name__)
+
+# In-memory per-IP auth rate limiter. Guarded by a lock because the gateway
+# runs under async_mode='threading' — on_auth (WS) and the poll /connect
+# endpoint can call this concurrently, and an unlocked read-modify-write of a
+# shared dict races. Buckets are swept periodically so the dict can't grow
+# without bound from one-off IPs on an internet-facing gateway.
 _auth_attempts = defaultdict(list)
+_auth_attempts_lock = threading.Lock()
+_last_auth_sweep = 0.0
 _AUTH_RATE_LIMIT = 10  # max attempts per window
 _AUTH_RATE_WINDOW = 60  # seconds
 
 
 def _check_auth_rate_limit(ip_address: str) -> bool:
-    """Check if IP has exceeded auth rate limit."""
+    """Record an auth attempt and report whether the IP is still under the
+    limit. Returns True when allowed, False when the per-IP window is
+    exhausted. Thread-safe."""
+    global _last_auth_sweep
     now = time.time()
-    # Clean old entries
-    _auth_attempts[ip_address] = [t for t in _auth_attempts[ip_address] if now - t < _AUTH_RATE_WINDOW]
-    if len(_auth_attempts[ip_address]) >= _AUTH_RATE_LIMIT:
-        return False
-    _auth_attempts[ip_address].append(now)
-    return True
+    with _auth_attempts_lock:
+        # Opportunistic sweep: drop buckets whose attempts have all aged out
+        # so IPs that connect once and never return don't accumulate forever.
+        if now - _last_auth_sweep > _AUTH_RATE_WINDOW:
+            for ip in list(_auth_attempts.keys()):
+                fresh = [t for t in _auth_attempts[ip] if now - t < _AUTH_RATE_WINDOW]
+                if fresh:
+                    _auth_attempts[ip] = fresh
+                else:
+                    del _auth_attempts[ip]
+            _last_auth_sweep = now
+
+        recent = [t for t in _auth_attempts[ip_address] if now - t < _AUTH_RATE_WINDOW]
+        if len(recent) >= _AUTH_RATE_LIMIT:
+            _auth_attempts[ip_address] = recent
+            return False
+        recent.append(now)
+        _auth_attempts[ip_address] = recent
+        return True
 
 
 class AgentNamespace(Namespace):
@@ -44,12 +71,12 @@ class AgentNamespace(Namespace):
         """Handle agent connection attempt"""
         # Connection is not authenticated yet
         # Agent must send auth message first
-        print(f"[AgentGateway] New connection from {request.remote_addr}")
+        logger.info("New connection from %s", request.remote_addr)
 
     def on_disconnect(self):
         """Handle agent disconnection"""
         sid = request.sid
-        print(f"[AgentGateway] Disconnect: {sid}")
+        logger.info("Disconnect: %s", sid)
         agent_registry.unregister_agent(sid, reason='disconnect')
 
     def on_auth(self, data):
@@ -79,7 +106,7 @@ class AgentNamespace(Namespace):
         nonce = data.get('nonce')  # Optional for backward compatibility
 
         ip_address = request.remote_addr
-        print(f"[AgentGateway] Auth attempt from agent {agent_id} at {ip_address}")
+        logger.info("Auth attempt from agent %s at %s", agent_id, ip_address)
 
         if not all([agent_id, api_key_prefix, signature]):
             emit('auth_fail', {
@@ -114,7 +141,7 @@ class AgentNamespace(Namespace):
                     'type': 'auth_fail',
                     'error': 'IP address not allowed'
                 })
-                print(f"[AgentGateway] IP {ip_address} blocked for server {server.id}")
+                logger.warning("IP %s blocked for server %s", ip_address, server.id)
                 disconnect()
                 return
 
@@ -141,7 +168,7 @@ class AgentNamespace(Namespace):
             'server_id': server.id
         })
 
-        print(f"[AgentGateway] Agent {agent_id} authenticated successfully from {ip_address}")
+        logger.info("Agent %s authenticated successfully from %s", agent_id, ip_address)
 
     def on_heartbeat(self, data):
         """
@@ -279,6 +306,13 @@ class AgentNamespace(Namespace):
         channel = data.get('channel')
         stream_data = data.get('data')
 
+        # A malformed/partial stream frame — exactly what the poll fallback
+        # exists to tolerate — can omit or null the channel. Calling
+        # .startswith on a non-string would raise AttributeError; drop the
+        # frame instead of letting the handler crash.
+        if not isinstance(channel, str) or not channel:
+            return
+
         # Broadcast to subscribers
         # The channel format determines where to broadcast:
         # - "metrics" -> room: f"server_{server_id}_metrics"
@@ -287,7 +321,10 @@ class AgentNamespace(Namespace):
         if channel == 'metrics':
             room = f"server_{agent.server_id}_metrics"
         elif channel.startswith('container:') and channel.endswith(':logs'):
-            container_id = channel.split(':')[1]
+            parts = channel.split(':')
+            if len(parts) < 3:
+                return
+            container_id = parts[1]
             room = f"server_{agent.server_id}_container_{container_id}_logs"
         else:
             room = f"server_{agent.server_id}_{channel}"
@@ -312,7 +349,7 @@ class AgentNamespace(Namespace):
         agent = agent_registry.get_agent_by_socket(sid)
 
         if agent:
-            print(f"[AgentGateway] Error from server {agent.server_id}: {data}")
+            logger.warning("Error from server %s: %s", agent.server_id, data)
 
     def on_credential_update_ack(self, data):
         """
@@ -341,7 +378,7 @@ class AgentNamespace(Namespace):
         success = data.get('success', False)
         error = data.get('error')
 
-        print(f"[AgentGateway] Credential update ack from {agent.server_id}: success={success}")
+        logger.info("Credential update ack from %s: success=%s", agent.server_id, success)
 
         if not rotation_id:
             emit('error', {
@@ -362,25 +399,29 @@ class AgentNamespace(Namespace):
                 # Complete the rotation
                 if server.complete_key_rotation(rotation_id):
                     db.session.commit()
-                    print(f"[AgentGateway] Key rotation completed for server {server.id}")
+                    logger.info("Key rotation completed for server %s", server.id)
 
                     # Clear nonces for this server since we have new credentials
                     from app.services.nonce_service import nonce_service
                     nonce_service.clear_server_nonces(server.id)
                 else:
-                    print(f"[AgentGateway] Key rotation completion failed for server {server.id}")
+                    logger.warning("Key rotation completion failed for server %s", server.id)
             else:
                 # Agent failed to update credentials, cancel rotation
                 server.cancel_key_rotation()
                 db.session.commit()
-                print(f"[AgentGateway] Key rotation cancelled for server {server.id}: {error}")
+                logger.info("Key rotation cancelled for server %s: %s", server.id, error)
 
-        except Exception as e:
-            print(f"[AgentGateway] Error handling credential update ack: {e}")
+        except Exception:
+            # Roll back the poisoned session so the next DB user on this
+            # worker doesn't inherit a broken transaction.
+            from app import db
+            db.session.rollback()
+            logger.exception("Error handling credential update ack")
 
 
 def init_agent_gateway(socketio):
     """Initialize the agent gateway namespace"""
     agent_registry.init_socketio(socketio)
     socketio.on_namespace(AgentNamespace('/agent'))
-    print("[AgentGateway] Agent gateway initialized on /agent namespace")
+    logger.info("Agent gateway initialized on /agent namespace")

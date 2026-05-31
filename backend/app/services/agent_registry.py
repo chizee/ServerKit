@@ -737,7 +737,9 @@ class AgentRegistry:
         from app.services.nonce_service import nonce_service
         from app.services.anomaly_detection_service import anomaly_detection_service
 
-        # Check timestamp (allow 5 minute window)
+        # Reject stale/future requests outside a 60s window. This is a
+        # clock-skew-tolerant replay guard, and the ONLY replay protection for
+        # the nonce-less HTTP-poll transport (see the nonce note below).
         now = int(time.time() * 1000)
         if abs(now - timestamp) > 60000:  # 60 seconds
             if ip_address:
@@ -763,22 +765,16 @@ class AgentRegistry:
             anomaly_detection_service.track_auth_attempt(server.id, False, ip_address)
             return None
 
-        # Check nonce for replay protection (if nonce provided)
-        if nonce:
-            if not nonce_service.check_and_record(server.id, nonce):
-                # Replay attack detected!
-                anomaly_detection_service.track_replay_attack(server.id, ip_address, nonce)
-                return None
-
-        # Verify HMAC signature. This is MANDATORY — a server whose shared
-        # secret is missing or no longer decryptable must FAIL authentication,
-        # never fall through to "authenticated". Skipping it would reduce agent
-        # auth to agent_id + api_key_prefix, both of which are non-secret,
-        # observable values (an attacker who has seen one connect could forge
-        # auth). Select the secret matching whichever prefix matched: the
-        # pending secret during a key-rotation window, otherwise the active
-        # one. get_*_api_secret() returns None on missing/undecryptable
-        # ciphertext, which fails closed below.
+        # Verify the HMAC signature BEFORE consuming the nonce (replay check is
+        # done afterwards, below). Signature verification is MANDATORY — a
+        # server whose shared secret is missing or no longer decryptable must
+        # FAIL authentication, never fall through to "authenticated". Skipping
+        # it would reduce agent auth to agent_id + api_key_prefix, both of which
+        # are non-secret, observable values (an attacker who has seen one
+        # connect could forge auth). Select the secret matching whichever prefix
+        # matched: the pending secret during a key-rotation window, otherwise
+        # the active one. get_*_api_secret() returns None on missing/
+        # undecryptable ciphertext, which fails closed below.
         if pending_prefix_matches and not prefix_matches:
             api_secret = server.get_pending_api_secret()
         else:
@@ -793,7 +789,9 @@ class AgentRegistry:
             return None
 
         # Construct the message that was signed.
-        # Format: agent_id:timestamp:nonce (nonce omitted only by legacy agents)
+        # Format: agent_id:timestamp:nonce. The nonce is omitted only by legacy
+        # agents and by the HTTP-poll transport, which signs agent_id:timestamp
+        # and relies on the 60s timestamp window above for replay protection.
         if nonce:
             message = f"{agent_id}:{timestamp}:{nonce}"
         else:
@@ -809,6 +807,16 @@ class AgentRegistry:
         if not hmac.compare_digest(signature, expected_signature):
             anomaly_detection_service.track_auth_attempt(server.id, False, ip_address)
             return None
+
+        # Replay protection: consume the nonce ONLY now that the signature is
+        # proven valid. Recording it before signature verification let an
+        # attacker spend a captured nonce with a bogus signature, which would
+        # then lock the real agent out when it next presented that nonce.
+        if nonce:
+            if not nonce_service.check_and_record(server.id, nonce):
+                # Replay attack detected!
+                anomaly_detection_service.track_replay_attack(server.id, ip_address, nonce)
+                return None
 
         # Authentication successful
         if ip_address:
