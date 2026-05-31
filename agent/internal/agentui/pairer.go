@@ -128,24 +128,32 @@ func (p *pairer) handleStart(w http.ResponseWriter, r *http.Request) {
 			// Earlier versions ignored sc start errors silently which is
 			// why users saw "successfully paired" on a dead service and
 			// had to start it manually from the CLI.
-			if err := runServiceCmd("stop"); err != nil {
-				p.log.Info("Service stop reported error (likely already stopped)", "error", err)
-			}
-			// sc.exe returns once SCM accepts the stop request, not when the
-			// service is fully stopped. Issuing sc start while the service is
-			// still STOP_PENDING fails with 1056 ("instance already running"),
-			// so wait until SCM reports STOPPED before starting.
-			if err := waitForServiceStopped(15 * time.Second); err != nil {
-				p.log.Info("Service did not reach STOPPED before start", "error", err)
-			}
-			if err := runServiceCmd("start"); err != nil {
-				p.log.Error("Failed to start service after pairing", "error", err)
-				p.mu.Lock()
-				p.state = "error"
-				p.errMsg = "Pairing succeeded but the agent service failed to start: " + err.Error() +
-					"\n\nTry: restart the machine, or open Actions → Restart agent."
-				p.mu.Unlock()
-				return
+			// Standalone (non-MSI) installs have no ServerKitAgent service
+			// to restart — the credentials on disk are all the pairing
+			// produces, and the agent runtime starts separately. Skip the
+			// restart cleanly in that case instead of surfacing 1060.
+			if !isServiceInstalled() {
+				p.log.Info("ServerKitAgent service not installed; skipping post-pair restart (standalone mode)")
+			} else {
+				if err := runServiceCmd("stop"); err != nil {
+					p.log.Info("Service stop reported error (likely already stopped)", "error", err)
+				}
+				// sc.exe returns once SCM accepts the stop request, not when the
+				// service is fully stopped. Issuing sc start while the service is
+				// still STOP_PENDING fails with 1056 ("instance already running"),
+				// so wait until SCM reports STOPPED before starting.
+				if err := waitForServiceStopped(15 * time.Second); err != nil {
+					p.log.Info("Service did not reach STOPPED before start", "error", err)
+				}
+				if err := runServiceCmd("start"); err != nil {
+					p.log.Error("Failed to start service after pairing", "error", err)
+					p.mu.Lock()
+					p.state = "error"
+					p.errMsg = "Pairing succeeded but the agent service failed to start: " + err.Error() +
+						"\n\nTry: restart the machine, or open Actions → Restart agent."
+					p.mu.Unlock()
+					return
+				}
 			}
 			// sc start returns as soon as the SCM accepts the request, not
 			// when the service is actually running. Poll for state=RUNNING
@@ -306,8 +314,19 @@ func (p *pairer) runConnectionStringFlow(ctx context.Context, panelURL, token st
 	// Same restart-and-verify dance as the pair-code claim path. Earlier
 	// versions skipped this and left users staring at "successfully
 	// paired" on a service that never actually picked up the new config.
+	// Standalone (non-MSI) installs have no service to restart; pairing
+	// is still complete because the credentials are on disk.
+	if !isServiceInstalled() {
+		p.log.Info("ServerKitAgent service not installed; skipping post-pair restart (standalone mode)")
+		return
+	}
 	if err := runServiceCmd("stop"); err != nil {
 		p.log.Info("Service stop reported error (likely already stopped)", "error", err)
+	}
+	// Wait for STOPPED before starting — issuing sc start during
+	// STOP_PENDING fails with 1056 ("instance already running").
+	if err := waitForServiceStopped(15 * time.Second); err != nil {
+		p.log.Info("Service did not reach STOPPED before start", "error", err)
 	}
 	if err := runServiceCmd("start"); err != nil {
 		p.log.Error("Failed to start service after pairing", "error", err)

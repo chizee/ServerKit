@@ -24,6 +24,26 @@ func runServiceCmd(verb string) error {
 	return nil
 }
 
+// isServiceInstalled reports whether ServerKitAgent is registered with
+// Windows SCM. Used to skip the post-pair stop/start dance when the user
+// is running the standalone exe without the MSI install — there's no
+// service to control, and `sc start` would fail with error 1060
+// ("service does not exist") and surface as a fake pairing failure.
+func isServiceInstalled() bool {
+	cmd := exec.Command("sc.exe", "query", "ServerKitAgent")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return true
+	}
+	// sc.exe sets exit status 1060 (and prints that code) when the
+	// service is unknown. Any other error (access denied, SCM down) we
+	// optimistically treat as "service exists, just couldn't query it"
+	// — the subsequent stop/start will surface the real problem with
+	// better context than the query would.
+	return !strings.Contains(string(out), "1060")
+}
+
 // waitForServiceRunning polls `sc query` until the service reports state
 // 4 (RUNNING) or the deadline passes. Returns nil when running, or a
 // descriptive error including the most recent state output. Used to
