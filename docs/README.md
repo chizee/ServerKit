@@ -9,9 +9,12 @@ Welcome to the ServerKit documentation. This guide will help you install, config
 | Document | Description |
 |----------|-------------|
 | [Installation Guide](INSTALLATION.md) | Complete setup instructions for Docker and manual installation |
+| [Architecture](ARCHITECTURE.md) | System design, request flow, and diagrams |
 | [Deployment Guide](DEPLOYMENT.md) | Production deployment, CLI commands, and configuration |
+| [Local Development](LOCAL_DEVELOPMENT.md) | Run the panel locally for development |
 | [API Reference](API.md) | REST API documentation with examples |
 | [Multi-Environment Guide](MULTI_ENVIRONMENT.md) | Set up prod/dev WordPress pairs with shared database |
+| [Multi-Server & Agent](../agent/README.md) | Install the agent and connect remote servers (see also [pairing](pairing.md)) |
 
 ---
 
@@ -23,7 +26,7 @@ Choose your preferred installation method:
 
 - **[Docker Installation](INSTALLATION.md#quick-install-docker)** (Recommended) - Get started in minutes
 - **[Manual Installation](INSTALLATION.md#manual-installation)** - Full control over the setup
-- **[One-Line Install](../README.md#option-2-one-line-install-ubuntu)** - Quick Ubuntu script
+- **[One-Line Install](../README.md#-quick-start)** - One-line installer for Ubuntu, Debian, Fedora, and RHEL/Rocky/AlmaLinux
 
 ### 2. Initial Setup
 
@@ -64,7 +67,7 @@ Each application includes:
 
 ### Multi-Environment Support
 
-ServerKit v1.1 introduces **multi-environment linking** for WordPress and other applications:
+ServerKit supports **multi-environment linking** for WordPress and other applications:
 
 - **Production/Development Pairs** - Link apps as prod/dev environments
 - **Shared Database** - Both environments can share the same MySQL database with different table prefixes
@@ -267,5 +270,5 @@ See [Installation Guide - Troubleshooting](INSTALLATION.md#troubleshooting) for 
 
 <p align="center">
   <strong>ServerKit Documentation</strong><br>
-  Version 0.9.0
+  Version 1.6.7
 </p>

@@ -112,10 +112,21 @@ Use that URL as the `--server` flag. For self-signed TLS in dev,
   (60s → 5 min cap) plus per-IP rate limits (5 claims / 10 minutes).
 - All claim/lookup events are written to the audit log.
 - Enrollments expire 24h after creation; un-claimed records are pruned hourly.
-- The agent's keypair is encrypted at rest with a key derived from
-  `/etc/machine-id` + hostname (Linux) or COMPUTERNAME + USERNAME (Windows).
+- The agent's keypair is encrypted at rest with a **host-stable** key derived
+  from `/etc/machine-id` + hostname (Linux) or hostname + COMPUTERNAME (Windows).
+  The key is intentionally independent of the logged-in user so the Windows
+  service (running as `LocalSystem`) can decrypt credentials written during
+  user-context pairing — mixing in the Windows username broke this and was
+  removed in agent 1.6.14 (a legacy USERNAME-based key is retained only for
+  one-time migration). Treat the stored key file as a host-equivalent secret;
+  see [../SECURITY.md](../SECURITY.md) for the full agent trust model.
 - Compare the displayed fingerprint side-by-side before claiming. Mismatch
   means the wrong agent — abort and re-run `pair`.
+
+> **Treat the stored credential/key file as a host-equivalent secret.** Combined
+> with the agent's remote-execution capability, recovering it is equivalent to
+> controlling the host. See [../SECURITY.md](../SECURITY.md) for the full agent
+> trust model.
 
 ## API reference
 

@@ -1,6 +1,14 @@
 # ServerKit Installation Guide
 
-This guide covers installing ServerKit on Ubuntu 22.04/24.04 LTS. ServerKit is a modern server management panel for managing web applications, databases, Docker containers, and more.
+This guide covers installing ServerKit on Linux. The one-line installer
+(`install.sh`) supports Ubuntu 22.04+, Debian 12+, Fedora, and the RHEL family
+(RHEL/Rocky/AlmaLinux/CentOS 9+); on RHEL-family hosts it also enables EPEL and
+configures SELinux for the nginx reverse proxy. The manual steps below use
+Ubuntu/Debian (`apt`) as the primary example — on Fedora/RHEL substitute `dnf`
+and the docker-ce RHEL repo.
+
+To connect additional servers to this panel, install the agent — see
+[agent/README.md](../agent/README.md) and [pairing.md](pairing.md). ServerKit is a modern server management panel for managing web applications, databases, Docker containers, and more.
 
 ## Table of Contents
 
@@ -18,7 +26,7 @@ This guide covers installing ServerKit on Ubuntu 22.04/24.04 LTS. ServerKit is a
 
 ### Minimum System Requirements
 
-- **OS**: Ubuntu 22.04 LTS or 24.04 LTS (64-bit)
+- **OS** (64-bit): Ubuntu 22.04+ / Debian 12+ / Fedora / RHEL / Rocky / AlmaLinux 9+
 - **CPU**: 1 vCPU (2+ recommended)
 - **RAM**: 1 GB minimum (2+ GB recommended)
 - **Disk**: 10 GB free space
@@ -77,7 +85,7 @@ docker compose version
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ServerKit.git
+git clone https://github.com/jhd3197/ServerKit.git
 cd ServerKit
 ```
 
@@ -158,7 +166,7 @@ sudo apt install -y git curl wget
 ```bash
 # Clone repository
 cd /opt
-sudo git clone https://github.com/yourusername/ServerKit.git
+sudo git clone https://github.com/jhd3197/ServerKit.git
 sudo chown -R $USER:$USER ServerKit
 cd ServerKit
 

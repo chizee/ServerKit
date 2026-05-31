@@ -48,10 +48,15 @@ Flask app factory in `app/__init__.py` using `create_app()`. Three-layer archite
 
 Other backend components:
 - `app/sockets.py` — Socket.IO event handlers for real-time metrics, logs, terminal
-- `app/agent_gateway.py` — Multi-server agent communication
+- `app/agent_gateway.py` — Defines the Socket.IO `/agent` namespace for the multi-server agent fleet, backed by the in-memory singleton `app/services/agent_registry.py` (HMAC auth, heartbeat/metrics, command routing); `app/api/agent_poll.py` is the HTTP long-poll fallback. The native agent itself is a Go program under `agent/`.
 - `app/middleware/security.py` — Security headers middleware
 - `config.py` — Environment-based config (development/production/testing)
 - `run.py` — Entry point
+
+> **Agent gateway is single-worker.** All connected-agent state lives in-memory
+> in one process, so the panel must run a **single** gevent-websocket worker;
+> multi-worker deployments silently misroute agent commands. See
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [SECURITY.md](SECURITY.md).
 
 ### Frontend (`frontend/src/`)
 

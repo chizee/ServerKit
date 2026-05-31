@@ -1,6 +1,6 @@
 # Multi-Environment WordPress Setup Guide
 
-ServerKit v1.1 introduces multi-environment support, allowing you to link production and development WordPress instances that share the same database with separate table prefixes.
+ServerKit supports multi-environment linking, allowing you to link production and development WordPress instances that share the same database with separate table prefixes.
 
 ## Overview
 

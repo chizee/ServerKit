@@ -255,9 +255,13 @@ pytest --cov=app  # With coverage
 
 ```bash
 cd frontend
-npm test
-npm run test:coverage  # With coverage
+npm run lint     # ESLint
+npm run build    # Production build (compile check)
 ```
+
+> There is no frontend unit-test suite yet — linting and a clean production
+> build are the current gate. See `dev.ps1 validate` / `dev.sh validate` below
+> for the full pre-submit check.
 
 ### Validate Before Submitting
 

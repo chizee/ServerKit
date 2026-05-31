@@ -10,7 +10,7 @@ A lightweight, cross-platform agent for remote server management. Connects to a 
 - **System Metrics**: Real-time CPU, memory, disk, and network monitoring
 - **Secure Communication**: TLS encryption with HMAC-SHA256 authentication
 - **Auto-Reconnect**: Automatic reconnection with exponential backoff
-- **Self-Update**: Built-in update mechanism (coming soon)
+- **Self-Update**: Built-in auto-update with periodic version checks
 
 ## Quick Start
 
@@ -28,6 +28,27 @@ curl -fsSL https://your-serverkit.com/install.sh | sudo bash -s -- \
 irm https://your-serverkit.com/install.ps1 | iex
 Install-ServerKitAgent -Token "sk_reg_your_token" -Server "https://your-serverkit.com"
 ```
+
+> **Most Windows users should install the MSI instead** (see *Package
+> Installation* below). The MSI registers the `ServerKitAgent` Windows service
+> and opens a native pairing wizard right after install — no token handling and
+> no browser required.
+
+### Pairing (recommended)
+
+Instead of baking a long registration token into an install command, you can
+adopt an agent with a short, human-friendly code:
+
+```bash
+serverkit-agent pair --server "https://your-serverkit.com"
+```
+
+The agent generates an Ed25519 keypair, prints a short pairing code (and
+passphrase), and waits. In the panel's **Add Server** screen, enter the code +
+passphrase and verify the displayed key fingerprint to approve the device. On
+Windows the MSI launches this wizard automatically. See
+[../docs/pairing.md](../docs/pairing.md) for the full flow and security
+properties.
 
 ### Docker (Recommended for containerized environments)
 
@@ -105,15 +126,15 @@ Start-Service ServerKitAgent
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.23 or later (matches CI)
 - Make (optional, for using Makefile)
 
 ### Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/serverkit/agent.git
-cd agent
+# Clone the repository (the agent lives in the ServerKit monorepo)
+git clone https://github.com/jhd3197/ServerKit.git
+cd ServerKit/agent
 
 # Download dependencies
 go mod download
@@ -143,11 +164,19 @@ serverkit-agent [command]
 
 Available Commands:
   start       Start the agent service
-  register    Register with a ServerKit instance
+  register    Register with a ServerKit instance (pre-shared token)
+  pair        Pair with a panel using a short code (recommended)
+  setup       Run the guided setup wizard
   status      Show agent status
   config      Configuration management
+  update      Check for and apply self-updates
+  tray        Run the system-tray app (desktop)
+  console     Open the desktop console (WebView2)
   version     Show version information
   help        Help about any command
+
+Run with no command to launch the desktop app: the pairing wizard if the agent
+is not yet configured, otherwise the system tray.
 
 Flags:
   -c, --config string   config file path
@@ -230,9 +259,21 @@ The agent uses HMAC-SHA256 signatures for authentication:
 
 ### Credentials Storage
 
-Credentials are encrypted at rest using AES-256-GCM with a machine-specific key derived from:
+Credentials are encrypted at rest using AES-256-GCM with a **host-stable** key
+derived from:
 - Hostname
-- Machine ID (Linux) or computer/user name (Windows)
+- Machine ID (Linux) / Computer name (Windows)
+
+The key is deliberately **independent of the logged-in user**. On Windows this
+lets the `LocalSystem` service decrypt credentials that were written during
+user-context pairing. (Mixing in the Windows username broke exactly this and was
+removed in 1.6.14.) Because the key is host-bound, a copied credential file
+cannot be reused on another machine.
+
+> **Treat `agent.key` as a host-equivalent secret.** Anyone who can read this
+> file on the host (or recreate the host-derived key) can recover the agent's
+> API credentials. Combined with remote command execution (see below), a leaked
+> key file is equivalent to full control of that host.
 
 ### Network Security
 
@@ -255,9 +296,13 @@ journalctl -u serverkit-agent -f
 systemctl restart serverkit-agent
 ```
 
-## Windows Service
+## Windows Service & Desktop App
 
-On Windows, the agent runs as a Windows Service:
+On Windows the agent has two cooperating parts:
+
+**1. The background service** — a true Windows Service (`ServerKitAgent`)
+registered through the Service Control Manager, running as `LocalSystem` and set
+to start automatically. This is what stays connected to the panel.
 
 ```powershell
 # Check status
@@ -269,6 +314,28 @@ Get-Content "C:\ProgramData\ServerKit\Agent\logs\agent.log" -Tail 50
 # Restart
 Restart-Service ServerKitAgent
 ```
+
+**2. The desktop app** — an optional per-user UI auto-started via the `HKCU\...\Run`
+key:
+
+- **Pairing/setup wizard** — runs after install (or on first launch) to adopt the
+  agent into a panel.
+- **System tray** — shows connection status and quick actions.
+- **Desktop console** — a WebView2-hosted view of status, logs, activity, and
+  actions (no external browser required).
+
+> **Windows limitations to be aware of:** system metrics report a single volume
+> (`C:\`), and the remote file browser currently lists the agent's working drive
+> rather than enumerating all drives. Multi-drive support is tracked for a future
+> release.
+
+### Windows environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `SERVERKIT_INSECURE_TLS` | Disable TLS certificate verification (**dev/testing only**) |
+| `SERVERKIT_WS_COMPRESSION` | Enable WebSocket permessage-deflate (off by default; some tunnels corrupt compressed frames) |
+| `SERVERKIT_AGENT_LEGACY_WIZARD` | Use the legacy native setup wizard instead of the WebView2 one |
 
 ## Docker Deployment
 
@@ -362,17 +429,31 @@ docker compose down
 
 ```
 agent/
-├── cmd/agent/          # Main entry point
+├── cmd/agent/          # Main entry point (+ Windows service/console glue)
 ├── internal/
-│   ├── agent/          # Core agent logic
+│   ├── agent/          # Core agent logic & command handlers
+│   ├── agentui/        # Desktop console UI (WebView2)
 │   ├── auth/           # HMAC authentication
+│   ├── capabilities/   # Host capability probing
+│   ├── cloudflared/    # Cloudflare tunnel management
 │   ├── config/         # Configuration management
+│   ├── cron/           # Remote cron management
 │   ├── docker/         # Docker client wrapper
+│   ├── ipc/            # Local IPC (desktop UI <-> agent)
+│   ├── jobs/           # Background job runner
 │   ├── logger/         # Structured logging
 │   ├── metrics/        # System metrics collection
+│   ├── pairing/        # Pairing client & keypair enrollment
+│   ├── setupui/        # First-run setup wizard (Windows)
+│   ├── terminal/       # Remote terminal sessions
+│   ├── transport/      # WebSocket + HTTP-poll transports
+│   ├── tray/           # System tray integration
+│   ├── updater/        # Self-update mechanism
 │   └── ws/             # WebSocket client
-├── pkg/protocol/       # Message protocol definitions
+├── pkg/protocol/       # Message protocol (shared contract with the panel)
+├── packaging/          # MSI / deb / rpm packaging
 ├── scripts/            # Build and install scripts
+├── ui/                 # Agent desktop UI (React)
 ├── Makefile
 └── go.mod
 ```

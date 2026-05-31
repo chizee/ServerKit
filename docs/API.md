@@ -1225,5 +1225,5 @@ console.log(`CPU: ${metrics.cpu.percent}%`);
 
 <p align="center">
   <strong>ServerKit API Reference</strong><br>
-  Version 0.9.0
+  Version 1.6.7
 </p>

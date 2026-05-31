@@ -206,6 +206,13 @@ ServerKit follows a modern 3-tier architecture:
 2. **Backend:** Flask REST API managing Docker, Nginx, and system services.
 3. **Agent:** Go-based remote agent for multi-server management.
 
+> **Deployment constraint — single WebSocket worker.** The agent gateway keeps
+> all connected-agent state (the registry of live agents, socket↔server index,
+> session tokens, and in-flight command queues) **in-memory in one process**.
+> Run the panel with a **single** gevent-websocket worker. Scaling to multiple
+> workers without a shared backplane (e.g. a Redis message queue) will silently
+> misroute or drop commands for agents connected to a different worker.
+
 ---
 
 ## Troubleshooting
