@@ -58,7 +58,7 @@ requests==2.33.1
 boto3==1.35.0
 
 # SSO / OAuth
-Authlib==1.6.11
+Authlib==1.6.12
 python3-saml==1.16.0
 
 # OpenAPI documentation
