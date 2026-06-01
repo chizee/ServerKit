@@ -62,6 +62,9 @@ class WordPressSite(db.Model):
     # Resource limits (stored as JSON for flexibility)
     resource_limits = db.Column(db.Text)  # JSON: {memory, cpus, db_memory, db_cpus}
 
+    # Tags / labels for agency organization (stored as JSON array of strings)
+    tags = db.Column(db.Text)  # JSON: ["client-acme", "retainer", "php8"]
+
     # Basic Auth
     basic_auth_enabled = db.Column(db.Boolean, default=False)
     basic_auth_user = db.Column(db.String(100))
@@ -134,6 +137,7 @@ class WordPressSite(db.Model):
             'compose_project_name': self.compose_project_name,
             'container_prefix': self.container_prefix,
             'resource_limits': json.loads(self.resource_limits) if self.resource_limits else None,
+            'tags': json.loads(self.tags) if self.tags else [],
             'basic_auth_enabled': self.basic_auth_enabled,
             'basic_auth_user': self.basic_auth_user,
             'health_status': self.health_status,

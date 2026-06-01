@@ -80,6 +80,7 @@ const WordPressDetail = () => {
     const [site, setSite] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useTabParam(`/wordpress/${id}`, VALID_TABS);
+    const [autoLoggingIn, setAutoLoggingIn] = useState(false);
 
     useEffect(() => {
         loadSite();
@@ -94,6 +95,23 @@ const WordPressDetail = () => {
             toast.error('Failed to load WordPress site');
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handleAutoLogin() {
+        setAutoLoggingIn(true);
+        toast.info('Creating one-time login link...', { duration: 3000 });
+        try {
+            const res = await wordpressApi.autoLogin(site.id);
+            if (res && res.url) {
+                window.open(res.url, '_blank', 'noopener,noreferrer');
+            } else {
+                toast.error('No login URL returned');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to create login link');
+        } finally {
+            setAutoLoggingIn(false);
         }
     }
 
@@ -175,6 +193,15 @@ const WordPressDetail = () => {
                             </Button>
                         </>
                     )}
+                    <Button
+                        variant="default"
+                        onClick={handleAutoLogin}
+                        disabled={autoLoggingIn}
+                        title="Open wp-admin logged in, no password (one-time link)"
+                    >
+                        <Lock size={16} />
+                        {autoLoggingIn ? 'Signing in...' : 'Auto Login'}
+                    </Button>
                 </div>
             </div>
 

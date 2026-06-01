@@ -54,6 +54,36 @@ def get_site(site_id):
     return jsonify(result), 200
 
 
+@wordpress_bp.route('/sites/<int:site_id>/tags', methods=['PATCH'])
+@jwt_required()
+def set_site_tags(site_id):
+    """Replace the tag list for a WordPress site."""
+    data = request.get_json() or {}
+    tags = data.get('tags')
+    if tags is None or not isinstance(tags, list):
+        return jsonify({'error': 'tags must be a list'}), 400
+
+    site = WordPressSite.query.get(site_id)
+    if not site:
+        return jsonify({'error': 'Site not found'}), 404
+
+    # Normalize: strings only, trimmed, non-empty, de-duplicated (order-preserving)
+    seen = set()
+    cleaned = []
+    for t in tags:
+        if not isinstance(t, str):
+            continue
+        v = t.strip()
+        if v and v.lower() not in seen:
+            seen.add(v.lower())
+            cleaned.append(v)
+
+    import json as _json
+    site.tags = _json.dumps(cleaned)
+    db.session.commit()
+    return jsonify({'success': True, 'tags': cleaned}), 200
+
+
 @wordpress_bp.route('/sites/<int:site_id>', methods=['DELETE'])
 @jwt_required()
 def delete_site(site_id):
@@ -622,6 +652,58 @@ def create_wp_user(app_id):
         data.get('password')
     )
     return jsonify(result), 201 if result['success'] else 400
+
+
+@wordpress_bp.route('/sites/<int:site_id>/login', methods=['POST'])
+@jwt_required()
+@admin_required
+def wp_auto_login(site_id):
+    """Mint a one-time passwordless wp-admin login URL for the calling operator."""
+    from app.services.audit_service import AuditService
+    current_user_id = get_jwt_identity()
+    operator = User.query.get(current_user_id)
+    if not operator:
+        return jsonify({'error': 'User not found'}), 404
+
+    wp_site = WordPressSite.query.get(site_id)
+    app = wp_site.application if wp_site else _resolve_app(site_id)
+    if not app or not app.root_path:
+        return jsonify({'error': 'Application not found'}), 404
+    if app.app_type != 'wordpress':
+        return jsonify({'error': 'Application is not a WordPress site'}), 400
+
+    # Resolve a managed admin tied to the operator's panel email. Prefer the
+    # site's recorded admin_user; otherwise derive a deterministic username
+    # from the operator and create it via the WP-CLI bridge if absent.
+    wp_user = (wp_site.admin_user if wp_site and wp_site.admin_user else None)
+    if not wp_user:
+        wp_user = (operator.username or operator.email.split('@')[0])
+        exists = WordPressService.wp_cli(app.root_path, ['user', 'get', wp_user, '--field=ID'])
+        if not exists.get('success'):
+            created = WordPressService.create_user(
+                app.root_path, wp_user, operator.email, role='administrator'
+            )
+            if not created.get('success'):
+                return jsonify({'error': created.get('error') or 'Failed to provision admin'}), 400
+        if wp_site:
+            wp_site.admin_user = wp_user
+            if not wp_site.admin_email:
+                wp_site.admin_email = operator.email
+            db.session.commit()
+
+    result = WordPressService.create_login_url(app.root_path, wp_user)
+    if not result.get('success'):
+        return jsonify({'error': result.get('error') or 'Failed to create login URL'}), 400
+
+    AuditService.log(
+        action='wordpress.admin_login',
+        user_id=current_user_id,
+        target_type='app',
+        target_id=app.id,
+        details={'wp_user': wp_user, 'site_id': site_id, 'app_name': app.name},
+    )
+
+    return jsonify({'success': True, 'url': result['url']}), 200
 
 
 @wordpress_bp.route('/sites/<int:app_id>/users/<user>/reset-password', methods=['POST'])

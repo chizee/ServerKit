@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 function WordPress() {
     const [sites, setSites] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeTag, setActiveTag] = useState(null); // null = show all
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
     const [createForm, setCreateForm] = useState({ name: '', adminEmail: '' });
@@ -158,8 +159,32 @@ function WordPress() {
                     }
                 />
             ) : (
+                <>
+                {(() => {
+                    const allTags = Array.from(new Set(sites.flatMap(s => s.tags || []))).sort();
+                    if (allTags.length === 0) return null;
+                    return (
+                        <div className="wp-tag-filter">
+                            <button
+                                className={`wp-tag-chip wp-tag-chip--filter ${activeTag === null ? 'is-active' : ''}`}
+                                onClick={() => setActiveTag(null)}
+                            >
+                                All
+                            </button>
+                            {allTags.map(tag => (
+                                <button
+                                    key={tag}
+                                    className={`wp-tag-chip wp-tag-chip--filter ${activeTag === tag ? 'is-active' : ''}`}
+                                    onClick={() => setActiveTag(tag)}
+                                >
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
+                    );
+                })()}
                 <div className="wp-sites-grid">
-                    {sites.map(site => (
+                    {sites.filter(site => activeTag === null || (site.tags || []).includes(activeTag)).map(site => (
                         <div
                             key={site.id}
                             className="wp-site-card"
@@ -195,6 +220,13 @@ function WordPress() {
                                         <span className="meta-value">{(site.environment_count || 0) + 1}</span>
                                     </div>
                                 </div>
+                                {site.tags && site.tags.length > 0 && (
+                                    <div className="wp-site-tags">
+                                        {site.tags.map(tag => (
+                                            <span key={tag} className="wp-tag-chip">{tag}</span>
+                                        ))}
+                                    </div>
+                                )}
                                 {site.url && site.status === 'running' && (
                                     <div className="wp-site-card-links">
                                         <a
@@ -223,6 +255,7 @@ function WordPress() {
                         </div>
                     ))}
                 </div>
+                </>
             )}
 
             {/* Create Site Modal */}

@@ -163,7 +163,7 @@ These are the features that make a user say "this is a managed platform, not a f
 - **Reuse:** everything from Phase 0 + #8.
 - **Done when:** One wizard produces a hardened, TLS'd, admin-ready site on a real domain.
 
-### #16 — Passwordless WP-admin login (the signature feature) `[M]` ❌
+### #16 — Passwordless WP-admin login (the signature feature) `[M]` ❌ — ✅ Done (WP-CLI magic link; needs container egress to install the wp-cli-login package once)
 - **Today:** "Open WP Admin" is a dumb `window.open` to `{site.url}/wp-admin`. Grep confirms **zero** login/magic/token/SSO code in the WP API. `create_user` (`:646`) and `reset_password` (`:666`) exist, so managed-admin provisioning is half-done.
 - **Do (no heavy plugin — WP-CLI bridge):**
   1. Mint a one-time URL via `wp package install wp-cli/login-command` then `wp login create <user> --url-only` (or a ~30-line mu-plugin validating an HMAC nonce).
@@ -186,13 +186,13 @@ These are the features that make a user say "this is a managed platform, not a f
 - **Reuse:** `create_environment` internals, `db_sync_service`.
 - **Done when:** "Clone" yields an independent site with its own credentials.
 
-### #19 — Multisite detection `[S]` 🟡
+### #19 — Multisite detection `[S]` 🟡 — ✅ Done
 - **Today:** `WordPressSite.multisite` is a decorative boolean (`models/wordpress_site.py:25`), never populated from reality.
 - **Do:** Populate it via `wp core is-multisite` during create/health.
 - **Reuse:** `wp_cli`.
 - **Done when:** The flag reflects the actual install.
 
-### #20 — Site labels / tags (agency organization) `[S]` ❌
+### #20 — Site labels / tags (agency organization) `[S]` ❌ — ✅ Done
 - **Today:** No tags/labels/client/group field on `WordPressSite`; UI renders no chips.
 - **Do:** Add a `tags` (and optional `client`/`group`) field + UI chips + filtering on the sites list.
 - **Reuse:** `WordPressSite.to_dict`, `WordPressSiteCard.jsx`.

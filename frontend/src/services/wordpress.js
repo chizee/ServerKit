@@ -13,6 +13,12 @@ const wordpressApi = {
 
     getSite: (id) => api.request(`${BASE_PATH}/${id}`),
 
+    // Replace the tag list for a site (agency organization labels)
+    setTags: (id, tags) => api.request(`${BASE_PATH}/${id}/tags`, {
+        method: 'PATCH',
+        body: { tags }
+    }),
+
     // Deletes the site and all environments. A final files+DB backup is taken
     // by default (pass { createBackup: false } to skip).
     deleteSite: (id, { createBackup = true } = {}) => api.request(
@@ -133,6 +139,11 @@ const wordpressApi = {
     }),
 
     harden: (siteId) => api.request(`${BASE_PATH}/${siteId}/harden`, {
+        method: 'POST'
+    }),
+
+    // Mint a one-time passwordless wp-admin login URL for the current operator.
+    autoLogin: (siteId) => api.request(`${BASE_PATH}/${siteId}/login`, {
         method: 'POST'
     }),
 

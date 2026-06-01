@@ -213,6 +213,16 @@ define('WP_AUTO_UPDATE_CORE', 'minor');
             return {'success': False, 'error': str(e)}
 
     @classmethod
+    def is_multisite(cls, path: str) -> bool:
+        """Return True if the WordPress install at ``path`` is a multisite network.
+
+        Uses ``wp core is-multisite`` (exit 0 = multisite, non-zero = single).
+        Routes through the Docker-aware wp_cli bridge automatically.
+        """
+        result = cls.wp_cli(path, ['core', 'is-multisite'])
+        return bool(result.get('success'))
+
+    @classmethod
     def get_wordpress_info(cls, path: str) -> Optional[Dict]:
         """Get WordPress installation info."""
         if not os.path.exists(os.path.join(path, 'wp-config.php')):
@@ -249,6 +259,9 @@ define('WP_AUTO_UPDATE_CORE', 'minor');
         email_result = cls.wp_cli(path, ['option', 'get', 'admin_email'])
         if email_result['success']:
             info['admin_email'] = email_result['output'].strip()
+
+        # Detect multisite (wp core is-multisite: exit 0 = multisite)
+        info['multisite'] = cls.is_multisite(path)
 
         return info
 
@@ -720,6 +733,40 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
             return {'success': True, 'message': 'Password reset', 'password': password}
         return result
 
+    @classmethod
+    def _get_login_url_slug(cls, path: str) -> str:
+        """Return the site's real login URL (avoids hardcoding /wp-admin)."""
+        res = cls.wp_cli(path, ['eval', 'echo wp_login_url();'])
+        if res.get('success') and res.get('output', '').strip():
+            return res['output'].strip()
+        return ''
+
+    @classmethod
+    def _ensure_login_package(cls, path: str) -> Dict:
+        """Make the wp-cli-login command + its launcher available, idempotently."""
+        have = cls.wp_cli(path, ['login', '--help'])
+        if not have.get('success'):
+            inst = cls.wp_cli(path, ['package', 'install', 'aaemnnosttv/wp-cli-login-command'])
+            if not inst.get('success'):
+                return {'success': False, 'error': 'Failed to install wp-cli-login package: ' + (inst.get('error') or '')}
+        # Ensure the companion launcher mu-plugin is present (idempotent).
+        cls.wp_cli(path, ['login', 'install', '--yes'])
+        return {'success': True}
+
+    @classmethod
+    def create_login_url(cls, path: str, user: str) -> Dict:
+        """Mint a one-time passwordless wp-admin login URL for ``user``."""
+        pkg = cls._ensure_login_package(path)
+        if not pkg.get('success'):
+            return pkg
+        res = cls.wp_cli(path, ['login', 'create', user, '--url-only'])
+        if res.get('success'):
+            url = (res.get('output') or '').strip()
+            if not url:
+                return {'success': False, 'error': 'Login URL was empty'}
+            return {'success': True, 'url': url, 'login_slug': cls._get_login_url_slug(path)}
+        return res
+
     @staticmethod
     def _generate_password(length: int = 16) -> str:
         """Generate a secure random password."""
@@ -1014,6 +1061,16 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
         site_data = site.to_dict(include_environments=True)
         cls._enrich_site_data(site, site_data)
 
+        # Refresh the multisite flag from reality (single-site detail only;
+        # never added to the hot list endpoint get_sites). One cheap wp_cli probe.
+        if site.application and site.application.root_path:
+            detected = cls.is_multisite(site.application.root_path)
+            if detected != site.multisite:
+                site.multisite = detected
+                from app import db
+                db.session.commit()
+            site_data['multisite'] = detected
+
         # Also enrich environment data
         if 'environments' in site_data:
             for env_data in site_data['environments']:
@@ -1092,6 +1149,10 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
                     'finalized. Complete setup via the WordPress wizard.'
                 )
 
+            # Detect multisite from the freshly installed site (cheap one-shot;
+            # only meaningful if the automated install finalized).
+            multisite = cls.is_multisite(app.root_path) if admin_password else False
+
             # Create WordPressSite record
             wp_site = WordPressSite(
                 application_id=app.id,
@@ -1100,7 +1161,8 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
                 is_production=True,
                 environment_type='production',
                 wp_version='6.4',
-                compose_project_name=safe_name
+                compose_project_name=safe_name,
+                multisite=multisite
             )
             db.session.add(wp_site)
             db.session.commit()
