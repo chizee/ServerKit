@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 // Detail Page Skeleton for initial loading
 const DetailPageSkeleton = () => (
@@ -72,7 +73,7 @@ const DetailPageSkeleton = () => (
     </div>
 );
 
-const VALID_TABS = ['overview', 'environments', 'database', 'plugins', 'themes', 'php', 'git', 'backups', 'uptime', 'analytics'];
+const VALID_TABS = ['overview', 'environments', 'database', 'plugins', 'themes', 'php', 'git', 'backups', 'uptime', 'analytics', 'vulnerabilities'];
 
 const WordPressDetail = () => {
     const { id } = useParams();
@@ -355,6 +356,12 @@ const WordPressDetail = () => {
                 >
                     <BarChart3 size={14} /> Analytics
                 </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'vulnerabilities' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('vulnerabilities')}
+                >
+                    <ShieldCheck size={14} /> Vulnerabilities
+                </div>
             </div>
 
             {/* Clone Site Modal */}
@@ -400,6 +407,7 @@ const WordPressDetail = () => {
                     {activeTab === 'backups' && <BackupsTab siteId={site.id} />}
                     {activeTab === 'uptime' && <UptimeTab siteId={site.id} />}
                     {activeTab === 'analytics' && <AnalyticsTab siteId={site.id} />}
+                    {activeTab === 'vulnerabilities' && <VulnerabilitiesTab siteId={site.id} />}
                 </ErrorBoundary>
             </div>
         </div>
@@ -624,6 +632,116 @@ const UptimeTab = ({ siteId }) => {
                                     </div>
                                 </>
                             )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Vulnerabilities Tab — cross-references plugin/theme/core versions against the
+// keyless WPVulnerability community feed (#28). On-demand background scan + poll.
+const VulnerabilitiesTab = ({ siteId }) => {
+    const toast = useToast();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [scanning, setScanning] = useState(false);
+
+    const load = React.useCallback(async () => {
+        try {
+            const res = await wordpressApi.getVulnerabilities(siteId);
+            setData(res);
+        } catch (err) {
+            toast.error(err.message || 'Failed to load vulnerabilities');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, toast]);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (data?.scan_status !== 'running') return undefined;
+        const t = setTimeout(() => { load(); }, 2500);
+        return () => clearTimeout(t);
+    }, [data, load]);
+
+    async function handleScan() {
+        setScanning(true);
+        try {
+            await wordpressApi.scanVulnerabilities(siteId);
+            toast.info('Vulnerability scan started…');
+            await load();
+        } catch (err) {
+            toast.error(err.message || 'Failed to start scan');
+        } finally {
+            setScanning(false);
+        }
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading vulnerabilities...</p></div>;
+
+    const running = data?.scan_status === 'running';
+    const summary = data?.summary || {};
+    const vulns = data?.vulnerabilities || [];
+    const sevVariant = (s) => ({ critical: 'destructive', high: 'destructive', medium: 'warning', low: 'info' }[s] || 'secondary');
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">Vulnerability scan</div>
+                    <div className="app-panel-body">
+                        <div className="app-detail-actions">
+                            <Button size="sm" onClick={handleScan} disabled={scanning || running}>
+                                {running ? 'Scanning…' : 'Run scan'}
+                            </Button>
+                        </div>
+                        <div className="app-info-grid">
+                            <div className="app-info-item"><span className="app-info-label">Last scan</span><span className="app-info-value">{data?.scanned_at ? new Date(data.scanned_at).toLocaleString() : 'Never'}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Findings</span><span className="app-info-value">{summary.total ?? 0}</span></div>
+                        </div>
+                        {summary.total > 0 && (
+                            <div className="app-detail-actions">
+                                {summary.critical > 0 && <Badge variant="destructive">{summary.critical} critical</Badge>}
+                                {summary.high > 0 && <Badge variant="destructive">{summary.high} high</Badge>}
+                                {summary.medium > 0 && <Badge variant="warning">{summary.medium} medium</Badge>}
+                                {summary.low > 0 && <Badge variant="info">{summary.low} low</Badge>}
+                                {summary.unknown > 0 && <Badge variant="secondary">{summary.unknown} unrated</Badge>}
+                            </div>
+                        )}
+                        {data?.scan_error && <p className="hint">Last scan error: {data.scan_error}</p>}
+                        <p className="hint">Cross-references installed plugin, theme, and core versions against the WPVulnerability community database. Re-run after updating.</p>
+                    </div>
+                </div>
+
+                {vulns.length === 0 ? (
+                    <div className="app-panel">
+                        <div className="app-panel-body">
+                            <p className="hint">{data?.scanned_at ? 'No known vulnerabilities found.' : 'No scan has run yet — click Run scan to check this site.'}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="app-panel">
+                        <div className="app-panel-header">Findings</div>
+                        <div className="app-panel-body">
+                            {vulns.map(v => (
+                                <div className="form-group" key={v.id}>
+                                    <div>
+                                        <Badge variant={sevVariant(v.severity)}>{v.severity}</Badge>{' '}
+                                        <strong>{v.name}</strong>
+                                    </div>
+                                    {v.title && <span className="form-hint">{v.title}</span>}
+                                    <span className="form-hint">
+                                        {v.source}{v.slug ? ` · ${v.slug}` : ''} · installed {v.installed_version}
+                                        {v.fixed_in ? ` · fixed in ${v.fixed_in}` : ' · no fix yet'}
+                                        {v.advisory_id ? ` · ${v.advisory_id}` : ''}
+                                    </span>
+                                    {v.reference_url && (
+                                        <a href={v.reference_url} target="_blank" rel="noopener noreferrer" className="form-hint">View advisory ↗</a>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}

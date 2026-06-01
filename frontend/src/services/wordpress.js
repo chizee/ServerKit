@@ -185,6 +185,10 @@ const wordpressApi = {
     // Traffic + error analytics (#25) — parsed on-demand from the apache access log.
     getSiteAnalytics: (siteId, hours = 24) => api.request(`${BASE_PATH}/${siteId}/analytics?hours=${hours}`),
 
+    // Vulnerability scanning (#28) — plugin/theme/core vs the WPVulnerability feed.
+    getVulnerabilities: (siteId) => api.request(`${BASE_PATH}/${siteId}/vulnerabilities`),
+    scanVulnerabilities: (siteId) => api.request(`${BASE_PATH}/${siteId}/vulnerabilities/scan`, { method: 'POST' }),
+
     // Mint a one-time passwordless wp-admin login URL for the current operator.
     autoLogin: (siteId) => api.request(`${BASE_PATH}/${siteId}/login`, {
         method: 'POST'

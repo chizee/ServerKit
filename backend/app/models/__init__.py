@@ -12,7 +12,7 @@ from app.models.workflow import Workflow, WorkflowExecution, WorkflowLog
 from app.models.webhook import GitWebhook, WebhookLog, GitDeployment
 from app.models.server import Server, ServerGroup, ServerMetrics, ServerCommand, AgentSession, AgentVersion, AgentRollout
 from app.models.security_alert import SecurityAlert
-from app.models.wordpress_site import WordPressSite, DatabaseSnapshot, SyncJob
+from app.models.wordpress_site import WordPressSite, DatabaseSnapshot, SyncJob, WordPressVulnerability
 from app.models.environment_activity import EnvironmentActivity
 from app.models.promotion_job import PromotionJob
 from app.models.sanitization_profile import SanitizationProfile
@@ -39,7 +39,7 @@ __all__ = [
     'NotificationPreferences', 'Deployment', 'DeploymentDiff', 'DeploymentJob', 'DeploymentJobLog', 'SystemSettings', 'AuditLog',
     'MetricsHistory', 'Workflow', 'WorkflowExecution', 'WorkflowLog', 'GitWebhook', 'WebhookLog', 'GitDeployment',
     'Server', 'ServerGroup', 'ServerMetrics', 'ServerCommand', 'AgentSession', 'AgentVersion', 'AgentRollout', 'SecurityAlert',
-    'WordPressSite', 'DatabaseSnapshot', 'SyncJob',
+    'WordPressSite', 'DatabaseSnapshot', 'SyncJob', 'WordPressVulnerability',
     'EnvironmentActivity', 'PromotionJob', 'SanitizationProfile',
     'EmailDomain', 'EmailAccount', 'EmailAlias', 'EmailForwardingRule', 'DNSProviderConfig',
     'OAuthIdentity', 'SourceConnection', 'ApiKey', 'ApiUsageLog', 'ApiUsageSummary',

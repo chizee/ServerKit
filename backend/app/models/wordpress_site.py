@@ -78,6 +78,9 @@ class WordPressSite(db.Model):
     disk_usage_bytes = db.Column(db.BigInteger, default=0)
     disk_usage_updated_at = db.Column(db.DateTime)
 
+    # Vulnerability scan (#28)
+    last_vuln_scan_at = db.Column(db.DateTime)
+
     # Auto-sync
     auto_sync_schedule = db.Column(db.String(100))  # cron expression
     auto_sync_enabled = db.Column(db.Boolean, default=False)
@@ -94,6 +97,7 @@ class WordPressSite(db.Model):
         foreign_keys=[production_site_id]
     )
     snapshots = db.relationship('DatabaseSnapshot', backref='site', lazy='dynamic', cascade='all, delete-orphan')
+    vulnerabilities = db.relationship('WordPressVulnerability', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     sync_jobs_as_source = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.source_site_id',
@@ -145,6 +149,7 @@ class WordPressSite(db.Model):
             'disk_usage_bytes': self.disk_usage_bytes,
             'disk_usage_human': DatabaseSnapshot._format_size(self.disk_usage_bytes) if self.disk_usage_bytes else None,
             'disk_usage_updated_at': self.disk_usage_updated_at.isoformat() if self.disk_usage_updated_at else None,
+            'last_vuln_scan_at': self.last_vuln_scan_at.isoformat() if self.last_vuln_scan_at else None,
             'auto_sync_schedule': self.auto_sync_schedule,
             'auto_sync_enabled': self.auto_sync_enabled,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -299,3 +304,48 @@ class SyncJob(db.Model):
 
     def __repr__(self):
         return f'<SyncJob {self.id} {self.source_site_id}->{self.target_site_id}>'
+
+
+class WordPressVulnerability(db.Model):
+    """A known vulnerability found in a WordPress site's plugin, theme, or core."""
+
+    __tablename__ = 'wordpress_vulnerabilities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+
+    # What is affected
+    source = db.Column(db.String(20), nullable=False)   # 'core' | 'plugin' | 'theme'
+    slug = db.Column(db.String(200))                    # directory slug ('' for core)
+    name = db.Column(db.String(255))                    # display name
+    installed_version = db.Column(db.String(50))
+
+    # The advisory
+    advisory_id = db.Column(db.String(100))             # CVE id / WPVulnerability uuid
+    title = db.Column(db.Text)
+    severity = db.Column(db.String(20), default='unknown')  # critical|high|medium|low|unknown
+    cvss_score = db.Column(db.String(10))
+    fixed_in = db.Column(db.String(50))                 # version the fix landed in (None if unfixed)
+    reference_url = db.Column(db.String(500))
+
+    detected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'site_id': self.site_id,
+            'source': self.source,
+            'slug': self.slug,
+            'name': self.name,
+            'installed_version': self.installed_version,
+            'advisory_id': self.advisory_id,
+            'title': self.title,
+            'severity': self.severity,
+            'cvss_score': self.cvss_score,
+            'fixed_in': self.fixed_in,
+            'reference_url': self.reference_url,
+            'detected_at': self.detected_at.isoformat() if self.detected_at else None,
+        }
+
+    def __repr__(self):
+        return f'<WordPressVulnerability {self.id} {self.source}:{self.slug} {self.severity}>'

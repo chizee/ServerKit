@@ -515,6 +515,39 @@ def get_site_analytics(app_id):
     return jsonify(result), 200
 
 
+@wordpress_bp.route('/sites/<int:app_id>/vulnerabilities', methods=['GET'])
+@jwt_required()
+def get_site_vulnerabilities(app_id):
+    """Return persisted vulnerability findings + live scan status for a site."""
+    from app.services.wp_vulnerability_service import WpVulnerabilityService
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != current_user_id:
+        return jsonify({'error': 'Access denied'}), 403
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpVulnerabilityService.get_results(wp_site)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/vulnerabilities/scan', methods=['POST'])
+@jwt_required()
+@admin_required
+def scan_site_vulnerabilities(app_id):
+    """Start a background vulnerability scan (cross-references the WPVulnerability feed)."""
+    from app.services.wp_vulnerability_service import WpVulnerabilityService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpVulnerabilityService.start_scan(wp_site)), 200
+
+
 @wordpress_bp.route('/sites/<int:app_id>/info', methods=['GET'])
 @jwt_required()
 def get_wordpress_info(app_id):
