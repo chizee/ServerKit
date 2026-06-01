@@ -257,10 +257,8 @@ def list_servers():
     from app.models import User
     from app.services.workspace_service import WorkspaceService
     user = User.query.get(get_jwt_identity())
-    ws_id, werr = WorkspaceService.resolve_workspace_id(
+    ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
-    if werr:
-        return jsonify({'error': werr[0]}), werr[1]
     query = WorkspaceService.scope_query(Server.query, Server, user,
                                          workspace_id=ws_id, owner_attr=None)
 
@@ -324,10 +322,8 @@ def create_server():
     from app.models import User
     from app.services.workspace_service import WorkspaceService
     user = User.query.get(user_id)
-    ws_id, werr = WorkspaceService.resolve_workspace_id(
+    ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
-    if werr:
-        return jsonify({'error': werr[0]}), werr[1]
     if ws_id is None:
         ws_id = WorkspaceService.ensure_default_workspace().id
 

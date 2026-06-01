@@ -41,34 +41,29 @@ def test_resolve_workspace_id_branches(app):
     outsider = _mk_user(db, 'r_outsider', 'developer')
 
     # No active context.
-    assert WorkspaceService.resolve_workspace_id(outsider, None) == (None, None)
-    assert WorkspaceService.resolve_workspace_id(outsider, '') == (None, None)
-    assert WorkspaceService.resolve_workspace_id(outsider, 'all') == (None, None)
+    assert WorkspaceService.resolve_workspace_id(outsider, None) is None
+    assert WorkspaceService.resolve_workspace_id(outsider, '') is None
+    assert WorkspaceService.resolve_workspace_id(outsider, 'all') is None
 
-    # Malformed / missing.
-    wsid, err = WorkspaceService.resolve_workspace_id(outsider, 'abc')
-    assert wsid is None and err[1] == 400
-    wsid, err = WorkspaceService.resolve_workspace_id(outsider, 99999)
-    assert wsid is None and err[1] == 404
+    # Malformed / unknown -> lenient fall back to no scope (never raises).
+    assert WorkspaceService.resolve_workspace_id(outsider, 'abc') is None
+    assert WorkspaceService.resolve_workspace_id(outsider, 99999) is None
 
     # A workspace owned by `owner` (creator becomes owner-member).
     ws = WorkspaceService.create_workspace({'name': 'Acme'}, owner.id)
 
-    # A non-member non-admin is denied.
-    wsid, err = WorkspaceService.resolve_workspace_id(outsider, ws.id)
-    assert wsid is None and err[1] == 403
+    # A non-member non-admin falls back to no scope (no error, but no access either).
+    assert WorkspaceService.resolve_workspace_id(outsider, ws.id) is None
 
-    # An admin who is NOT a member is allowed (admin bypass).
-    wsid, err = WorkspaceService.resolve_workspace_id(admin, ws.id)
-    assert wsid == ws.id and err is None
+    # An admin who is NOT a member resolves it (admin bypass).
+    assert WorkspaceService.resolve_workspace_id(admin, ws.id) == ws.id
 
-    # A member is allowed.
+    # A member resolves it.
     WorkspaceService.add_member(ws.id, outsider.id, 'member')
-    wsid, err = WorkspaceService.resolve_workspace_id(outsider, ws.id)
-    assert wsid == ws.id and err is None
+    assert WorkspaceService.resolve_workspace_id(outsider, ws.id) == ws.id
 
 
-def test_resolve_rejects_deactivated_user_on_workspace_path(app):
+def test_resolve_deactivated_user_falls_back(app):
     from app import db
     from app.services.workspace_service import WorkspaceService
 
@@ -79,11 +74,9 @@ def test_resolve_rejects_deactivated_user_on_workspace_path(app):
     member.is_active = False
     db.session.commit()
 
-    # Requesting a workspace as a deactivated account is rejected...
-    wsid, err = WorkspaceService.resolve_workspace_id(member, ws.id)
-    assert wsid is None and err[1] == 403
-    # ...but the no-context path is unchanged (no new behavior there).
-    assert WorkspaceService.resolve_workspace_id(member, None) == (None, None)
+    # A deactivated account doesn't drive workspace scoping — it falls back to no scope.
+    assert WorkspaceService.resolve_workspace_id(member, ws.id) is None
+    assert WorkspaceService.resolve_workspace_id(member, None) is None
 
 
 # ---- scope_query ----------------------------------------------------------
@@ -142,9 +135,11 @@ def test_get_apps_scoping_api(app, client):
     assert r.status_code == 200
     assert {a['name'] for a in r.get_json()['apps']} == {'in-ws', 'other-ws'}
 
-    # Requesting a workspace the dev isn't a member of -> 403.
+    # Requesting a workspace the dev isn't a member of -> lenient fall back to no
+    # scope (stale/forbidden context never breaks the page; shows own apps).
     r = client.get('/api/v1/apps', headers={**_token(dev.id), 'X-Workspace-Id': str(ws.id)})
-    assert r.status_code == 403
+    assert r.status_code == 200
+    assert {a['name'] for a in r.get_json()['apps']} == {'in-ws', 'other-ws'}
 
     # Once a member, the list is filtered to that workspace.
     WorkspaceService.add_member(ws.id, dev.id, 'member')

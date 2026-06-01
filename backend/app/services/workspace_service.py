@@ -47,30 +47,30 @@ class WorkspaceService:
 
     @staticmethod
     def resolve_workspace_id(user, requested):
-        """Validate an optionally-requested workspace context.
+        """Resolve an optionally-requested workspace context to a usable workspace
+        id, or None for "no active context".
 
-        Returns (workspace_id|None, error|None) where error is a (message, status)
-        tuple. A None workspace_id means "no active context" — callers then keep
-        their existing non-workspace behavior. A truthy error means the request
-        named a workspace the user may not use; callers should surface it.
+        LENIENT by design: an unparsable, unknown, deactivated-account, or
+        not-permitted request degrades to None (no scoping) rather than raising,
+        so a stale `X-Workspace-Id` header (deleted workspace, removed member)
+        can never break the UI. This is safe because falling back to None only
+        ever shows the user their OWN resources and stamps the default workspace
+        on create — it never grants access to, or creates in, a workspace the
+        user doesn't belong to.
         """
         if requested in (None, '', 'all'):
-            return None, None
-        # A deactivated account must not drive workspace resolution (the admin
-        # bypass / membership check below key off this token-loaded user). Gated
-        # only on the workspace path so the no-context behavior is unchanged.
+            return None
         if not getattr(user, 'is_active', True):
-            return None, ('Account is deactivated', 403)
+            return None
         try:
             ws_id = int(requested)
         except (ValueError, TypeError):
-            return None, ('Invalid workspace id', 400)
-        ws = Workspace.query.get(ws_id)
-        if not ws:
-            return None, ('Workspace not found', 404)
+            return None
+        if Workspace.query.get(ws_id) is None:
+            return None
         if not user.is_admin and WorkspaceService.get_user_role(ws_id, user.id) is None:
-            return None, ('Workspace access denied', 403)
-        return ws_id, None
+            return None
+        return ws_id
 
     @staticmethod
     def scope_query(query, model, user, workspace_id=None, owner_attr=None):

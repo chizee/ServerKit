@@ -315,10 +315,8 @@ def get_apps():
     # prior behavior (admin -> all, else -> own); with ?workspace_id / X-Workspace-Id
     # it filters to that workspace (membership-checked).
     from app.services.workspace_service import WorkspaceService
-    ws_id, werr = WorkspaceService.resolve_workspace_id(
+    ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
-    if werr:
-        return jsonify({'error': werr[0]}), werr[1]
     query = WorkspaceService.scope_query(Application.query, Application, user,
                                          workspace_id=ws_id, owner_attr='user_id')
 
@@ -539,10 +537,8 @@ def create_app():
     # Stamp the workspace (#33): the requested one (membership-checked) or the default.
     from app.services.workspace_service import WorkspaceService
     user = User.query.get(current_user_id)
-    ws_id, werr = WorkspaceService.resolve_workspace_id(
+    ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
-    if werr:
-        return jsonify({'error': werr[0]}), werr[1]
     if ws_id is None:
         ws_id = WorkspaceService.ensure_default_workspace().id
 
