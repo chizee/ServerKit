@@ -13,9 +13,145 @@
     z-index: $z-fixed;
     padding: 0 1rem;
 
+    // Below the breakpoint the persistent rail becomes an off-canvas drawer
+    // (it stays mounted so its scroll position and state survive open/close).
     @media (max-width: $breakpoint-md) {
-        display: none;
+        top: 0;
+        left: 0;
+        height: 100dvh;
+        width: min(280px, 86vw);
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-top: env(safe-area-inset-top);
+        z-index: $z-modal;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: transform;
+
+        &.sidebar--mobile-open {
+            transform: translateX(0);
+            box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            transition: none;
+        }
     }
+}
+
+// Drawer close button — only rendered/visible in the mobile drawer.
+.sidebar__close {
+    display: none;
+
+    @media (max-width: $breakpoint-md) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin: $space-2 0 $space-1 auto;
+        border: none;
+        background: transparent;
+        color: $text-secondary;
+        border-radius: $radius-md;
+        cursor: pointer;
+        @include transition(color);
+        @include focus-ring();
+
+        &:hover {
+            color: $text-primary;
+            background: rgba(255, 255, 255, 0.06);
+        }
+    }
+}
+
+// Scrim behind the drawer. Only mounted on mobile while the drawer is open.
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: $z-modal-backdrop;
+    animation: sidebarBackdropIn 0.2s ease-out;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@keyframes sidebarBackdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+// Fixed top bar for narrow viewports — carries the hamburger + brand so the
+// drawer is reachable. Hidden entirely on desktop.
+.mobile-topbar {
+    display: none;
+
+    @media (max-width: $breakpoint-md) {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+        padding-top: env(safe-area-inset-top);
+        padding-right: max(#{$space-4}, env(safe-area-inset-right));
+        padding-left: max(#{$space-3}, env(safe-area-inset-left));
+        background-color: $bg-sidebar;
+        border-bottom: 1px solid $border-default;
+        z-index: $z-sticky;
+    }
+}
+
+.mobile-topbar__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: $text-primary;
+    border-radius: $radius-md;
+    cursor: pointer;
+    @include transition(background);
+    @include focus-ring();
+
+    &:hover {
+        background: $bg-hover;
+    }
+}
+
+.mobile-topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+}
+
+.mobile-topbar__logo {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+}
+
+.mobile-topbar__name {
+    font-size: 1.05rem;
+    font-weight: $font-weight-bold;
+    color: $text-primary;
+    letter-spacing: -0.01em;
+    @include truncate();
 }
 
 // Brand Section - Clean & Minimal

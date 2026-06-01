@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, ChevronUp, Layers, Palette, PanelLeft, Check } from 'lucide-react';
+import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, ChevronUp, Layers, Palette, PanelLeft, Check, X } from 'lucide-react';
 import { api } from '../services/api';
 import ServerKitLogo from './ServerKitLogo';
 import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems } from './sidebarItems';
 import { useContributions } from '../plugins/contributions';
 
-const Sidebar = () => {
+const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser } = useAuth();
     const { theme, resolvedTheme, setTheme, whiteLabel } = useTheme();
     const navigate = useNavigate();
@@ -16,6 +16,59 @@ const Sidebar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [wpInstalled, setWpInstalled] = useState(false);
     const menuRef = useRef(null);
+    const sidebarRef = useRef(null);
+
+    // When collapsed to a drawer and closed, take the whole subtree out of the
+    // tab order and the accessibility tree. `inert` is set imperatively so it
+    // works on React 18 (which doesn't forward the attribute).
+    useEffect(() => {
+        const el = sidebarRef.current;
+        if (!el) return;
+        el.toggleAttribute('inert', isMobile && !mobileOpen);
+    }, [isMobile, mobileOpen]);
+
+    // Open drawer: focus the first control, trap Tab, close on Escape, and
+    // return focus to the menu toggle on close.
+    useEffect(() => {
+        if (!isMobile || !mobileOpen) return undefined;
+        const el = sidebarRef.current;
+        if (!el) return undefined;
+
+        const getFocusable = () => Array.from(
+            el.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+        ).filter((node) => node.offsetParent !== null);
+
+        const focusables = getFocusable();
+        (focusables[0] || el).focus();
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onMobileClose();
+                return;
+            }
+            if (e.key !== 'Tab') return;
+            const items = getFocusable();
+            if (items.length === 0) return;
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+
+        el.addEventListener('keydown', handleKeyDown);
+        return () => {
+            el.removeEventListener('keydown', handleKeyDown);
+            document.querySelector('.mobile-topbar__toggle')?.focus();
+        };
+    }, [isMobile, mobileOpen, onMobileClose]);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -188,7 +241,22 @@ const Sidebar = () => {
     };
 
     return (
-        <aside className="sidebar">
+        <aside
+            ref={sidebarRef}
+            id="primary-navigation"
+            className={`sidebar${mobileOpen ? ' sidebar--mobile-open' : ''}`}
+            aria-label="Main navigation"
+        >
+            {isMobile && (
+                <button
+                    type="button"
+                    className="sidebar__close"
+                    aria-label="Close navigation menu"
+                    onClick={onMobileClose}
+                >
+                    <X size={20} aria-hidden="true" />
+                </button>
+            )}
             {whiteLabel.enabled ? (
                 <div className="brand-section brand-section--custom">
                     {whiteLabel.mode === 'image_full' ? (

@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import MobileTopBar from '../components/MobileTopBar';
 import CommandPalette from '../components/CommandPalette';
 import LogsDrawer from '../components/LogsDrawer';
 import { LogsDrawerProvider } from '../contexts/LogsDrawerContext';
 import PluginLoader from '../plugins/PluginLoader';
 import { refreshContributions, useContributions } from '../plugins/contributions';
+import useMediaQuery from '../hooks/useMediaQuery';
 import api from '../services/api';
 
 const FULL_PAGE_ROUTES = ['/workflow', '/files', '/docker'];
@@ -13,6 +15,10 @@ const FULL_PAGE_ROUTES = ['/workflow', '/files', '/docker'];
 const DashboardLayout = () => {
     const location = useLocation();
     const [paletteOpen, setPaletteOpen] = useState(false);
+    const [navOpen, setNavOpen] = useState(false);
+    // Matches the sidebar's $breakpoint-md (768px). Below it the persistent
+    // sidebar collapses into an off-canvas drawer driven by navOpen.
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { routes: pluginRoutes } = useContributions();
 
     // Plugin routes contribute their path relative to the dashboard
@@ -44,6 +50,24 @@ const DashboardLayout = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [handleKeyDown]);
 
+    // Close the mobile drawer on navigation (covers nav-link taps too).
+    useEffect(() => {
+        setNavOpen(false);
+    }, [location.pathname]);
+
+    // Never leave the drawer "open" when we cross back to the desktop layout.
+    useEffect(() => {
+        if (!isMobile) setNavOpen(false);
+    }, [isMobile]);
+
+    // Lock body scroll behind the drawer while it's open on mobile.
+    useEffect(() => {
+        if (!(isMobile && navOpen)) return undefined;
+        const previous = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = previous; };
+    }, [isMobile, navOpen]);
+
     // Load plugin contributions once we're authenticated. Subscribers
     // (Sidebar, CommandPalette, ExtensionRoutes, PageTitleUpdater) all
     // pick up the result via useContributions().
@@ -54,7 +78,19 @@ const DashboardLayout = () => {
     return (
         <LogsDrawerProvider>
             <div className="dashboard-layout">
-                <Sidebar />
+                <MobileTopBar navOpen={navOpen} onToggle={() => setNavOpen(prev => !prev)} />
+                <Sidebar
+                    mobileOpen={navOpen}
+                    isMobile={isMobile}
+                    onMobileClose={() => setNavOpen(false)}
+                />
+                {isMobile && navOpen && (
+                    <div
+                        className="sidebar-backdrop"
+                        onClick={() => setNavOpen(false)}
+                        aria-hidden="true"
+                    />
+                )}
                 <main className={`main-content${isFullPageRoute ? ' main-content--full-page' : ''}`}>
                     <Outlet />
                 </main>
