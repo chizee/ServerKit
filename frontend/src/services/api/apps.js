@@ -2,8 +2,20 @@
 // templates, builds, deployments
 
 // Apps endpoints
-export async function getApps() {
-    return this.request('/apps');
+export async function getApps(options = {}) {
+    // allWorkspaces neutralizes the ambient X-Workspace-Id header (sends it empty)
+    // so a cross-workspace view (e.g. resource management) sees every app, not just
+    // the active workspace's.
+    const config = options.allWorkspaces ? { headers: { 'X-Workspace-Id': '' } } : {};
+    return this.request('/apps', config);
+}
+
+// Reassign an application to a workspace (#33). Pass null to move it to Default.
+export async function setAppWorkspace(appId, workspaceId) {
+    return this.request(`/apps/${appId}/workspace`, {
+        method: 'PUT',
+        body: { workspace_id: workspaceId },
+    });
 }
 
 export async function getApp(id) {

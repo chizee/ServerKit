@@ -21,6 +21,8 @@ const Workspaces = () => {
     const [members, setMembers] = useState([]);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
+    const [showResourcesModal, setShowResourcesModal] = useState(null);
+    const [apps, setApps] = useState([]);
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6366f1' });
 
     const loadWorkspaces = useCallback(async () => {
@@ -103,6 +105,28 @@ const Workspaces = () => {
         }
     };
 
+    const loadResources = async (wsId) => {
+        try {
+            // allWorkspaces so we can see apps in OTHER workspaces to move them in.
+            const data = await api.getApps({ allWorkspaces: true });
+            setApps(data.apps || []);
+            setShowResourcesModal(wsId);
+        } catch (err) {
+            toast.error('Failed to load applications');
+        }
+    };
+
+    const handleMoveApp = async (appId, workspaceId) => {
+        try {
+            await api.setAppWorkspace(appId, workspaceId);
+            toast.success('Application moved');
+            const data = await api.getApps({ allWorkspaces: true });
+            setApps(data.apps || []);
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
     if (loading) return <Spinner />;
 
     return (
@@ -146,6 +170,7 @@ const Workspaces = () => {
                         )}
                         <div className="workspace-card__actions">
                             <Button size="sm" variant="outline" onClick={() => loadMembers(ws.id)}>Members</Button>
+                            <Button size="sm" variant="outline" onClick={() => loadResources(ws.id)}>Apps</Button>
                             {ws.status === 'active' && (
                                 <Button size="sm" variant="secondary" onClick={() => handleArchive(ws.id)}>Archive</Button>
                             )}
@@ -244,6 +269,46 @@ const Workspaces = () => {
                     </div>
                 </div>
             )}
+
+            {showResourcesModal && (() => {
+                const inWs = apps.filter(a => a.workspace_id === showResourcesModal);
+                const elsewhere = apps.filter(a => a.workspace_id !== showResourcesModal);
+                return (
+                    <div className="modal-overlay" onClick={() => setShowResourcesModal(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2>Workspace Applications</h2>
+                                <button className="modal-close" onClick={() => setShowResourcesModal(null)}>&times;</button>
+                            </div>
+                            <div className="modal-body">
+                                <div className="members-list">
+                                    {inWs.length === 0 && <p className="form-hint">No applications in this workspace yet.</p>}
+                                    {inWs.map(a => (
+                                        <div key={a.id} className="member-row">
+                                            <div>
+                                                <strong>{a.name}</strong>
+                                                <Badge variant="outline" className="ml-2">{a.app_type}</Badge>
+                                            </div>
+                                            <Button size="sm" variant="destructive" onClick={() => handleMoveApp(a.id, null)}>Remove</Button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <hr />
+                                <h4>Add Application</h4>
+                                <div className="server-select-list">
+                                    {elsewhere.length === 0 && <p className="form-hint">No other applications to add.</p>}
+                                    {elsewhere.map(a => (
+                                        <div key={a.id} className="server-select-item" onClick={() => handleMoveApp(a.id, showResourcesModal)}>
+                                            <span>{a.name}</span>
+                                            <Badge variant="outline" className="ml-2">{a.app_type}</Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {deleteConfirm && (
                 <ConfirmDialog

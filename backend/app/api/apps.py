@@ -334,6 +334,38 @@ def get_apps():
     }), 200
 
 
+@apps_bp.route('/<int:app_id>/workspace', methods=['PUT'])
+@jwt_required()
+def set_app_workspace(app_id):
+    """Reassign an application to a workspace (#33). Owner-or-admin on the app;
+    the target must be a workspace the caller can access (member or admin). A
+    null/'default' target moves it back to the default workspace."""
+    from app.models.workspace import Workspace
+    from app.services.workspace_service import WorkspaceService
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    # Use user.id (int) for comparisons — get_jwt_identity() is the stringified token id.
+    if user.role != 'admin' and app.user_id != user.id:
+        return jsonify({'error': 'Access denied'}), 403
+
+    target = (request.get_json() or {}).get('workspace_id')
+    if target in (None, '', 'default'):
+        ws_id = WorkspaceService.ensure_default_workspace().id
+    else:
+        ws = Workspace.query.get(target)
+        if not ws:
+            return jsonify({'error': 'Workspace not found'}), 404
+        if user.role != 'admin' and WorkspaceService.get_user_role(ws.id, user.id) is None:
+            return jsonify({'error': 'Not a member of the target workspace'}), 403
+        ws_id = ws.id
+
+    app.workspace_id = ws_id
+    db.session.commit()
+    return jsonify({'message': 'Workspace updated', 'app': app.to_dict()}), 200
+
+
 @apps_bp.route('/<int:app_id>', methods=['GET'])
 @jwt_required()
 def get_app(app_id):

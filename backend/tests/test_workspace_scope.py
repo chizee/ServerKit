@@ -241,6 +241,71 @@ def test_migration_backfill_attaches_resources_and_members(app):
 
 # ---- API: servers ---------------------------------------------------------
 
+def test_set_app_workspace_api(app, client):
+    from app import db
+    from app.services.workspace_service import WorkspaceService
+    from app.models import Application
+
+    owner = _mk_user(db, 'mv_owner', 'developer')
+    other = _mk_user(db, 'mv_other', 'developer')
+    admin = _mk_user(db, 'mv_admin', 'admin')
+    ws = WorkspaceService.create_workspace({'name': 'MoveWS'}, admin.id)
+    default_id = WorkspaceService.ensure_default_workspace().id
+    a = Application(name='movable', app_type='php', user_id=owner.id, workspace_id=default_id)
+    db.session.add(a)
+    db.session.commit()
+    app_id = a.id
+
+    # Owner isn't a member of the target -> 403.
+    r = client.put(f'/api/v1/apps/{app_id}/workspace', json={'workspace_id': ws.id}, headers=_token(owner.id))
+    assert r.status_code == 403
+
+    # Once a member, the move succeeds.
+    WorkspaceService.add_member(ws.id, owner.id, 'member')
+    r = client.put(f'/api/v1/apps/{app_id}/workspace', json={'workspace_id': ws.id}, headers=_token(owner.id))
+    assert r.status_code == 200 and r.get_json()['app']['workspace_id'] == ws.id
+
+    # A null target moves it back to Default.
+    r = client.put(f'/api/v1/apps/{app_id}/workspace', json={'workspace_id': None}, headers=_token(owner.id))
+    assert r.status_code == 200 and r.get_json()['app']['workspace_id'] == default_id
+
+    # A non-owner non-admin can't reassign it.
+    r = client.put(f'/api/v1/apps/{app_id}/workspace', json={'workspace_id': None}, headers=_token(other.id))
+    assert r.status_code == 403
+
+    # Unknown target workspace -> 404 (admin passes the ownership gate).
+    r = client.put(f'/api/v1/apps/{app_id}/workspace', json={'workspace_id': 999999}, headers=_token(admin.id))
+    assert r.status_code == 404
+
+
+def test_set_server_workspace_api(app, client):
+    from app import db
+    from app.services.workspace_service import WorkspaceService
+    from app.models import Server
+
+    admin = _mk_user(db, 'sw_admin', 'admin')
+    dev = _mk_user(db, 'sw_dev', 'developer')
+    viewer = _mk_user(db, 'sw_viewer', 'viewer')
+    ws = WorkspaceService.create_workspace({'name': 'SrvWS'}, admin.id)
+    s = Server(name='srv-move', registered_by=admin.id,
+               workspace_id=WorkspaceService.ensure_default_workspace().id)
+    db.session.add(s)
+    db.session.commit()
+    sid = s.id
+
+    # A developer who isn't a member of the target -> 403.
+    r = client.put(f'/api/v1/servers/{sid}/workspace', json={'workspace_id': ws.id}, headers=_token(dev.id))
+    assert r.status_code == 403
+
+    # Admin can move it (admin bypass).
+    r = client.put(f'/api/v1/servers/{sid}/workspace', json={'workspace_id': ws.id}, headers=_token(admin.id))
+    assert r.status_code == 200 and r.get_json()['server']['workspace_id'] == ws.id
+
+    # A viewer is blocked by @developer_required.
+    r = client.put(f'/api/v1/servers/{sid}/workspace', json={'workspace_id': None}, headers=_token(viewer.id))
+    assert r.status_code == 403
+
+
 def test_servers_list_global_without_context(app, client):
     from app import db
     from app.models import Server

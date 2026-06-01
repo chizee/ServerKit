@@ -368,6 +368,37 @@ def create_server():
     return jsonify(result), 201
 
 
+@servers_bp.route('/<server_id>/workspace', methods=['PUT'])
+@jwt_required()
+@developer_required
+def set_server_workspace(server_id):
+    """Reassign a server to a workspace (#33). Developer+; the target must be a
+    workspace the caller can access (member or admin). A null/'default' target
+    moves it back to the default workspace."""
+    from app.models import User
+    from app.models.workspace import Workspace
+    from app.services.workspace_service import WorkspaceService
+    user = User.query.get(get_jwt_identity())
+    server = Server.query.get(server_id)
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+
+    target = (request.get_json() or {}).get('workspace_id')
+    if target in (None, '', 'default'):
+        ws_id = WorkspaceService.ensure_default_workspace().id
+    else:
+        ws = Workspace.query.get(target)
+        if not ws:
+            return jsonify({'error': 'Workspace not found'}), 404
+        if not user.is_admin and WorkspaceService.get_user_role(ws.id, user.id) is None:
+            return jsonify({'error': 'Not a member of the target workspace'}), 403
+        ws_id = ws.id
+
+    server.workspace_id = ws_id
+    db.session.commit()
+    return jsonify({'message': 'Workspace updated', 'server': server.to_dict()}), 200
+
+
 @servers_bp.route('/<server_id>', methods=['GET'])
 @jwt_required()
 def get_server(server_id):
