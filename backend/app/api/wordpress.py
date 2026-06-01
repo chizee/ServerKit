@@ -712,6 +712,56 @@ def set_site_update_schedule(app_id):
     }), 200
 
 
+# ---- Monthly client reports (#33 agency slice): persisted per-month rollups ----
+
+@wordpress_bp.route('/sites/<int:app_id>/reports', methods=['GET'])
+@jwt_required()
+def get_site_reports(app_id):
+    """Return all persisted monthly reports for a site (newest month first)."""
+    from app.services.wp_reports_service import WpReportsService
+    app, err = _owner_or_admin_app(app_id)
+    if err:
+        return err
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpReportsService.get_reports(wp_site)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/reports/generate', methods=['POST'])
+@jwt_required()
+@admin_required
+def generate_site_report(app_id):
+    """Generate (or regenerate) the monthly report for a site. Body may carry
+    {year, month}; defaults to the current UTC month."""
+    from app.services.wp_reports_service import WpReportsService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    data = request.get_json() or {}
+    result = WpReportsService.generate(wp_site, year=data.get('year'), month=data.get('month'))
+    return jsonify(result), (200 if result.get('success') else 400)
+
+
+@wordpress_bp.route('/sites/<int:app_id>/reports/<int:report_id>', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def delete_site_report(app_id, report_id):
+    """Delete one persisted monthly report."""
+    from app.services.wp_reports_service import WpReportsService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    result = WpReportsService.delete(wp_site, report_id)
+    return jsonify(result), (200 if result.get('success') else 404)
+
+
 @wordpress_bp.route('/sites/<int:app_id>/info', methods=['GET'])
 @jwt_required()
 def get_wordpress_info(app_id):

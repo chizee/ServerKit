@@ -103,6 +103,7 @@ class WordPressSite(db.Model):
     snapshots = db.relationship('DatabaseSnapshot', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     vulnerabilities = db.relationship('WordPressVulnerability', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     update_runs = db.relationship('WordPressUpdateRun', backref='site', lazy='dynamic', cascade='all, delete-orphan')
+    reports = db.relationship('WordPressReport', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     sync_jobs_as_source = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.source_site_id',
@@ -389,3 +390,50 @@ class WordPressUpdateRun(db.Model):
 
     def __repr__(self):
         return f'<WordPressUpdateRun {self.id} site={self.site_id} {self.status}>'
+
+
+class WordPressReport(db.Model):
+    """A persisted monthly client report for a WordPress site (#33 — agency
+    reports slice): a point-in-time snapshot of the site's uptime, incidents,
+    update runs, backups, and security posture for one calendar month.
+
+    Why this is persisted rather than computed live on every view: some of the
+    underlying sources are point-in-time, not historical. Vulnerability findings
+    (#28) are deleted-and-replaced on each scan, and the live health/disk values
+    only reflect "now" — so a report regenerated months later would otherwise
+    show the wrong month's posture. Generating a report snapshots the computed
+    aggregates into `data` here, so the historical record stays truthful. The
+    true-historical sources (HealthCheck uptime samples #26, WordPressUpdateRun
+    #29, DatabaseSnapshot backups) are re-aggregated from their own tables for
+    the month at generation time.
+    """
+
+    __tablename__ = 'wordpress_reports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+
+    # Calendar-month window (naive UTC, matching every other timestamp in the app).
+    # period_label is "YYYY-MM" and is unique per site (regenerating replaces the row).
+    period_label = db.Column(db.String(7), nullable=False)   # e.g. "2026-05"
+    period_start = db.Column(db.DateTime, nullable=False)     # first of month, 00:00 UTC
+    period_end = db.Column(db.DateTime, nullable=False)       # first of next month (exclusive)
+
+    # The full aggregated payload (JSON). Schema is owned by WpReportsService.
+    data = db.Column(db.Text)
+
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'site_id': self.site_id,
+            'period_label': self.period_label,
+            'period_start': self.period_start.isoformat() if self.period_start else None,
+            'period_end': self.period_end.isoformat() if self.period_end else None,
+            'data': json.loads(self.data) if self.data else {},
+            'generated_at': self.generated_at.isoformat() if self.generated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<WordPressReport {self.id} site={self.site_id} {self.period_label}>'

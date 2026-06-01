@@ -1340,6 +1340,47 @@
     text-align: center;
 }
 
+// ---- Monthly client reports (#33) ----
+.wp-report-month-list {
+    flex-wrap: wrap;
+    margin-top: $space-3;
+}
+
+.wp-report-actions {
+    margin-left: auto;
+    display: inline-flex;
+    gap: $space-2;
+}
+
+// Print isolation: when the report's "Print" button toggles
+// `body.wp-report-printing`, hide all app chrome and lay out only the report.
+// Uses the classic visibility trick so it doesn't depend on enumerating every
+// layout class, and only applies inside @media print so the screen is untouched.
+@media print {
+    body.wp-report-printing {
+        * {
+            visibility: hidden !important;
+        }
+
+        .wp-report-printable,
+        .wp-report-printable * {
+            visibility: visible !important;
+        }
+
+        .wp-report-printable {
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        .wp-report-no-print {
+            display: none !important;
+        }
+    }
+}
+
 .resource-gate-icon {
     display: inline-flex;
     align-items: center;

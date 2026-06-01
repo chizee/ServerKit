@@ -203,6 +203,11 @@ const wordpressApi = {
     runCron: (siteId) => api.request(`${BASE_PATH}/${siteId}/cron/run`, { method: 'POST' }),
     setCronDisabled: (siteId, disabled) => api.request(`${BASE_PATH}/${siteId}/cron`, { method: 'POST', body: { disabled } }),
 
+    // Monthly client reports (#33): persisted per-month uptime/updates/backups/vuln rollups
+    getReports: (siteId) => api.request(`${BASE_PATH}/${siteId}/reports`),
+    generateReport: (siteId, body = {}) => api.request(`${BASE_PATH}/${siteId}/reports/generate`, { method: 'POST', body }),
+    deleteReport: (siteId, reportId) => api.request(`${BASE_PATH}/${siteId}/reports/${reportId}`, { method: 'DELETE' }),
+
     // Mint a one-time passwordless wp-admin login URL for the current operator.
     autoLogin: (siteId) => api.request(`${BASE_PATH}/${siteId}/login`, {
         method: 'POST'
