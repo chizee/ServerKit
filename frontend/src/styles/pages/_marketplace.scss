@@ -16,17 +16,7 @@
         overflow: hidden;
         border: 1px solid $border-subtle;
         border-radius: $radius-lg;
-        background:
-            linear-gradient(135deg, fade($accent-primary-raw, 14%), transparent 36%),
-            linear-gradient(180deg, fade($bg-elevated-raw, 88%), fade($bg-card-raw, 96%));
-
-        &::before {
-            content: '';
-            position: absolute;
-            inset: 0 0 auto;
-            height: 2px;
-            background: linear-gradient(90deg, $accent-primary, $success, $warning);
-        }
+        background: $bg-card;
     }
 
     .marketplace-hero__content {
@@ -242,8 +232,7 @@
         gap: $space-4;
         min-height: 284px;
         padding: $space-5;
-        background:
-            linear-gradient(180deg, fade($bg-elevated-raw, 76%), fade($bg-card-raw, 98%));
+        background: $bg-card;
         transition:
             transform $transition-base,
             border-color $transition-base,

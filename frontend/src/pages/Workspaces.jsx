@@ -4,6 +4,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
+import { LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -154,9 +156,11 @@ const Workspaces = () => {
                     </div>
                 ))}
                 {workspaces.length === 0 && (
-                    <div className="empty-state">
-                        <p>No workspaces yet. Create one to isolate servers by team or project.</p>
-                    </div>
+                    <EmptyState
+                        icon={LayoutGrid}
+                        title="No workspaces yet"
+                        description="Create one to isolate servers by team or project."
+                    />
                 )}
             </div>
 

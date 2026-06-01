@@ -15,7 +15,7 @@
         padding: $space-6;
         border: 1px solid $border-subtle;
         border-radius: $radius-lg;
-        background: linear-gradient(135deg, $bg-card, $bg-elevated);
+        background: $bg-card;
 
         &.is-active {
             border-color: fade($success, 35%);
@@ -197,7 +197,7 @@
 
         &.is-triggered {
             border-color: fade($warning, 40%);
-            background: linear-gradient(135deg, $bg-elevated, fade($warning, 6%));
+            background: $bg-elevated;
         }
 
         &__main {
@@ -379,10 +379,6 @@
                 justify-items: start;
             }
         }
-    }
-
-    .monitoring-empty {
-        min-height: 240px;
     }
 
     .form-help {

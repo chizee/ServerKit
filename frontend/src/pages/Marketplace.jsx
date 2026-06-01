@@ -23,6 +23,7 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -786,14 +787,6 @@ const RuntimeRow = ({ label, value, danger }) => (
     <div className={`marketplace-runtime__row ${danger ? 'marketplace-runtime__row--danger' : ''}`}>
         <span>{label}</span>
         <strong>{value}</strong>
-    </div>
-);
-
-const EmptyState = ({ icon: Icon, title, description }) => (
-    <div className="empty-state marketplace-empty">
-        <Icon aria-hidden="true" />
-        <h3>{title}</h3>
-        <p>{description}</p>
     </div>
 );
 

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { ShieldOff, ShieldCheck, Filter } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -285,14 +287,13 @@ function Firewall() {
             </div>
 
             {!status?.any_installed ? (
-                <div className="empty-state-large">
-                    <span className="icon">security</span>
-                    <h2>No Firewall Installed</h2>
-                    <p>Install a firewall to protect your server from unauthorized access.</p>
-                    <Button size="lg" onClick={() => setShowInstallModal(true)}>
-                        Install Firewall
-                    </Button>
-                </div>
+                <EmptyState
+                    size="lg"
+                    icon={ShieldOff}
+                    title="No firewall installed"
+                    description="Install a firewall to protect your server from unauthorized access."
+                    action={<Button size="lg" onClick={() => setShowInstallModal(true)}>Install Firewall</Button>}
+                />
             ) : (
                 <>
                     <div className="status-cards">
@@ -406,10 +407,7 @@ function Firewall() {
                                     </Button>
                                 </div>
                                 {rules.length === 0 ? (
-                                    <div className="empty-state">
-                                        <span className="icon">rule</span>
-                                        <p>No rules configured</p>
-                                    </div>
+                                    <EmptyState icon={Filter} title="No rules configured" />
                                 ) : (
                                     <div className="rules-table">
                                         <table>
@@ -464,10 +462,7 @@ function Firewall() {
                                     </Button>
                                 </div>
                                 {blockedIPs.length === 0 ? (
-                                    <div className="empty-state">
-                                        <span className="icon">verified_user</span>
-                                        <p>No blocked IPs</p>
-                                    </div>
+                                    <EmptyState icon={ShieldCheck} title="No blocked IPs" />
                                 ) : (
                                     <div className="blocked-list">
                                         {blockedIPs.map((item, index) => (

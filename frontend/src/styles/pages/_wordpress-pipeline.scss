@@ -159,7 +159,7 @@
 
 .wp-project-page {
     .wp-icon {
-        background: linear-gradient(135deg, $color-wordpress 0%, #1a5f7f 100%) !important;
+        background: $color-wordpress !important;
     }
 }
 
@@ -206,8 +206,7 @@
     position: relative;
 
     &.production {
-        border-color: fade($color-danger, 30%);
-        border-left: 3px solid $color-danger;
+        border-color: fade($color-danger, 45%);
     }
 
     &.locked {
@@ -1388,8 +1387,7 @@
     }
 
     &.default {
-        border-color: fade($accent-primary-raw, 30%);
-        border-left: 3px solid $color-primary;
+        border-color: fade($accent-primary-raw, 45%);
     }
 }
 

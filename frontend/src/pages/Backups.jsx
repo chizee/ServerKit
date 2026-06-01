@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { StatCard, StatsGrid } from '../components/StatCard';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -361,7 +362,7 @@ const Backups = () => {
         : backups.filter(b => b.type === filterType);
 
     if (loading) {
-        return <div className="page"><div className="loading">Loading backup data...</div></div>;
+        return <EmptyState loading size="lg" title="Loading backup data..." />;
     }
 
     return (
@@ -433,14 +434,12 @@ const Backups = () => {
                         </div>
                         <div className="card-body">
                             {filteredBackups.length === 0 ? (
-                                <div className="empty-state">
-                                    <Download size={48} />
-                                    <h3>No Backups</h3>
-                                    <p>No backups found. Create your first backup to get started.</p>
-                                    <Button onClick={() => setShowBackupModal(true)}>
-                                        Create Backup
-                                    </Button>
-                                </div>
+                                <EmptyState
+                                    icon={FileArchive}
+                                    title="No Backups"
+                                    description="No backups found. Create your first backup to get started."
+                                    action={<Button onClick={() => setShowBackupModal(true)}>Create Backup</Button>}
+                                />
                             ) : (
                                 <table className="table">
                                     <thead>
@@ -531,14 +530,12 @@ const Backups = () => {
                         </div>
                         <div className="card-body">
                             {schedules.length === 0 ? (
-                                <div className="empty-state">
-                                    <Clock size={48} />
-                                    <h3>No Schedules</h3>
-                                    <p>No backup schedules configured. Add a schedule for automated backups.</p>
-                                    <Button onClick={() => setShowScheduleModal(true)}>
-                                        Add Schedule
-                                    </Button>
-                                </div>
+                                <EmptyState
+                                    icon={Clock}
+                                    title="No Schedules"
+                                    description="No backup schedules configured. Add a schedule for automated backups."
+                                    action={<Button onClick={() => setShowScheduleModal(true)}>Add Schedule</Button>}
+                                />
                             ) : (
                                 <table className="table">
                                     <thead>

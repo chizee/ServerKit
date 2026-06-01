@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Container, Globe, Package, FileText, RefreshCw, Square, Play, Settings, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, X, Container, Globe, Package, FileText, RefreshCw, Square, Play, Settings, Trash2, AlertTriangle, Boxes } from 'lucide-react';
 import api from '../services/api';
+import EmptyState from '../components/EmptyState';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -137,7 +138,7 @@ const Applications = () => {
     });
 
     if (loading) {
-        return <div className="docker-loading">Loading applications...</div>;
+        return <EmptyState loading size="lg" title="Loading applications..." />;
     }
 
     return (
@@ -212,10 +213,12 @@ const Applications = () => {
                     </div>
 
                     {filteredApps.length === 0 ? (
-                        <div className="docker-empty">
-                            <h3>No applications</h3>
-                            <p>Create your first application to get started.</p>
-                        </div>
+                        <EmptyState
+                            icon={Boxes}
+                            title="No applications"
+                            description="Create your first application to get started."
+                            action={<Button onClick={() => setShowCreateModal(true)}><Plus size={16} /> New Application</Button>}
+                        />
                     ) : (
                         <table className="docker-table">
                             <thead>

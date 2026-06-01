@@ -357,15 +357,15 @@
         padding: $space-4;
         background: $bg-hover;
         border-radius: $radius-md;
-        border-left: 3px solid $border-subtle;
+        border: 1px solid $border-subtle;
 
         &.malware {
-            border-left-color: $danger;
+            border-color: fade($danger, 45%);
             .event-icon { color: $danger; }
         }
 
         &.integrity {
-            border-left-color: $warning;
+            border-color: fade($warning, 45%);
             .event-icon { color: $warning; }
         }
     }
@@ -851,11 +851,11 @@
             }
 
             &.warning {
-                border-left: 3px solid $warning;
+                border: 1px solid fade($warning, 45%);
             }
 
             &.suggestion {
-                border-left: 3px solid $accent-primary;
+                border: 1px solid fade($accent-primary-raw, 45%);
             }
         }
     }

@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -341,10 +342,7 @@ const StatusPages = () => {
                         </button>
                     ))}
                     {pages.length === 0 && (
-                        <div className="empty-state status-pages-empty">
-                            <Activity size={32} />
-                            <p>No status pages yet.</p>
-                        </div>
+                        <EmptyState icon={Activity} title="No status pages yet" />
                     )}
                 </aside>
 
@@ -454,7 +452,9 @@ const StatusPages = () => {
                                             })}
                                         </div>
                                     ))}
-                                    {components.length === 0 && <p className="text-muted">No components yet.</p>}
+                                    {components.length === 0 && (
+                                        <EmptyState icon={Activity} title="No components yet" />
+                                    )}
                                 </div>
                             </TabsContent>
 
@@ -519,7 +519,9 @@ const StatusPages = () => {
                                             )}
                                         </article>
                                     ))}
-                                    {incidents.length === 0 && <p className="text-muted">No incidents.</p>}
+                                    {incidents.length === 0 && (
+                                        <EmptyState icon={CheckCircle2} title="No incidents" />
+                                    )}
                                 </div>
                             </TabsContent>
 
@@ -551,8 +553,7 @@ const StatusPages = () => {
                     </section>
                 ) : (
                     <section className="status-detail-panel status-detail-panel--empty">
-                        <Activity size={32} />
-                        <p>Select a status page.</p>
+                        <EmptyState icon={Globe2} title="Select a status page" />
                     </section>
                 )}
             </div>

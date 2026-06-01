@@ -21,6 +21,8 @@ import {
 } from '../components/wordpress';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
+import { FolderGit2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -395,21 +397,17 @@ const WordPressProject = () => {
     }, [id, toast]);
 
     if (loading) {
-        return (
-            <div className="page-loading">
-                <Spinner size="lg" />
-            </div>
-        );
+        return <EmptyState loading size="lg" title="Loading project pipeline" />;
     }
 
     if (!pipeline) {
         return (
-            <div className="empty-state">
-                <h3>Project not found</h3>
-                <Button onClick={() => navigate('/wordpress/projects')}>
-                    Back to Projects
-                </Button>
-            </div>
+            <EmptyState
+                icon={FolderGit2}
+                title="Project not found"
+                description="This WordPress project does not exist or has been removed."
+                action={<Button onClick={() => navigate('/wordpress/projects')}>Back to Projects</Button>}
+            />
         );
     }
 

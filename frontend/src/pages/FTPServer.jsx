@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { FolderUp, UserPlus, Network } from 'lucide-react';
 import useTabParam from '../hooks/useTabParam';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -288,14 +290,13 @@ function FTPServer() {
             </div>
 
             {!isInstalled ? (
-                <div className="empty-state-large">
-                    <span className="icon">cloud_upload</span>
-                    <h2>No FTP Server Installed</h2>
-                    <p>Install an FTP server to enable file transfers on your server.</p>
-                    <Button size="lg" onClick={() => setShowInstallModal(true)}>
-                        Install FTP Server
-                    </Button>
-                </div>
+                <EmptyState
+                    size="lg"
+                    icon={FolderUp}
+                    title="No FTP server installed"
+                    description="Install an FTP server to enable file transfers on your server."
+                    action={<Button size="lg" onClick={() => setShowInstallModal(true)}>Install FTP Server</Button>}
+                />
             ) : (
                 <>
                     <div className="status-cards">
@@ -424,13 +425,11 @@ function FTPServer() {
                                     </Button>
                                 </div>
                                 {users.length === 0 ? (
-                                    <div className="empty-state">
-                                        <span className="icon">person_add</span>
-                                        <p>No FTP users configured</p>
-                                        <Button onClick={() => setShowUserModal(true)}>
-                                            Create First User
-                                        </Button>
-                                    </div>
+                                    <EmptyState
+                                        icon={UserPlus}
+                                        title="No FTP users configured"
+                                        action={<Button onClick={() => setShowUserModal(true)}>Create First User</Button>}
+                                    />
                                 ) : (
                                     <div className="users-table">
                                         <table>
@@ -509,10 +508,7 @@ function FTPServer() {
                                     </Button>
                                 </div>
                                 {connections.length === 0 ? (
-                                    <div className="empty-state">
-                                        <span className="icon">lan</span>
-                                        <p>No active connections</p>
-                                    </div>
+                                    <EmptyState icon={Network} title="No active connections" />
                                 ) : (
                                     <div className="connections-table">
                                         <table>

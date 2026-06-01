@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
 import {
-    Folder, File, Upload, FolderPlus,
+    Folder, FolderOpen, File, Upload, FolderPlus,
     ArrowLeft, ArrowRight, ArrowUp, Search, X, RefreshCw, Eye, EyeOff,
     Download, Edit3, Trash2, ChevronDown, ChevronRight,
     HardDrive, Clock, PanelLeftClose, PanelLeftOpen,
@@ -1074,21 +1074,17 @@ function FileManager() {
                         )}
 
                         {loading ? (
-                            <div className="loading-state">
-                                <Spinner />
-                            </div>
+                            <EmptyState loading title="Loading files" />
                         ) : sortedFiltered.length === 0 ? (
-                            <div className="empty-state">
-                                <Folder size={56} strokeWidth={1.25} />
-                                <h3>{searchResults ? 'No matches' : activeFilter !== 'all' ? `No ${activeFilter} files` : 'This folder is empty'}</h3>
-                                <p>
-                                    {searchResults
-                                        ? 'Try a different search term or browse another folder.'
-                                        : activeFilter !== 'all'
-                                            ? 'Try a different filter.'
-                                            : 'Drop files here, or use the buttons above to create something new.'}
-                                </p>
-                            </div>
+                            <EmptyState
+                                icon={FolderOpen}
+                                title={searchResults ? 'No matches' : activeFilter !== 'all' ? `No ${activeFilter} files` : 'This folder is empty'}
+                                description={searchResults
+                                    ? 'Try a different search term or browse another folder.'
+                                    : activeFilter !== 'all'
+                                        ? 'Try a different filter.'
+                                        : 'Drop files here, or use the buttons above to create something new.'}
+                            />
                         ) : viewMode === 'grid' ? (
                             <div className="file-grid">
                                 {sortedFiltered.map((entry) => (

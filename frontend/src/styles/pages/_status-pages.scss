@@ -38,10 +38,6 @@
             border-color: $accent-primary;
         }
 
-        &.active {
-            box-shadow: inset 3px 0 0 $accent-primary;
-        }
-
         &__name {
             font-size: $font-size-sm;
             font-weight: $font-weight-semibold;
@@ -65,7 +61,7 @@
         }
     }
 
-    .status-pages-empty {
+    .status-pages-list .empty-state {
         min-height: 160px;
     }
 
@@ -295,21 +291,20 @@
         gap: $space-3;
         padding: $space-4;
         border: 1px solid $border-subtle;
-        border-left-width: 3px;
         border-radius: $radius-md;
         background: $bg-elevated;
 
         &--resolved {
-            border-left-color: $success;
+            border-color: fade($success, 45%);
         }
 
         &--investigating,
         &--identified {
-            border-left-color: $warning;
+            border-color: fade($warning, 45%);
         }
 
         &--monitoring {
-            border-left-color: $info;
+            border-color: fade($info, 45%);
         }
 
         &__header {
@@ -427,9 +422,7 @@
 .public-status-page {
     min-height: 100vh;
     padding: clamp(24px, 4vw, 56px);
-    background:
-        linear-gradient(180deg, fade($accent-primary-raw, 8%) 0%, transparent 280px),
-        $bg-body;
+    background: $bg-body;
     color: $text-primary;
 
     .public-status-hero,
@@ -587,7 +580,7 @@
         gap: $space-3;
 
         &--active {
-            border-left: 3px solid $warning;
+            border-color: fade($warning, 45%);
         }
 
         > div {

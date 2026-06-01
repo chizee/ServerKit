@@ -18,6 +18,7 @@ import {
     SecurityConfigTab,
 } from '../components/security';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import EmptyState from '../components/EmptyState';
 
 const VALID_TABS = ['overview', 'firewall', 'fail2ban', 'ssh-keys', 'ip-lists', 'scanner', 'quarantine', 'integrity', 'audit', 'vulnerability', 'updates', 'events', 'settings'];
 
@@ -43,7 +44,7 @@ const Security = () => {
     }
 
     if (loading) {
-        return <div className="page"><div className="loading">Loading security status...</div></div>;
+        return <EmptyState loading title="Loading security status..." />;
     }
 
     return (

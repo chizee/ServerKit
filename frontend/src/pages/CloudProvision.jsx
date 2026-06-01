@@ -4,10 +4,12 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Cloud, Server } from 'lucide-react';
 
 const CloudProvision = () => {
     const toast = useToast();
@@ -141,7 +143,15 @@ const CloudProvision = () => {
                                 </div>
                             </div>
                         ))}
-                        {servers.length === 0 && <div className="empty-state"><p>No cloud servers provisioned yet.</p></div>}
+                        {servers.length === 0 && (
+                            <EmptyState
+                                size="lg"
+                                icon={Server}
+                                title="No cloud servers yet"
+                                description={user?.is_admin ? 'Add a provider, then create a server.' : 'No servers have been provisioned.'}
+                                action={user?.is_admin && <Button onClick={() => setShowCreateServer(true)}>New Server</Button>}
+                            />
+                        )}
                     </div>
                 </TabsContent>
 
@@ -154,7 +164,15 @@ const CloudProvision = () => {
                                 <span>{p.server_count} servers</span>
                             </div>
                         ))}
-                        {providers.length === 0 && <div className="empty-state"><p>No providers configured.</p></div>}
+                        {providers.length === 0 && (
+                            <EmptyState
+                                size="lg"
+                                icon={Cloud}
+                                title="No providers configured"
+                                description={user?.is_admin ? 'Add a cloud provider to provision servers.' : 'No providers have been added.'}
+                                action={user?.is_admin && <Button variant="outline" onClick={() => setShowCreateProvider(true)}>Add Provider</Button>}
+                            />
+                        )}
                     </div>
                 </TabsContent>
 

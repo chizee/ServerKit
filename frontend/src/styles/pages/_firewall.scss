@@ -80,10 +80,10 @@
         padding: $space-5;
         background: $bg-card;
         border-radius: $radius-xl;
-        border-left: 4px solid $border-subtle;
+        border: 1px solid $border-subtle;
 
         &.success {
-            border-left-color: $success;
+            border-color: fade($success, 45%);
 
             .status-icon {
                 color: $success;
@@ -91,7 +91,7 @@
         }
 
         &.danger {
-            border-left-color: $danger;
+            border-color: fade($danger, 45%);
 
             .status-icon {
                 color: $danger;
@@ -99,7 +99,7 @@
         }
 
         &.warning {
-            border-left-color: $warning;
+            border-color: fade($warning, 45%);
 
             .status-icon {
                 color: $warning;

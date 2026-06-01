@@ -4,13 +4,14 @@ import {
     Search, X, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
-    Settings, Layers, ChevronDown, Copy, Check, Tag, Cpu,
+    Settings, Layers, LayoutTemplate, ChevronDown, Copy, Check, Tag, Cpu,
     Newspaper, TrendingUp
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import EmptyState from '../components/EmptyState';
 
 // Featured templates (curated list)
 const FEATURED_TEMPLATES = [
@@ -298,7 +299,7 @@ const Templates = () => {
     if (loading) {
         return (
             <div className="page-container">
-                <div className="loading">Loading templates...</div>
+                <EmptyState loading title="Loading templates" />
             </div>
         );
     }
@@ -394,15 +395,16 @@ const Templates = () => {
             {/* Templates Grid */}
             <div className="templates-grid">
                 {sortedTemplates.length === 0 ? (
-                    <div className="empty-state">
-                        <Layers size={48} />
-                        <p>No templates found</p>
-                        {hasActiveFilters && (
+                    <EmptyState
+                        icon={LayoutTemplate}
+                        title="No templates found"
+                        description={hasActiveFilters ? 'Try adjusting your filters' : 'No templates are available yet'}
+                        action={hasActiveFilters && (
                             <Button variant="outline" size="sm" onClick={clearAllFilters}>
                                 Clear Filters
                             </Button>
                         )}
-                    </div>
+                    />
                 ) : (
                     sortedTemplates.map(template => (
                         <div key={template.id} className="template-card" onClick={() => handleViewTemplate(template)}>

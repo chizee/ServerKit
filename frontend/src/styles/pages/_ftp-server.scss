@@ -78,10 +78,10 @@
         padding: 20px;
         background: var(--card-bg);
         border-radius: 12px;
-        border-left: 4px solid $border-subtle;
+        border: 1px solid $border-subtle;
 
         &.success {
-            border-left-color: var(--success);
+            border-color: fade($success, 45%);
 
             .status-icon {
                 color: var(--success);
@@ -89,7 +89,7 @@
         }
 
         &.warning {
-            border-left-color: var(--warning);
+            border-color: fade($warning, 45%);
 
             .status-icon {
                 color: var(--warning);

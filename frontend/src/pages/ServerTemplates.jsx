@@ -4,6 +4,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
+import { LayoutTemplate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -202,9 +204,11 @@ const ServerTemplates = () => {
                             </div>
                         ))}
                         {templates.length === 0 && (
-                            <div className="empty-state">
-                                <p>No templates yet. Create one or use a library template.</p>
-                            </div>
+                            <EmptyState
+                                icon={LayoutTemplate}
+                                title="No templates yet"
+                                description="Create one or use a library template to get started."
+                            />
                         )}
                     </div>
                 </TabsContent>

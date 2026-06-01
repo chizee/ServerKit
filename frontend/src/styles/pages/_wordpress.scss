@@ -396,8 +396,7 @@
     border-radius: $radius-lg;
 
     &.production {
-        border-color: fade($color-danger, 30%);
-        border-left: 3px solid $color-danger;
+        border-color: fade($color-danger, 45%);
     }
 
     &.stale {

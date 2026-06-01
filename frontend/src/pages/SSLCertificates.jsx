@@ -7,6 +7,7 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import EmptyState from '../components/EmptyState';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -293,11 +294,12 @@ const SSLCertificates = () => {
 
             {/* Certificates List */}
             {certificates.length === 0 ? (
-                <div className="empty-state">
-                    <Lock size={48} />
-                    <h3>No SSL certificates</h3>
-                    <p>Obtain your first Let's Encrypt certificate to secure your domains.</p>
-                    {certbotInstalled ? (
+                <EmptyState
+                    size="lg"
+                    icon={Lock}
+                    title="No SSL certificates"
+                    description="Obtain your first Let's Encrypt certificate to secure your domains."
+                    action={certbotInstalled ? (
                         <Button onClick={() => setShowObtainModal(true)}>
                             <Plus size={16} />
                             New Certificate
@@ -308,7 +310,7 @@ const SSLCertificates = () => {
                             Install Certbot First
                         </Button>
                     )}
-                </div>
+                />
             ) : (
                 <div className="ssl-cert-list">
                     {certificates.map((cert, index) => (

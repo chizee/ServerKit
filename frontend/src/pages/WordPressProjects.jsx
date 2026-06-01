@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Plus, GitBranch, Layers } from 'lucide-react';
 import wordpressApi from '../services/wordpress';
 import { useToast } from '../contexts/ToastContext';
-import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import { Badge } from '@/components/ui/badge';
 
 const WordPressProjects = () => {
@@ -30,11 +30,7 @@ const WordPressProjects = () => {
     }
 
     if (loading) {
-        return (
-            <div className="page-loading">
-                <Spinner size="lg" />
-            </div>
-        );
+        return <EmptyState loading size="lg" title="Loading WordPress projects" />;
     }
 
     return (
@@ -47,13 +43,12 @@ const WordPressProjects = () => {
             </div>
 
             {projects.length === 0 ? (
-                <div className="empty-state-large">
-                    <div className="empty-icon">
-                        <Layers size={48} strokeWidth={1.5} />
-                    </div>
-                    <h2>No WordPress Projects</h2>
-                    <p>WordPress projects with environment pipelines will appear here. Create a WordPress site with environments enabled to get started.</p>
-                </div>
+                <EmptyState
+                    size="lg"
+                    icon={Layers}
+                    title="No WordPress Projects"
+                    description="WordPress projects with environment pipelines appear here. Create a WordPress site with environments enabled to get started."
+                />
             ) : (
                 <div className="wp-projects-grid">
                     {projects.map(project => (
