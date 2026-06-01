@@ -26,6 +26,7 @@ const Workspaces = () => {
     const [servers, setServers] = useState([]);
     const [sharingApp, setSharingApp] = useState(null);
     const [grants, setGrants] = useState([]);
+    const [grantRole, setGrantRole] = useState('editor');
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6366f1' });
 
     const loadWorkspaces = useCallback(async () => {
@@ -168,7 +169,7 @@ const Workspaces = () => {
 
     const handleGrant = async (userId) => {
         try {
-            await api.grantAppAccess(sharingApp.id, userId);
+            await api.grantAppAccess(sharingApp.id, userId, grantRole);
             toast.success('Access granted');
             await refreshGrants(sharingApp.id);
         } catch (err) {
@@ -362,6 +363,13 @@ const Workspaces = () => {
                                         </div>
                                         <hr />
                                         <h4>Grant Access</h4>
+                                        <div className="form-group">
+                                            <label>Role for new grants</label>
+                                            <select value={grantRole} onChange={e => setGrantRole(e.target.value)}>
+                                                <option value="editor">Editor (view + operate)</option>
+                                                <option value="viewer">Viewer (read-only)</option>
+                                            </select>
+                                        </div>
                                         <div className="server-select-list">
                                             {allUsers.filter(u => u.id !== sharingApp.user_id && !grants.find(g => g.user_id === u.id)).map(u => (
                                                 <div key={u.id} className="server-select-item" onClick={() => handleGrant(u.id)}>

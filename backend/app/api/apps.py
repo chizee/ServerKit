@@ -93,7 +93,7 @@ def link_apps(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json()
@@ -114,7 +114,7 @@ def link_apps(app_id):
     if not target_app:
         return jsonify({'error': 'Target application not found'}), 404
 
-    if user.role != 'admin' and target_app.user_id != current_user_id:
+    if not _can_edit_app(user, target_app):
         return jsonify({'error': 'Access denied to target application'}), 403
 
     if app.app_type != target_app.app_type:
@@ -192,7 +192,7 @@ def get_linked_apps(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     linked_apps = []
@@ -239,7 +239,7 @@ def unlink_apps(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     if not app.linked_app_id:
@@ -276,7 +276,7 @@ def update_environment(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json()
@@ -368,12 +368,21 @@ def set_app_workspace(app_id):
 
 
 def _can_access_app(user, app):
-    """True if the user owns the app, is admin, or was granted access (#33 ACL).
+    """Read access (#33 ACL): owner, admin, or ANY grant (viewer or editor).
     Uses user.id (int) — get_jwt_identity() is the stringified token id."""
     if user.is_admin or app.user_id == user.id:
         return True
     from app.services.resource_grant_service import ResourceGrantService
     return ResourceGrantService.user_has_grant(user.id, 'application', app.id)
+
+
+def _can_edit_app(user, app):
+    """Write/operate access (#33 ACL): owner, admin, or an EDITOR grant. A viewer
+    grant confers read access only."""
+    if user.is_admin or app.user_id == user.id:
+        return True
+    from app.services.resource_grant_service import ResourceGrantService
+    return ResourceGrantService.grant_role(user.id, 'application', app.id) == 'editor'
 
 
 @apps_bp.route('/<int:app_id>', methods=['GET'])
@@ -429,9 +438,11 @@ def grant_app_access(app_id):
         return jsonify({'error': 'User not found'}), 404
     if grantee.id == app.user_id:
         return jsonify({'error': 'The owner already has access'}), 400
+    role = data.get('role') or 'editor'
+    if role not in ('viewer', 'editor'):
+        return jsonify({'error': "role must be 'viewer' or 'editor'"}), 400
     grant = ResourceGrantService.grant(user_id=grantee.id, resource_type='application',
-                                       resource_id=app.id, granted_by=user.id,
-                                       role=data.get('role') or 'editor')
+                                       resource_id=app.id, granted_by=user.id, role=role)
     return jsonify({'grant': grant.to_dict()}), 201
 
 
@@ -673,7 +684,7 @@ def update_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json()
@@ -714,7 +725,7 @@ def delete_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
 
     cleanup_results = {
@@ -769,7 +780,7 @@ def start_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Handle Docker apps
@@ -805,7 +816,7 @@ def stop_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Handle Docker apps
@@ -840,7 +851,7 @@ def restart_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Handle Docker apps
@@ -876,7 +887,7 @@ def get_app_logs(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     lines = request.args.get('lines', 100, type=int)
@@ -931,7 +942,7 @@ def get_container_logs(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Parse query parameters
@@ -1036,7 +1047,7 @@ def get_app_containers(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     containers = DockerService.get_all_app_containers(app)
@@ -1059,7 +1070,7 @@ def get_app_status(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     if app.app_type == 'docker' and app.root_path:

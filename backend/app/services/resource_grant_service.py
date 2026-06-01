@@ -30,6 +30,16 @@ class ResourceGrantService:
         ).first() is not None
 
     @staticmethod
+    def grant_role(user_id, resource_type, resource_id):
+        """The role of this user's grant on the resource ('viewer'/'editor'), or
+        None if there is no grant."""
+        from app.models.workspace import ResourceGrant
+        row = ResourceGrant.query.filter_by(
+            user_id=user_id, resource_type=resource_type, resource_id=resource_id
+        ).first()
+        return row.role if row else None
+
+    @staticmethod
     def list_for_resource(resource_type, resource_id):
         from app.models.workspace import ResourceGrant
         return ResourceGrant.query.filter_by(

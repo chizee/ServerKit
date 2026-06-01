@@ -99,6 +99,70 @@ def test_grant_is_idempotent(app, client):
     assert ResourceGrant.query.filter_by(resource_type='application', resource_id=a.id, user_id=grantee.id).count() == 1
 
 
+def test_viewer_grant_is_read_only(app, client):
+    from app import db
+    from app.models import Application
+    from app.services.resource_grant_service import ResourceGrantService
+
+    owner = _mk_user(db, 'v_owner')
+    viewer = _mk_user(db, 'v_viewer')
+    a = Application(name='v-app', app_type='php', user_id=owner.id, root_path='/srv/v')
+    db.session.add(a)
+    db.session.commit()
+    ResourceGrantService.grant(user_id=viewer.id, resource_type='application',
+                               resource_id=a.id, granted_by=owner.id, role='viewer')
+
+    # A viewer can read the app and its linked list...
+    assert client.get(f'/api/v1/apps/{a.id}', headers=_token(viewer.id)).status_code == 200
+    assert client.get(f'/api/v1/apps/{a.id}/linked', headers=_token(viewer.id)).status_code == 200
+    # ...but operating it (editor-only) is denied.
+    assert client.post(f'/api/v1/apps/{a.id}/start', headers=_token(viewer.id)).status_code == 403
+
+
+def test_editor_grant_can_operate(app, client):
+    from app import db
+    from app.models import Application
+    from app.services.resource_grant_service import ResourceGrantService
+
+    owner = _mk_user(db, 'e_owner')
+    editor = _mk_user(db, 'e_editor')
+    a = Application(name='e-app', app_type='php', user_id=owner.id, root_path='/srv/e')
+    db.session.add(a)
+    db.session.commit()
+    ResourceGrantService.grant(user_id=editor.id, resource_type='application',
+                               resource_id=a.id, granted_by=owner.id, role='editor')
+
+    # An editor passes the operate access gate (the start action itself may fail
+    # without Docker, but it must NOT be a 403 access denial).
+    assert client.post(f'/api/v1/apps/{a.id}/start', headers=_token(editor.id)).status_code != 403
+    # ...but delete stays owner-only — even an editor cannot delete the app.
+    assert client.delete(f'/api/v1/apps/{a.id}', headers=_token(editor.id)).status_code == 403
+
+
+def test_grant_role_validation_and_default(app, client):
+    from app import db
+    from app.models import Application
+
+    owner = _mk_user(db, 'rv_owner')
+    g1 = _mk_user(db, 'rv_g1')
+    g2 = _mk_user(db, 'rv_g2')
+    a = Application(name='rv-app', app_type='php', user_id=owner.id)
+    db.session.add(a)
+    db.session.commit()
+
+    # Default role is editor.
+    r = client.post(f'/api/v1/apps/{a.id}/grants', json={'user_id': g1.id}, headers=_token(owner.id))
+    assert r.status_code == 201 and r.get_json()['grant']['role'] == 'editor'
+
+    # Explicit viewer is honored.
+    r = client.post(f'/api/v1/apps/{a.id}/grants', json={'user_id': g2.id, 'role': 'viewer'}, headers=_token(owner.id))
+    assert r.status_code == 201 and r.get_json()['grant']['role'] == 'viewer'
+
+    # An unknown role is rejected.
+    r = client.post(f'/api/v1/apps/{a.id}/grants', json={'user_id': g2.id, 'role': 'superuser'}, headers=_token(owner.id))
+    assert r.status_code == 400
+
+
 def test_grant_enables_wordpress_per_site_routes(app, client):
     from app import db
     from app.models import Application, WordPressSite
