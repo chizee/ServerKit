@@ -236,11 +236,16 @@ const Dashboard = () => {
             {/* Top Bar */}
             <div className="top-bar">
                 <div className="server-identity">
-                    <h1>
-                        <span className={`status-dot-live ${isConnected ? '' : 'disconnected'}`}></span>
-                        {hostname}
-                    </h1>
+                    <h1>{hostname}</h1>
                     <div className="server-details">
+                        <span
+                            className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`}
+                            role="status"
+                        >
+                            <span className="conn-status__dot" aria-hidden="true"></span>
+                            {isConnected ? 'Live' : 'Reconnecting'}
+                        </span>
+                        <span className="detail-separator">|</span>
                         <span>IP: {ipAddress}</span>
                         <span className="detail-separator">|</span>
                         <span>KERNEL: {kernelVersion}</span>

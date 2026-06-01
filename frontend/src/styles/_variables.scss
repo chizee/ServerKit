@@ -47,7 +47,13 @@ $border-hover: var(--border-hover);
 // --------------------------------------------
 // COLORS - Text (theme-sensitive)
 // --------------------------------------------
-// Raw values for SCSS functions
+// Raw values feed compile-time SCSS only (e.g. `fade()` for translucent
+// background washes), since fade() can't operate on a CSS var(). These are
+// the neutral zinc ramp and are intentionally NOT the same as the runtime
+// --text-* custom properties, which were lightened for on-surface text
+// legibility (see _theme-variables.scss). Rendered text color always comes
+// from the var()-backed $text-* tokens below; only low-opacity fills read
+// from these raws, where the exact base tone is visually negligible.
 $text-primary-raw: #f4f4f5;
 $text-secondary-raw: #a1a1aa;
 $text-tertiary-raw: #71717a;
