@@ -66,3 +66,29 @@ ul, ol {
         background: $text-tertiary;
     }
 }
+
+// ============================================
+// REDUCED MOTION
+// ============================================
+// Honor the OS "reduce motion" setting across the whole app: collapse
+// transitions and decorative keyframe animations to effectively instant.
+// Loading spinners are re-enabled below because the rotation IS the
+// "working…" status cue, not decoration, so freezing it would hide state.
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    // Keep loading indicators turning (higher specificity wins over `*`).
+    .spinner-ring,
+    [class*="spinner"] {
+        animation-duration: 0.8s !important;
+        animation-iteration-count: infinite !important;
+    }
+}

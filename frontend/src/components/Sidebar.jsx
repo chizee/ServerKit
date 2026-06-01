@@ -7,6 +7,7 @@ import { api } from '../services/api';
 import ServerKitLogo from './ServerKitLogo';
 import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems } from './sidebarItems';
 import { useContributions } from '../plugins/contributions';
+import useMediaQuery from '../hooks/useMediaQuery';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser } = useAuth();
@@ -17,6 +18,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
     const [wpInstalled, setWpInstalled] = useState(false);
     const menuRef = useRef(null);
     const sidebarRef = useRef(null);
+    const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
     // When collapsed to a drawer and closed, take the whole subtree out of the
     // tab order and the accessibility tree. `inert` is set imperatively so it
@@ -90,7 +92,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
     }, []);
 
     useEffect(() => {
-        if (whiteLabel.enabled) return;
+        // The star's celebratory burst is pure decoration: never auto-play it
+        // for users who asked the OS to reduce motion.
+        if (whiteLabel.enabled || prefersReducedMotion) return;
 
         let playCount = 0;
         let timeoutId;
@@ -122,7 +126,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             clearTimeout(initialDelay);
             clearTimeout(timeoutId);
         };
-    }, [whiteLabel.enabled]);
+    }, [whiteLabel.enabled, prefersReducedMotion]);
 
     const conditions = { wpInstalled };
     const currentPreset = user?.sidebar_config?.preset || 'full';

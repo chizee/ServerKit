@@ -181,6 +181,11 @@ $transition-fast: 0.15s ease;
 $transition-base: 0.2s ease;
 $transition-slow: 0.3s ease;
 
+// Easing curves — natural deceleration. No bounce/elastic.
+$ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+$ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+$ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
 // --------------------------------------------
 // LAYOUT
 // --------------------------------------------
