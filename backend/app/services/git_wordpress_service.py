@@ -212,6 +212,11 @@ class GitWordPressService:
 
             db.session.commit()
 
+            from app.services.event_service import EventService
+            EventService.emit_wp('wordpress.deployed', site, commit_sha=deployed_sha, commit_message=commit_message)
+            if create_snapshot and snapshot_result.get('success'):
+                EventService.emit_wp('wordpress.backup_completed', site, tag='pre-deploy')
+
             return {
                 'success': True,
                 'message': 'Deployment successful',
@@ -222,6 +227,11 @@ class GitWordPressService:
 
         except Exception as e:
             db.session.rollback()
+            try:
+                from app.services.event_service import EventService
+                EventService.emit_wp('wordpress.deploy_failed', site, error=str(e))
+            except Exception:
+                pass
             return {'success': False, 'error': str(e)}
 
     @classmethod

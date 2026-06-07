@@ -36,13 +36,35 @@
     }
 }
 
-.status-dot-live {
-    width: 10px;
-    height: 10px;
-    background: $success;
-    border-radius: 50%;
-    box-shadow: 0 0 10px $success;
-    display: inline-block;
+// Connection status: dot + text label (never color alone), announced to
+// screen readers via role="status". The label stays a readable neutral
+// (contrast-safe in both themes); the dot carries the status color.
+.conn-status {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: $text-secondary;
+
+    .conn-status__dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    &--live .conn-status__dot {
+        background: $success;
+        box-shadow: 0 0 8px $success;
+    }
+
+    &--down .conn-status__dot {
+        background: $warning;
+        box-shadow: 0 0 8px $warning;
+    }
 }
 
 .server-details {
@@ -298,6 +320,7 @@
     justify-content: space-between;
     align-items: center;
     transition: all $transition-fast;
+    @include focus-ring();
 
     &:hover {
         border-color: $accent-primary;
@@ -365,6 +388,18 @@
     align-items: center;
     gap: $space-2;
     color: $text-primary;
+}
+
+.app-name-link {
+    color: $text-primary;
+    text-decoration: none;
+    border-radius: $radius-sm;
+    @include focus-ring();
+
+    &:hover {
+        color: $accent-primary;
+        text-decoration: underline;
+    }
 }
 
 .app-icon-mini {
@@ -491,17 +526,13 @@
     padding: $space-2;
     cursor: pointer;
     transition: all $transition-fast;
+    @include focus-ring();
 
     &:hover {
         border-color: $accent-primary;
         color: $accent-primary;
         background: $accent-glow;
     }
-}
-
-.status-dot-live.disconnected {
-    background: $warning;
-    box-shadow: 0 0 10px $warning;
 }
 
 @media (max-width: $breakpoint-md) {

@@ -1,3 +1,4 @@
+import json
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import User, Application, WordPressSite
@@ -20,8 +21,15 @@ def _resolve_app(site_or_app_id):
 @wordpress_bp.route('/sites', methods=['GET'])
 @jwt_required()
 def list_sites():
-    """List all WordPress sites (production sites with environment counts)."""
-    result = WordPressService.get_sites()
+    """List all WordPress sites (production sites with environment counts).
+
+    Workspace-aware (#33): filters to the active workspace when one is supplied
+    (X-Workspace-Id / ?workspace_id), via the site's parent application."""
+    from app.services.workspace_service import WorkspaceService
+    user = User.query.get(get_jwt_identity())
+    ws_id = WorkspaceService.resolve_workspace_id(
+        user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
+    result = WordPressService.get_sites(workspace_id=ws_id)
     return jsonify(result), 200
 
 
@@ -32,16 +40,70 @@ def create_site():
     data = request.get_json() or {}
     name = data.get('name')
     admin_email = data.get('adminEmail', '')
+    php_version = data.get('phpVersion') or None
+    enable_page_cache = bool(data.get('enablePageCache'))
+    enable_object_cache = bool(data.get('enableObjectCache'))
 
     if not name:
         return jsonify({'error': 'Site name is required'}), 400
 
+    if php_version and php_version not in WordPressService.get_available_php_versions():
+        return jsonify({'error': f'Unsupported PHP version: {php_version}'}), 400
+
     current_user_id = get_jwt_identity()
-    result = WordPressService.create_site(name, admin_email, current_user_id)
+    result = WordPressService.create_site(
+        name, admin_email, current_user_id,
+        php_version=php_version,
+        enable_page_cache=enable_page_cache,
+        enable_object_cache=enable_object_cache,
+    )
 
     if result.get('success'):
         return jsonify(result), 201
     return jsonify(result), 400
+
+
+@wordpress_bp.route('/sites/import', methods=['POST'])
+@jwt_required()
+def import_site():
+    """Import an existing WordPress site from an uploaded SQL dump (multipart)."""
+    import os
+    import tempfile
+    name = request.form.get('name')
+    admin_email = request.form.get('adminEmail', '')
+    old_url = request.form.get('oldUrl', '').strip()
+    if not name:
+        return jsonify({'error': 'Site name is required'}), 400
+    if not old_url:
+        return jsonify({'error': 'Original site URL (old_url) is required for search-replace'}), 400
+    if 'sql' not in request.files:
+        return jsonify({'error': 'A .sql or .sql.gz database dump is required'}), 400
+    sql_file = request.files['sql']
+    if not sql_file.filename:
+        return jsonify({'error': 'No SQL file selected'}), 400
+    fname = sql_file.filename.lower()
+    if not (fname.endswith('.sql') or fname.endswith('.sql.gz') or fname.endswith('.gz')):
+        return jsonify({'error': 'Dump must be a .sql or .sql.gz file'}), 400
+
+    suffix = '.sql.gz' if fname.endswith('.gz') else '.sql'
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix='wp_import_')
+    os.close(fd)
+    try:
+        sql_file.save(tmp_path)
+        current_user_id = get_jwt_identity()
+        result = WordPressService.import_site(
+            name=name,
+            admin_email=admin_email,
+            user_id=current_user_id,
+            sql_path=tmp_path,
+            old_url=old_url,
+        )
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+    return (jsonify(result), 201) if result.get('success') else (jsonify(result), 400)
 
 
 @wordpress_bp.route('/sites/<int:site_id>', methods=['GET'])
@@ -54,11 +116,79 @@ def get_site(site_id):
     return jsonify(result), 200
 
 
+@wordpress_bp.route('/sites/<int:site_id>/clone', methods=['POST'])
+@jwt_required()
+def clone_site(site_id):
+    """Clone a site into a new INDEPENDENT top-level site with fresh admin creds."""
+    data = request.get_json() or {}
+    new_name = data.get('name')
+    if not new_name:
+        return jsonify({'error': 'New site name is required'}), 400
+
+    current_user_id = get_jwt_identity()
+    result = WordPressService.clone_site(site_id, new_name, current_user_id)
+    if result.get('success'):
+        return jsonify(result), 201
+    return jsonify(result), 400
+
+
+@wordpress_bp.route('/sites/<int:site_id>/tags', methods=['PATCH'])
+@jwt_required()
+def set_site_tags(site_id):
+    """Replace the tag list for a WordPress site."""
+    data = request.get_json() or {}
+    tags = data.get('tags')
+    if tags is None or not isinstance(tags, list):
+        return jsonify({'error': 'tags must be a list'}), 400
+
+    site = WordPressSite.query.get(site_id)
+    if not site:
+        return jsonify({'error': 'Site not found'}), 404
+
+    # Normalize: strings only, trimmed, non-empty, de-duplicated (order-preserving)
+    seen = set()
+    cleaned = []
+    for t in tags:
+        if not isinstance(t, str):
+            continue
+        v = t.strip()
+        if v and v.lower() not in seen:
+            seen.add(v.lower())
+            cleaned.append(v)
+
+    import json as _json
+    site.tags = _json.dumps(cleaned)
+    db.session.commit()
+    return jsonify({'success': True, 'tags': cleaned}), 200
+
+
 @wordpress_bp.route('/sites/<int:site_id>', methods=['DELETE'])
 @jwt_required()
 def delete_site(site_id):
-    """Delete site and all its environments."""
-    result = WordPressService.delete_site(site_id)
+    """Delete site and all its environments (takes a final backup by default)."""
+    # Back up before delete unless explicitly opted out via ?create_backup=false
+    create_backup = request.args.get('create_backup', 'true').lower() != 'false'
+    result = WordPressService.delete_site(site_id, create_backup=create_backup)
+    if result.get('success'):
+        return jsonify(result), 200
+    return jsonify(result), 400
+
+
+@wordpress_bp.route('/sites/<int:site_id>/archive', methods=['POST'])
+@jwt_required()
+def archive_site(site_id):
+    """Archive a site: stop the stack but keep all data. Reversible."""
+    result = WordPressService.archive_site(site_id)
+    if result.get('success'):
+        return jsonify(result), 200
+    return jsonify(result), 400
+
+
+@wordpress_bp.route('/sites/<int:site_id>/unarchive', methods=['POST'])
+@jwt_required()
+def unarchive_site(site_id):
+    """Restore a previously archived site."""
+    result = WordPressService.unarchive_site(site_id)
     if result.get('success'):
         return jsonify(result), 200
     return jsonify(result), 400
@@ -232,6 +362,414 @@ def install_wordpress():
         result['app_id'] = app.id
 
     return jsonify(result), 201 if result['success'] else 400
+
+
+@wordpress_bp.route('/sites/<int:app_id>/php', methods=['GET'])
+@jwt_required()
+def get_php(app_id):
+    """Live PHP version + ini limits for a Docker WP site (read-only)."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != current_user_id:
+        return jsonify({'error': 'Access denied'}), 403
+    info = WordPressService.get_php_info(app.root_path)
+    info['available_versions'] = WordPressService.get_available_php_versions()
+    return jsonify({'php': info}), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/php', methods=['POST'])
+@jwt_required()
+@admin_required
+def set_php(app_id):
+    """Switch the Docker WP site's PHP version (swaps image tag + recreates)."""
+    app = _resolve_app(app_id)
+    data = request.get_json() or {}
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if app.app_type not in ('wordpress', 'docker'):
+        return jsonify({'error': 'Application is not a WordPress site'}), 400
+    version = data.get('version')
+    if not version:
+        return jsonify({'error': 'version is required'}), 400
+    result = WordPressService.set_php_version(app.root_path, version)
+    return jsonify(result), 200 if result.get('success') else 400
+
+
+def _site_status_target(wp_site):
+    """Best-effort public URL for a managed site's status-page component.
+    Prefers a primary domain (https when SSL), falls back to the local port.
+    The component is health-driven, so this is mainly cosmetic / manual-probe."""
+    app = wp_site.application
+    if not app:
+        return ''
+    try:
+        domains = list(app.domains)
+    except Exception:
+        domains = []
+    primary = next((d for d in domains if getattr(d, 'is_primary', False)),
+                   domains[0] if domains else None)
+    if primary and getattr(primary, 'name', None):
+        scheme = 'https' if getattr(primary, 'ssl_enabled', False) else 'http'
+        return f'{scheme}://{primary.name}'
+    # No public domain yet — leave the probe target empty rather than storing an
+    # internal localhost:port (the component is health-driven, not network-probed).
+    return ''
+
+
+@wordpress_bp.route('/sites/<int:app_id>/status-page', methods=['GET'])
+@jwt_required()
+def get_site_status_page(app_id):
+    """Return the site's live health + bound status-page component (if any) and
+    the status pages it can be attached to."""
+    from app.models.status_page import StatusPage, StatusComponent
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != current_user_id:
+        return jsonify({'error': 'Access denied'}), 403
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    component = None
+    if wp_site:
+        comp = StatusComponent.query.filter_by(wordpress_site_id=wp_site.id).first()
+        component = comp.to_dict() if comp else None
+    pages = [{'id': p.id, 'name': p.name, 'slug': p.slug}
+             for p in StatusPage.query.order_by(StatusPage.name).all()]
+    return jsonify({
+        'health_status': wp_site.health_status if wp_site else None,
+        'last_health_check': (wp_site.last_health_check.isoformat()
+                              if wp_site and wp_site.last_health_check else None),
+        'component': component,
+        'pages': pages,
+    }), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/status-page', methods=['POST'])
+@jwt_required()
+@admin_required
+def attach_site_status_page(app_id):
+    """Attach a managed site to a status page as a health-driven component."""
+    from app.models.status_page import StatusPage, StatusComponent
+    from app.services.status_page_service import StatusPageService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    if not wp_site.is_production:
+        # The health poller only sweeps production sites, so a component bound to
+        # a staging/dev environment would never accrue uptime — reject it.
+        return jsonify({'error': 'Only production sites can be added to a status page'}), 400
+    data = request.get_json() or {}
+    page_id = data.get('page_id')
+    if not page_id:
+        return jsonify({'error': 'page_id is required'}), 400
+    if not StatusPage.query.get(page_id):
+        return jsonify({'error': 'Status page not found'}), 404
+    existing = StatusComponent.query.filter_by(wordpress_site_id=wp_site.id).first()
+    if existing:
+        return jsonify({'error': 'Site is already on a status page',
+                        'component': existing.to_dict()}), 409
+    comp = StatusPageService.create_component(page_id, {
+        'name': app.name,
+        'group': 'WordPress',
+        'check_type': 'http',
+        'check_target': _site_status_target(wp_site),
+        'wordpress_site_id': wp_site.id,
+    })
+    return jsonify({'success': True, 'component': comp.to_dict()}), 201
+
+
+@wordpress_bp.route('/sites/<int:app_id>/status-page', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def detach_site_status_page(app_id):
+    """Detach a managed site from its status page (removes the bound component)."""
+    from app.models.status_page import StatusComponent
+    from app.services.status_page_service import StatusPageService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    removed = 0
+    for comp in StatusComponent.query.filter_by(wordpress_site_id=wp_site.id).all():
+        StatusPageService.delete_component(comp.id)
+        removed += 1
+    return jsonify({'success': True, 'removed': removed}), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/analytics', methods=['GET'])
+@jwt_required()
+def get_site_analytics(app_id):
+    """Per-site traffic + error analytics, parsed on-demand from the container's
+    Apache access log (visits / bandwidth / status codes / 404s / bots / top URLs)."""
+    from app.services.wp_analytics_service import WpAnalyticsService
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != current_user_id:
+        return jsonify({'error': 'Access denied'}), 403
+    result = WpAnalyticsService.get_traffic(app.name, request.args.get('hours', 24))
+    return jsonify(result), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/vulnerabilities', methods=['GET'])
+@jwt_required()
+def get_site_vulnerabilities(app_id):
+    """Return persisted vulnerability findings + live scan status for a site."""
+    from app.services.wp_vulnerability_service import WpVulnerabilityService
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != current_user_id:
+        return jsonify({'error': 'Access denied'}), 403
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpVulnerabilityService.get_results(wp_site)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/vulnerabilities/scan', methods=['POST'])
+@jwt_required()
+@admin_required
+def scan_site_vulnerabilities(app_id):
+    """Start a background vulnerability scan (cross-references the WPVulnerability feed)."""
+    from app.services.wp_vulnerability_service import WpVulnerabilityService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpVulnerabilityService.start_scan(wp_site)), 200
+
+
+# ---- Per-site security depth (#30): file integrity, WP_DEBUG, WP-Cron ----
+
+def _owner_or_admin_app(app_id):
+    """Resolve an app and enforce the access guard: owner, admin, or a user the
+    app was shared with via a per-resource grant (#33). Returns (app, None) or
+    (None, (response, status))."""
+    user = User.query.get(get_jwt_identity())
+    app = _resolve_app(app_id)
+    if not app:
+        return None, (jsonify({'error': 'Application not found'}), 404)
+    # user.id (int), not the stringified token id; honor per-resource grants.
+    if not user.is_admin and app.user_id != user.id:
+        from app.services.resource_grant_service import ResourceGrantService
+        if not ResourceGrantService.user_has_grant(user.id, 'application', app.id):
+            return None, (jsonify({'error': 'Access denied'}), 403)
+    return app, None
+
+
+@wordpress_bp.route('/sites/<int:app_id>/integrity', methods=['GET'])
+@jwt_required()
+def get_site_integrity(app_id):
+    """Return the latest file-integrity result + scan status for a site."""
+    from app.services.wp_security_service import WpSecurityService
+    app, err = _owner_or_admin_app(app_id)
+    if err:
+        return err
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpSecurityService.get_integrity(wp_site.id)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/integrity/scan', methods=['POST'])
+@jwt_required()
+@admin_required
+def scan_site_integrity(app_id):
+    """Start a background file-integrity check (wp core/plugin verify-checksums)."""
+    from app.services.wp_security_service import WpSecurityService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpSecurityService.start_integrity_scan(wp_site)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/debug', methods=['GET'])
+@jwt_required()
+def get_site_debug(app_id):
+    """Return the site's WP_DEBUG / WP_DEBUG_LOG / SCRIPT_DEBUG state."""
+    from app.services.wp_security_service import WpSecurityService
+    app, err = _owner_or_admin_app(app_id)
+    if err:
+        return err
+    return jsonify(WpSecurityService.get_debug(app.root_path)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/debug', methods=['POST'])
+@jwt_required()
+@admin_required
+def set_site_debug(app_id):
+    """Toggle debug logging (WP_DEBUG/WP_DEBUG_LOG/SCRIPT_DEBUG on; display always off)."""
+    from app.services.wp_security_service import WpSecurityService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    enabled = bool((request.get_json() or {}).get('enabled'))
+    return jsonify(WpSecurityService.set_debug(app.root_path, enabled)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/cron', methods=['GET'])
+@jwt_required()
+def get_site_cron(app_id):
+    """Return WP-Cron status (DISABLE_WP_CRON + due events)."""
+    from app.services.wp_security_service import WpSecurityService
+    app, err = _owner_or_admin_app(app_id)
+    if err:
+        return err
+    return jsonify(WpSecurityService.get_cron(app.root_path)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/cron/run', methods=['POST'])
+@jwt_required()
+@admin_required
+def run_site_cron(app_id):
+    """Run all due WP-Cron events now."""
+    from app.services.wp_security_service import WpSecurityService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    return jsonify(WpSecurityService.run_cron(app.root_path)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/cron', methods=['POST'])
+@jwt_required()
+@admin_required
+def set_site_cron(app_id):
+    """Enable/disable WP's pseudo-cron (DISABLE_WP_CRON)."""
+    from app.services.wp_security_service import WpSecurityService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    disabled = bool((request.get_json() or {}).get('disabled'))
+    return jsonify(WpSecurityService.set_cron_disabled(app.root_path, disabled)), 200
+
+
+# ---- Safe update manager (#29): run history, on-demand safe update, schedule ----
+
+@wordpress_bp.route('/sites/<int:app_id>/updates', methods=['GET'])
+@jwt_required()
+def get_site_updates(app_id):
+    """Return safe-update run history + status + the site's update schedule."""
+    from app.services.wp_update_service import WpUpdateService
+    app, err = _owner_or_admin_app(app_id)
+    if err:
+        return err
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    result = WpUpdateService.get_runs(wp_site)
+    result['schedule'] = wp_site.auto_update_schedule
+    result['exclude'] = json.loads(wp_site.auto_update_exclude) if wp_site.auto_update_exclude else []
+    return jsonify(result), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/updates/run', methods=['POST'])
+@jwt_required()
+@admin_required
+def run_site_updates(app_id):
+    """Start a background safe update (snapshot -> update -> health-check -> auto-rollback)."""
+    from app.services.wp_update_service import WpUpdateService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    data = request.get_json() or {}
+    targets = data.get('targets') or {'core': True, 'plugins': True, 'themes': True}
+    exclude = data.get('exclude') or []
+    return jsonify(WpUpdateService.start_update(wp_site, targets=targets, exclude=exclude)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/updates/schedule', methods=['POST'])
+@jwt_required()
+@admin_required
+def set_site_update_schedule(app_id):
+    """Set/clear the per-site auto-update cron schedule + exclusion list."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    data = request.get_json() or {}
+    wp_site.auto_update_schedule = (data.get('schedule') or '').strip() or None
+    if data.get('exclude') is not None:
+        wp_site.auto_update_exclude = json.dumps(data.get('exclude'))
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'schedule': wp_site.auto_update_schedule,
+        'exclude': json.loads(wp_site.auto_update_exclude) if wp_site.auto_update_exclude else [],
+    }), 200
+
+
+# ---- Monthly client reports (#33 agency slice): persisted per-month rollups ----
+
+@wordpress_bp.route('/sites/<int:app_id>/reports', methods=['GET'])
+@jwt_required()
+def get_site_reports(app_id):
+    """Return all persisted monthly reports for a site (newest month first)."""
+    from app.services.wp_reports_service import WpReportsService
+    app, err = _owner_or_admin_app(app_id)
+    if err:
+        return err
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    return jsonify(WpReportsService.get_reports(wp_site)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/reports/generate', methods=['POST'])
+@jwt_required()
+@admin_required
+def generate_site_report(app_id):
+    """Generate (or regenerate) the monthly report for a site. Body may carry
+    {year, month}; defaults to the current UTC month."""
+    from app.services.wp_reports_service import WpReportsService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    data = request.get_json() or {}
+    result = WpReportsService.generate(wp_site, year=data.get('year'), month=data.get('month'))
+    return jsonify(result), (200 if result.get('success') else 400)
+
+
+@wordpress_bp.route('/sites/<int:app_id>/reports/<int:report_id>', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def delete_site_report(app_id, report_id):
+    """Delete one persisted monthly report."""
+    from app.services.wp_reports_service import WpReportsService
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+    if not wp_site:
+        return jsonify({'error': 'Not a WordPress site'}), 400
+    result = WpReportsService.delete(wp_site, report_id)
+    return jsonify(result), (200 if result.get('success') else 404)
 
 
 @wordpress_bp.route('/sites/<int:app_id>/info', methods=['GET'])
@@ -415,6 +953,22 @@ def install_theme(app_id):
     return jsonify(result), 200 if result['success'] else 400
 
 
+@wordpress_bp.route('/sites/<int:app_id>/themes/update', methods=['POST'])
+@jwt_required()
+@admin_required
+def update_themes(app_id):
+    """Update themes."""
+    app = _resolve_app(app_id)
+    data = request.get_json()
+
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+
+    themes = data.get('themes') if data else None
+    result = WordPressService.update_themes(app.root_path, themes)
+    return jsonify(result), 200 if result['success'] else 400
+
+
 @wordpress_bp.route('/sites/<int:app_id>/themes/<theme>/activate', methods=['POST'])
 @jwt_required()
 @admin_required
@@ -547,6 +1101,88 @@ def optimize_database(app_id):
     return jsonify(result), 200 if result['success'] else 400
 
 
+@wordpress_bp.route('/sites/<int:app_id>/page-cache', methods=['GET'])
+@jwt_required()
+def get_page_cache(app_id):
+    """Report full-page cache plugin status for a site."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    return jsonify(WordPressService.get_page_cache_status(app.root_path)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/page-cache', methods=['POST'])
+@jwt_required()
+@admin_required
+def enable_page_cache(app_id):
+    """Enable the full-page cache for a site."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    result = WordPressService.enable_page_cache(app.root_path)
+    if result.get('success'):
+        wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+        if wp_site:
+            cfg = json.loads(wp_site.sync_config) if wp_site.sync_config else {}
+            cfg['page_cache_enabled'] = True
+            wp_site.sync_config = json.dumps(cfg)
+            db.session.commit()
+    return jsonify(result), 200 if result.get('success') else 400
+
+
+@wordpress_bp.route('/sites/<int:app_id>/page-cache', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def disable_page_cache(app_id):
+    """Disable the full-page cache for a site."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    result = WordPressService.disable_page_cache(app.root_path)
+    if result.get('success'):
+        wp_site = WordPressSite.query.filter_by(application_id=app.id).first()
+        if wp_site:
+            cfg = json.loads(wp_site.sync_config) if wp_site.sync_config else {}
+            cfg['page_cache_enabled'] = False
+            wp_site.sync_config = json.dumps(cfg)
+            db.session.commit()
+    return jsonify(result), 200 if result.get('success') else 400
+
+
+@wordpress_bp.route('/sites/<int:app_id>/object-cache', methods=['GET'])
+@jwt_required()
+def object_cache_status(app_id):
+    """Report Redis object-cache state for a site."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    return jsonify(WordPressService.object_cache_status(app.root_path)), 200
+
+
+@wordpress_bp.route('/sites/<int:app_id>/object-cache', methods=['POST'])
+@jwt_required()
+@admin_required
+def enable_object_cache(app_id):
+    """Enable Redis object cache (adds a redis container if needed, activates plugin)."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    result = WordPressService.enable_object_cache(app.root_path)
+    return jsonify(result), 200 if result.get('success') else 400
+
+
+@wordpress_bp.route('/sites/<int:app_id>/object-cache', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def disable_object_cache(app_id):
+    """Disable Redis object cache (keeps the container + plugin)."""
+    app = _resolve_app(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    result = WordPressService.disable_object_cache(app.root_path)
+    return jsonify(result), 200 if result.get('success') else 400
+
+
 @wordpress_bp.route('/sites/<int:app_id>/flush-cache', methods=['POST'])
 @jwt_required()
 @admin_required
@@ -584,6 +1220,58 @@ def create_wp_user(app_id):
         data.get('password')
     )
     return jsonify(result), 201 if result['success'] else 400
+
+
+@wordpress_bp.route('/sites/<int:site_id>/login', methods=['POST'])
+@jwt_required()
+@admin_required
+def wp_auto_login(site_id):
+    """Mint a one-time passwordless wp-admin login URL for the calling operator."""
+    from app.services.audit_service import AuditService
+    current_user_id = get_jwt_identity()
+    operator = User.query.get(current_user_id)
+    if not operator:
+        return jsonify({'error': 'User not found'}), 404
+
+    wp_site = WordPressSite.query.get(site_id)
+    app = wp_site.application if wp_site else _resolve_app(site_id)
+    if not app or not app.root_path:
+        return jsonify({'error': 'Application not found'}), 404
+    if app.app_type != 'wordpress':
+        return jsonify({'error': 'Application is not a WordPress site'}), 400
+
+    # Resolve a managed admin tied to the operator's panel email. Prefer the
+    # site's recorded admin_user; otherwise derive a deterministic username
+    # from the operator and create it via the WP-CLI bridge if absent.
+    wp_user = (wp_site.admin_user if wp_site and wp_site.admin_user else None)
+    if not wp_user:
+        wp_user = (operator.username or operator.email.split('@')[0])
+        exists = WordPressService.wp_cli(app.root_path, ['user', 'get', wp_user, '--field=ID'])
+        if not exists.get('success'):
+            created = WordPressService.create_user(
+                app.root_path, wp_user, operator.email, role='administrator'
+            )
+            if not created.get('success'):
+                return jsonify({'error': created.get('error') or 'Failed to provision admin'}), 400
+        if wp_site:
+            wp_site.admin_user = wp_user
+            if not wp_site.admin_email:
+                wp_site.admin_email = operator.email
+            db.session.commit()
+
+    result = WordPressService.create_login_url(app.root_path, wp_user)
+    if not result.get('success'):
+        return jsonify({'error': result.get('error') or 'Failed to create login URL'}), 400
+
+    AuditService.log(
+        action='wordpress.admin_login',
+        user_id=current_user_id,
+        target_type='app',
+        target_id=app.id,
+        details={'wp_user': wp_user, 'site_id': site_id, 'app_name': app.name},
+    )
+
+    return jsonify({'success': True, 'url': result['url']}), 200
 
 
 @wordpress_bp.route('/sites/<int:app_id>/users/<user>/reset-password', methods=['POST'])

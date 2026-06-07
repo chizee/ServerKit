@@ -2,8 +2,33 @@
 // templates, builds, deployments
 
 // Apps endpoints
-export async function getApps() {
-    return this.request('/apps');
+export async function getApps(options = {}) {
+    // allWorkspaces neutralizes the ambient X-Workspace-Id header (sends it empty)
+    // so a cross-workspace view (e.g. resource management) sees every app, not just
+    // the active workspace's.
+    const config = options.allWorkspaces ? { headers: { 'X-Workspace-Id': '' } } : {};
+    return this.request('/apps', config);
+}
+
+// Reassign an application to a workspace (#33). Pass null to move it to Default.
+export async function setAppWorkspace(appId, workspaceId) {
+    return this.request(`/apps/${appId}/workspace`, {
+        method: 'PUT',
+        body: { workspace_id: workspaceId },
+    });
+}
+
+// Per-resource access grants (#33 per-site ACL): share an app with a user.
+export async function getAppGrants(appId) {
+    return this.request(`/apps/${appId}/grants`);
+}
+
+export async function grantAppAccess(appId, userId, role) {
+    return this.request(`/apps/${appId}/grants`, { method: 'POST', body: { user_id: userId, role } });
+}
+
+export async function revokeAppAccess(appId, grantId) {
+    return this.request(`/apps/${appId}/grants/${grantId}`, { method: 'DELETE' });
 }
 
 export async function getApp(id) {

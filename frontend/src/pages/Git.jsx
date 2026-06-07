@@ -5,6 +5,9 @@ import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { DangerZone } from '../components/DangerZone';
+import EmptyState from '../components/EmptyState';
+import { StatStrip, Stat } from '../components/StatCard';
+import { AlertCircle, FolderGit2, Webhook, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -641,58 +644,16 @@ function Git({ basePath = '/git' }) {
                 </div>
             ) : (
                 <>
-                    <div className="status-cards">
-                        <div className={`status-card ${status?.running ? 'success' : 'danger'}`}>
-                            <div className="status-icon">
-                                <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <circle cx="18" cy="18" r="3"/>
-                                    <circle cx="6" cy="6" r="3"/>
-                                    <path d="M6 21V9a9 9 0 0 0 9 9"/>
-                                </svg>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">Server Status</span>
-                                <span className="status-value">{status?.running ? 'Running' : 'Stopped'}</span>
-                            </div>
-                        </div>
-                        <div className="status-card">
-                            <div className="status-icon">
-                                <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="2" y1="12" x2="22" y2="12"/>
-                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                                </svg>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">URL Path</span>
-                                <span className="status-value">{status?.url_path || `/gitea`}</span>
-                            </div>
-                        </div>
-                        <div className="status-card">
-                            <div className="status-icon">
-                                <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                </svg>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">SSH Port</span>
-                                <span className="status-value">{status?.ssh_port || 'N/A'}</span>
-                            </div>
-                        </div>
-                        <div className="status-card">
-                            <div className="status-icon">
-                                <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                                    <circle cx="12" cy="7" r="4"/>
-                                </svg>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">Version</span>
-                                <span className="status-value">{status?.version || 'Unknown'}</span>
-                            </div>
-                        </div>
-                    </div>
+                    <StatStrip ariaLabel="Git server status">
+                        <Stat
+                            label="Server Status"
+                            value={status?.running ? 'Running' : 'Stopped'}
+                            state={status?.running ? 'success' : 'danger'}
+                        />
+                        <Stat label="URL Path" value={status?.url_path || '/gitea'} />
+                        <Stat label="SSH Port" value={status?.ssh_port || 'N/A'} />
+                        <Stat label="Version" value={status?.version || 'Unknown'} />
+                    </StatStrip>
 
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList>
@@ -761,18 +722,12 @@ function Git({ basePath = '/git' }) {
                             <TabsContent value="repositories">
                                 <div className="repositories-tab">
                                     {!status?.running ? (
-                                        <div className="empty-state">
-                                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1.5">
-                                                <circle cx="12" cy="12" r="10"/>
-                                                <line x1="12" y1="8" x2="12" y2="12"/>
-                                                <line x1="12" y1="16" x2="12.01" y2="16"/>
-                                            </svg>
-                                            <h4>Server Not Running</h4>
-                                            <p>Start the Git server to browse repositories</p>
-                                            <Button onClick={handleStart}>
-                                                Start Server
-                                            </Button>
-                                        </div>
+                                        <EmptyState
+                                            icon={AlertCircle}
+                                            title="Server not running"
+                                            description="Start the Git server to browse repositories."
+                                            action={<Button onClick={handleStart}>Start Server</Button>}
+                                        />
                                     ) : repoView === 'list' ? (
                                         <>
                                             <div className="repos-header">
@@ -792,16 +747,12 @@ function Git({ basePath = '/git' }) {
                                                     <Spinner />
                                                 </div>
                                             ) : repositories.length === 0 ? (
-                                                <div className="empty-state">
-                                                    <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1.5">
-                                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                                                    </svg>
-                                                    <h4>No Repositories Yet</h4>
-                                                    <p>Create your first repository in Gitea</p>
-                                                    <Button onClick={openGitea}>
-                                                        Open Gitea
-                                                    </Button>
-                                                </div>
+                                                <EmptyState
+                                                    icon={FolderGit2}
+                                                    title="No repositories yet"
+                                                    description="Create your first repository in Gitea."
+                                                    action={<Button onClick={openGitea}>Open Gitea</Button>}
+                                                />
                                             ) : (
                                                 <div className="repos-list">
                                                     {repositories.map((repo) => (
@@ -1118,17 +1069,12 @@ function Git({ basePath = '/git' }) {
                                             <Spinner />
                                         </div>
                                     ) : webhooks.length === 0 ? (
-                                        <div className="empty-state">
-                                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1.5">
-                                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                                            </svg>
-                                            <h4>No Webhooks Configured</h4>
-                                            <p>Add a webhook to sync repositories from external sources</p>
-                                            <Button onClick={() => setShowWebhookModal(true)}>
-                                                Add Your First Webhook
-                                            </Button>
-                                        </div>
+                                        <EmptyState
+                                            icon={Webhook}
+                                            title="No webhooks configured"
+                                            description="Add a webhook to sync repositories from external sources."
+                                            action={<Button onClick={() => setShowWebhookModal(true)}>Add Webhook</Button>}
+                                        />
                                     ) : (
                                         <div className="webhooks-list">
                                             {webhooks.map((webhook) => (
@@ -1229,18 +1175,12 @@ function Git({ basePath = '/git' }) {
                                             <Spinner />
                                         </div>
                                     ) : deployments.length === 0 ? (
-                                        <div className="empty-state">
-                                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1.5">
-                                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                                                <path d="M2 17l10 5 10-5"/>
-                                                <path d="M2 12l10 5 10-5"/>
-                                            </svg>
-                                            <h4>No Deployments Yet</h4>
-                                            <p>Configure a webhook with &quot;Deploy on Push&quot; enabled to see deployments here</p>
-                                            <Button onClick={() => setActiveTab('webhooks')}>
-                                                Configure Webhooks
-                                            </Button>
-                                        </div>
+                                        <EmptyState
+                                            icon={Rocket}
+                                            title="No deployments yet"
+                                            description='Configure a webhook with "Deploy on Push" enabled to see deployments here.'
+                                            action={<Button onClick={() => setActiveTab('webhooks')}>Configure Webhooks</Button>}
+                                        />
                                     ) : (
                                         <div className="deployments-list">
                                             {deployments.map((deployment) => (

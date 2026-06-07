@@ -6,6 +6,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import LogToolbar from '../components/log-viewer/LogToolbar';
 import LogContent from '../components/log-viewer/LogContent';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -875,10 +876,13 @@ const ContainersTab = ({ onStatsChange }) => {
             </div>
 
             {filteredContainers.length === 0 ? (
-                <div className="docker-empty">
-                    <Box size={32} />
-                    <p>{containers.length === 0 ? 'No containers yet. Run your first one.' : 'No containers match the current filters.'}</p>
-                </div>
+                <EmptyState
+                    icon={Box}
+                    title={containers.length === 0 ? 'No containers' : 'No matching containers'}
+                    description={containers.length === 0
+                        ? 'Run your first container to see it here.'
+                        : 'No containers match the current filters.'}
+                />
             ) : (
                 <div className="dx-manager-layout">
                     <section className="dx-resource-list">
@@ -1356,10 +1360,11 @@ const ImagesTab = ({ onStatsChange }) => {
             </div>
 
             {filteredImages.length === 0 ? (
-                <div className="docker-empty">
-                    <h3>No images</h3>
-                    <p>Pull your first image to get started.</p>
-                </div>
+                <EmptyState
+                    icon={Layers}
+                    title="No images"
+                    description="Pull an image to see it here."
+                />
             ) : (
                 <table className="docker-table">
                     <thead>
@@ -1468,10 +1473,11 @@ const NetworksTab = ({ onStatsChange }) => {
     return (
         <div>
             {networks.length === 0 ? (
-                <div className="docker-empty">
-                    <h3>No networks</h3>
-                    <p>Create a network to connect containers.</p>
-                </div>
+                <EmptyState
+                    icon={NetworkIcon}
+                    title="No networks"
+                    description="Create a network to connect containers."
+                />
             ) : (
                 <table className="docker-table">
                     <thead>
@@ -1576,10 +1582,11 @@ const VolumesTab = ({ onStatsChange }) => {
     return (
         <div>
             {volumes.length === 0 ? (
-                <div className="docker-empty">
-                    <h3>No volumes</h3>
-                    <p>Create a volume for persistent data storage.</p>
-                </div>
+                <EmptyState
+                    icon={HardDrive}
+                    title="No volumes"
+                    description="Create a volume for persistent data storage."
+                />
             ) : (
                 <table className="docker-table">
                     <thead>
@@ -1741,13 +1748,12 @@ const ComposeTab = ({ onStatsChange }) => {
             </div>
 
             {projects.length === 0 ? (
-                <div className="docker-empty">
-                    <h3>No Compose Projects</h3>
-                    <p>No Docker Compose projects are running on this server.</p>
-                    <p className="text-muted">
-                        Start a compose project with <code>docker compose up -d</code>
-                    </p>
-                </div>
+                <EmptyState
+                    icon={Package}
+                    title="No Compose projects"
+                    description="No Docker Compose projects are running on this server."
+                    action={<code>docker compose up -d</code>}
+                />
             ) : (
                 <table className="docker-table">
                     <thead>

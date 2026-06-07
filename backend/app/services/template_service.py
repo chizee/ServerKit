@@ -153,6 +153,11 @@ class TemplateService:
         elif var_type == 'port':
             # ALWAYS find an available port - never trust defaults
             start_port = int(default) if default else 8000
+            # A global base-port setting (Settings > managed_app_base_port)
+            # overrides the per-template default when configured (non-zero).
+            base = cls._managed_app_base_port()
+            if base:
+                start_port = base
             return str(cls._find_available_port(start_port))
 
         elif var_type == 'uuid':
@@ -225,6 +230,20 @@ class TemplateService:
                 'success': False,
                 'error': f'Connection check failed: {str(e)}'
             }
+
+    @classmethod
+    def _managed_app_base_port(cls) -> int:
+        """Return the admin-configured base port for managed apps, or 0 if unset.
+
+        Reads the ``managed_app_base_port`` system setting. Returns 0 (meaning
+        "use each template's own default") on any error, e.g. if the settings
+        table isn't ready yet during early startup.
+        """
+        try:
+            from app.services.settings_service import SettingsService
+            return int(SettingsService.get('managed_app_base_port', 0) or 0)
+        except Exception:
+            return 0
 
     @classmethod
     def _find_available_port(cls, start_port: int = 8000, max_attempts: int = 1000) -> int:

@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { StatCard, StatsGrid } from '../components/StatCard';
+import EmptyState from '../components/EmptyState';
 import { Clock, FileText, CheckCircle, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -188,7 +189,7 @@ const CronJobs = () => {
     };
 
     if (loading) {
-        return <div className="page"><div className="loading">Loading cron jobs...</div></div>;
+        return <EmptyState loading size="lg" title="Loading cron jobs..." />;
     }
 
     return (
@@ -239,17 +240,12 @@ const CronJobs = () => {
                 </div>
                 <div className="card-body">
                     {jobs.length === 0 ? (
-                        <div className="empty-state">
-                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            <h3>No Cron Jobs</h3>
-                            <p>No scheduled jobs found. Create your first cron job to automate tasks.</p>
-                            <Button onClick={openCreateModal}>
-                                Create Job
-                            </Button>
-                        </div>
+                        <EmptyState
+                            icon={Clock}
+                            title="No Cron Jobs"
+                            description="No scheduled jobs found. Create your first cron job to automate tasks."
+                            action={<Button onClick={openCreateModal}>Create Job</Button>}
+                        />
                     ) : (
                         <div className="cron-list">
                             {jobs.map((job) => (

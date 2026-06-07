@@ -106,67 +106,6 @@
         }
     }
 
-    .status-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: $space-4;
-        margin-bottom: $space-6;
-    }
-
-    .status-card {
-        display: flex;
-        align-items: center;
-        gap: $space-4;
-        padding: $space-5;
-        background: $bg-card;
-        border-radius: $radius-xl;
-        border-left: 4px solid $border-subtle;
-
-        &.success {
-            border-left-color: $success;
-
-            .status-icon {
-                color: $success;
-            }
-        }
-
-        &.danger {
-            border-left-color: $danger;
-
-            .status-icon {
-                color: $danger;
-            }
-        }
-
-        &.warning {
-            border-left-color: $warning;
-
-            .status-icon {
-                color: $warning;
-            }
-        }
-
-        .status-icon {
-            color: $text-tertiary;
-        }
-
-        .status-info {
-            display: flex;
-            flex-direction: column;
-            gap: $space-1;
-
-            .status-label {
-                font-size: $font-size-sm;
-                color: $text-secondary;
-            }
-
-            .status-value {
-                font-size: $font-size-lg;
-                font-weight: $font-weight-semibold;
-            }
-        }
-    }
-
     .tabs {
         display: flex;
         gap: $space-1;
@@ -348,7 +287,7 @@
             padding: $space-3;
             background: fade($info, 10%);
             border-radius: $radius-md;
-            border-left: 3px solid $info;
+            border: 1px solid fade($info, 35%);
 
             strong {
                 color: $text-primary;
@@ -1183,18 +1122,17 @@
             border-radius: $radius-lg;
             padding: $space-5;
             border: 1px solid $border-subtle;
-            border-left: 4px solid $border-subtle;
 
             &.success {
-                border-left-color: $success;
+                border-color: fade($success, 45%);
             }
 
             &.failed {
-                border-left-color: $danger;
+                border-color: fade($danger, 45%);
             }
 
             &.running {
-                border-left-color: $warning;
+                border-color: fade($warning, 45%);
             }
 
             .deployment-header {

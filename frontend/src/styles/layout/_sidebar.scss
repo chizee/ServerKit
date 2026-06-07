@@ -13,9 +13,145 @@
     z-index: $z-fixed;
     padding: 0 1rem;
 
+    // Below the breakpoint the persistent rail becomes an off-canvas drawer
+    // (it stays mounted so its scroll position and state survive open/close).
     @media (max-width: $breakpoint-md) {
-        display: none;
+        top: 0;
+        left: 0;
+        height: 100dvh;
+        width: min(280px, 86vw);
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-top: env(safe-area-inset-top);
+        z-index: $z-modal;
+        transform: translateX(-100%);
+        transition: transform 0.28s $ease-out-quint;
+        will-change: transform;
+
+        &.sidebar--mobile-open {
+            transform: translateX(0);
+            box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            transition: none;
+        }
     }
+}
+
+// Drawer close button — only rendered/visible in the mobile drawer.
+.sidebar__close {
+    display: none;
+
+    @media (max-width: $breakpoint-md) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin: $space-2 0 $space-1 auto;
+        border: none;
+        background: transparent;
+        color: $text-secondary;
+        border-radius: $radius-md;
+        cursor: pointer;
+        @include transition(color);
+        @include focus-ring();
+
+        &:hover {
+            color: $text-primary;
+            background: rgba(255, 255, 255, 0.06);
+        }
+    }
+}
+
+// Scrim behind the drawer. Only mounted on mobile while the drawer is open.
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: $z-modal-backdrop;
+    animation: sidebarBackdropIn 0.2s ease-out;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@keyframes sidebarBackdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+// Fixed top bar for narrow viewports — carries the hamburger + brand so the
+// drawer is reachable. Hidden entirely on desktop.
+.mobile-topbar {
+    display: none;
+
+    @media (max-width: $breakpoint-md) {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+        padding-top: env(safe-area-inset-top);
+        padding-right: max(#{$space-4}, env(safe-area-inset-right));
+        padding-left: max(#{$space-3}, env(safe-area-inset-left));
+        background-color: $bg-sidebar;
+        border-bottom: 1px solid $border-default;
+        z-index: $z-sticky;
+    }
+}
+
+.mobile-topbar__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: $text-primary;
+    border-radius: $radius-md;
+    cursor: pointer;
+    @include transition(background);
+    @include focus-ring();
+
+    &:hover {
+        background: $bg-hover;
+    }
+}
+
+.mobile-topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    min-width: 0;
+}
+
+.mobile-topbar__logo {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+}
+
+.mobile-topbar__name {
+    font-size: 1.05rem;
+    font-weight: $font-weight-bold;
+    color: $text-primary;
+    letter-spacing: -0.01em;
+    @include truncate();
 }
 
 // Brand Section - Clean & Minimal
@@ -61,13 +197,10 @@
     font-weight: $font-weight-bold;
     color: $text-primary;
     letter-spacing: -0.02em;
-    background: linear-gradient(135deg, $text-primary 0%, #a5b4fc 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 }
 
-// Star button in brand section
+// Star button in brand section — a quiet "star us on GitHub" affordance.
+// Color + a faint wash on hover; no burst, rings, or auto-play.
 .brand-star {
     margin-left: auto;
     display: flex;
@@ -77,289 +210,12 @@
     height: $sidebar-icon-size;
     border-radius: 50%;
     color: $text-tertiary;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    position: relative;
-    overflow: visible;
-
-    svg {
-        position: relative;
-        z-index: 2;
-        transition: all 0.3s ease;
-    }
-
-    .star-particles,
-    .star-ring,
-    .star-tooltip {
-        pointer-events: none;
-        position: absolute;
-    }
-
-    .star-particles {
-        inset: 0;
-
-        span {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: $color-star;
-            border-radius: 50%;
-            opacity: 0;
-            top: 50%;
-            left: 50%;
-        }
-    }
-
-    .star-ring {
-        inset: 0;
-        border-radius: 50%;
-        border: 2px solid $color-star;
-        opacity: 0;
-        transform: scale(0.8);
-    }
-
-    .star-tooltip {
-        top: 50%;
-        left: calc(100% + 10px);
-        transform: translateY(-50%) translateX(-4px);
-        background: linear-gradient(135deg, $color-star 0%, #d97706 100%);
-        color: white;
-        font-size: 0.65rem;
-        font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 6px;
-        white-space: nowrap;
-        opacity: 0;
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-
-        &::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: -4px;
-            transform: translateY(-50%);
-            border-top: 5px solid transparent;
-            border-bottom: 5px solid transparent;
-            border-right: 5px solid #d97706;
-        }
-    }
+    transition: color $transition-base, background-color $transition-base;
+    @include focus-ring();
 
     &:hover {
         color: $color-star;
-        background: rgba(245, 158, 11, 0.15);
-        transform: scale(1.1);
-        box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
-    }
-
-    &:active {
-        transform: scale(0.95);
-    }
-
-    // Animation state
-    &.animating {
-        animation: starPop 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-
-        svg {
-            color: $color-star;
-            animation: starSpin 1.5s cubic-bezier(0.34, 1.56, 0.64, 1), starGlow 1.5s ease-in-out;
-        }
-
-        // Particles explosion
-        .star-particles span {
-            animation: particleBurst 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-
-            &:nth-child(1) { --angle: 0deg; --distance: 20px; animation-delay: 0.1s; }
-            &:nth-child(2) { --angle: 60deg; --distance: 24px; animation-delay: 0.15s; }
-            &:nth-child(3) { --angle: 120deg; --distance: 18px; animation-delay: 0.1s; }
-            &:nth-child(4) { --angle: 180deg; --distance: 22px; animation-delay: 0.2s; }
-            &:nth-child(5) { --angle: 240deg; --distance: 20px; animation-delay: 0.12s; }
-            &:nth-child(6) { --angle: 300deg; --distance: 26px; animation-delay: 0.18s; }
-        }
-
-        // Multiple rings
-        .star-ring {
-            animation: ringExpand 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-
-            &.ring-2 {
-                animation-delay: 0.15s;
-                border-color: #fbbf24;
-            }
-
-            &.ring-3 {
-                animation-delay: 0.3s;
-                border-color: #fcd34d;
-                border-width: 1px;
-            }
-        }
-
-        // Tooltip appears
-        .star-tooltip {
-            animation: tooltipPop 1.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-
-        // Background flash
-        &::before {
-            content: '';
-            position: absolute;
-            inset: -4px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(245, 158, 11, 0.4) 0%, transparent 70%);
-            animation: bgFlash 0.6s ease-out forwards;
-            z-index: -1;
-        }
-
-        // Shine sweep
-        &::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 200%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(255, 255, 255, 0.6),
-                transparent
-            );
-            animation: shineSweep 0.5s 0.2s ease-out forwards;
-            border-radius: 50%;
-            z-index: 3;
-        }
-    }
-}
-
-// Star icon spin
-@keyframes starSpin {
-    0% {
-        transform: rotate(0deg) scale(1);
-    }
-    25% {
-        transform: rotate(-15deg) scale(1.2);
-    }
-    50% {
-        transform: rotate(15deg) scale(1.3);
-    }
-    75% {
-        transform: rotate(-5deg) scale(1.1);
-    }
-    100% {
-        transform: rotate(0deg) scale(1);
-    }
-}
-
-// Smooth bounce pop
-@keyframes starPop {
-    0% {
-        transform: scale(1);
-    }
-    20% {
-        transform: scale(1.4);
-    }
-    40% {
-        transform: scale(1.1);
-    }
-    60% {
-        transform: scale(1.25);
-    }
-    80% {
-        transform: scale(1.15);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-// Icon glow pulse
-@keyframes starGlow {
-    0%, 100% {
-        filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.4));
-    }
-    30% {
-        filter: drop-shadow(0 0 8px rgba(245, 158, 11, 1))
-               drop-shadow(0 0 16px rgba(245, 158, 11, 0.8))
-               drop-shadow(0 0 24px rgba(245, 158, 11, 0.4));
-    }
-    60% {
-        filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.8));
-    }
-}
-
-// Particles burst outward
-@keyframes particleBurst {
-    0% {
-        opacity: 1;
-        transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0) scale(1);
-    }
-    50% {
-        opacity: 1;
-        transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--distance) * -0.7)) scale(1.2);
-    }
-    100% {
-        opacity: 0;
-        transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--distance) * -1)) scale(0);
-    }
-}
-
-// Ring that expands outward
-@keyframes ringExpand {
-    0% {
-        transform: scale(0.8);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(2.5);
-        opacity: 0;
-    }
-}
-
-// Tooltip pop in and out
-@keyframes tooltipPop {
-    0% {
-        opacity: 0;
-        transform: translateY(-50%) translateX(-4px) scale(0.8);
-    }
-    20% {
-        opacity: 1;
-        transform: translateY(-50%) translateX(0) scale(1.05);
-    }
-    30% {
-        transform: translateY(-50%) translateX(0) scale(1);
-    }
-    70% {
-        opacity: 1;
-        transform: translateY(-50%) translateX(0) scale(1);
-    }
-    100% {
-        opacity: 0;
-        transform: translateY(-50%) translateX(4px) scale(0.9);
-    }
-}
-
-// Background glow flash
-@keyframes bgFlash {
-    0% {
-        opacity: 0;
-        transform: scale(0.5);
-    }
-    30% {
-        opacity: 1;
-        transform: scale(1.5);
-    }
-    100% {
-        opacity: 0;
-        transform: scale(2);
-    }
-}
-
-// Shine sweep across
-@keyframes shineSweep {
-    0% {
-        left: -200%;
-        opacity: 1;
-    }
-    100% {
-        left: 100%;
-        opacity: 0;
+        background: rgba(245, 158, 11, 0.12);
     }
 }
 
@@ -406,16 +262,46 @@
     font-size: 1.15rem;
     font-weight: $font-weight-bold;
     letter-spacing: -0.02em;
-    background: linear-gradient(135deg, $text-primary 0%, #a5b4fc 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: $text-primary;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 // Scrollable Navigation Container
+// Active-workspace selector (#33) — sits between the brand and the nav.
+.workspace-switcher {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin: 0 $space-3 $space-2;
+    padding: $space-1 $space-2;
+    background-color: $bg-card;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+
+    &__icon {
+        flex-shrink: 0;
+        color: $text-secondary;
+    }
+
+    &__select {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: transparent;
+        color: $text-primary;
+        font-size: $font-size-sm;
+        cursor: pointer;
+        outline: none;
+
+        &:focus-visible {
+            outline: 2px solid $accent-primary;
+            outline-offset: 1px;
+        }
+    }
+}
+
 .nav-scroll {
     flex: 1;
     overflow-y: auto;
@@ -469,6 +355,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    @include focus-ring();
 
     // Pro Hover State
     &:hover {
@@ -524,6 +411,7 @@
     flex-shrink: 0;
     transition: all 0.15s ease;
     margin-right: 4px;
+    @include focus-ring();
 
     &:hover {
         background: rgba(255, 255, 255, 0.06);
@@ -627,6 +515,7 @@
     border-radius: $radius-sm;
     cursor: pointer;
     transition: all 0.15s ease;
+    @include focus-ring();
 
     &:hover {
         color: $text-primary;
@@ -658,6 +547,7 @@
     border-radius: $radius-sm;
     cursor: pointer;
     transition: all 0.15s ease;
+    @include focus-ring();
 
     &:hover {
         border-color: $border-active;
@@ -693,6 +583,7 @@
     cursor: pointer;
     transition: all 0.15s ease;
     text-align: left;
+    @include focus-ring();
 
     &:hover {
         background: rgba(255, 255, 255, 0.04);
@@ -720,10 +611,17 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
     padding: 0.5rem;
     cursor: pointer;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
     border-radius: $radius-lg;
     transition: all 0.2s ease;
+    @include focus-ring();
 
     &:hover {
         background: $bg-secondary;

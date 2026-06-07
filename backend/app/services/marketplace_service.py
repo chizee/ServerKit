@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class MarketplaceService:
     """Service for the extension marketplace."""
 
-    CATEGORIES = ['monitoring', 'security', 'deployment', 'integration', 'ui', 'utility']
+    CATEGORIES = ['ai', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility']
 
     @staticmethod
     def list_extensions(category=None, search=None, status='published'):

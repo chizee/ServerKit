@@ -33,6 +33,14 @@ class EnvironmentHealthService:
             return {'success': False, 'error': 'Site not found'}
 
         compose_path = EnvironmentPipelineService._get_compose_path(site)
+        if not compose_path and site.application and site.application.root_path:
+            # Production sites (created by WordPressService.create_site) have no
+            # container_prefix, so _get_compose_path returns None; their compose
+            # lives directly at the Application root_path. Without this fallback,
+            # health is 'unknown' for every production site (breaking #26/#27).
+            candidate = os.path.join(site.application.root_path, 'docker-compose.yml')
+            if os.path.exists(candidate):
+                compose_path = candidate
         checks = {
             'container': {'status': 'unknown', 'message': ''},
             'mysql': {'status': 'unknown', 'message': ''},
@@ -85,12 +93,14 @@ class EnvironmentHealthService:
         else:
             overall = 'unknown'
 
-        # Update site record
+        # Update site record (capture prior status first to detect transitions)
+        previous_status = site.health_status
         site.health_status = overall
         site.last_health_check = datetime.utcnow()
         db.session.commit()
 
-        # Emit event for workflow triggers on unhealthy status
+        # Emit event for workflow triggers on every failing poll (back-compat for
+        # existing event-trigger workflows keyed on 'health_check_failed').
         if overall in ('unhealthy', 'degraded'):
             try:
                 from app.services.workflow_engine import WorkflowEventBus
@@ -102,6 +112,11 @@ class EnvironmentHealthService:
             except Exception:
                 pass
 
+        # Alert the configured channels + fan out a wordpress.site_down/up catalog
+        # event ONLY on a health-state transition, so an autonomous poller does not
+        # spam. Best-effort — never breaks the health check.
+        cls._notify_health_transition(site, previous_status, overall, checks)
+
         return {
             'success': True,
             'site_id': site_id,
@@ -109,6 +124,79 @@ class EnvironmentHealthService:
             'checks': checks,
             'checked_at': datetime.utcnow().isoformat(),
         }
+
+    # Health states treated as an outage for alerting purposes.
+    _DOWN_STATES = ('unhealthy', 'degraded')
+
+    @classmethod
+    def _notify_health_transition(cls, site, previous, overall, checks):
+        """On a health-state TRANSITION (edge-triggered), alert the configured
+        notification channels and fan out a wordpress.site_down/up catalog event.
+        Edge-triggering (not every failing poll) IS the dedup: a continuously
+        down site fires a single down alert, and a single up alert on recovery.
+        Best-effort — never raises into check_health.
+        """
+        was_down = previous in cls._DOWN_STATES
+        is_down = overall in cls._DOWN_STATES
+        if is_down and not was_down:
+            cls._dispatch_health_alert(site, overall, checks, recovered=False)
+        elif overall == 'healthy' and was_down:
+            cls._dispatch_health_alert(site, overall, checks, recovered=True)
+
+    @classmethod
+    def _dispatch_health_alert(cls, site, overall, checks, recovered):
+        """Send a one-shot health alert to notification channels (off-thread,
+        since send_all does blocking HTTP/SMTP) and emit the matching catalog
+        event for outbound webhook subscribers. Down alerts use critical/warning
+        (delivered by default channels); recovery uses 'info' (delivered only to
+        channels that opt into 'info')."""
+        site_name = site.application.name if site.application else f'site {site.id}'
+        if recovered:
+            event_type = 'wordpress.site_up'
+            severity = 'info'
+            message = f'WordPress site "{site_name}" recovered (status: {overall}).'
+        else:
+            event_type = 'wordpress.site_down'
+            severity = 'critical' if overall == 'unhealthy' else 'warning'
+            failed = [name for name, c in checks.items() if c.get('status') == 'unhealthy']
+            detail = (', '.join(failed) + ' check failed') if failed else overall
+            message = f'WordPress site "{site_name}" is down ({detail}).'
+
+        payload = {
+            'event': event_type,
+            'site_id': site.id,
+            'site_name': site_name,
+            'overall_status': overall,
+            'checks': checks,
+            'timestamp': datetime.utcnow().isoformat(),
+        }
+
+        # Outbound webhook subscribers (fast: queues deliveries, threads the HTTP).
+        try:
+            from app.services.event_service import EventService
+            EventService.emit(event_type, payload)
+        except Exception:
+            pass
+
+        # Notification channels — off-thread because send_all does blocking
+        # HTTP/SMTP per channel and must not stall the health check.
+        def _send():
+            try:
+                from app.services.notification_service import NotificationService
+                NotificationService.send_all([{
+                    'type': event_type,
+                    'severity': severity,
+                    'message': message,
+                    'value': overall,
+                    'threshold': 'healthy',
+                }])
+            except Exception:
+                pass
+        try:
+            import threading
+            threading.Thread(target=_send, daemon=True, name='wp-health-alert').start()
+        except Exception:
+            pass
 
     @classmethod
     def check_all_project_health(cls, production_site_id: int) -> Dict:

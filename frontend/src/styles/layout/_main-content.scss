@@ -20,7 +20,8 @@
 
     @media (max-width: $breakpoint-md) {
         margin-left: 0;
-        padding: $space-5;
+        // Clear the fixed mobile header (plus the notch inset, if any).
+        padding: calc(#{$mobile-header-height} + env(safe-area-inset-top) + #{$space-5}) $space-5 $space-5;
     }
 
     // Remove padding for routed tool surfaces that manage their own layout.
@@ -30,6 +31,12 @@
         padding: 0;
         overflow: hidden;
         height: 100vh;
+
+        // Full-bleed tools still sit below the fixed mobile header.
+        @media (max-width: $breakpoint-md) {
+            height: calc(100dvh - #{$mobile-header-height} - env(safe-area-inset-top));
+            margin-top: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+        }
     }
 }
 

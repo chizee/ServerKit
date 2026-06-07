@@ -295,7 +295,7 @@
     align-items: center;
     gap: $space-1;
     padding: $space-1 $space-2;
-    background: linear-gradient(135deg, $color-star, #d97706);
+    background: $color-star;
     border-radius: $radius-sm;
     font-size: $font-size-xs;
     font-weight: $font-weight-medium;
@@ -459,9 +459,7 @@
         align-items: flex-start;
         padding: $space-6;
         border-bottom: 1px solid $border-subtle;
-        background:
-            linear-gradient(135deg, $accent-glow, transparent 42%),
-            linear-gradient(135deg, $bg-card, $bg-elevated);
+        background: $bg-elevated;
     }
 
     .modal-body {
@@ -589,10 +587,11 @@
     padding: $space-3;
     background: $bg-hover;
     border-radius: $radius-md;
-    border-left: 3px solid transparent;
+    border: 1px solid $border-subtle;
 
     &.required {
-        border-left-color: $accent-primary;
+        border-color: fade($accent-primary-raw, 45%);
+        background: fade($accent-primary-raw, 8%);
     }
 
     .variable-header {

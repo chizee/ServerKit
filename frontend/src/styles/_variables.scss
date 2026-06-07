@@ -47,7 +47,13 @@ $border-hover: var(--border-hover);
 // --------------------------------------------
 // COLORS - Text (theme-sensitive)
 // --------------------------------------------
-// Raw values for SCSS functions
+// Raw values feed compile-time SCSS only (e.g. `fade()` for translucent
+// background washes), since fade() can't operate on a CSS var(). These are
+// the neutral zinc ramp and are intentionally NOT the same as the runtime
+// --text-* custom properties, which were lightened for on-surface text
+// legibility (see _theme-variables.scss). Rendered text color always comes
+// from the var()-backed $text-* tokens below; only low-opacity fills read
+// from these raws, where the exact base tone is visually negligible.
 $text-primary-raw: #f4f4f5;
 $text-secondary-raw: #a1a1aa;
 $text-tertiary-raw: #71717a;
@@ -99,6 +105,9 @@ $color-mysql: #f29111;
 $color-mysql-secondary: #00758f;
 $color-postgresql: #336791;
 $color-postgresql-secondary: #5f9ab8;
+$color-mariadb: #c0765a;
+$color-mongodb: #00ed64;
+$color-redis: #ff4438;
 $color-docker: #2496ed;
 $color-php: #777bb4;
 $color-python: #3776ab;
@@ -181,11 +190,17 @@ $transition-fast: 0.15s ease;
 $transition-base: 0.2s ease;
 $transition-slow: 0.3s ease;
 
+// Easing curves — natural deceleration. No bounce/elastic.
+$ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+$ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+$ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
 // --------------------------------------------
 // LAYOUT
 // --------------------------------------------
 $sidebar-width: 280px;
 $header-height: 64px;
+$mobile-header-height: 56px;
 $sidebar-header-height: 70px;
 $sidebar-logo-size: 42px;
 $sidebar-icon-size: 28px;

@@ -6,7 +6,19 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+}
+
+// Focus visibility (app-wide baseline).
+// Suppress the ring for pointer/mouse focus, but guarantee a consistent,
+// visible accent ring for keyboard users on every focusable element.
+// Components may override with a tuned ring (offset/radius) as needed.
+:focus:not(:focus-visible) {
     outline: none;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 html {
@@ -64,5 +76,31 @@ ul, ol {
 
     &:hover {
         background: $text-tertiary;
+    }
+}
+
+// ============================================
+// REDUCED MOTION
+// ============================================
+// Honor the OS "reduce motion" setting across the whole app: collapse
+// transitions and decorative keyframe animations to effectively instant.
+// Loading spinners are re-enabled below because the rotation IS the
+// "working…" status cue, not decoration, so freezing it would hide state.
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    // Keep loading indicators turning (higher specificity wins over `*`).
+    .spinner-ring,
+    [class*="spinner"] {
+        animation-duration: 0.8s !important;
+        animation-iteration-count: infinite !important;
     }
 }

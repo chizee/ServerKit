@@ -31,6 +31,8 @@ class ApiClient {
     clearTokens() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
+        localStorage.removeItem('active_workspace_id');  // drop workspace context on logout
+        localStorage.removeItem('workspace_accent');
     }
 
     async request(endpoint, options = {}) {
@@ -41,13 +43,23 @@ class ApiClient {
         // and must NOT be JSON-stringified. Detect and bypass both.
         const isFormData = options.body instanceof FormData;
 
+        // Active workspace context (#33). Sent ambiently so the backend can scope
+        // resources; endpoints that don't honor it ignore it. A stale value is safe
+        // — the backend resolves it leniently (falls back to no scope).
+        const activeWorkspace = localStorage.getItem('active_workspace_id');
+
+        // Spread `...options` FIRST, then set merged headers LAST — otherwise a
+        // call passing custom `headers` (e.g. X-DB-Password) would clobber the
+        // whole merged set, dropping Content-Type/Authorization and triggering
+        // 415 (no application/json) on JSON POSTs.
         const config = {
+            ...options,
             headers: {
                 ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
                 ...(token && { Authorization: `Bearer ${token}` }),
+                ...(activeWorkspace && activeWorkspace !== 'all' && { 'X-Workspace-Id': activeWorkspace }),
                 ...options.headers,
             },
-            ...options,
         };
 
         if (

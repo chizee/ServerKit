@@ -23,6 +23,7 @@ class DatabaseSyncService:
 
     SNAPSHOT_DIR = paths.SNAPSHOT_DIR
     TEMP_DIR = '/tmp/serverkit_db_sync'
+    DEFAULT_SNAPSHOT_RETENTION_DAYS = 30
 
     @classmethod
     def _ensure_dirs(cls):
@@ -908,6 +909,74 @@ class DatabaseSyncService:
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def upload_snapshot_offsite(cls, file_path: str) -> Dict:
+        """Best-effort upload of a snapshot file to the configured remote storage.
+
+        No-op (returns skipped) unless a remote provider is configured AND
+        auto_upload is enabled, mirroring BackupService._auto_upload. Never raises.
+        """
+        try:
+            from app.services.storage_provider_service import StorageProviderService
+            cfg = StorageProviderService.get_config()
+            if cfg.get('provider', 'local') == 'local' or not cfg.get('auto_upload', False):
+                return {'success': False, 'skipped': True}
+            if not file_path or not os.path.exists(file_path):
+                return {'success': False, 'skipped': True}
+            return StorageProviderService.upload_file(file_path)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def prune_expired_snapshots(cls, retention_days: int = None, keep_tagged: bool = True) -> Dict:
+        """Set expires_at on snapshots missing it, then delete expired snapshots.
+
+        Operates on DatabaseSnapshot rows (DB-aware), unlike cleanup_old_snapshots
+        which is filesystem-only. Deletes both the file and the DB row. Tagged
+        snapshots (pre-promotion/pre-restore/versioned) are never auto-expired
+        when keep_tagged is True, preserving rollback safety.
+        """
+        from app import db
+        from app.models.wordpress_site import DatabaseSnapshot
+        if retention_days is None:
+            retention_days = cls.DEFAULT_SNAPSHOT_RETENTION_DAYS
+        now = datetime.utcnow()
+        backfilled = 0
+        deleted = 0
+        try:
+            # (a) Backfill expires_at on completed snapshots that don't have one.
+            pending = DatabaseSnapshot.query.filter(
+                DatabaseSnapshot.expires_at.is_(None),
+                DatabaseSnapshot.status == 'completed',
+            ).all()
+            for snap in pending:
+                if keep_tagged and snap.tag:
+                    continue
+                base = snap.created_at or now
+                snap.expires_at = base + timedelta(days=retention_days)
+                backfilled += 1
+            if backfilled:
+                db.session.commit()
+
+            # (b) Delete snapshots whose expires_at has passed.
+            expired = DatabaseSnapshot.query.filter(
+                DatabaseSnapshot.expires_at.isnot(None),
+                DatabaseSnapshot.expires_at < now,
+            ).all()
+            for snap in expired:
+                if keep_tagged and snap.tag:
+                    continue
+                if snap.file_path:
+                    cls.delete_snapshot(snap.file_path)
+                db.session.delete(snap)
+                deleted += 1
+            if deleted:
+                db.session.commit()
+            return {'success': True, 'backfilled': backfilled, 'deleted': deleted}
+        except Exception as e:
+            db.session.rollback()
+            return {'success': False, 'error': str(e), 'backfilled': backfilled, 'deleted': deleted}
 
     @classmethod
     def cleanup_old_snapshots(cls, days: int = 30, keep_tagged: bool = True) -> Dict:

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
     HardDrive, Activity,
     RefreshCw, Zap,
@@ -236,11 +236,16 @@ const Dashboard = () => {
             {/* Top Bar */}
             <div className="top-bar">
                 <div className="server-identity">
-                    <h1>
-                        <span className={`status-dot-live ${isConnected ? '' : 'disconnected'}`}></span>
-                        {hostname}
-                    </h1>
+                    <h1>{hostname}</h1>
                     <div className="server-details">
+                        <span
+                            className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`}
+                            role="status"
+                        >
+                            <span className="conn-status__dot" aria-hidden="true"></span>
+                            {isConnected ? 'Live' : 'Reconnecting'}
+                        </span>
+                        <span className="detail-separator">|</span>
                         <span>IP: {ipAddress}</span>
                         <span className="detail-separator">|</span>
                         <span>KERNEL: {kernelVersion}</span>
@@ -415,8 +420,14 @@ const Dashboard = () => {
                                                     <td>{app.id}</td>
                                                     <td>
                                                         <div className="app-name-cell">
-                                                            <span className="app-icon-mini">{getStackIcon(app.app_type)}</span>
-                                                            {app.name}
+                                                            <span className="app-icon-mini" aria-hidden="true">{getStackIcon(app.app_type)}</span>
+                                                            <Link
+                                                                to={`/apps/${app.id}`}
+                                                                className="app-name-link"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {app.name}
+                                                            </Link>
                                                         </div>
                                                     </td>
                                                     <td>{app.app_type}</td>

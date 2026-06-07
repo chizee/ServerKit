@@ -38,6 +38,11 @@ class SettingsService:
             'type': 'boolean',
             'description': 'Enable developer mode for debugging tools and icon reference'
         },
+        'managed_app_base_port': {
+            'value': 0,
+            'type': 'integer',
+            'description': 'Starting host port when auto-assigning ports to managed apps/sites (0 = use each template\'s own default). The scanner still skips ports already in use.'
+        },
         # SSO / OAuth settings
         'sso_google_enabled': {'value': False, 'type': 'boolean', 'description': 'Enable Google OAuth login'},
         'sso_google_client_id': {'value': '', 'type': 'string', 'description': 'Google OAuth client ID'},
@@ -75,7 +80,22 @@ class SettingsService:
         'rate_limit_elevated': {'value': '500 per minute', 'type': 'string', 'description': 'Rate limit for elevated API keys'},
         'rate_limit_unlimited': {'value': '5000 per minute', 'type': 'string', 'description': 'Rate limit for unlimited API keys'},
         'rate_limit_unauthenticated': {'value': '30 per minute', 'type': 'string', 'description': 'Rate limit for unauthenticated requests'},
+        # AI assistant (core primitive — powered by Prompture). The API key is
+        # stored encrypted and is NEVER returned by the settings API (see SECRET_AI_KEYS).
+        'ai_enabled': {'value': False, 'type': 'boolean', 'description': 'Enable the AI assistant'},
+        'ai_provider': {'value': '', 'type': 'string', 'description': 'Prompture provider (openai/claude/google/groq/openrouter/ollama/lmstudio)'},
+        'ai_model': {'value': '', 'type': 'string', 'description': 'Model id for the selected provider'},
+        'ai_api_key_encrypted': {'value': '', 'type': 'string', 'description': 'Encrypted provider API key (never returned by the API)'},
+        'ai_endpoint': {'value': '', 'type': 'string', 'description': 'Custom endpoint (ollama/lmstudio; reserved for OpenAI-compatible gateways)'},
+        'ai_max_cost_usd': {'value': 0.5, 'type': 'string', 'description': 'Per-conversation cost ceiling in USD (budget_policy=degrade)'},
+        'ai_fallback_models': {'value': [], 'type': 'json', 'description': 'Ordered fallback model ids when the primary is over budget/unavailable'},
+        'ai_pii_redaction': {'value': True, 'type': 'boolean', 'description': 'Redact PII from AI input and tool output'},
+        'ai_injection_detection': {'value': True, 'type': 'boolean', 'description': 'Refuse prompts flagged as prompt-injection'},
+        'ai_pending_action_ttl_s': {'value': 300, 'type': 'integer', 'description': 'Seconds a write-tool confirmation stays valid'},
     }
+
+    # Settings that must never be returned through the API (only "is it set?").
+    SECRET_AI_KEYS = {'ai_api_key_encrypted'}
 
     @staticmethod
     def get(key, default=None):

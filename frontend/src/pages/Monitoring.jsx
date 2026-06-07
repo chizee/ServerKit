@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import EmptyState from '../components/EmptyState';
+import { StatStrip, Stat } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -262,7 +264,11 @@ const Monitoring = () => {
     };
 
     if (loading) {
-        return <div className="page"><div className="loading">Loading monitoring data...</div></div>;
+        return (
+            <div className="page-container monitoring-page">
+                <EmptyState loading size="lg" title="Loading monitoring data" />
+            </div>
+        );
     }
 
     return (
@@ -332,20 +338,11 @@ const Monitoring = () => {
                             </div>
                         </section>
 
-                        <div className="monitoring-summary-grid">
-                            <div>
-                                <span>Alert rules</span>
-                                <strong>{alertRuleCount}</strong>
-                            </div>
-                            <div>
-                                <span>Delivery channels</span>
-                                <strong>{enabledChannelCount}</strong>
-                            </div>
-                            <div>
-                                <span>History</span>
-                                <strong>{alertHistory.length}</strong>
-                            </div>
-                        </div>
+                        <StatStrip ariaLabel="Monitoring summary">
+                            <Stat label="Alert rules" value={alertRuleCount} />
+                            <Stat label="Delivery channels" value={enabledChannelCount} />
+                            <Stat label="History" value={alertHistory.length} />
+                        </StatStrip>
 
                         <section className="monitoring-panel">
                             <div className="monitoring-panel__header">
@@ -524,11 +521,11 @@ const Monitoring = () => {
                             </div>
                         </div>
                         {alertHistory.length === 0 ? (
-                            <div className="empty-state monitoring-empty">
-                                <Bell size={40} />
-                                <h3>No Alerts</h3>
-                                <p>No alerts have been triggered yet.</p>
-                            </div>
+                            <EmptyState
+                                icon={Bell}
+                                title="No alerts yet"
+                                description="Alerts will appear here once a threshold is crossed."
+                            />
                         ) : (
                             <div className="monitoring-history-list">
                                 {alertHistory.map((alert, index) => (

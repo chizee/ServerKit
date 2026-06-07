@@ -1366,6 +1366,37 @@ class DatabaseService:
             return {'success': False, 'error': str(e)}
 
     @staticmethod
+    def _resolve_app_container(app_path, service_name, fallback=None, env_vars=None):
+        """Resolve the real running container name for a compose service.
+
+        docker-compose v2 names containers ``<project>-<service>-N`` and our
+        templates leave ``container_name`` as an unexpanded ``${APP_NAME}-db``
+        in the on-disk compose, so neither the literal value nor a
+        ``<app>_<service>`` guess reliably matches the live container — which is
+        why ``docker exec`` silently failed and tables showed as empty. Ask
+        ``docker compose ps`` what the container is actually called and match on
+        the service; fall back to expanding ``${VARS}`` from .env, then to the
+        raw fallback.
+        """
+        # 1. Authoritative: ask docker what the container is actually called.
+        if app_path:
+            try:
+                from app.services.docker_service import DockerService
+                for c in DockerService.compose_ps(app_path):
+                    svc = c.get('Service') or c.get('service')
+                    if svc == service_name:
+                        name = c.get('Name') or c.get('name') or c.get('ID') or c.get('id')
+                        if name:
+                            return name
+            except Exception:
+                pass
+        # 2. Best-effort: expand ${VARS} in the declared/guessed name from .env.
+        if fallback and env_vars and '${' in fallback:
+            fallback = re.sub(r'\$\{([^}]+)\}',
+                              lambda m: env_vars.get(m.group(1), m.group(0)), fallback)
+        return fallback
+
+    @staticmethod
     def get_app_database_info(app_name, app_path):
         """Get database info for a Docker app by reading its compose file."""
         compose_path = os.path.join(app_path, 'docker-compose.yml') if app_path else None
@@ -1398,6 +1429,7 @@ class DatabaseService:
                 # Check for MySQL containers
                 if any(db in image for db in ['mysql', 'mariadb', 'percona']):
                     container_name = service_config.get('container_name', f'{app_name}_{service_name}')
+                    container_name = DatabaseService._resolve_app_container(app_path, service_name, container_name, env_vars)
                     environment = service_config.get('environment', [])
 
                     # Extract credentials from environment
@@ -1458,6 +1490,7 @@ class DatabaseService:
                 # Check for PostgreSQL containers
                 elif 'postgres' in image:
                     container_name = service_config.get('container_name', f'{app_name}_{service_name}')
+                    container_name = DatabaseService._resolve_app_container(app_path, service_name, container_name, env_vars)
                     environment = service_config.get('environment', [])
 
                     pg_user = 'postgres'

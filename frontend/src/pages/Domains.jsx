@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -213,19 +214,19 @@ const Domains = () => {
             <h2 className="section-title">Domains</h2>
 
             {loading ? (
-                <div className="empty-state">
-                    <p>Loading domains...</p>
-                </div>
+                <EmptyState loading title="Loading domains..." />
             ) : domains.length === 0 ? (
-                <div className="empty-state">
-                    <Globe size={48} />
-                    <h3>No domains configured</h3>
-                    <p>Add a domain to your application to get started.</p>
-                    <Button onClick={() => setShowAddModal(true)}>
-                        <Plus size={16} />
-                        Add Domain
-                    </Button>
-                </div>
+                <EmptyState
+                    icon={Globe}
+                    title="No domains configured"
+                    description="Add a domain to your application to get started."
+                    action={
+                        <Button onClick={() => setShowAddModal(true)}>
+                            <Plus size={16} />
+                            Add Domain
+                        </Button>
+                    }
+                />
             ) : (
                 <div className="domain-list">
                     {domains.map(domain => (

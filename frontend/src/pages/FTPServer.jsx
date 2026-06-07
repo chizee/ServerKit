@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import { FolderUp, UserPlus, Network } from 'lucide-react';
 import useTabParam from '../hooks/useTabParam';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { StatStrip, Stat } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -288,54 +291,25 @@ function FTPServer() {
             </div>
 
             {!isInstalled ? (
-                <div className="empty-state-large">
-                    <span className="icon">cloud_upload</span>
-                    <h2>No FTP Server Installed</h2>
-                    <p>Install an FTP server to enable file transfers on your server.</p>
-                    <Button size="lg" onClick={() => setShowInstallModal(true)}>
-                        Install FTP Server
-                    </Button>
-                </div>
+                <EmptyState
+                    size="lg"
+                    icon={FolderUp}
+                    title="No FTP server installed"
+                    description="Install an FTP server to enable file transfers on your server."
+                    action={<Button size="lg" onClick={() => setShowInstallModal(true)}>Install FTP Server</Button>}
+                />
             ) : (
                 <>
-                    <div className="status-cards">
-                        <div className={`status-card ${isRunning ? 'success' : 'warning'}`}>
-                            <div className="status-icon">
-                                <span className="icon">{isRunning ? 'check_circle' : 'pause_circle'}</span>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">Server Status</span>
-                                <span className="status-value">{isRunning ? 'Running' : 'Stopped'}</span>
-                            </div>
-                        </div>
-                        <div className="status-card">
-                            <div className="status-icon">
-                                <span className="icon">dns</span>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">Active Server</span>
-                                <span className="status-value">{activeServer || 'None'}</span>
-                            </div>
-                        </div>
-                        <div className="status-card">
-                            <div className="status-icon">
-                                <span className="icon">people</span>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">FTP Users</span>
-                                <span className="status-value">{users.length}</span>
-                            </div>
-                        </div>
-                        <div className="status-card">
-                            <div className="status-icon">
-                                <span className="icon">lan</span>
-                            </div>
-                            <div className="status-info">
-                                <span className="status-label">Active Connections</span>
-                                <span className="status-value">{connections.length}</span>
-                            </div>
-                        </div>
-                    </div>
+                    <StatStrip ariaLabel="FTP server status">
+                        <Stat
+                            label="Server Status"
+                            value={isRunning ? 'Running' : 'Stopped'}
+                            state={isRunning ? 'success' : 'warning'}
+                        />
+                        <Stat label="Active Server" value={activeServer || 'None'} />
+                        <Stat label="FTP Users" value={users.length} />
+                        <Stat label="Active Connections" value={connections.length} />
+                    </StatStrip>
 
                     <Tabs value={activeTab} onValueChange={(val) => {
                         setActiveTab(val);
@@ -424,13 +398,11 @@ function FTPServer() {
                                     </Button>
                                 </div>
                                 {users.length === 0 ? (
-                                    <div className="empty-state">
-                                        <span className="icon">person_add</span>
-                                        <p>No FTP users configured</p>
-                                        <Button onClick={() => setShowUserModal(true)}>
-                                            Create First User
-                                        </Button>
-                                    </div>
+                                    <EmptyState
+                                        icon={UserPlus}
+                                        title="No FTP users configured"
+                                        action={<Button onClick={() => setShowUserModal(true)}>Create First User</Button>}
+                                    />
                                 ) : (
                                     <div className="users-table">
                                         <table>
@@ -509,10 +481,7 @@ function FTPServer() {
                                     </Button>
                                 </div>
                                 {connections.length === 0 ? (
-                                    <div className="empty-state">
-                                        <span className="icon">lan</span>
-                                        <p>No active connections</p>
-                                    </div>
+                                    <EmptyState icon={Network} title="No active connections" />
                                 ) : (
                                     <div className="connections-table">
                                         <table>

@@ -37,6 +37,19 @@ export { useToast } from '../../contexts/ToastContext';
 export { useAuth } from '../../contexts/AuthContext';
 export { useTheme } from '../../contexts/ThemeContext';
 
+// AI assistant — plugins consume the core assistant rather than building their
+// own chat UI. `useServerkitAI()` exposes:
+//   open() / close() / toggle() / isOpen
+//   ask(prompt, { context?, mode?: 'assistant'|'simple', open?=true })
+//   mode / setMode(mode)
+//   registerContextProvider(routePattern, () => contextObj) -> unregister
+//   registerToolRenderer(toolName, Component) -> unregister
+//   isStreaming / providerConfigured
+//
+// Plugins can also declare contributions.ai = { suggested_prompts: [{route,label,prompt}],
+// tool_renderers: [{tool, component}] } in plugin.json.
+export { useServerkitAI, AIContext } from '../../contexts/AIContext';
+
 // Routing helpers — plugin pages need these to navigate within the SPA.
 export {
     Link,

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { GitBranch } from 'lucide-react';
+import { GitBranch, GitMerge, Boxes } from 'lucide-react';
 import api from '../services/api';
+import EmptyState from '../components/EmptyState';
 import useTabParam from '../hooks/useTabParam';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -97,17 +98,17 @@ const ApplicationDetail = () => {
     }
 
     if (loading) {
-        return <div className="loading">Loading application...</div>;
+        return <EmptyState loading size="lg" title="Loading application..." />;
     }
 
     if (!app) {
         return (
-            <div className="empty-state">
-                <h3>Application not found</h3>
-                <Button onClick={() => navigate('/apps')}>
-                    Back to Applications
-                </Button>
-            </div>
+            <EmptyState
+                size="lg"
+                icon={Boxes}
+                title="Application not found"
+                action={<Button onClick={() => navigate('/apps')}>Back to Applications</Button>}
+            />
         );
     }
 
@@ -672,7 +673,7 @@ const PackagesTab = ({ appId }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading packages...</div>;
+        return <EmptyState loading title="Loading packages..." />;
     }
 
     return (
@@ -743,7 +744,7 @@ const GunicornTab = ({ appId }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading Gunicorn configuration...</div>;
+        return <EmptyState loading title="Loading Gunicorn configuration..." />;
     }
 
     return (
@@ -1010,7 +1011,7 @@ const BuildTab = ({ appId, appPath }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading build configuration...</div>;
+        return <EmptyState loading title="Loading build configuration..." />;
     }
 
     return (
@@ -1538,7 +1539,7 @@ const DeployTab = ({ appId, appPath }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading deployment configuration...</div>;
+        return <EmptyState loading title="Loading deployment configuration..." />;
     }
 
     return (
@@ -1552,18 +1553,12 @@ const DeployTab = ({ appId, appPath }) => {
 
             {!config ? (
                 <div className="deploy-setup">
-                    <div className="empty-state">
-                        <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="2">
-                            <circle cx="12" cy="12" r="4"/>
-                            <line x1="1.05" y1="12" x2="7" y2="12"/>
-                            <line x1="17.01" y1="12" x2="22.96" y2="12"/>
-                        </svg>
-                        <h3>Git Deployment Not Configured</h3>
-                        <p>Connect a Git repository to enable automatic deployments via webhooks or manual triggers.</p>
-                        <Button onClick={() => setShowConfigModal(true)}>
-                            Configure Deployment
-                        </Button>
-                    </div>
+                    <EmptyState
+                        icon={GitMerge}
+                        title="Git Deployment Not Configured"
+                        description="Connect a Git repository to enable automatic deployments via webhooks or manual triggers."
+                        action={<Button onClick={() => setShowConfigModal(true)}>Configure Deployment</Button>}
+                    />
                 </div>
             ) : (
                 <>

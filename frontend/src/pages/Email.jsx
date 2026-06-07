@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Globe, AtSign, Forward, Server, Inbox } from 'lucide-react';
 import useTabParam from '../hooks/useTabParam';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -555,7 +557,7 @@ function Email() {
                                 )}
                                 <div className="domain-list">
                                     {domains.length === 0 ? (
-                                        <div className="empty-state"><p>No domains configured</p></div>
+                                        <EmptyState icon={Globe} title="No domains configured" />
                                     ) : domains.map(d => (
                                         <div key={d.id} className="domain-card">
                                             <div className="domain-header">
@@ -627,7 +629,7 @@ function Email() {
                                         )}
                                         <div className="accounts-list">
                                             {accounts.length === 0 ? (
-                                                <div className="empty-state"><p>No accounts for this domain</p></div>
+                                                <EmptyState icon={AtSign} title="No accounts for this domain" />
                                             ) : accounts.map(a => (
                                                 <div key={a.id} className="account-card">
                                                     <div className="account-info">
@@ -705,7 +707,7 @@ function Email() {
                                         )}
                                         <div className="items-list">
                                             {aliases.length === 0 ? (
-                                                <div className="empty-state"><p>No aliases for this domain</p></div>
+                                                <EmptyState icon={Forward} title="No aliases for this domain" />
                                             ) : aliases.map(a => (
                                                 <div key={a.id} className="alias-card">
                                                     <div className="item-info">
@@ -763,7 +765,7 @@ function Email() {
                                         )}
                                         <div className="items-list">
                                             {forwardingRules.length === 0 ? (
-                                                <div className="empty-state"><p>No forwarding rules</p></div>
+                                                <EmptyState icon={Forward} title="No forwarding rules" />
                                             ) : forwardingRules.map(r => (
                                                 <div key={r.id} className="forwarding-card">
                                                     <div className="item-info">
@@ -810,7 +812,7 @@ function Email() {
                                 )}
                                 <div className="provider-list">
                                     {providers.length === 0 ? (
-                                        <div className="empty-state"><p>No DNS providers configured</p></div>
+                                        <EmptyState icon={Server} title="No DNS providers configured" />
                                     ) : providers.map(p => (
                                         <div key={p.id} className="provider-card">
                                             <div className="provider-header">
@@ -920,7 +922,7 @@ function Email() {
                                     </div>
                                     <div className="queue-list">
                                         {queue.length === 0 ? (
-                                            <div className="empty-state"><p>Queue is empty</p></div>
+                                            <EmptyState icon={Inbox} title="Queue is empty" />
                                         ) : queue.map(item => (
                                             <div key={item.queue_id} className="queue-item">
                                                 <div className="queue-info">

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Globe } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -204,7 +206,7 @@ const DNSZones = () => {
                             </div>
                         </div>
                     ))}
-                    {zones.length === 0 && <div className="empty-state"><p>No DNS zones configured.</p></div>}
+                    {zones.length === 0 && <EmptyState icon={Globe} title="No DNS zones configured" />}
                 </div>
 
                 {selectedZone && (

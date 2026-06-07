@@ -75,6 +75,10 @@ const EMPTY = {
     command_palette: [],
     widgets: [],
     layouts: [],
+    // AI assistant contributions: per-route suggested prompts + custom
+    // tool-result renderers. Consumed by the core AIAssistant via
+    // useContributions().ai.
+    ai: { suggested_prompts: [], tool_renderers: [] },
 };
 
 const GIT_PLUGIN_SLUG = 'serverkit-git';
@@ -151,6 +155,7 @@ function getBuildTimeContributions() {
     const command_palette = [];
     const widgets = [];
     const layouts = [];
+    const ai = { suggested_prompts: [], tool_renderers: [] };
 
     for (const entry of installed) {
         const slug = entry?.slug || entry?.name;
@@ -166,6 +171,11 @@ function getBuildTimeContributions() {
         widgets.push(...tagItems(contrib.widgets, slug));
         layouts.push(...tagItems(contrib.layouts, slug));
 
+        if (contrib.ai && typeof contrib.ai === 'object') {
+            ai.suggested_prompts.push(...tagItems(contrib.ai.suggested_prompts, slug));
+            ai.tool_renderers.push(...tagItems(contrib.ai.tool_renderers, slug));
+        }
+
         if (contrib.page_titles && typeof contrib.page_titles === 'object') {
             Object.assign(page_titles, contrib.page_titles);
         }
@@ -178,6 +188,7 @@ function getBuildTimeContributions() {
         command_palette,
         widgets,
         layouts,
+        ai,
     };
 }
 

@@ -103,3 +103,22 @@
         &:hover { background: $hover-bg; }
     }
 }
+
+// Brand-color picker in the workspace create modal (#33). Top-level because the
+// modal renders outside the .workspaces page block.
+.workspace-color-input {
+    width: 48px;
+    height: 32px;
+    padding: 2px;
+    border: 1px solid $border-color;
+    border-radius: $radius-md;
+    background: transparent;
+    cursor: pointer;
+}
+
+// Per-app row actions (Share + Remove) in the workspace Resources modal (#33).
+.workspace-row-actions {
+    display: flex;
+    gap: $spacing-sm;
+    flex-shrink: 0;
+}

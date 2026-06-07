@@ -118,6 +118,34 @@
     font-size: $font-size-sm;
 }
 
+.plugin-actions,
+.theme-actions {
+    @include flex-start();
+    gap: $space-2;
+}
+
+.wp-update-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px $space-2;
+    margin-left: $space-2;
+    border-radius: $radius-sm;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $warning;
+    background: fade($warning, 12%);
+    white-space: nowrap;
+}
+
+.bulk-update-bar {
+    @include flex-between();
+    padding: $space-3 $space-4;
+    margin-bottom: $space-3;
+    border-radius: $radius-md;
+    background: fade($warning, 8%);
+    font-size: $font-size-sm;
+}
+
 // Backups list
 .backups-list {
     @include flex-column-gap($space-2);

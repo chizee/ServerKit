@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import User, Application
 from app.services.database_service import DatabaseService
 from app.middleware.rbac import admin_required
+from app.services.resource_grant_service import ResourceGrantService
 
 databases_bp = Blueprint('databases', __name__)
 
@@ -606,6 +607,38 @@ def list_docker_databases():
     return jsonify({'containers': containers}), 200
 
 
+@databases_bp.route('/docker/databases', methods=['GET'])
+@jwt_required()
+def list_all_docker_databases():
+    """Flat list of databases discovered across every Docker app the caller can
+    access, each tagged with its owning app and engine.
+
+    Powers grouping Docker-hosted databases under their engine node — e.g. a
+    containerised MySQL created by a WordPress stack appears under
+    'MySQL / MariaDB', not only buried under 'Docker apps'.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    out = []
+    apps = Application.query.filter_by(app_type='docker').all()
+    for app in apps:
+        if not app.root_path:
+            continue
+        if not ResourceGrantService.can_access_app(user, app):
+            continue
+        info = DatabaseService.get_app_database_info(app.name, app.root_path)
+        if not info:
+            continue
+        for db in info:
+            entry = dict(db)
+            entry['app_id'] = app.id
+            entry['app_name'] = app.name
+            out.append(entry)
+
+    return jsonify({'databases': out}), 200
+
+
 @databases_bp.route('/docker/app/<int:app_id>', methods=['GET'])
 @jwt_required()
 def get_app_databases(app_id):
@@ -621,7 +654,7 @@ def get_app_databases(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     if app.app_type != 'docker' or not app.root_path:

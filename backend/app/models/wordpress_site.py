@@ -62,6 +62,9 @@ class WordPressSite(db.Model):
     # Resource limits (stored as JSON for flexibility)
     resource_limits = db.Column(db.Text)  # JSON: {memory, cpus, db_memory, db_cpus}
 
+    # Tags / labels for agency organization (stored as JSON array of strings)
+    tags = db.Column(db.Text)  # JSON: ["client-acme", "retainer", "php8"]
+
     # Basic Auth
     basic_auth_enabled = db.Column(db.Boolean, default=False)
     basic_auth_user = db.Column(db.String(100))
@@ -74,6 +77,13 @@ class WordPressSite(db.Model):
     # Disk usage tracking
     disk_usage_bytes = db.Column(db.BigInteger, default=0)
     disk_usage_updated_at = db.Column(db.DateTime)
+
+    # Vulnerability scan (#28)
+    last_vuln_scan_at = db.Column(db.DateTime)
+
+    # Safe updates (#29)
+    auto_update_schedule = db.Column(db.String(100))   # cron expression (null = off)
+    auto_update_exclude = db.Column(db.Text)           # JSON list of plugin/theme slugs to skip
 
     # Auto-sync
     auto_sync_schedule = db.Column(db.String(100))  # cron expression
@@ -91,6 +101,9 @@ class WordPressSite(db.Model):
         foreign_keys=[production_site_id]
     )
     snapshots = db.relationship('DatabaseSnapshot', backref='site', lazy='dynamic', cascade='all, delete-orphan')
+    vulnerabilities = db.relationship('WordPressVulnerability', backref='site', lazy='dynamic', cascade='all, delete-orphan')
+    update_runs = db.relationship('WordPressUpdateRun', backref='site', lazy='dynamic', cascade='all, delete-orphan')
+    reports = db.relationship('WordPressReport', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     sync_jobs_as_source = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.source_site_id',
@@ -134,6 +147,7 @@ class WordPressSite(db.Model):
             'compose_project_name': self.compose_project_name,
             'container_prefix': self.container_prefix,
             'resource_limits': json.loads(self.resource_limits) if self.resource_limits else None,
+            'tags': json.loads(self.tags) if self.tags else [],
             'basic_auth_enabled': self.basic_auth_enabled,
             'basic_auth_user': self.basic_auth_user,
             'health_status': self.health_status,
@@ -141,6 +155,9 @@ class WordPressSite(db.Model):
             'disk_usage_bytes': self.disk_usage_bytes,
             'disk_usage_human': DatabaseSnapshot._format_size(self.disk_usage_bytes) if self.disk_usage_bytes else None,
             'disk_usage_updated_at': self.disk_usage_updated_at.isoformat() if self.disk_usage_updated_at else None,
+            'last_vuln_scan_at': self.last_vuln_scan_at.isoformat() if self.last_vuln_scan_at else None,
+            'auto_update_schedule': self.auto_update_schedule,
+            'auto_update_exclude': json.loads(self.auto_update_exclude) if self.auto_update_exclude else [],
             'auto_sync_schedule': self.auto_sync_schedule,
             'auto_sync_enabled': self.auto_sync_enabled,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -295,3 +312,128 @@ class SyncJob(db.Model):
 
     def __repr__(self):
         return f'<SyncJob {self.id} {self.source_site_id}->{self.target_site_id}>'
+
+
+class WordPressVulnerability(db.Model):
+    """A known vulnerability found in a WordPress site's plugin, theme, or core."""
+
+    __tablename__ = 'wordpress_vulnerabilities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+
+    # What is affected
+    source = db.Column(db.String(20), nullable=False)   # 'core' | 'plugin' | 'theme'
+    slug = db.Column(db.String(200))                    # directory slug ('' for core)
+    name = db.Column(db.String(255))                    # display name
+    installed_version = db.Column(db.String(50))
+
+    # The advisory
+    advisory_id = db.Column(db.String(100))             # CVE id / WPVulnerability uuid
+    title = db.Column(db.Text)
+    severity = db.Column(db.String(20), default='unknown')  # critical|high|medium|low|unknown
+    cvss_score = db.Column(db.String(10))
+    fixed_in = db.Column(db.String(50))                 # version the fix landed in (None if unfixed)
+    reference_url = db.Column(db.String(500))
+
+    detected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'site_id': self.site_id,
+            'source': self.source,
+            'slug': self.slug,
+            'name': self.name,
+            'installed_version': self.installed_version,
+            'advisory_id': self.advisory_id,
+            'title': self.title,
+            'severity': self.severity,
+            'cvss_score': self.cvss_score,
+            'fixed_in': self.fixed_in,
+            'reference_url': self.reference_url,
+            'detected_at': self.detected_at.isoformat() if self.detected_at else None,
+        }
+
+    def __repr__(self):
+        return f'<WordPressVulnerability {self.id} {self.source}:{self.slug} {self.severity}>'
+
+
+class WordPressUpdateRun(db.Model):
+    """A record of a safe-update run: snapshot -> update -> health-check -> rollback."""
+
+    __tablename__ = 'wordpress_update_runs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+
+    status = db.Column(db.String(20), default='running')   # running|completed|rolled_back|failed
+    trigger = db.Column(db.String(20), default='manual')   # manual|scheduled
+    # JSON: {targets, excluded, updated:[{type,slug,from,to}], health_before, health_after, rolled_back}
+    details = db.Column(db.Text)
+    error = db.Column(db.Text)
+
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    finished_at = db.Column(db.DateTime)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'site_id': self.site_id,
+            'status': self.status,
+            'trigger': self.trigger,
+            'details': json.loads(self.details) if self.details else {},
+            'error': self.error,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'finished_at': self.finished_at.isoformat() if self.finished_at else None,
+        }
+
+    def __repr__(self):
+        return f'<WordPressUpdateRun {self.id} site={self.site_id} {self.status}>'
+
+
+class WordPressReport(db.Model):
+    """A persisted monthly client report for a WordPress site (#33 — agency
+    reports slice): a point-in-time snapshot of the site's uptime, incidents,
+    update runs, backups, and security posture for one calendar month.
+
+    Why this is persisted rather than computed live on every view: some of the
+    underlying sources are point-in-time, not historical. Vulnerability findings
+    (#28) are deleted-and-replaced on each scan, and the live health/disk values
+    only reflect "now" — so a report regenerated months later would otherwise
+    show the wrong month's posture. Generating a report snapshots the computed
+    aggregates into `data` here, so the historical record stays truthful. The
+    true-historical sources (HealthCheck uptime samples #26, WordPressUpdateRun
+    #29, DatabaseSnapshot backups) are re-aggregated from their own tables for
+    the month at generation time.
+    """
+
+    __tablename__ = 'wordpress_reports'
+
+    id = db.Column(db.Integer, primary_key=True)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+
+    # Calendar-month window (naive UTC, matching every other timestamp in the app).
+    # period_label is "YYYY-MM" and is unique per site (regenerating replaces the row).
+    period_label = db.Column(db.String(7), nullable=False)   # e.g. "2026-05"
+    period_start = db.Column(db.DateTime, nullable=False)     # first of month, 00:00 UTC
+    period_end = db.Column(db.DateTime, nullable=False)       # first of next month (exclusive)
+
+    # The full aggregated payload (JSON). Schema is owned by WpReportsService.
+    data = db.Column(db.Text)
+
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'site_id': self.site_id,
+            'period_label': self.period_label,
+            'period_start': self.period_start.isoformat() if self.period_start else None,
+            'period_end': self.period_end.isoformat() if self.period_end else None,
+            'data': json.loads(self.data) if self.data else {},
+            'generated_at': self.generated_at.isoformat() if self.generated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<WordPressReport {self.id} site={self.site_id} {self.period_label}>'

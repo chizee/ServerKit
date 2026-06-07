@@ -11,10 +11,44 @@ const wordpressApi = {
         body: data
     }),
 
+    // Import an existing WP site from an uploaded SQL dump (multipart upload).
+    importSite: ({ name, adminEmail, oldUrl, sqlFile }) => {
+        const fd = new FormData();
+        fd.append('name', name);
+        fd.append('adminEmail', adminEmail || '');
+        fd.append('oldUrl', oldUrl);
+        fd.append('sql', sqlFile);
+        return api.request(`${BASE_PATH}/import`, { method: 'POST', body: fd });
+    },
+
+    // Clone a site into a new independent top-level site (fresh admin creds returned once).
+    cloneSite: (id, data) => api.request(`${BASE_PATH}/${id}/clone`, {
+        method: 'POST',
+        body: data
+    }),
+
     getSite: (id) => api.request(`${BASE_PATH}/${id}`),
 
-    deleteSite: (id) => api.request(`${BASE_PATH}/${id}`, {
-        method: 'DELETE'
+    // Replace the tag list for a site (agency organization labels)
+    setTags: (id, tags) => api.request(`${BASE_PATH}/${id}/tags`, {
+        method: 'PATCH',
+        body: { tags }
+    }),
+
+    // Deletes the site and all environments. A final files+DB backup is taken
+    // by default (pass { createBackup: false } to skip).
+    deleteSite: (id, { createBackup = true } = {}) => api.request(
+        `${BASE_PATH}/${id}?create_backup=${createBackup}`,
+        { method: 'DELETE' }
+    ),
+
+    // Stop the stack but keep data + files (reversible via unarchiveSite).
+    archiveSite: (id) => api.request(`${BASE_PATH}/${id}/archive`, {
+        method: 'POST'
+    }),
+
+    unarchiveSite: (id) => api.request(`${BASE_PATH}/${id}/unarchive`, {
+        method: 'POST'
     }),
 
     // Environment Management
@@ -92,6 +126,90 @@ const wordpressApi = {
 
     // WordPress Core Update
     updateCore: (siteId) => api.request(`${BASE_PATH}/${siteId}/update`, {
+        method: 'POST'
+    }),
+
+    // Live WP-CLI info (core version + update_available / latest_version)
+    getWordPressInfo: (siteId) => api.request(`${BASE_PATH}/${siteId}/info`),
+
+    // Live PHP version + ini limits for a Docker WP site (read-only).
+    getPhpInfo: (siteId) => api.request(`${BASE_PATH}/${siteId}/php`),
+
+    // Switch the site's PHP version (swaps the Docker image tag + recreates the container).
+    setPhpVersion: (siteId, version) => api.request(`${BASE_PATH}/${siteId}/php`, {
+        method: 'POST',
+        body: { version }
+    }),
+
+    // Update plugins. Pass an array of slugs to update specific ones, omit for all.
+    updatePlugins: (siteId, plugins) => api.request(`${BASE_PATH}/${siteId}/plugins/update`, {
+        method: 'POST',
+        body: plugins ? { plugins } : {}
+    }),
+
+    // Update themes. Pass an array of slugs to update specific ones, omit for all.
+    updateThemes: (siteId, themes) => api.request(`${BASE_PATH}/${siteId}/themes/update`, {
+        method: 'POST',
+        body: themes ? { themes } : {}
+    }),
+
+    // Maintenance & Security
+    flushCache: (siteId) => api.request(`${BASE_PATH}/${siteId}/flush-cache`, {
+        method: 'POST'
+    }),
+
+    // Full-page cache (plugin-backed) — status / enable / disable
+    getPageCache: (siteId) => api.request(`${BASE_PATH}/${siteId}/page-cache`),
+    enablePageCache: (siteId) => api.request(`${BASE_PATH}/${siteId}/page-cache`, { method: 'POST' }),
+    disablePageCache: (siteId) => api.request(`${BASE_PATH}/${siteId}/page-cache`, { method: 'DELETE' }),
+
+    searchReplace: (siteId, data) => api.request(`${BASE_PATH}/${siteId}/search-replace`, {
+        method: 'POST',
+        body: data
+    }),
+
+    harden: (siteId) => api.request(`${BASE_PATH}/${siteId}/harden`, {
+        method: 'POST'
+    }),
+
+    // Object cache (Redis) — status / enable / disable
+    getObjectCacheStatus: (siteId) => api.request(`${BASE_PATH}/${siteId}/object-cache`),
+    enableObjectCache: (siteId) => api.request(`${BASE_PATH}/${siteId}/object-cache`, { method: 'POST' }),
+    disableObjectCache: (siteId) => api.request(`${BASE_PATH}/${siteId}/object-cache`, { method: 'DELETE' }),
+
+    // Status-page binding + uptime (#26): live health, bound component + uptime %, attach/detach
+    getSiteStatusPage: (siteId) => api.request(`${BASE_PATH}/${siteId}/status-page`),
+    attachStatusPage: (siteId, pageId) => api.request(`${BASE_PATH}/${siteId}/status-page`, { method: 'POST', body: { page_id: pageId } }),
+    detachStatusPage: (siteId) => api.request(`${BASE_PATH}/${siteId}/status-page`, { method: 'DELETE' }),
+
+    // Traffic + error analytics (#25) — parsed on-demand from the apache access log.
+    getSiteAnalytics: (siteId, hours = 24) => api.request(`${BASE_PATH}/${siteId}/analytics?hours=${hours}`),
+
+    // Vulnerability scanning (#28) — plugin/theme/core vs the WPVulnerability feed.
+    getVulnerabilities: (siteId) => api.request(`${BASE_PATH}/${siteId}/vulnerabilities`),
+    scanVulnerabilities: (siteId) => api.request(`${BASE_PATH}/${siteId}/vulnerabilities/scan`, { method: 'POST' }),
+
+    // Safe update manager (#29): run history, on-demand safe update, schedule
+    getUpdates: (siteId) => api.request(`${BASE_PATH}/${siteId}/updates`),
+    runUpdates: (siteId, body = {}) => api.request(`${BASE_PATH}/${siteId}/updates/run`, { method: 'POST', body }),
+    setUpdateSchedule: (siteId, body) => api.request(`${BASE_PATH}/${siteId}/updates/schedule`, { method: 'POST', body }),
+
+    // Security depth (#30): file integrity / debug toggle / WP-Cron
+    getIntegrity: (siteId) => api.request(`${BASE_PATH}/${siteId}/integrity`),
+    scanIntegrity: (siteId) => api.request(`${BASE_PATH}/${siteId}/integrity/scan`, { method: 'POST' }),
+    getDebug: (siteId) => api.request(`${BASE_PATH}/${siteId}/debug`),
+    setDebug: (siteId, enabled) => api.request(`${BASE_PATH}/${siteId}/debug`, { method: 'POST', body: { enabled } }),
+    getCron: (siteId) => api.request(`${BASE_PATH}/${siteId}/cron`),
+    runCron: (siteId) => api.request(`${BASE_PATH}/${siteId}/cron/run`, { method: 'POST' }),
+    setCronDisabled: (siteId, disabled) => api.request(`${BASE_PATH}/${siteId}/cron`, { method: 'POST', body: { disabled } }),
+
+    // Monthly client reports (#33): persisted per-month uptime/updates/backups/vuln rollups
+    getReports: (siteId) => api.request(`${BASE_PATH}/${siteId}/reports`),
+    generateReport: (siteId, body = {}) => api.request(`${BASE_PATH}/${siteId}/reports/generate`, { method: 'POST', body }),
+    deleteReport: (siteId, reportId) => api.request(`${BASE_PATH}/${siteId}/reports/${reportId}`, { method: 'DELETE' }),
+
+    // Mint a one-time passwordless wp-admin login URL for the current operator.
+    autoLogin: (siteId) => api.request(`${BASE_PATH}/${siteId}/login`, {
         method: 'POST'
     }),
 
@@ -180,6 +298,12 @@ const wordpressApi = {
         const query = new URLSearchParams(params).toString();
         return api.request(`/wordpress/projects/${prodId}/promotions${query ? `?${query}` : ''}`);
     },
+
+    // Restore a promotion's pre-promotion snapshot into its target environment
+    rollbackPromotion: (prodId, promotionId) => api.request(
+        `/wordpress/projects/${prodId}/promotions/${promotionId}/rollback`,
+        { method: 'POST' }
+    ),
 
     // Git branches (for multidev)
     getBranches: (prodId) => api.request(`/wordpress/projects/${prodId}/git/branches`),

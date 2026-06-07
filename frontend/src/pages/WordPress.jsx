@@ -15,9 +15,17 @@ import { Badge } from '@/components/ui/badge';
 function WordPress() {
     const [sites, setSites] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeTag, setActiveTag] = useState(null); // null = show all
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
-    const [createForm, setCreateForm] = useState({ name: '', adminEmail: '' });
+    const [createForm, setCreateForm] = useState({
+        name: '', adminEmail: '', phpVersion: '', enablePageCache: false, enableObjectCache: false,
+    });
+    const [createdCreds, setCreatedCreds] = useState(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importLoading, setImportLoading] = useState(false);
+    const [importForm, setImportForm] = useState({ name: '', adminEmail: '', oldUrl: '' });
+    const [importFile, setImportFile] = useState(null);
 
     const navigate = useNavigate();
     const toast = useToast();
@@ -50,9 +58,16 @@ function WordPress() {
         try {
             const result = await wordpressApi.createSite(createForm);
             if (result.success) {
+                if (result.admin_password) {
+                    // The generated admin password is returned once — surface it.
+                    setCreatedCreds({ user: result.admin_user || 'admin', password: result.admin_password });
+                }
+                if (result.warning) {
+                    toast.info(result.warning, { duration: 8000 });
+                }
                 toast.success('WordPress site created successfully');
                 setShowCreateModal(false);
-                setCreateForm({ name: '', adminEmail: '' });
+                setCreateForm({ name: '', adminEmail: '', phpVersion: '', enablePageCache: false, enableObjectCache: false });
                 await loadSites();
             } else {
                 toast.error(result.error || 'Failed to create site');
@@ -61,6 +76,35 @@ function WordPress() {
             toast.error(`Failed to create site: ${error.message}`);
         } finally {
             setCreateLoading(false);
+        }
+    };
+
+    const handleImport = async () => {
+        if (!importForm.name) { toast.error('Site name is required'); return; }
+        if (!importForm.oldUrl) { toast.error('Original site URL is required'); return; }
+        if (!importFile) { toast.error('A .sql or .sql.gz dump is required'); return; }
+        setImportLoading(true);
+        try {
+            const result = await wordpressApi.importSite({
+                name: importForm.name,
+                adminEmail: importForm.adminEmail,
+                oldUrl: importForm.oldUrl,
+                sqlFile: importFile,
+            });
+            if (result.success) {
+                toast.success('WordPress site imported successfully');
+                if (result.warning) toast.info(result.warning, { duration: 8000 });
+                setShowImportModal(false);
+                setImportForm({ name: '', adminEmail: '', oldUrl: '' });
+                setImportFile(null);
+                await loadSites();
+            } else {
+                toast.error(result.error || 'Failed to import site');
+            }
+        } catch (error) {
+            toast.error(`Failed to import site: ${error.message}`);
+        } finally {
+            setImportLoading(false);
         }
     };
 
@@ -120,12 +164,27 @@ function WordPress() {
                     <p className="page-description">Manage your WordPress sites</p>
                 </div>
                 <div className="page-header-actions">
+                    <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Import Site
+                    </Button>
                     <Button onClick={() => setShowCreateModal(true)}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                         Create Site
                     </Button>
                 </div>
             </div>
+
+            {createdCreds && (
+                <div className="wp-creds-banner">
+                    <div className="wp-creds-banner-text">
+                        <strong>Save these admin credentials — they are shown only once.</strong>
+                        <span>Username: <code>{createdCreds.user}</code></span>
+                        <span>Password: <code>{createdCreds.password}</code></span>
+                    </div>
+                    <Button variant="ghost" onClick={() => setCreatedCreds(null)}>Dismiss</Button>
+                </div>
+            )}
 
             {sites.length === 0 ? (
                 <EmptyState
@@ -140,8 +199,32 @@ function WordPress() {
                     }
                 />
             ) : (
+                <>
+                {(() => {
+                    const allTags = Array.from(new Set(sites.flatMap(s => s.tags || []))).sort();
+                    if (allTags.length === 0) return null;
+                    return (
+                        <div className="wp-tag-filter">
+                            <button
+                                className={`wp-tag-chip wp-tag-chip--filter ${activeTag === null ? 'is-active' : ''}`}
+                                onClick={() => setActiveTag(null)}
+                            >
+                                All
+                            </button>
+                            {allTags.map(tag => (
+                                <button
+                                    key={tag}
+                                    className={`wp-tag-chip wp-tag-chip--filter ${activeTag === tag ? 'is-active' : ''}`}
+                                    onClick={() => setActiveTag(tag)}
+                                >
+                                    {tag}
+                                </button>
+                            ))}
+                        </div>
+                    );
+                })()}
                 <div className="wp-sites-grid">
-                    {sites.map(site => (
+                    {sites.filter(site => activeTag === null || (site.tags || []).includes(activeTag)).map(site => (
                         <div
                             key={site.id}
                             className="wp-site-card"
@@ -177,6 +260,13 @@ function WordPress() {
                                         <span className="meta-value">{(site.environment_count || 0) + 1}</span>
                                     </div>
                                 </div>
+                                {site.tags && site.tags.length > 0 && (
+                                    <div className="wp-site-tags">
+                                        {site.tags.map(tag => (
+                                            <span key={tag} className="wp-tag-chip">{tag}</span>
+                                        ))}
+                                    </div>
+                                )}
                                 {site.url && site.status === 'running' && (
                                     <div className="wp-site-card-links">
                                         <a
@@ -204,6 +294,88 @@ function WordPress() {
                             </div>
                         </div>
                     ))}
+                </div>
+                </>
+            )}
+
+            {/* Import Site Modal */}
+            {showImportModal && (
+                <div className="modal-overlay" onClick={() => !importLoading && setShowImportModal(false)}>
+                    <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Import WordPress Site</h3>
+                            <button className="modal-close" onClick={() => !importLoading && setShowImportModal(false)}>
+                                &times;
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="install-warning">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                                <div>
+                                    <strong>Imports a database dump into a new stack:</strong>
+                                    <ul>
+                                        <li>Provisions a fresh WordPress + MySQL container</li>
+                                        <li>Loads your .sql / .sql.gz dump</li>
+                                        <li>Rewrites the site URL to this server</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <Label>Site Name <span className="required">*</span></Label>
+                                <Input
+                                    type="text"
+                                    value={importForm.name}
+                                    onChange={e => setImportForm({ ...importForm, name: e.target.value })}
+                                    placeholder="my-imported-site"
+                                    disabled={importLoading}
+                                />
+                                <span className="form-hint">Used as the Docker project name. Letters, numbers, and hyphens only.</span>
+                            </div>
+
+                            <div className="form-group">
+                                <Label>Original Site URL <span className="required">*</span></Label>
+                                <Input
+                                    type="text"
+                                    value={importForm.oldUrl}
+                                    onChange={e => setImportForm({ ...importForm, oldUrl: e.target.value })}
+                                    placeholder="https://old-site.com"
+                                    disabled={importLoading}
+                                />
+                                <span className="form-hint">The live URL in your dump; we rewrite it to the localhost address on this server.</span>
+                            </div>
+
+                            <div className="form-group">
+                                <Label>Admin Email</Label>
+                                <Input
+                                    type="email"
+                                    value={importForm.adminEmail}
+                                    onChange={e => setImportForm({ ...importForm, adminEmail: e.target.value })}
+                                    placeholder="admin@example.com"
+                                    disabled={importLoading}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <Label>Database Dump <span className="required">*</span></Label>
+                                <input
+                                    type="file"
+                                    accept=".sql,.gz,.sql.gz"
+                                    disabled={importLoading}
+                                    onChange={e => setImportFile(e.target.files?.[0] || null)}
+                                />
+                                <span className="form-hint">Export via phpMyAdmin or the wp db export command. .sql.gz is supported and recommended (100MB upload limit).</span>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <Button variant="outline" onClick={() => setShowImportModal(false)} disabled={importLoading}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleImport} disabled={importLoading || !importForm.name || !importForm.oldUrl || !importFile}>
+                                {importLoading ? <><Spinner size="sm" /> Importing...</> : 'Import Site'}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -253,6 +425,47 @@ function WordPress() {
                                     placeholder="admin@example.com"
                                     disabled={createLoading}
                                 />
+                            </div>
+
+                            <div className="form-group">
+                                <Label>PHP Version</Label>
+                                <select
+                                    value={createForm.phpVersion}
+                                    onChange={e => setCreateForm({ ...createForm, phpVersion: e.target.value })}
+                                    disabled={createLoading}
+                                >
+                                    <option value="">Default (latest for WordPress 6.4)</option>
+                                    <option value="8.1">PHP 8.1</option>
+                                    <option value="8.2">PHP 8.2</option>
+                                    <option value="8.3">PHP 8.3</option>
+                                </select>
+                                <span className="form-hint">Baked into the container image at creation. Changeable later from the PHP tab.</span>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        checked={createForm.enablePageCache}
+                                        onChange={e => setCreateForm({ ...createForm, enablePageCache: e.target.checked })}
+                                        disabled={createLoading}
+                                    />
+                                    Enable full-page cache
+                                </label>
+                                <span className="form-hint">Disk page cache with WordPress-aware skip rules (admin, login, cart, checkout).</span>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        checked={createForm.enableObjectCache}
+                                        onChange={e => setCreateForm({ ...createForm, enableObjectCache: e.target.checked })}
+                                        disabled={createLoading}
+                                    />
+                                    Enable Redis object cache
+                                </label>
+                                <span className="form-hint">Uses the bundled Redis container with the redis-cache drop-in.</span>
                             </div>
                         </div>
                         <div className="modal-footer">

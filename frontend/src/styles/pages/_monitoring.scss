@@ -15,7 +15,7 @@
         padding: $space-6;
         border: 1px solid $border-subtle;
         border-radius: $radius-lg;
-        background: linear-gradient(135deg, $bg-card, $bg-elevated);
+        background: $bg-card;
 
         &.is-active {
             border-color: fade($success, 35%);
@@ -40,37 +40,6 @@
 
         @media (max-width: 760px) {
             flex-direction: column;
-        }
-    }
-
-    .monitoring-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: $space-3;
-
-        > div {
-            padding: $space-4;
-            border: 1px solid $border-subtle;
-            border-radius: $radius-md;
-            background: $bg-card;
-        }
-
-        span {
-            display: block;
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            font-weight: $font-weight-semibold;
-            text-transform: uppercase;
-        }
-
-        strong {
-            display: block;
-            margin-top: $space-2;
-            font-size: $font-size-xl;
-        }
-
-        @media (max-width: 720px) {
-            grid-template-columns: 1fr;
         }
     }
 
@@ -197,7 +166,7 @@
 
         &.is-triggered {
             border-color: fade($warning, 40%);
-            background: linear-gradient(135deg, $bg-elevated, fade($warning, 6%));
+            background: $bg-elevated;
         }
 
         &__main {
@@ -379,10 +348,6 @@
                 justify-items: start;
             }
         }
-    }
-
-    .monitoring-empty {
-        min-height: 240px;
     }
 
     .form-help {

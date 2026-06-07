@@ -13,10 +13,93 @@ logger = logging.getLogger(__name__)
 class WorkspaceService:
     """Service for multi-tenancy workspace management."""
 
+    DEFAULT_WORKSPACE_SLUG = 'default'
+
     @staticmethod
     def _slugify(name):
         slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
         return slug or 'workspace'
+
+    # --- Scoping (#33 foundation) ---
+    #
+    # These three helpers centralize resource scoping so the admin-vs-owner-vs-
+    # workspace branch isn't re-implemented per route. Scoping is OPT-IN: a
+    # request only filters by workspace when it carries a workspace context
+    # (X-Workspace-Id header or ?workspace_id=). With no context, scope_query
+    # preserves each resource's existing ownership behavior exactly, so this
+    # foundation changes nothing until a caller activates a workspace.
+
+    @staticmethod
+    def ensure_default_workspace():
+        """Find-or-create the Default workspace (idempotent). Used to stamp newly
+        created resources when no workspace context is supplied, and to give
+        existing resources a home (mirrors migration 015's backfill)."""
+        ws = Workspace.query.filter_by(slug=WorkspaceService.DEFAULT_WORKSPACE_SLUG).first()
+        if ws is None:
+            ws = Workspace(
+                name='Default',
+                slug=WorkspaceService.DEFAULT_WORKSPACE_SLUG,
+                description='Default workspace (auto-created for existing resources).',
+            )
+            db.session.add(ws)
+            db.session.commit()
+        return ws
+
+    @staticmethod
+    def resolve_workspace_id(user, requested):
+        """Resolve an optionally-requested workspace context to a usable workspace
+        id, or None for "no active context".
+
+        LENIENT by design: an unparsable, unknown, deactivated-account, or
+        not-permitted request degrades to None (no scoping) rather than raising,
+        so a stale `X-Workspace-Id` header (deleted workspace, removed member)
+        can never break the UI. This is safe because falling back to None only
+        ever shows the user their OWN resources and stamps the default workspace
+        on create — it never grants access to, or creates in, a workspace the
+        user doesn't belong to.
+        """
+        if requested in (None, '', 'all'):
+            return None
+        if not getattr(user, 'is_active', True):
+            return None
+        try:
+            ws_id = int(requested)
+        except (ValueError, TypeError):
+            return None
+        if Workspace.query.get(ws_id) is None:
+            return None
+        if not user.is_admin and WorkspaceService.get_user_role(ws_id, user.id) is None:
+            return None
+        return ws_id
+
+    @staticmethod
+    def scope_query(query, model, user, workspace_id=None, owner_attr=None, grant_resource_type=None):
+        """Apply scoping to a resource list query.
+
+        - non-admin + owner_attr -> restricted to the user's own rows, PLUS any
+          rows explicitly shared with them via a per-resource grant (#33) when
+          grant_resource_type is given (e.g. 'application'). A workspace context
+          then narrows *within* that set.
+        - admin, or a global resource (owner_attr=None, e.g. servers) -> no owner
+          filter; today's behavior (admin sees all; servers are global).
+        - workspace context active -> additionally filter to that workspace.
+
+        It still only ever NARROWS the global/admin view; for non-admins it widens
+        ONLY by explicit grants the user was given, never by workspace membership
+        alone.
+        """
+        if owner_attr and not user.is_admin:
+            own = getattr(model, owner_attr) == user.id
+            if grant_resource_type:
+                from app import db
+                from app.services.resource_grant_service import ResourceGrantService
+                granted = ResourceGrantService.granted_ids(user.id, grant_resource_type)
+                query = query.filter(db.or_(own, model.id.in_(granted))) if granted else query.filter(own)
+            else:
+                query = query.filter(own)
+        if workspace_id is not None:
+            query = query.filter(model.workspace_id == workspace_id)
+        return query
 
     @staticmethod
     def list_workspaces(user_id=None, include_archived=False):

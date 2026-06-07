@@ -84,6 +84,11 @@ def audit(action, target_type, target_id=None, details=None, user_id=None):
     )
 
 
+# AI extension SDK — plugins do `from app.plugins_sdk import ai` then register
+# tools/context against the core assistant (see plugins_sdk/ai.py). Imported
+# lazily-safe: ai.py only depends on the AI tool registry, not on a running app.
+from app.plugins_sdk import ai
+
 __all__ = [
     'db',
     'jwt',
@@ -93,4 +98,5 @@ __all__ = [
     'current_user',
     'logger',
     'audit',
+    'ai',
 ]

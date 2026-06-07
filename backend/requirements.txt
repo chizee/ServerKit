@@ -64,3 +64,10 @@ python3-saml==1.16.0
 # OpenAPI documentation
 apispec==6.4.0
 apispec-webframeworks==1.2.0
+
+# AI assistant (core primitive — powered by Prompture)
+# Multi-provider LLM orchestration: Conversation, ToolRegistry, ask_live streaming,
+# ProviderEnvironment, guardrails. Provider SDKs (openai/anthropic/...) are optional
+# extras installed per the configured provider; the base package is provider-agnostic.
+# Installed from the Prompture repo (pip install -e path/to/prompture) until published.
+prompture>=1.4

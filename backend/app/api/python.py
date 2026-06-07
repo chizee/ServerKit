@@ -22,14 +22,18 @@ def admin_required(fn):
 
 
 def get_app_or_404(app_id, current_user_id):
-    """Get application and verify access."""
+    """Get application and verify read access. Read endpoints rely on this gate;
+    mutating endpoints additionally carry @admin_required, so honoring per-resource
+    grants here (#33) safely opens only the read GETs to grantees. Uses can_access_app
+    (user.id), which also fixes the int-vs-str identity comparison."""
+    from app.services.resource_grant_service import ResourceGrantService
     user = User.query.get(current_user_id)
     app = Application.query.get(app_id)
 
     if not app:
         return None, ({'error': 'Application not found'}, 404)
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not ResourceGrantService.can_access_app(user, app):
         return None, ({'error': 'Access denied'}, 403)
 
     if app.app_type not in ['flask', 'django']:

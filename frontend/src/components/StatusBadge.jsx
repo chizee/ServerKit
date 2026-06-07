@@ -13,7 +13,7 @@ const STATUS_VARIANT = {
 
 const DOT_COLOR = {
   success: 'bg-green-400',
-  destructive: 'bg-white',
+  destructive: 'bg-red-400',
   warning: 'bg-yellow-400',
   info: 'bg-blue-400',
   secondary: 'bg-muted-foreground/60',

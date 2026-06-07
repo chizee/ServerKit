@@ -615,6 +615,15 @@
 
 // Docker Unavailable State
 .docker-page {
+    // /docker is a full-page route, so .main-content drops its padding. Unlike
+    // the workspace branch, this state has no shell of its own, so restore the
+    // standard route padding or the header sits flush against the viewport top.
+    padding: $space-10;
+
+    @media (max-width: $breakpoint-md) {
+        padding: $space-5;
+    }
+
     .page-header {
         margin-bottom: $space-6;
 
@@ -928,16 +937,8 @@
     @include transition(all);
     overflow: hidden;
 
-    &::before {
-        content: '';
-        position: absolute;
-        left: 0; top: 0; bottom: 0;
-        width: 3px;
-        background: $border-default;
-    }
-
-    &.is-running::before { background: $success; }
-    &.is-stopped::before { background: $text-tertiary; }
+    &.is-running { border-color: fade($success, 40%); }
+    &.is-stopped { border-color: $border-default; }
 
     &:hover {
         border-color: $border-hover;
@@ -1734,7 +1735,10 @@
 
 // Docker workspace polish: File Manager-style rail + click-open details drawer
 .docker-page-new.dx-page {
-    padding: $space-3;
+    // Full-bleed zeroes out .main-content's padding, and the page-header is
+    // hidden, so without this the workbar hugs the viewport top. Give it the
+    // same breathing room other routes get from .main-content.
+    padding: $space-6 $space-5 $space-5;
     gap: $space-3;
     background: transparent;
 

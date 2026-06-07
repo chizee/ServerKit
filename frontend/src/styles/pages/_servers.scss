@@ -148,7 +148,6 @@
     background:
         linear-gradient(180deg, $accent-glow, transparent),
         $bg-card;
-    backdrop-filter: blur(16px);
     box-shadow: $shadow-sm;
 }
 
@@ -248,7 +247,6 @@
     border: 1px solid $border-subtle;
     border-radius: $radius-2xl;
     background: $bg-card;
-    backdrop-filter: blur(12px);
     box-shadow: $shadow-sm;
 
     @media (max-width: $breakpoint-lg) {
@@ -1847,12 +1845,11 @@
     background: $bg-elevated;
     border: 1px solid $border-subtle;
     border-radius: $radius-lg;
-    border-left: 3px solid $text-tertiary;
 
-    &.severity-critical { border-left-color: $danger; }
-    &.severity-high { border-left-color: $warning; }
-    &.severity-medium { border-left-color: $accent-primary; }
-    &.severity-low { border-left-color: $text-tertiary; }
+    &.severity-critical { border-color: fade($danger, 45%); }
+    &.severity-high { border-color: fade($warning, 45%); }
+    &.severity-medium { border-color: fade($accent-primary-raw, 45%); }
+    &.severity-low { border-color: $border-subtle; }
 }
 
 .alert-item-header {
@@ -3887,7 +3884,6 @@
     padding: $space-4 $space-5;
     background: $bg-card;
     border: 1px solid $border-subtle;
-    border-left-width: 3px;
     border-radius: $radius-lg;
     box-shadow: $shadow-sm;
 
@@ -3921,17 +3917,17 @@
     }
 
     &--info {
-        border-left-color: $accent-primary;
+        border-color: fade($accent-primary-raw, 45%);
         .notification__icon { background: $accent-glow; color: $accent-primary; }
     }
 
     &--warning {
-        border-left-color: $warning;
+        border-color: fade($warning, 45%);
         .notification__icon { background: $warning-bg; color: $warning; }
     }
 
     &--danger {
-        border-left-color: $danger;
+        border-color: fade($danger, 45%);
         .notification__icon { background: $danger-bg; color: $danger; }
     }
 }

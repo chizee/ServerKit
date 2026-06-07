@@ -17,12 +17,13 @@ import SourceConnectionsTab from '../components/settings/SourceConnectionsTab';
 import ApiSettingsTab from '../components/settings/ApiSettingsTab';
 import MigrationHistoryTab from '../components/settings/MigrationHistoryTab';
 import IconReferenceTab from '../components/settings/IconReferenceTab';
+import AISettingsTab from '../components/settings/AISettingsTab';
 import AboutTab from '../components/settings/AboutTab';
-import { Activity, Code, Database, Layers, Link2, PaintBucket } from 'lucide-react';
+import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
-const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'migrations', 'developer', 'about'];
+const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'ai', 'migrations', 'developer', 'about'];
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useTabParam('/settings', VALID_TABS);
@@ -186,6 +187,14 @@ const Settings = () => {
                             </Button>
                             <Button
                                 variant="ghost"
+                                className={`settings-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('ai')}
+                            >
+                                <Sparkles size={18} />
+                                AI Assistant
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'migrations' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('migrations')}
                             >
@@ -267,6 +276,7 @@ const Settings = () => {
                     {activeTab === 'site' && isAdmin && <SiteSettingsTab onDevModeChange={setDevMode} />}
                     {activeTab === 'sso' && isAdmin && <SSOConfigTab />}
                     {activeTab === 'api' && isAdmin && <ApiSettingsTab />}
+                    {activeTab === 'ai' && isAdmin && <AISettingsTab />}
                     {activeTab === 'migrations' && isAdmin && <MigrationHistoryTab />}
                     {activeTab === 'system' && isAdmin && <SystemTab />}
                     {activeTab === 'developer' && devMode && isAdmin && <IconReferenceTab />}

@@ -54,6 +54,9 @@ def get_active_contributions():
     command_palette = []
     widgets = []
     layouts = []
+    # AI assistant contributions: per-route suggested prompts + custom
+    # tool-result renderers, consumed by the core AIAssistant.
+    ai = {'suggested_prompts': [], 'tool_renderers': []}
 
     for p in plugins:
         contrib = (p.manifest or {}).get('contributions') or {}
@@ -65,6 +68,11 @@ def get_active_contributions():
         command_palette.extend(_tag(contrib.get('command_palette'), p.slug))
         widgets.extend(_tag(contrib.get('widgets'), p.slug))
         layouts.extend(_tag(contrib.get('layouts'), p.slug))
+
+        ai_contrib = contrib.get('ai')
+        if isinstance(ai_contrib, dict):
+            ai['suggested_prompts'].extend(_tag(ai_contrib.get('suggested_prompts'), p.slug))
+            ai['tool_renderers'].extend(_tag(ai_contrib.get('tool_renderers'), p.slug))
 
         titles = contrib.get('page_titles')
         if isinstance(titles, dict):
@@ -79,4 +87,5 @@ def get_active_contributions():
         'command_palette': command_palette,
         'widgets': widgets,
         'layouts': layouts,
+        'ai': ai,
     }

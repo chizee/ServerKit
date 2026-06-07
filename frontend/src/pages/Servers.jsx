@@ -14,6 +14,7 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -371,36 +372,30 @@ const Servers = () => {
                     )}
 
                     {filteredServers.length === 0 ? (
-                        <div className="servers-empty-workspace">
-                            <div className="servers-empty-workspace__icon">
-                                <ServerLucideIcon size={28} />
-                            </div>
-                            <h2>{servers.length === 0 ? 'No servers yet' : 'No servers match these filters'}</h2>
-                            <p>
-                                {servers.length === 0
-                                    ? 'Pair an agent to bring a machine into this fleet.'
-                                    : 'Adjust the rail filters or search query to bring machines back into view.'}
-                            </p>
-                            <div className="servers-empty-workspace__actions">
-                                {servers.length === 0 ? (
-                                    <Button onClick={() => setShowAddModal(true)}>
-                                        <Plus size={16} /> Add your first server
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => {
-                                            setSelectedGroup('all');
-                                            setSelectedStatus('all');
-                                            setSearchTerm('');
-                                        }}
-                                    >
-                                        Clear filters
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
+                        <EmptyState
+                            icon={ServerLucideIcon}
+                            title={servers.length === 0 ? 'No servers yet' : 'No servers match these filters'}
+                            description={servers.length === 0
+                                ? 'Add a server to start managing it from here.'
+                                : 'Adjust the filters or search query to see your servers.'}
+                            action={servers.length === 0 ? (
+                                <Button onClick={() => setShowAddModal(true)}>
+                                    <Plus size={16} /> Add your first server
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setSelectedGroup('all');
+                                        setSelectedStatus('all');
+                                        setSearchTerm('');
+                                    }}
+                                >
+                                    Clear filters
+                                </Button>
+                            )}
+                        />
                     ) : (
                         <div className="servers-table-wrap">
                             <table className="servers-table">

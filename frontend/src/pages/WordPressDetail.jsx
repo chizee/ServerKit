@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ExternalLink, Settings, RefreshCw, Plus, Database, GitBranch, Package, Palette, Archive } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Plus, Database, GitBranch, Package, Palette, Archive, Trash2, Replace, ShieldCheck, FolderOpen, FileText, Lock, Copy, Zap, Activity, Globe, Layers, BarChart3, FileBarChart, Printer, Download } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import useTabParam from '../hooks/useTabParam';
 import wordpressApi from '../services/wordpress';
+import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { EnvironmentCard, SnapshotTable, GitConnectForm, CommitList } from '../components/wordpress';
+import { useLogsDrawer } from '../contexts/LogsDrawerContext';
+import { EnvironmentCard, SnapshotTable, GitConnectForm, CommitList, DiskUsageBar } from '../components/wordpress';
+import { HealthDot } from '../components/wordpress/HealthStatusPanel';
 import { ErrorBoundary, ErrorState } from '../components/ErrorBoundary';
+import { useConfirm } from '../hooks/useConfirm';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DangerZone } from '../components/DangerZone';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 // Detail Page Skeleton for initial loading
 const DetailPageSkeleton = () => (
@@ -64,15 +73,21 @@ const DetailPageSkeleton = () => (
     </div>
 );
 
-const VALID_TABS = ['overview', 'environments', 'database', 'plugins', 'themes', 'git', 'backups'];
+const VALID_TABS = ['overview', 'environments', 'database', 'plugins', 'themes', 'php', 'git', 'backups', 'uptime', 'analytics', 'vulnerabilities', 'security', 'updates', 'reports'];
 
 const WordPressDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
+    const { openDrawer } = useLogsDrawer();
     const [site, setSite] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useTabParam(`/wordpress/${id}`, VALID_TABS);
+    const [autoLoggingIn, setAutoLoggingIn] = useState(false);
+    const [showCloneModal, setShowCloneModal] = useState(false);
+    const [cloning, setCloning] = useState(false);
+    const [cloneName, setCloneName] = useState('');
+    const [clonedCreds, setClonedCreds] = useState(null);
 
     useEffect(() => {
         loadSite();
@@ -90,18 +105,61 @@ const WordPressDetail = () => {
         }
     }
 
+    async function handleClone() {
+        if (!cloneName.trim()) {
+            toast.error('New site name is required');
+            return;
+        }
+        setCloning(true);
+        toast.info('Cloning site... this spins up a new stack and may take a minute.', { duration: 6000 });
+        try {
+            const res = await wordpressApi.cloneSite(site.id, { name: cloneName.trim() });
+            if (res.success) {
+                setShowCloneModal(false);
+                setCloneName('');
+                if (res.admin_password) {
+                    setClonedCreds({ user: res.admin_user || 'admin', password: res.admin_password, id: res.site?.id });
+                }
+                toast.success('Site cloned successfully');
+            } else {
+                toast.error(res.error || 'Failed to clone site');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to clone site');
+        } finally {
+            setCloning(false);
+        }
+    }
+
+    async function handleAutoLogin() {
+        setAutoLoggingIn(true);
+        toast.info('Creating one-time login link...', { duration: 3000 });
+        try {
+            const res = await wordpressApi.autoLogin(site.id);
+            if (res && res.url) {
+                window.open(res.url, '_blank', 'noopener,noreferrer');
+            } else {
+                toast.error('No login URL returned');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to create login link');
+        } finally {
+            setAutoLoggingIn(false);
+        }
+    }
+
     if (loading) {
         return <DetailPageSkeleton />;
     }
 
     if (!site) {
         return (
-            <div className="empty-state">
-                <h3>Site not found</h3>
-                <Button onClick={() => navigate('/wordpress')}>
-                    Back to WordPress Sites
-                </Button>
-            </div>
+            <EmptyState
+                icon={Globe}
+                title="Site not found"
+                description="This WordPress site does not exist or has been removed."
+                action={<Button onClick={() => navigate('/wordpress')}>Back to WordPress Sites</Button>}
+            />
         );
     }
 
@@ -109,6 +167,21 @@ const WordPressDetail = () => {
 
     return (
         <div className="app-detail-page wp-detail-page">
+            {/* One-time cloned-admin credentials banner */}
+            {clonedCreds && (
+                <div className="wp-creds-banner">
+                    <div className="wp-creds-banner-text">
+                        <strong>New site created — save these admin credentials, shown only once.</strong>
+                        <span>Username: <code>{clonedCreds.user}</code></span>
+                        <span>Password: <code>{clonedCreds.password}</code></span>
+                        {clonedCreds.id && (
+                            <Button variant="ghost" onClick={() => navigate(`/wordpress/${clonedCreds.id}`)}>Open new site</Button>
+                        )}
+                    </div>
+                    <Button variant="ghost" onClick={() => setClonedCreds(null)}>Dismiss</Button>
+                </div>
+            )}
+
             {/* Top Bar */}
             <div className="app-detail-topbar">
                 <div className="app-detail-breadcrumbs">
@@ -117,6 +190,33 @@ const WordPressDetail = () => {
                     <span className="current">{site.name}</span>
                 </div>
                 <div className="app-detail-actions">
+                    <Button
+                        variant="ghost"
+                        onClick={() => navigate(`/files?path=${encodeURIComponent(site.application?.root_path || '/')}`)}
+                        disabled={!site.application?.root_path}
+                        title={site.application?.root_path ? `Open ${site.application.root_path} in the File Manager` : 'No root path configured for this site'}
+                    >
+                        <FolderOpen size={16} />
+                        Open Files
+                    </Button>
+                    {site.db_name && (
+                        <Button
+                            variant="ghost"
+                            onClick={() => navigate(`/databases/mysql?db=${encodeURIComponent(site.db_name)}`)}
+                            title={`Open ${site.db_name} in the Database manager`}
+                        >
+                            <Database size={16} />
+                            Open Database
+                        </Button>
+                    )}
+                    <Button
+                        variant="ghost"
+                        onClick={() => openDrawer({ name: site.name, containerId: site.application_id, appType: 'docker' })}
+                        title="View live container logs"
+                    >
+                        <FileText size={16} />
+                        View Logs
+                    </Button>
                     {site.url && (
                         <>
                             <Button variant="ghost" asChild>
@@ -141,6 +241,23 @@ const WordPressDetail = () => {
                             </Button>
                         </>
                     )}
+                    <Button
+                        variant="ghost"
+                        onClick={() => setShowCloneModal(true)}
+                        title="Duplicate this site as a new independent site with fresh admin credentials"
+                    >
+                        <Copy size={16} />
+                        Clone
+                    </Button>
+                    <Button
+                        variant="default"
+                        onClick={handleAutoLogin}
+                        disabled={autoLoggingIn}
+                        title="Open wp-admin logged in, no password (one-time link)"
+                    >
+                        <Lock size={16} />
+                        {autoLoggingIn ? 'Signing in...' : 'Auto Login'}
+                    </Button>
                 </div>
             </div>
 
@@ -210,6 +327,12 @@ const WordPressDetail = () => {
                     <Palette size={14} /> Themes
                 </div>
                 <div
+                    className={`app-detail-tab ${activeTab === 'php' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('php')}
+                >
+                    <Settings size={14} /> PHP
+                </div>
+                <div
                     className={`app-detail-tab ${activeTab === 'git' ? 'active' : ''}`}
                     onClick={() => setActiveTab('git')}
                 >
@@ -221,7 +344,73 @@ const WordPressDetail = () => {
                 >
                     <Archive size={14} /> Backups
                 </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'uptime' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('uptime')}
+                >
+                    <Activity size={14} /> Uptime
+                </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'analytics' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('analytics')}
+                >
+                    <BarChart3 size={14} /> Analytics
+                </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'vulnerabilities' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('vulnerabilities')}
+                >
+                    <ShieldCheck size={14} /> Vulnerabilities
+                </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'security' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('security')}
+                >
+                    <Lock size={14} /> Security
+                </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'updates' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('updates')}
+                >
+                    <RefreshCw size={14} /> Updates
+                </div>
+                <div
+                    className={`app-detail-tab ${activeTab === 'reports' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('reports')}
+                >
+                    <FileBarChart size={14} /> Reports
+                </div>
             </div>
+
+            {/* Clone Site Modal */}
+            {showCloneModal && (
+                <div className="modal-overlay" onClick={() => !cloning && setShowCloneModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Clone Site</h2>
+                            <button className="modal-close" onClick={() => !cloning && setShowCloneModal(false)}>&times;</button>
+                        </div>
+                        <form onSubmit={(e) => { e.preventDefault(); handleClone(); }}>
+                            <p className="hint">Creates a brand-new independent WordPress site (its own Docker stack and database) seeded from <strong>{site.name}</strong>, with fresh admin credentials shown once.</p>
+                            <div className="form-group">
+                                <Label>New Site Name *</Label>
+                                <Input
+                                    type="text"
+                                    value={cloneName}
+                                    onChange={(e) => setCloneName(e.target.value)}
+                                    placeholder={`${site.name}-copy`}
+                                    autoFocus
+                                    disabled={cloning}
+                                />
+                            </div>
+                            <div className="modal-actions">
+                                <Button type="button" variant="outline" onClick={() => setShowCloneModal(false)} disabled={cloning}>Cancel</Button>
+                                <Button type="submit" disabled={cloning || !cloneName.trim()}>{cloning ? 'Cloning...' : 'Clone Site'}</Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Tab Content */}
             <div className="app-detail-content">
@@ -231,10 +420,1078 @@ const WordPressDetail = () => {
                     {activeTab === 'database' && <DatabaseTab siteId={site.id} site={site} />}
                     {activeTab === 'plugins' && <PluginsTab siteId={site.id} />}
                     {activeTab === 'themes' && <ThemesTab siteId={site.id} />}
+                    {activeTab === 'php' && <PhpTab siteId={site.id} />}
                     {activeTab === 'git' && <GitTab siteId={site.id} site={site} onUpdate={loadSite} />}
                     {activeTab === 'backups' && <BackupsTab siteId={site.id} />}
+                    {activeTab === 'uptime' && <UptimeTab siteId={site.id} />}
+                    {activeTab === 'analytics' && <AnalyticsTab siteId={site.id} />}
+                    {activeTab === 'vulnerabilities' && <VulnerabilitiesTab siteId={site.id} />}
+                    {activeTab === 'security' && <SecurityTab siteId={site.id} />}
+                    {activeTab === 'updates' && <UpdatesTab siteId={site.id} />}
+                    {activeTab === 'reports' && <ReportsTab siteId={site.id} />}
                 </ErrorBoundary>
             </div>
+        </div>
+    );
+};
+
+// PHP Tab — live PHP version + ini limits for the Docker (apache/mod_php) site.
+// Version is the image tag; switching recreates the container (volumes persist).
+const PhpTab = ({ siteId }) => {
+    const toast = useToast();
+    const [php, setPhp] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [switching, setSwitching] = useState(false);
+
+    const load = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await wordpressApi.getPhpInfo(siteId);
+            setPhp(data.php || data);
+        } catch (err) {
+            toast.error(err.message || 'Failed to load PHP info');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, toast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    async function handleSwitch(version) {
+        if (!window.confirm(`Switch this site to PHP ${version}? This pulls the wordpress:php${version}-apache image and recreates the container (brief downtime; database and files are preserved).`)) return;
+        setSwitching(true);
+        toast.info(`Switching to PHP ${version}...`, { duration: 4000 });
+        try {
+            const res = await wordpressApi.setPhpVersion(siteId, version);
+            if (res.success === false) { toast.error(res.error || 'Failed to switch PHP version'); return; }
+            toast.success(res.message || `Switched to PHP ${version}`);
+            await load();
+        } catch (err) {
+            toast.error(err.message || 'Failed to switch PHP version');
+        } finally {
+            setSwitching(false);
+        }
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading PHP info...</p></div>;
+
+    const limits = php?.limits || {};
+    const current = php?.php_version || 'Unknown';
+    const versions = php?.available_versions || [];
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">PHP</div>
+                    <div className="app-panel-body">
+                        <div className="app-info-grid">
+                            <div className="app-info-item">
+                                <span className="app-info-label">PHP Version</span>
+                                <span className="app-info-value">{current}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">Memory Limit</span>
+                                <span className="app-info-value">{limits.memory_limit || '-'}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">Upload Max Filesize</span>
+                                <span className="app-info-value">{limits.upload_max_filesize || '-'}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">Post Max Size</span>
+                                <span className="app-info-value">{limits.post_max_size || '-'}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">Max Execution Time</span>
+                                <span className="app-info-value">{limits.max_execution_time || '-'}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">Max Input Time</span>
+                                <span className="app-info-value">{limits.max_input_time || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {versions.length > 0 && (
+                    <div className="app-panel">
+                        <div className="app-panel-header">Change PHP Version</div>
+                        <div className="app-panel-body">
+                            <p className="hint">Switching rebuilds the container from the official wordpress php-apache image. The database and uploaded files are preserved.</p>
+                            <div className="app-detail-actions">
+                                {versions.map(v => (
+                                    <Button key={v} variant="outline" size="sm" disabled={switching || current.startsWith(v)} onClick={() => handleSwitch(v)}>
+                                        {current.startsWith(v) ? `PHP ${v} (current)` : `PHP ${v}`}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Uptime Tab — per-site health + uptime % via a bound status-page component (#26).
+// Health is polled server-side every 5 min; outages auto-open incidents and alert
+// the configured notification channels.
+const UptimeTab = ({ siteId }) => {
+    const toast = useToast();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [pageId, setPageId] = useState('');
+    const [busy, setBusy] = useState(false);
+
+    const load = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await wordpressApi.getSiteStatusPage(siteId);
+            setData(res);
+        } catch (err) {
+            toast.error(err.message || 'Failed to load uptime info');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, toast]);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (data?.pages?.length) setPageId(prev => prev || String(data.pages[0].id));
+    }, [data]);
+
+    async function handleAttach() {
+        if (!pageId) { toast.error('Choose a status page'); return; }
+        setBusy(true);
+        try {
+            await wordpressApi.attachStatusPage(siteId, Number(pageId));
+            toast.success('Added to status page');
+            await load();
+        } catch (err) {
+            toast.error(err.message || 'Failed to add to status page');
+        } finally { setBusy(false); }
+    }
+
+    async function handleDetach() {
+        if (!window.confirm('Remove this site from its status page? Its uptime history and component will be deleted.')) return;
+        setBusy(true);
+        try {
+            await wordpressApi.detachStatusPage(siteId);
+            toast.success('Removed from status page');
+            await load();
+        } catch (err) {
+            toast.error(err.message || 'Failed to remove from status page');
+        } finally { setBusy(false); }
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading uptime info...</p></div>;
+
+    const comp = data?.component;
+    const pages = data?.pages || [];
+    const pct = (v) => (v != null ? `${v.toFixed(2)}%` : '—');
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">Health</div>
+                    <div className="app-panel-body">
+                        <div className="app-info-grid">
+                            <div className="app-info-item">
+                                <span className="app-info-label">Current Status</span>
+                                <span className="app-info-value">
+                                    <HealthDot status={data?.health_status} /> {data?.health_status || 'unknown'}
+                                </span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">Last Checked</span>
+                                <span className="app-info-value">{data?.last_health_check ? new Date(data.last_health_check).toLocaleString() : 'Never'}</span>
+                            </div>
+                        </div>
+                        <p className="hint">Health is polled automatically every 5 minutes. Outages and recoveries alert your configured notification channels.</p>
+                    </div>
+                </div>
+
+                {comp ? (
+                    <div className="app-panel">
+                        <div className="app-panel-header">Uptime</div>
+                        <div className="app-panel-body">
+                            {comp.last_check_at ? (
+                                <div className="app-info-grid">
+                                    <div className="app-info-item"><span className="app-info-label">24 hours</span><span className="app-info-value">{pct(comp.uptime_24h)}</span></div>
+                                    <div className="app-info-item"><span className="app-info-label">7 days</span><span className="app-info-value">{pct(comp.uptime_7d)}</span></div>
+                                    <div className="app-info-item"><span className="app-info-label">30 days</span><span className="app-info-value">{pct(comp.uptime_30d)}</span></div>
+                                    <div className="app-info-item"><span className="app-info-label">90 days</span><span className="app-info-value">{pct(comp.uptime_90d)}</span></div>
+                                </div>
+                            ) : (
+                                <p className="hint">Awaiting the first health check (runs within 5 minutes).</p>
+                            )}
+                            <p className="hint">Uptime accrues from the 5-minute health checks; only fully-healthy checks count, so degraded periods reduce it. This site appears on its status page and auto-opens an incident on an outage (auto-resolved on recovery).</p>
+                            <div className="app-detail-actions">
+                                <Button variant="outline" size="sm" disabled={busy} onClick={handleDetach}>Remove from status page</Button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="app-panel">
+                        <div className="app-panel-header">Add to status page</div>
+                        <div className="app-panel-body">
+                            {pages.length === 0 ? (
+                                <p className="hint">No status pages exist yet. Create one under Status Pages first, then add this site to track its uptime and auto-open incidents on outages.</p>
+                            ) : (
+                                <>
+                                    <p className="hint">Track uptime for this site on a status page. It accrues a real uptime % and auto-opens/resolves incidents on outages.</p>
+                                    <div className="form-group">
+                                        <Label>Status Page</Label>
+                                        <select value={pageId} onChange={e => setPageId(e.target.value)} disabled={busy}>
+                                            {pages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="app-detail-actions">
+                                        <Button size="sm" disabled={busy} onClick={handleAttach}>Add to status page</Button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Updates Tab — safe update manager (#29): snapshot -> update -> health-check ->
+// auto-rollback, plus a per-site schedule and a run-history report.
+const UPDATE_SCHEDULES = [
+    { label: 'Off', value: '' },
+    { label: 'Weekly (Sun 3am)', value: '0 3 * * 0' },
+    { label: 'Daily (3am)', value: '0 3 * * *' },
+];
+
+const UpdatesTab = ({ siteId }) => {
+    const toast = useToast();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState(false);
+    const [schedule, setSchedule] = useState('');
+    const [excludeText, setExcludeText] = useState('');
+
+    const load = React.useCallback(async () => {
+        try {
+            const res = await wordpressApi.getUpdates(siteId);
+            setData(res);
+            setSchedule(res.schedule || '');
+            setExcludeText((res.exclude || []).join(', '));
+        } catch (err) {
+            toast.error(err.message || 'Failed to load updates');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, toast]);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (!data?.running) return undefined;
+        const t = setTimeout(() => { wordpressApi.getUpdates(siteId).then(setData).catch(() => {}); }, 3000);
+        return () => clearTimeout(t);
+    }, [data, siteId]);
+
+    const toList = (s) => s.split(',').map(x => x.trim()).filter(Boolean);
+
+    async function runUpdate() {
+        if (!window.confirm('Run a safe update now? A database snapshot is taken first and the site auto-rolls-back if the update breaks it.')) return;
+        setBusy(true);
+        try {
+            await wordpressApi.runUpdates(siteId, { exclude: toList(excludeText) });
+            toast.info('Safe update started…');
+            setData(await wordpressApi.getUpdates(siteId));
+        } catch (err) { toast.error(err.message || 'Failed to start update'); }
+        finally { setBusy(false); }
+    }
+    async function saveSchedule() {
+        setBusy(true);
+        try {
+            await wordpressApi.setUpdateSchedule(siteId, { schedule, exclude: toList(excludeText) });
+            toast.success('Schedule saved');
+            await load();
+        } catch (err) { toast.error(err.message || 'Failed to save schedule'); }
+        finally { setBusy(false); }
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading updates...</p></div>;
+
+    const runs = data?.runs || [];
+    const running = data?.running;
+    const statusVariant = (s) => ({ completed: 'success', rolled_back: 'warning', failed: 'destructive', running: 'info' }[s] || 'secondary');
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">Safe update</div>
+                    <div className="app-panel-body">
+                        <p className="hint">Snapshots the database, updates core + plugins + themes, health-checks the site, and automatically rolls back (version-pin + DB restore) if the update breaks it.</p>
+                        <div className="form-group">
+                            <Label>Exclude (skip) plugins/themes</Label>
+                            <Input value={excludeText} onChange={e => setExcludeText(e.target.value)} placeholder="e.g. woocommerce, my-custom-plugin" />
+                            <span className="form-hint">Comma-separated slugs to never auto-update.</span>
+                        </div>
+                        <div className="app-detail-actions">
+                            <Button size="sm" onClick={runUpdate} disabled={busy || running}>{running ? 'Updating…' : 'Run safe update now'}</Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="app-panel">
+                    <div className="app-panel-header">Schedule</div>
+                    <div className="app-panel-body">
+                        <div className="form-group">
+                            <Label>Automatic safe updates</Label>
+                            <select value={schedule} onChange={e => setSchedule(e.target.value)} disabled={busy}>
+                                {UPDATE_SCHEDULES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                {schedule && !UPDATE_SCHEDULES.some(s => s.value === schedule) && <option value={schedule}>{schedule}</option>}
+                            </select>
+                            <span className="form-hint">Runs the same safe update (with auto-rollback) on a schedule.</span>
+                        </div>
+                        <div className="app-detail-actions">
+                            <Button variant="outline" size="sm" onClick={saveSchedule} disabled={busy}>Save schedule</Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="app-panel">
+                    <div className="app-panel-header">Update history</div>
+                    <div className="app-panel-body">
+                        {runs.length === 0 ? (
+                            <p className="hint">No updates have run yet.</p>
+                        ) : runs.map(r => {
+                            const d = r.details || {};
+                            const n = (d.updated || []).length;
+                            return (
+                                <div className="form-group" key={r.id}>
+                                    <div>
+                                        <Badge variant={statusVariant(r.status)}>{r.status.replace('_', ' ')}</Badge>{' '}
+                                        <span className="form-hint">{r.started_at ? new Date(r.started_at).toLocaleString() : ''} · {r.trigger}</span>
+                                    </div>
+                                    <span className="form-hint">
+                                        {n === 0 ? 'No components needed updating' : `${n} component${n === 1 ? '' : 's'} updated`}
+                                        {d.rolled_back ? ' · auto-rolled back (update regressed the site)' : ''}
+                                        {r.error ? ` · ${r.error}` : ''}
+                                    </span>
+                                    {d.warning && <span className="form-hint">⚠ {d.warning}</span>}
+                                    {(d.updated || []).slice(0, 10).map((u, i) => (
+                                        <span className="form-hint" key={i}>{u.type} {u.slug}: {u.from} → {u.to}</span>
+                                    ))}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Security Tab — per-site security depth (#30): file-integrity verification,
+// WP_DEBUG toggle, and WP-Cron management, all via the Docker-aware WP-CLI bridge.
+const SecurityTab = ({ siteId }) => {
+    const toast = useToast();
+    const [integrity, setIntegrity] = useState(null);
+    const [debug, setDebug] = useState(null);
+    const [cron, setCron] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState(false);
+
+    const loadAll = React.useCallback(async () => {
+        try {
+            const [i, d, c] = await Promise.all([
+                wordpressApi.getIntegrity(siteId).catch(() => null),
+                wordpressApi.getDebug(siteId).catch(() => null),
+                wordpressApi.getCron(siteId).catch(() => null),
+            ]);
+            setIntegrity(i); setDebug(d); setCron(c);
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId]);
+
+    useEffect(() => { loadAll(); }, [loadAll]);
+    useEffect(() => {
+        if (integrity?.status !== 'running') return undefined;
+        const t = setTimeout(() => {
+            wordpressApi.getIntegrity(siteId).then(setIntegrity).catch(() => {});
+        }, 2500);
+        return () => clearTimeout(t);
+    }, [integrity, siteId]);
+
+    async function runIntegrity() {
+        try {
+            await wordpressApi.scanIntegrity(siteId);
+            setIntegrity(await wordpressApi.getIntegrity(siteId));
+        } catch (err) { toast.error(err.message || 'Failed to start check'); }
+    }
+    async function toggleDebug() {
+        setBusy(true);
+        try {
+            const res = await wordpressApi.setDebug(siteId, !debug?.enabled);
+            if (res.success === false) { toast.error(res.error || 'Failed to update debug setting'); return; }
+            setDebug(res);
+            toast.success('Debug setting updated');
+        } catch (err) { toast.error(err.message || 'Failed to update debug setting'); }
+        finally { setBusy(false); }
+    }
+    async function runCron() {
+        setBusy(true);
+        try {
+            const r = await wordpressApi.runCron(siteId);
+            toast[r.success ? 'success' : 'error'](r.success ? 'Ran due events' : (r.error || 'Failed to run cron'));
+            setCron(await wordpressApi.getCron(siteId));
+        } catch (err) { toast.error(err.message || 'Failed to run cron'); }
+        finally { setBusy(false); }
+    }
+    async function toggleCron() {
+        setBusy(true);
+        try { setCron(await wordpressApi.setCronDisabled(siteId, !cron?.disabled)); }
+        catch (err) { toast.error(err.message || 'Failed to update WP-Cron'); }
+        finally { setBusy(false); }
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading security tools...</p></div>;
+
+    const intRunning = integrity?.status === 'running';
+    const issues = integrity?.issues || [];
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">File integrity</div>
+                    <div className="app-panel-body">
+                        <div className="app-detail-actions">
+                            <Button size="sm" onClick={runIntegrity} disabled={intRunning}>{intRunning ? 'Checking…' : 'Verify checksums'}</Button>
+                        </div>
+                        {(!integrity || integrity.status === 'idle') && <p className="hint">Verifies WordPress core and wordpress.org plugins against official checksums to detect tampered or unexpected files.</p>}
+                        {integrity?.status === 'error' && <p className="hint">Check failed: {integrity.error}</p>}
+                        {integrity?.status === 'completed' && (
+                            issues.length === 0
+                                ? <p className="hint">All core and plugin files verify against official checksums.</p>
+                                : <>
+                                    <div className="app-detail-actions"><Badge variant="destructive">{issues.length} issue{issues.length === 1 ? '' : 's'}</Badge></div>
+                                    {issues.slice(0, 50).map((line, i) => <div className="form-hint" key={i}>{line}</div>)}
+                                </>
+                        )}
+                    </div>
+                </div>
+
+                <div className="app-panel">
+                    <div className="app-panel-header">Debug mode</div>
+                    <div className="app-panel-body">
+                        <div className="app-info-grid">
+                            <div className="app-info-item"><span className="app-info-label">WP_DEBUG</span><span className="app-info-value"><Badge variant={debug?.debug?.WP_DEBUG ? 'warning' : 'secondary'}>{debug?.debug?.WP_DEBUG ? 'on' : 'off'}</Badge></span></div>
+                            <div className="app-info-item"><span className="app-info-label">Debug log</span><span className="app-info-value">{debug?.debug?.WP_DEBUG_LOG ? 'on' : 'off'}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Script debug</span><span className="app-info-value">{debug?.debug?.SCRIPT_DEBUG ? 'on' : 'off'}</span></div>
+                        </div>
+                        <div className="app-detail-actions">
+                            <Button variant="outline" size="sm" onClick={toggleDebug} disabled={busy}>{debug?.enabled ? 'Disable debugging' : 'Enable debugging'}</Button>
+                        </div>
+                        <p className="hint">Logs errors to a private file outside the web root (never to the page or a public URL). Enable to capture PHP fatals; disable in production.</p>
+                    </div>
+                </div>
+
+                <div className="app-panel">
+                    <div className="app-panel-header">WP-Cron</div>
+                    <div className="app-panel-body">
+                        <div className="app-info-grid">
+                            <div className="app-info-item"><span className="app-info-label">Pseudo-cron</span><span className="app-info-value">{cron?.disabled ? 'disabled' : 'enabled'}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Scheduled events</span><span className="app-info-value">{(cron?.events || []).length}</span></div>
+                        </div>
+                        <div className="app-detail-actions">
+                            <Button variant="outline" size="sm" onClick={runCron} disabled={busy}>Run due events</Button>
+                            <Button variant="outline" size="sm" onClick={toggleCron} disabled={busy}>{cron?.disabled ? 'Enable WP-Cron' : 'Disable WP-Cron'}</Button>
+                        </div>
+                        <p className="hint">Disable WP-Cron only if a real system cron hits wp-cron.php — otherwise scheduled tasks (publishing, updates) will not run.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Vulnerabilities Tab — cross-references plugin/theme/core versions against the
+// keyless WPVulnerability community feed (#28). On-demand background scan + poll.
+const VulnerabilitiesTab = ({ siteId }) => {
+    const toast = useToast();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [scanning, setScanning] = useState(false);
+
+    const load = React.useCallback(async () => {
+        try {
+            const res = await wordpressApi.getVulnerabilities(siteId);
+            setData(res);
+        } catch (err) {
+            toast.error(err.message || 'Failed to load vulnerabilities');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, toast]);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        if (data?.scan_status !== 'running') return undefined;
+        const t = setTimeout(() => { load(); }, 2500);
+        return () => clearTimeout(t);
+    }, [data, load]);
+
+    async function handleScan() {
+        setScanning(true);
+        try {
+            await wordpressApi.scanVulnerabilities(siteId);
+            toast.info('Vulnerability scan started…');
+            await load();
+        } catch (err) {
+            toast.error(err.message || 'Failed to start scan');
+        } finally {
+            setScanning(false);
+        }
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading vulnerabilities...</p></div>;
+
+    const running = data?.scan_status === 'running';
+    const summary = data?.summary || {};
+    const vulns = data?.vulnerabilities || [];
+    const sevVariant = (s) => ({ critical: 'destructive', high: 'destructive', medium: 'warning', low: 'info' }[s] || 'secondary');
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">Vulnerability scan</div>
+                    <div className="app-panel-body">
+                        <div className="app-detail-actions">
+                            <Button size="sm" onClick={handleScan} disabled={scanning || running}>
+                                {running ? 'Scanning…' : 'Run scan'}
+                            </Button>
+                        </div>
+                        <div className="app-info-grid">
+                            <div className="app-info-item"><span className="app-info-label">Last scan</span><span className="app-info-value">{data?.scanned_at ? new Date(data.scanned_at).toLocaleString() : 'Never'}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Findings</span><span className="app-info-value">{summary.total ?? 0}</span></div>
+                        </div>
+                        {summary.total > 0 && (
+                            <div className="app-detail-actions">
+                                {summary.critical > 0 && <Badge variant="destructive">{summary.critical} critical</Badge>}
+                                {summary.high > 0 && <Badge variant="destructive">{summary.high} high</Badge>}
+                                {summary.medium > 0 && <Badge variant="warning">{summary.medium} medium</Badge>}
+                                {summary.low > 0 && <Badge variant="info">{summary.low} low</Badge>}
+                                {summary.unknown > 0 && <Badge variant="secondary">{summary.unknown} unrated</Badge>}
+                            </div>
+                        )}
+                        {data?.scan_error && <p className="hint">Last scan error: {data.scan_error}</p>}
+                        <p className="hint">Cross-references installed plugin, theme, and core versions against the WPVulnerability community database. Re-run after updating.</p>
+                    </div>
+                </div>
+
+                {vulns.length === 0 ? (
+                    <div className="app-panel">
+                        <div className="app-panel-body">
+                            <p className="hint">{data?.scanned_at ? 'No known vulnerabilities found.' : 'No scan has run yet — click Run scan to check this site.'}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="app-panel">
+                        <div className="app-panel-header">Findings</div>
+                        <div className="app-panel-body">
+                            {vulns.map(v => (
+                                <div className="form-group" key={v.id}>
+                                    <div>
+                                        <Badge variant={sevVariant(v.severity)}>{v.severity}</Badge>{' '}
+                                        <strong>{v.name}</strong>
+                                    </div>
+                                    {v.title && <span className="form-hint">{v.title}</span>}
+                                    <span className="form-hint">
+                                        {v.source}{v.slug ? ` · ${v.slug}` : ''} · installed {v.installed_version}
+                                        {v.fixed_in ? ` · fixed in ${v.fixed_in}` : ' · no fix yet'}
+                                        {v.advisory_id ? ` · ${v.advisory_id}` : ''}
+                                    </span>
+                                    {v.reference_url && (
+                                        <a href={v.reference_url} target="_blank" rel="noopener noreferrer" className="form-hint">View advisory ↗</a>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Analytics Tab — per-site traffic + error analytics (#25), parsed on-demand from
+// the apache container access log. PHP fatals, response time, and cache hit ratio
+// are not in the default access log (deferred to #30 / #22-#23).
+const ANALYTICS_PERIODS = [{ label: '24h', hours: 24 }, { label: '7d', hours: 168 }];
+
+const AnalyticsTab = ({ siteId }) => {
+    const toast = useToast();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [hours, setHours] = useState(24);
+
+    const load = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await wordpressApi.getSiteAnalytics(siteId, hours);
+            setData(res);
+        } catch (err) {
+            toast.error(err.message || 'Failed to load analytics');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, hours, toast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading analytics...</p></div>;
+
+    const fmtHour = (iso) => {
+        const d = new Date(iso);
+        return hours <= 24
+            ? d.toLocaleTimeString([], { hour: '2-digit', hour12: false })
+            : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    };
+    const clip = (p) => (p && p.length > 48 ? `${p.slice(0, 48)}…` : p);
+    const s = data?.status || {};
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">Traffic ({hours <= 24 ? 'last 24 hours' : 'last 7 days'})</div>
+                    <div className="app-panel-body">
+                        <div className="app-detail-actions">
+                            {ANALYTICS_PERIODS.map(p => (
+                                <Button key={p.hours} variant={hours === p.hours ? 'default' : 'outline'} size="sm" onClick={() => setHours(p.hours)}>{p.label}</Button>
+                            ))}
+                        </div>
+                        {data?.note && <p className="hint">{data.note}</p>}
+                        <div className="app-info-grid">
+                            <div className="app-info-item"><span className="app-info-label">Requests</span><span className="app-info-value">{(data?.requests ?? 0).toLocaleString()}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Unique Visitors</span><span className="app-info-value">{(data?.unique_visitors ?? 0).toLocaleString()}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Bandwidth</span><span className="app-info-value">{data?.bytes_human || '0 B'}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Error Rate</span><span className="app-info-value">{data?.error_rate ?? 0}%</span></div>
+                            <div className="app-info-item"><span className="app-info-label">Bot Traffic</span><span className="app-info-value">{data?.bot_pct ?? 0}%</span></div>
+                            <div className="app-info-item"><span className="app-info-label">404s</span><span className="app-info-value">{(data?.not_found ?? 0).toLocaleString()}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="app-panel">
+                    <div className="app-panel-header">Requests over time</div>
+                    <div className="app-panel-body">
+                        <ResponsiveContainer width="100%" height={220}>
+                            <AreaChart data={data?.series || []} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="wpReq" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="wpErr" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#888" strokeOpacity={0.15} />
+                                <XAxis dataKey="hour" tickFormatter={fmtHour} tick={{ fontSize: 11, fill: '#888' }} minTickGap={24} />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#888' }} width={36} />
+                                <Tooltip labelFormatter={fmtHour} />
+                                <Area type="monotone" dataKey="requests" name="Requests" stroke="#6366f1" fill="url(#wpReq)" strokeWidth={2} />
+                                <Area type="monotone" dataKey="errors" name="Errors" stroke="#ef4444" fill="url(#wpErr)" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className="app-panel">
+                    <div className="app-panel-header">Status codes</div>
+                    <div className="app-panel-body">
+                        <div className="app-info-grid">
+                            <div className="app-info-item"><span className="app-info-label">2xx</span><span className="app-info-value">{(s['2xx'] ?? 0).toLocaleString()}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">3xx</span><span className="app-info-value">{(s['3xx'] ?? 0).toLocaleString()}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">4xx</span><span className="app-info-value">{(s['4xx'] ?? 0).toLocaleString()}</span></div>
+                            <div className="app-info-item"><span className="app-info-label">5xx</span><span className="app-info-value">{(s['5xx'] ?? 0).toLocaleString()}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                {data?.top_paths?.length > 0 && (
+                    <div className="app-panel">
+                        <div className="app-panel-header">Top URLs</div>
+                        <div className="app-panel-body">
+                            <div className="app-info-grid">
+                                {data.top_paths.map((row, i) => (
+                                    <div className="app-info-item" key={i}>
+                                        <span className="app-info-label" title={row.path}>{clip(row.path)}</span>
+                                        <span className="app-info-value">{row.count.toLocaleString()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="hint">Read live from the container access log; PHP fatals and response-time metrics are not captured by the default log.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Reports Tab — monthly client reports (#33 agency slice). Aggregates the
+// per-site signals that already accrue (uptime/incidents #26, update runs #29,
+// backups, vulnerability posture #28) into a persisted, printable monthly report.
+const ReportsTab = ({ siteId }) => {
+    const toast = useToast();
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const [reports, setReports] = useState([]);
+    const [selectedId, setSelectedId] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState(false);
+
+    // Last 12 months (current first) as {value:'YYYY-MM', label, year, month}.
+    const monthOptions = React.useMemo(() => {
+        const opts = [];
+        const d = new Date();
+        d.setDate(1);
+        for (let i = 0; i < 12; i++) {
+            const year = d.getFullYear();
+            const month = d.getMonth() + 1;
+            opts.push({
+                value: `${year}-${String(month).padStart(2, '0')}`,
+                label: d.toLocaleString([], { month: 'long', year: 'numeric' }),
+                year, month,
+            });
+            d.setMonth(d.getMonth() - 1);
+        }
+        return opts;
+    }, []);
+    const [genMonth, setGenMonth] = useState(monthOptions[0].value);
+
+    const load = React.useCallback(async (preferLabel) => {
+        try {
+            const res = await wordpressApi.getReports(siteId);
+            const list = res.reports || [];
+            setReports(list);
+            setSelectedId(prev => {
+                if (preferLabel) {
+                    const match = list.find(r => r.period_label === preferLabel);
+                    if (match) return match.id;
+                }
+                if (prev && list.some(r => r.id === prev)) return prev;
+                return list.length ? list[0].id : null;
+            });
+        } catch (err) {
+            toast.error(err.message || 'Failed to load reports');
+        } finally {
+            setLoading(false);
+        }
+    }, [siteId, toast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    async function handleGenerate() {
+        const opt = monthOptions.find(o => o.value === genMonth) || monthOptions[0];
+        setBusy(true);
+        try {
+            // The API client throws on a non-2xx (e.g. the future-month guard's 400),
+            // so a resolved call means success; failures surface via catch.
+            await wordpressApi.generateReport(siteId, { year: opt.year, month: opt.month });
+            toast.success(`Report generated for ${opt.label}`);
+            await load(opt.value);
+        } catch (err) {
+            toast.error(err.message || 'Failed to generate report');
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function handleDelete(report) {
+        const ok = await confirm({
+            title: 'Delete report',
+            message: `Delete the report for ${report.data?.period?.month_name || report.period_label}? This cannot be undone.`,
+            confirmText: 'Delete',
+            variant: 'danger',
+        });
+        if (!ok) return;
+        try {
+            await wordpressApi.deleteReport(siteId, report.id);
+            toast.success('Report deleted');
+            await load();
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete report');
+        }
+    }
+
+    function handleDownload(report) {
+        const blob = new Blob([JSON.stringify(report.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wp-report-${siteId}-${report.period_label}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function handlePrint() {
+        document.body.classList.add('wp-report-printing');
+        // Clean up on whichever signal fires first: `afterprint` (most engines) or
+        // the window regaining focus when the dialog closes (fallback for webviews
+        // that don't dispatch afterprint). cleanup is idempotent.
+        const cleanup = () => {
+            document.body.classList.remove('wp-report-printing');
+            window.removeEventListener('afterprint', cleanup);
+            window.removeEventListener('focus', cleanup);
+        };
+        window.addEventListener('afterprint', cleanup);
+        window.addEventListener('focus', cleanup, { once: true });
+        window.print();
+    }
+
+    if (loading) return <div className="tab-loading"><p className="hint">Loading reports...</p></div>;
+
+    const selected = reports.find(r => r.id === selectedId) || null;
+
+    return (
+        <div className="app-overview-grid">
+            <div className="app-overview-left">
+                <div className="app-panel wp-report-no-print">
+                    <div className="app-panel-header">Generate monthly report</div>
+                    <div className="app-panel-body">
+                        <p className="hint">Snapshots this site&apos;s uptime, incidents, update runs, backups, and current security posture for a calendar month into a printable client report.</p>
+                        <div className="app-detail-actions">
+                            <select value={genMonth} onChange={e => setGenMonth(e.target.value)} disabled={busy}>
+                                {monthOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                            <Button size="sm" onClick={handleGenerate} disabled={busy}>
+                                {busy ? 'Generating…' : 'Generate'}
+                            </Button>
+                        </div>
+                        {reports.length > 0 && (
+                            <div className="app-detail-actions wp-report-month-list">
+                                {reports.map(r => (
+                                    <Button
+                                        key={r.id}
+                                        variant={r.id === selectedId ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setSelectedId(r.id)}
+                                    >
+                                        {r.data?.period?.month_name || r.period_label}
+                                    </Button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {!selected ? (
+                    <div className="app-panel wp-report-no-print">
+                        <div className="app-panel-body">
+                            <p className="hint">No reports yet — pick a month above and click Generate.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <ReportView report={selected} onPrint={handlePrint} onDownload={() => handleDownload(selected)} onDelete={() => handleDelete(selected)} />
+                )}
+            </div>
+            <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
+        </div>
+    );
+};
+
+// The printable rendering of a single monthly report. Wrapped in
+// .wp-report-printable so the print stylesheet can isolate it from the app chrome.
+const ReportView = ({ report, onPrint, onDownload, onDelete }) => {
+    const d = report.data || {};
+    const period = d.period || {};
+    const site = d.site || {};
+    const uptime = d.uptime || {};
+    const updates = d.updates || {};
+    const backups = d.backups || {};
+    const vulns = d.vulnerabilities || {};
+    const health = d.health || {};
+    const sev = vulns.by_severity || {};
+    const sevVariant = (s) => ({ critical: 'destructive', high: 'destructive', medium: 'warning', low: 'info' }[s] || 'secondary');
+    const impactVariant = (i) => ({ critical: 'destructive', major: 'destructive', minor: 'warning' }[i] || 'secondary');
+    const fmt = (iso) => (iso ? new Date(iso).toLocaleString() : '—');
+    const fmtDay = (key) => {
+        if (!key) return '';
+        const parts = key.split('-');
+        return parts.length === 3 ? Number(parts[2]).toString() : key;
+    };
+    const dailyHasData = (d.uptime_daily || []).some(x => x.percent !== null);
+
+    return (
+        <div className="wp-report-printable">
+            <div className="app-panel">
+                <div className="app-panel-header">
+                    Report — {period.month_name || report.period_label}
+                    <span className="wp-report-actions wp-report-no-print">
+                        <Button variant="outline" size="sm" onClick={onPrint}><Printer size={14} /> Print</Button>
+                        <Button variant="outline" size="sm" onClick={onDownload}><Download size={14} /> JSON</Button>
+                        <Button variant="outline" size="sm" onClick={onDelete}><Trash2 size={14} /> Delete</Button>
+                    </span>
+                </div>
+                <div className="app-panel-body">
+                    <div className="app-info-grid">
+                        <div className="app-info-item"><span className="app-info-label">Site</span><span className="app-info-value">{site.name || '—'}</span></div>
+                        {site.client && <div className="app-info-item"><span className="app-info-label">Client</span><span className="app-info-value">{site.client}</span></div>}
+                        <div className="app-info-item"><span className="app-info-label">URL</span><span className="app-info-value">{site.url ? <a href={site.url} target="_blank" rel="noopener noreferrer">{site.url}</a> : '—'}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">WordPress</span><span className="app-info-value">{site.wp_version || '—'}{site.multisite ? ' · multisite' : ''}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Generated</span><span className="app-info-value">{fmt(d.generated_at)}</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="app-panel">
+                <div className="app-panel-header">Summary</div>
+                <div className="app-panel-body">
+                    <div className="app-info-grid">
+                        <div className="app-info-item"><span className="app-info-label">Uptime</span><span className="app-info-value">{uptime.percent !== null && uptime.percent !== undefined ? `${uptime.percent}%` : 'N/A'}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Incidents</span><span className="app-info-value">{d.incident_count ?? 0}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Update runs</span><span className="app-info-value">{updates.total_runs ?? 0}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Components updated</span><span className="app-info-value">{updates.components_updated ?? 0}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Backups</span><span className="app-info-value">{backups.count ?? 0}{backups.count ? ` · ${backups.total_bytes_human}` : ''}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Open vulnerabilities</span><span className="app-info-value">{vulns.total ?? 0}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Current health</span><span className="app-info-value">{health.status || 'unknown'}</span></div>
+                        <div className="app-info-item"><span className="app-info-label">Disk usage</span><span className="app-info-value">{health.disk_usage_human || '—'}</span></div>
+                    </div>
+                    {(updates.rolled_back > 0 || updates.failed > 0) && (
+                        <div className="app-detail-actions">
+                            {updates.completed > 0 && <Badge variant="success">{updates.completed} completed</Badge>}
+                            {updates.rolled_back > 0 && <Badge variant="warning">{updates.rolled_back} rolled back</Badge>}
+                            {updates.failed > 0 && <Badge variant="destructive">{updates.failed} failed</Badge>}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {uptime.bound && dailyHasData && (
+                <div className="app-panel">
+                    <div className="app-panel-header">Daily uptime</div>
+                    <div className="app-panel-body">
+                        <ResponsiveContainer width="100%" height={200}>
+                            <AreaChart data={d.uptime_daily || []} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="wpUptime" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#888" strokeOpacity={0.15} />
+                                <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fontSize: 11, fill: '#888' }} minTickGap={16} />
+                                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#888' }} width={36} />
+                                <Tooltip formatter={(v) => (v === null ? 'no data' : `${v}%`)} />
+                                <Area connectNulls type="monotone" dataKey="percent" name="Uptime %" stroke="#10b981" fill="url(#wpUptime)" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                        <p className="hint">Uptime recomputed from recorded health-check samples ({uptime.samples} this month). Rolling 30-day: {uptime.rolling_30d ?? '—'}%.</p>
+                    </div>
+                </div>
+            )}
+
+            {(d.incidents || []).length > 0 && (
+                <div className="app-panel">
+                    <div className="app-panel-header">Incidents</div>
+                    <div className="app-panel-body">
+                        {d.incidents.map(inc => (
+                            <div className="form-group" key={inc.id}>
+                                <div>
+                                    <Badge variant={impactVariant(inc.impact)}>{inc.impact}</Badge>{' '}
+                                    <strong>{inc.title}</strong>
+                                </div>
+                                <span className="form-hint">
+                                    {fmt(inc.created_at)} → {inc.ongoing ? 'ongoing' : fmt(inc.resolved_at)} · {inc.duration_minutes} min · {inc.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {(updates.runs || []).length > 0 && (
+                <div className="app-panel">
+                    <div className="app-panel-header">Update runs</div>
+                    <div className="app-panel-body">
+                        {updates.runs.map(r => {
+                            const n = (r.updated || []).length;
+                            const sv = ({ completed: 'success', rolled_back: 'warning', failed: 'destructive', running: 'info' }[r.status] || 'secondary');
+                            return (
+                                <div className="form-group" key={r.id}>
+                                    <div>
+                                        <Badge variant={sv}>{r.status.replace('_', ' ')}</Badge>{' '}
+                                        <span className="form-hint">{fmt(r.started_at)} · {r.trigger}</span>
+                                    </div>
+                                    <span className="form-hint">
+                                        {n === 0 ? 'No components needed updating' : `${n} component${n === 1 ? '' : 's'} updated`}
+                                        {r.rolled_back ? ' · auto-rolled back' : ''}
+                                        {r.error ? ` · ${r.error}` : ''}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {(backups.snapshots || []).length > 0 && (
+                <div className="app-panel">
+                    <div className="app-panel-header">Backups</div>
+                    <div className="app-panel-body">
+                        {backups.snapshots.map(s => (
+                            <div className="app-info-item" key={s.id}>
+                                <span className="app-info-label">{fmt(s.created_at)}{s.tag ? ` · ${s.tag}` : ''}</span>
+                                <span className="app-info-value">{s.size_human} · {s.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="app-panel">
+                <div className="app-panel-header">Security posture {vulns.as_of ? `(as of ${fmt(vulns.as_of)})` : ''}</div>
+                <div className="app-panel-body">
+                    {vulns.total > 0 ? (
+                        <>
+                            <div className="app-detail-actions">
+                                {sev.critical > 0 && <Badge variant="destructive">{sev.critical} critical</Badge>}
+                                {sev.high > 0 && <Badge variant="destructive">{sev.high} high</Badge>}
+                                {sev.medium > 0 && <Badge variant="warning">{sev.medium} medium</Badge>}
+                                {sev.low > 0 && <Badge variant="info">{sev.low} low</Badge>}
+                                {sev.unknown > 0 && <Badge variant="secondary">{sev.unknown} unrated</Badge>}
+                            </div>
+                            {(vulns.items || []).map((v, i) => (
+                                <div className="form-group" key={i}>
+                                    <div><Badge variant={sevVariant(v.severity)}>{v.severity}</Badge>{' '}<strong>{v.name}</strong></div>
+                                    <span className="form-hint">
+                                        {v.source}{v.slug ? ` · ${v.slug}` : ''} · installed {v.installed_version}
+                                        {v.fixed_in ? ` · fixed in ${v.fixed_in}` : ' · no fix yet'}
+                                        {v.advisory_id ? ` · ${v.advisory_id}` : ''}
+                                    </span>
+                                </div>
+                            ))}
+                        </>
+                    ) : (
+                        <p className="hint">{vulns.as_of ? 'No known vulnerabilities at last scan.' : 'No vulnerability scan has run for this site yet.'}</p>
+                    )}
+                </div>
+            </div>
+
+            {(d.notes || []).length > 0 && (
+                <div className="app-panel">
+                    <div className="app-panel-body">
+                        {d.notes.map((n, i) => <p className="hint" key={i}>{n}</p>)}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -242,9 +1499,85 @@ const WordPressDetail = () => {
 // Overview Tab
 const OverviewTab = ({ site, onUpdate }) => {
     const toast = useToast();
+    const navigate = useNavigate();
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const [wpInfo, setWpInfo] = useState(null);
+    const [updatingCore, setUpdatingCore] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [creatingSnapshot, setCreatingSnapshot] = useState(false);
     const [showEnvModal, setShowEnvModal] = useState(false);
     const [syncingAll, setSyncingAll] = useState(false);
+    const [flushingCache, setFlushingCache] = useState(false);
+    const [hardening, setHardening] = useState(false);
+    const [pageCacheActive, setPageCacheActive] = useState(false);
+    const [togglingPageCache, setTogglingPageCache] = useState(false);
+    const [objectCache, setObjectCache] = useState(null);
+    const [togglingCache, setTogglingCache] = useState(false);
+    const [showSearchReplace, setShowSearchReplace] = useState(false);
+    const [health, setHealth] = useState(null);
+    const [diskUsage, setDiskUsage] = useState(null);
+    const [healthLoading, setHealthLoading] = useState(true);
+    const [healthError, setHealthError] = useState(false);
+
+    // Live WP-CLI info (core version + update availability) — best-effort.
+    useEffect(() => {
+        let active = true;
+        wordpressApi.getWordPressInfo(site.id)
+            .then(data => { if (active) setWpInfo(data.info || data); })
+            .catch(() => { /* info is best-effort; the badge just won't show */ });
+        return () => { active = false; };
+    }, [site.id]);
+
+    // Site health + disk usage (both can be slow / unavailable; non-fatal).
+    useEffect(() => {
+        let cancelled = false;
+        setHealthLoading(true);
+        setHealthError(false);
+        (async () => {
+            try {
+                const [healthRes, diskRes] = await Promise.all([
+                    wordpressApi.getProjectHealth(site.id).catch(() => null),
+                    wordpressApi.getProjectDiskUsage(site.id).catch(() => null),
+                ]);
+                if (cancelled) return;
+                const ownHealth = healthRes?.success
+                    ? (healthRes.environments?.[site.id] || healthRes.environments?.[String(site.id)] || null)
+                    : null;
+                setHealth(ownHealth);
+                const ownDisk = diskRes?.success
+                    ? (diskRes.environments?.[site.id] || diskRes.environments?.[String(site.id)] || null)
+                    : null;
+                setDiskUsage(ownDisk?.usage || null);
+                if (!healthRes && !diskRes) setHealthError(true);
+            } catch {
+                if (!cancelled) setHealthError(true);
+            } finally {
+                if (!cancelled) setHealthLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [site.id]);
+
+    async function handleUpdateCore() {
+        setUpdatingCore(true);
+        toast.info('Updating WordPress core...', { duration: 4000 });
+        try {
+            const res = await wordpressApi.updateCore(site.id);
+            if (res.success === false) {
+                toast.error(res.error || 'Core update failed');
+                return;
+            }
+            toast.success(res.message || 'WordPress core updated');
+            const fresh = await wordpressApi.getWordPressInfo(site.id);
+            setWpInfo(fresh.info || fresh);
+            onUpdate?.();
+        } catch (err) {
+            toast.error(err.message || 'Core update failed');
+        } finally {
+            setUpdatingCore(false);
+        }
+    }
 
     async function handleQuickSnapshot() {
         setCreatingSnapshot(true);
@@ -294,6 +1627,152 @@ const OverviewTab = ({ site, onUpdate }) => {
         }
     }
 
+    useEffect(() => {
+        let active = true;
+        wordpressApi.getPageCache(site.id)
+            .then(r => { if (active) setPageCacheActive(Boolean(r?.active)); })
+            .catch(() => { /* best-effort; control just shows Enable */ });
+        wordpressApi.getObjectCacheStatus(site.id)
+            .then(s => { if (active) setObjectCache(s); })
+            .catch(() => {});
+        return () => { active = false; };
+    }, [site.id]);
+
+    async function handleTogglePageCache() {
+        setTogglingPageCache(true);
+        const enabling = !pageCacheActive;
+        toast.info(enabling ? 'Enabling page cache...' : 'Disabling page cache...', { duration: 4000 });
+        try {
+            const res = enabling
+                ? await wordpressApi.enablePageCache(site.id)
+                : await wordpressApi.disablePageCache(site.id);
+            if (res.success === false) {
+                toast.error(res.error || 'Page cache change failed');
+            } else {
+                toast.success(res.message || (enabling ? 'Page cache enabled' : 'Page cache disabled'));
+                setPageCacheActive(enabling);
+            }
+        } catch (err) {
+            toast.error(err.message || 'Page cache change failed');
+        } finally {
+            setTogglingPageCache(false);
+        }
+    }
+
+    async function handleToggleObjectCache() {
+        setTogglingCache(true);
+        const enabling = !objectCache?.enabled;
+        toast.info(enabling ? 'Enabling Redis object cache...' : 'Disabling object cache...', { duration: 4000 });
+        try {
+            const res = enabling
+                ? await wordpressApi.enableObjectCache(site.id)
+                : await wordpressApi.disableObjectCache(site.id);
+            if (res.success === false) {
+                toast.error(res.error || 'Object cache change failed');
+            } else {
+                toast.success(res.message || (enabling ? 'Object cache enabled' : 'Object cache disabled'));
+                const fresh = await wordpressApi.getObjectCacheStatus(site.id).catch(() => null);
+                if (fresh) setObjectCache(fresh);
+            }
+        } catch (err) {
+            toast.error(err.message || 'Object cache change failed');
+        } finally {
+            setTogglingCache(false);
+        }
+    }
+
+    async function handleFlushCache() {
+        setFlushingCache(true);
+        toast.info('Flushing cache...', { duration: 2000 });
+        try {
+            const res = await wordpressApi.flushCache(site.id);
+            toast.success(res.message || 'Cache flushed');
+        } catch (err) {
+            toast.error(err.message || 'Failed to flush cache');
+        } finally {
+            setFlushingCache(false);
+        }
+    }
+
+    async function handleHarden() {
+        if (!window.confirm('Apply security hardening? This disables file editing, the XML-RPC endpoint, forces SSL on wp-admin, tightens file permissions, and regenerates security keys (logs users out).')) {
+            return;
+        }
+        setHardening(true);
+        toast.info('Applying security hardening...', { duration: 4000 });
+        try {
+            const res = await wordpressApi.harden(site.id);
+            toast.success(res.message || 'Security hardening applied');
+        } catch (err) {
+            toast.error(err.message || 'Failed to harden site');
+        } finally {
+            setHardening(false);
+        }
+    }
+
+    async function handleArchive() {
+        const ok = await confirm({
+            title: 'Archive Site',
+            message: `Stop and archive "${site.name}"? Containers are stopped but all files and the database are kept. You can unarchive it later.`,
+            confirmText: 'Archive',
+            variant: 'warning',
+        });
+        if (!ok) return;
+        setArchiving(true);
+        toast.info('Archiving site...', { duration: 3000 });
+        try {
+            await wordpressApi.archiveSite(site.id);
+            toast.success('Site archived');
+            onUpdate?.();
+        } catch (err) {
+            toast.error(err.message || 'Failed to archive site');
+        } finally {
+            setArchiving(false);
+        }
+    }
+
+    async function handleUnarchive() {
+        setArchiving(true);
+        toast.info('Unarchiving site...', { duration: 3000 });
+        try {
+            await wordpressApi.unarchiveSite(site.id);
+            toast.success('Site unarchived');
+            onUpdate?.();
+        } catch (err) {
+            toast.error(err.message || 'Failed to unarchive site');
+        } finally {
+            setArchiving(false);
+        }
+    }
+
+    async function handleDelete(createBackup) {
+        toast.info(createBackup ? 'Creating final backup and deleting site...' : 'Deleting site...', { duration: 5000 });
+        try {
+            await wordpressApi.deleteSite(site.id, { createBackup });
+            toast.success('Site deleted');
+            setShowDeleteModal(false);
+            navigate('/wordpress');
+        } catch (err) {
+            toast.error(err.message || 'Failed to delete site');
+        }
+    }
+
+    async function handleSearchReplace(data) {
+        // data = { search, replace, dry_run }
+        toast.info(data.dry_run ? 'Running search-replace preview...' : 'Running search-replace...', { duration: 3000 });
+        try {
+            const res = await wordpressApi.searchReplace(site.id, data);
+            if (res.success === false) {
+                toast.error(res.error || res.message || 'Search-replace failed');
+                return;
+            }
+            toast.success(data.dry_run ? 'Dry run complete - no changes written' : 'Search-replace complete');
+            if (!data.dry_run) setShowSearchReplace(false);
+        } catch (err) {
+            toast.error(err.message || 'Search-replace failed');
+        }
+    }
+
     return (
         <div className="app-overview-grid">
             <div className="app-overview-left">
@@ -303,7 +1782,24 @@ const OverviewTab = ({ site, onUpdate }) => {
                         <div className="app-info-grid">
                             <div className="app-info-item">
                                 <span className="app-info-label">WordPress Version</span>
-                                <span className="app-info-value">{site.wp_version || 'Unknown'}</span>
+                                <span className="app-info-value">
+                                    {wpInfo?.version || site.wp_version || 'Unknown'}
+                                    {wpInfo?.update_available && (
+                                        <>
+                                            <span className="wp-update-badge">
+                                                Update available{wpInfo.latest_version ? `: ${wpInfo.latest_version}` : ''}
+                                            </span>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleUpdateCore}
+                                                disabled={updatingCore}
+                                            >
+                                                {updatingCore ? 'Updating...' : 'Update'}
+                                            </Button>
+                                        </>
+                                    )}
+                                </span>
                             </div>
                             <div className="app-info-item">
                                 <span className="app-info-label">Multisite</span>
@@ -355,6 +1851,71 @@ const OverviewTab = ({ site, onUpdate }) => {
                     </div>
                 </div>
 
+                <div className="app-panel">
+                    <div className="app-panel-header">Site Health</div>
+                    <div className="app-panel-body">
+                        {healthLoading ? (
+                            <p className="hint">Checking site health...</p>
+                        ) : (
+                            <>
+                                <div className="app-info-grid">
+                                    <div className="app-info-item">
+                                        <span className="app-info-label">Status</span>
+                                        <span className="app-info-value app-health-stat">
+                                            <HealthDot status={health?.overall_status || site.health_status || 'unknown'} size={10} />
+                                            {(health?.overall_status || site.health_status || 'unknown').replace(/^./, c => c.toUpperCase())}
+                                        </span>
+                                    </div>
+                                    <div className="app-info-item">
+                                        <span className="app-info-label">WordPress Version</span>
+                                        <span className="app-info-value">{wpInfo?.version || site.wp_version || 'Unknown'}</span>
+                                    </div>
+                                    {site.application?.php_version && (
+                                        <div className="app-info-item">
+                                            <span className="app-info-label">PHP Version</span>
+                                            <span className="app-info-value">{site.application.php_version}</span>
+                                        </div>
+                                    )}
+                                    <div className="app-info-item">
+                                        <span className="app-info-label">Container</span>
+                                        <span className="app-info-value app-health-stat">
+                                            <HealthDot status={health?.checks?.container?.status || 'unknown'} size={8} />
+                                            {health?.checks?.container?.message || (site.status === 'running' ? 'Running' : 'Stopped')}
+                                        </span>
+                                    </div>
+                                    <div className="app-info-item">
+                                        <span className="app-info-label">Database</span>
+                                        <span className="app-info-value app-health-stat">
+                                            <HealthDot status={health?.checks?.mysql?.status || 'unknown'} size={8} />
+                                            {health?.checks?.mysql?.message || '-'}
+                                        </span>
+                                    </div>
+                                    <div className="app-info-item">
+                                        <span className="app-info-label">HTTP</span>
+                                        <span className="app-info-value app-health-stat">
+                                            <HealthDot status={health?.checks?.wordpress?.status || 'unknown'} size={8} />
+                                            {health?.checks?.wordpress?.message || '-'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {diskUsage ? (
+                                    <div className="app-health-disk">
+                                        <span className="app-info-label">Disk Usage</span>
+                                        <DiskUsageBar usage={diskUsage} />
+                                    </div>
+                                ) : (
+                                    <p className="hint">Disk usage unavailable.</p>
+                                )}
+
+                                {healthError && !health && (
+                                    <p className="hint">Live health checks unavailable for this site.</p>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+
                 {site.git_repo_url && (
                     <div className="app-panel">
                         <div className="app-panel-header">Git Integration</div>
@@ -382,6 +1943,46 @@ const OverviewTab = ({ site, onUpdate }) => {
                         </div>
                     </div>
                 )}
+                <SiteSSLPanel site={site} />
+
+                <div className="app-panel">
+                    <div className="app-panel-header">Danger Zone</div>
+                    <div className="app-panel-body">
+                        {site.status === 'archived' ? (
+                            <DangerZone
+                                title="Unarchive Site"
+                                description="Restart this site's containers and bring it back online."
+                                action={(
+                                    <Button variant="outline" onClick={handleUnarchive} disabled={archiving}>
+                                        <Archive size={16} />
+                                        {archiving ? 'Unarchiving...' : 'Unarchive'}
+                                    </Button>
+                                )}
+                            />
+                        ) : (
+                            <DangerZone
+                                title="Archive Site"
+                                description="Stop the containers but keep all files and the database. Reversible."
+                                action={(
+                                    <Button variant="outline" onClick={handleArchive} disabled={archiving}>
+                                        <Archive size={16} />
+                                        {archiving ? 'Archiving...' : 'Archive'}
+                                    </Button>
+                                )}
+                            />
+                        )}
+                        <DangerZone
+                            title="Delete Site"
+                            description="Permanently remove this site, all environments, files and databases. A final backup is taken by default."
+                            action={(
+                                <Button variant="destructive" onClick={() => setShowDeleteModal(true)}>
+                                    <Trash2 size={16} />
+                                    Delete Site
+                                </Button>
+                            )}
+                        />
+                    </div>
+                </div>
             </div>
 
             <div className="app-overview-right">
@@ -438,6 +2039,51 @@ const OverviewTab = ({ site, onUpdate }) => {
                                     {syncingAll ? 'Syncing...' : 'Sync All Envs'}
                                 </button>
                             )}
+                            <button
+                                className="quick-action-btn"
+                                onClick={handleFlushCache}
+                                disabled={flushingCache}
+                            >
+                                <Trash2 size={16} />
+                                {flushingCache ? 'Flushing...' : 'Purge Cache'}
+                            </button>
+                            <button
+                                className="quick-action-btn"
+                                onClick={handleTogglePageCache}
+                                disabled={togglingPageCache}
+                                title={pageCacheActive ? 'Full-page cache is active' : 'Enable a full-page cache for this site'}
+                            >
+                                <Zap size={16} />
+                                {togglingPageCache
+                                    ? 'Working...'
+                                    : (pageCacheActive ? 'Page Cache: On' : 'Enable Page Cache')}
+                            </button>
+                            <button
+                                className="quick-action-btn"
+                                onClick={() => setShowSearchReplace(true)}
+                            >
+                                <Replace size={16} />
+                                Search &amp; Replace
+                            </button>
+                            <button
+                                className="quick-action-btn"
+                                onClick={handleHarden}
+                                disabled={hardening}
+                            >
+                                <ShieldCheck size={16} />
+                                {hardening ? 'Hardening...' : 'Harden'}
+                            </button>
+                            <button
+                                className="quick-action-btn"
+                                onClick={handleToggleObjectCache}
+                                disabled={togglingCache}
+                                title={objectCache?.enabled ? 'Redis object cache is active' : 'Enable a Redis object cache for this site'}
+                            >
+                                <Database size={16} />
+                                {togglingCache
+                                    ? (objectCache?.enabled ? 'Disabling...' : 'Enabling...')
+                                    : (objectCache?.enabled ? 'Object Cache: On' : 'Enable Object Cache')}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -457,6 +2103,255 @@ const OverviewTab = ({ site, onUpdate }) => {
                     />
                 );
             })()}
+
+            {showSearchReplace && (
+                <SearchReplaceModal
+                    onClose={() => setShowSearchReplace(false)}
+                    onSubmit={handleSearchReplace}
+                />
+            )}
+
+            {showDeleteModal && (
+                <DeleteSiteModal
+                    siteName={site.name}
+                    onClose={() => setShowDeleteModal(false)}
+                    onConfirm={handleDelete}
+                />
+            )}
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmText={confirmState.confirmText}
+                cancelText={confirmState.cancelText}
+                variant={confirmState.variant}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+            />
+        </div>
+    );
+};
+
+// SSL Certificate panel — live status + issuance for the site's primary domain
+const SiteSSLPanel = ({ site }) => {
+    const toast = useToast();
+    const domains = site.application?.domains || [];
+    const primaryDomain = (domains.find(d => d.is_primary) || domains[0])?.name || null;
+    // localhost / private-IP / no-domain sites cannot get a public certificate.
+    const isPublicDomain = !!primaryDomain
+        && !/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(primaryDomain)
+        && primaryDomain.includes('.');
+    const [health, setHealth] = useState(null);
+    const [checking, setChecking] = useState(true);
+    const [issuing, setIssuing] = useState(false);
+
+    useEffect(() => {
+        if (!primaryDomain) { setChecking(false); return; }
+        let cancelled = false;
+        (async () => {
+            setChecking(true);
+            try {
+                const res = await api.getSSLHealth(primaryDomain);
+                if (!cancelled) setHealth(res);
+            } catch (err) {
+                if (!cancelled) setHealth({ valid: false, error: err.message });
+            } finally {
+                if (!cancelled) setChecking(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [primaryDomain]);
+
+    async function handleEnableSSL() {
+        if (!primaryDomain || !site.admin_email) return;
+        setIssuing(true);
+        toast.info(`Requesting certificate for ${primaryDomain}...`, { duration: 4000 });
+        try {
+            const res = await api.obtainCertificate({ domains: [primaryDomain], email: site.admin_email, use_nginx: true });
+            if (res.success) {
+                toast.success(res.message || 'Certificate issued');
+                const updated = await api.getSSLHealth(primaryDomain);
+                setHealth(updated);
+            } else {
+                toast.error(res.error || 'Certificate request failed');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Certificate request failed');
+        } finally {
+            setIssuing(false);
+        }
+    }
+
+    const issued = health?.valid;
+    return (
+        <div className="app-panel">
+            <div className="app-panel-header"><Lock size={16} /> SSL Certificate</div>
+            <div className="app-panel-body">
+                <div className="app-info-grid">
+                    <div className="app-info-item">
+                        <span className="app-info-label">Primary Domain</span>
+                        <span className="app-info-value mono">{primaryDomain || 'None configured'}</span>
+                    </div>
+                    <div className="app-info-item">
+                        <span className="app-info-label">Status</span>
+                        <span className={`app-status-badge ${issued ? 'running' : 'stopped'}`}>
+                            {checking ? 'Checking...' : issued ? `Active (${health.grade})` : 'Not Secured'}
+                        </span>
+                    </div>
+                    {issued && health.expires_at && (
+                        <div className="app-info-item">
+                            <span className="app-info-label">Expires</span>
+                            <span className="app-info-value">
+                                {new Date(health.expires_at).toLocaleDateString()}
+                                {typeof health.days_remaining === 'number' ? ` (${health.days_remaining}d)` : ''}
+                            </span>
+                        </div>
+                    )}
+                    {issued && health.issuer && (
+                        <div className="app-info-item">
+                            <span className="app-info-label">Issuer</span>
+                            <span className="app-info-value">{health.issuer}</span>
+                        </div>
+                    )}
+                </div>
+                {!isPublicDomain ? (
+                    <p className="hint">SSL requires a public domain pointed at this server. This site is on <code>{primaryDomain || 'localhost'}</code>, so a certificate cannot be issued here. Map a public domain to the site first.</p>
+                ) : !site.admin_email ? (
+                    <p className="hint">Set an admin email on the site before requesting a certificate.</p>
+                ) : (
+                    <Button onClick={handleEnableSSL} disabled={issuing} className="ssl-action-btn">
+                        <Lock size={14} /> {issuing ? 'Requesting...' : issued ? 'Re-issue Certificate' : 'Enable SSL'}
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Search & Replace Modal (DB string replacement, guarded by dry-run)
+const SearchReplaceModal = ({ onClose, onSubmit }) => {
+    const [search, setSearch] = useState('');
+    const [replace, setReplace] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    async function run(dryRun) {
+        if (!search.trim() || !replace.trim()) return;
+        setLoading(true);
+        try {
+            await onSubmit({ search: search.trim(), replace: replace.trim(), dry_run: dryRun });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Search &amp; Replace</h2>
+                    <button className="modal-close" onClick={onClose}>&times;</button>
+                </div>
+
+                <form onSubmit={(e) => { e.preventDefault(); run(false); }}>
+                    <p className="hint">Replaces a string across all database tables (e.g. an old domain). Always preview with a dry run first.</p>
+
+                    <div className="form-group">
+                        <Label>Search for *</Label>
+                        <Input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="https://old-domain.com"
+                            required
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <Label>Replace with *</Label>
+                        <Input
+                            type="text"
+                            value={replace}
+                            onChange={(e) => setReplace(e.target.value)}
+                            placeholder="https://new-domain.com"
+                            required
+                        />
+                    </div>
+
+                    <div className="modal-actions">
+                        <Button type="button" variant="outline" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button type="button" variant="outline" onClick={() => run(true)} disabled={loading || !search.trim() || !replace.trim()}>
+                            {loading ? 'Running...' : 'Dry Run'}
+                        </Button>
+                        <Button type="submit" disabled={loading || !search.trim() || !replace.trim()}>
+                            {loading ? 'Running...' : 'Run Replace'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// Delete Site Modal (typed confirmation + optional final backup)
+const DeleteSiteModal = ({ siteName, onClose, onConfirm }) => {
+    const [createBackup, setCreateBackup] = useState(true);
+    const [typed, setTyped] = useState('');
+    const [loading, setLoading] = useState(false);
+    const canDelete = typed.trim() === siteName;
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        if (!canDelete) return;
+        setLoading(true);
+        try {
+            await onConfirm(createBackup);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Delete Site</h2>
+                    <button className="modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <form onSubmit={handleSubmit}>
+                    <p className="hint">This permanently deletes <strong>{siteName}</strong>, all its environments, files and databases. This cannot be undone.</p>
+                    <div className="form-group">
+                        <label className="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={createBackup}
+                                onChange={(e) => setCreateBackup(e.target.checked)}
+                            />
+                            <span>Create a final files + database backup before deleting</span>
+                        </label>
+                    </div>
+                    <div className="form-group">
+                        <Label>Type <strong>{siteName}</strong> to confirm *</Label>
+                        <Input
+                            type="text"
+                            value={typed}
+                            onChange={(e) => setTyped(e.target.value)}
+                            placeholder={siteName}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="modal-actions">
+                        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" variant="destructive" disabled={loading || !canDelete}>
+                            {loading ? 'Deleting...' : 'Delete Site'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 };
@@ -631,10 +2526,11 @@ const EnvironmentsTab = ({ siteId, site, onUpdate }) => {
             </div>
 
             {childEnvs.length === 0 && site.is_production && (
-                <div className="hint-box">
-                    <p>No development or staging environments yet.</p>
-                    <p>Create an environment to safely test changes before deploying to production.</p>
-                </div>
+                <EmptyState
+                    icon={Layers}
+                    title="No development or staging environments yet"
+                    description="Create an environment to test changes safely before deploying to production."
+                />
             )}
 
             {showCreateModal && (
@@ -1011,6 +2907,7 @@ const PluginsTab = ({ siteId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [installing, setInstalling] = useState(false);
+    const [updating, setUpdating] = useState(null); // plugin name being updated, or 'all'
     const [newPlugin, setNewPlugin] = useState('');
 
     useEffect(() => {
@@ -1045,6 +2942,24 @@ const PluginsTab = ({ siteId }) => {
             toast.error(err.message || 'Failed to install plugin');
         } finally {
             setInstalling(false);
+        }
+    }
+
+    async function handleUpdate(pluginName) {
+        setUpdating(pluginName || 'all');
+        toast.info(pluginName ? `Updating ${pluginName}...` : 'Updating all plugins...', { duration: 4000 });
+        try {
+            const res = await wordpressApi.updatePlugins(siteId, pluginName ? [pluginName] : undefined);
+            if (res.success === false) {
+                toast.error(res.error || 'Plugin update failed');
+                return;
+            }
+            toast.success(res.message || 'Plugins updated');
+            loadPlugins();
+        } catch (err) {
+            toast.error(err.message || 'Plugin update failed');
+        } finally {
+            setUpdating(null);
         }
     }
 
@@ -1092,19 +3007,50 @@ const PluginsTab = ({ siteId }) => {
                 </Button>
             </form>
 
+            {plugins.some(p => p.update === 'available') && (
+                <div className="bulk-update-bar">
+                    <span>{plugins.filter(p => p.update === 'available').length} plugin update(s) available</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdate(null)}
+                        disabled={updating !== null}
+                    >
+                        {updating === 'all' ? 'Updating...' : 'Update all'}
+                    </Button>
+                </div>
+            )}
+
             <div className="plugins-list">
                 {plugins.length === 0 ? (
-                    <p className="hint">No plugins installed.</p>
+                    <EmptyState icon={Package} title="No plugins installed" description="Install a plugin by entering its slug above." />
                 ) : (
                     plugins.map(plugin => (
                         <div key={plugin.name} className={`plugin-item ${plugin.status === 'active' ? 'active' : ''}`}>
                             <div className="plugin-info">
                                 <span className="plugin-name">{plugin.title || plugin.name}</span>
                                 <span className="plugin-version">{plugin.version}</span>
+                                {plugin.update === 'available' && (
+                                    <span className="wp-update-badge">
+                                        Update{plugin.update_version ? `: ${plugin.update_version}` : ''}
+                                    </span>
+                                )}
                             </div>
-                            <span className={`plugin-status ${plugin.status}`}>
-                                {plugin.status === 'active' ? 'Active' : 'Inactive'}
-                            </span>
+                            <div className="plugin-actions">
+                                {plugin.update === 'available' && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleUpdate(plugin.name)}
+                                        disabled={updating !== null}
+                                    >
+                                        {updating === plugin.name ? 'Updating...' : 'Update'}
+                                    </Button>
+                                )}
+                                <span className={`plugin-status ${plugin.status}`}>
+                                    {plugin.status === 'active' ? 'Active' : 'Inactive'}
+                                </span>
+                            </div>
                         </div>
                     ))
                 )}
@@ -1120,6 +3066,7 @@ const ThemesTab = ({ siteId }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [installing, setInstalling] = useState(false);
+    const [updating, setUpdating] = useState(null); // theme name being updated, or 'all'
     const [newTheme, setNewTheme] = useState('');
 
     useEffect(() => {
@@ -1154,6 +3101,24 @@ const ThemesTab = ({ siteId }) => {
             toast.error(err.message || 'Failed to install theme');
         } finally {
             setInstalling(false);
+        }
+    }
+
+    async function handleUpdate(themeName) {
+        setUpdating(themeName || 'all');
+        toast.info(themeName ? `Updating ${themeName}...` : 'Updating all themes...', { duration: 4000 });
+        try {
+            const res = await wordpressApi.updateThemes(siteId, themeName ? [themeName] : undefined);
+            if (res.success === false) {
+                toast.error(res.error || 'Theme update failed');
+                return;
+            }
+            toast.success(res.message || 'Themes updated');
+            loadThemes();
+        } catch (err) {
+            toast.error(err.message || 'Theme update failed');
+        } finally {
+            setUpdating(null);
         }
     }
 
@@ -1201,19 +3166,50 @@ const ThemesTab = ({ siteId }) => {
                 </Button>
             </form>
 
+            {themes.some(t => t.update === 'available') && (
+                <div className="bulk-update-bar">
+                    <span>{themes.filter(t => t.update === 'available').length} theme update(s) available</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdate(null)}
+                        disabled={updating !== null}
+                    >
+                        {updating === 'all' ? 'Updating...' : 'Update all'}
+                    </Button>
+                </div>
+            )}
+
             <div className="themes-list">
                 {themes.length === 0 ? (
-                    <p className="hint">No themes found.</p>
+                    <EmptyState icon={Palette} title="No themes installed" description="Install a theme by entering its slug above." />
                 ) : (
                     themes.map(theme => (
                         <div key={theme.name} className={`theme-item ${theme.status === 'active' ? 'active' : ''}`}>
                             <div className="theme-info">
                                 <span className="theme-name">{theme.title || theme.name}</span>
                                 <span className="theme-version">{theme.version}</span>
+                                {theme.update === 'available' && (
+                                    <span className="wp-update-badge">
+                                        Update{theme.update_version ? `: ${theme.update_version}` : ''}
+                                    </span>
+                                )}
                             </div>
-                            {theme.status === 'active' && (
-                                <span className="active-badge">Active</span>
-                            )}
+                            <div className="theme-actions">
+                                {theme.update === 'available' && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleUpdate(theme.name)}
+                                        disabled={updating !== null}
+                                    >
+                                        {updating === theme.name ? 'Updating...' : 'Update'}
+                                    </Button>
+                                )}
+                                {theme.status === 'active' && (
+                                    <span className="active-badge">Active</span>
+                                )}
+                            </div>
                         </div>
                     ))
                 )}
@@ -1411,9 +3407,11 @@ const BackupsTab = ({ siteId }) => {
             />
 
             {snapshots.length === 0 && !loading && (
-                <div className="hint-box">
-                    <p>No backups yet. Create a backup to protect your site data.</p>
-                </div>
+                <EmptyState
+                    icon={Archive}
+                    title="No backups yet"
+                    description="Create a backup to protect your site files and database."
+                />
             )}
         </div>
     );

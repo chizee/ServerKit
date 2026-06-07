@@ -184,6 +184,12 @@ export async function getDockerDatabases() {
     return this.request('/databases/docker');
 }
 
+// Flat list of databases discovered across all Docker apps, tagged with engine
+// + owning app — used to surface containerised DBs under their engine node.
+export async function getAllDockerDatabases() {
+    return this.request('/databases/docker/databases');
+}
+
 export async function getAppDatabases(appId) {
     return this.request(`/databases/docker/app/${appId}`);
 }
@@ -193,16 +199,17 @@ export async function getDockerContainerDatabases(container, password = null) {
     return this.request(`/databases/docker/${container}/databases`, { headers });
 }
 
-export async function getDockerDatabaseTables(container, database, password = null) {
+export async function getDockerDatabaseTables(container, database, password = null, user = null) {
     const headers = password ? { 'X-DB-Password': password } : {};
-    return this.request(`/databases/docker/${container}/${database}/tables`, { headers });
+    const params = user ? `?user=${encodeURIComponent(user)}` : '';
+    return this.request(`/databases/docker/${container}/${database}/tables${params}`, { headers });
 }
 
-export async function executeDockerQuery(container, database, query, password = null, readonly = true) {
+export async function executeDockerQuery(container, database, query, password = null, readonly = true, user = null) {
     const headers = password ? { 'X-DB-Password': password } : {};
     return this.request(`/databases/docker/${container}/${database}/query`, {
         method: 'POST',
-        body: { query, readonly, password },
+        body: { query, readonly, password, user },
         headers
     });
 }

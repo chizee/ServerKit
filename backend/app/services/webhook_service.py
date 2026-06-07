@@ -316,6 +316,35 @@ class WebhookService:
         return {'success': True, 'message': f'Event {event_type} ignored', 'action': 'ignored'}
 
     @classmethod
+    def _normalize_repo_url(cls, url: str) -> str:
+        """Normalize a git repo URL for matching (scheme/.git/case/creds agnostic).
+
+        Maps both 'git@github.com:owner/repo.git' and
+        'https://github.com/owner/repo' to 'github.com/owner/repo'.
+        """
+        if not url:
+            return ''
+        u = url.strip()
+        # Strip scheme: https://, http://, ssh://, git://
+        for scheme in ('https://', 'http://', 'ssh://', 'git://'):
+            if u.lower().startswith(scheme):
+                u = u[len(scheme):]
+                break
+        else:
+            # SCP-like syntax: git@host:owner/repo(.git) -> host/owner/repo
+            if u.startswith('git@') or ('@' in u.split('/')[0] and ':' in u.split('/')[0]):
+                u = u.split('@', 1)[1] if '@' in u else u
+                u = u.replace(':', '/', 1)
+        # Strip embedded credentials user:pass@host
+        if '@' in u.split('/')[0]:
+            u = u.split('@', 1)[1]
+        # Drop trailing slash and .git suffix
+        u = u.rstrip('/')
+        if u.lower().endswith('.git'):
+            u = u[:-4]
+        return u.lower()
+
+    @classmethod
     def _verify_signature(cls, webhook, source: str, signature: str, payload: bytes) -> bool:
         """Verify the webhook signature based on source."""
         if not signature:
@@ -385,6 +414,38 @@ class WebhookService:
 
         # Extract branch name from ref (refs/heads/main -> main)
         pushed_branch = ref.replace('refs/heads/', '') if ref.startswith('refs/heads/') else ref
+
+        # --- WordPress site auto-deploy fan-out (Roadmap #13) ---
+        # Independent of this webhook's own app/branch config: deploy any
+        # WordPressSite whose connected repo+branch matches the push.
+        try:
+            from app.models.wordpress_site import WordPressSite
+            from app.services.git_wordpress_service import GitWordPressService
+
+            pushed_norm = cls._normalize_repo_url(webhook.source_repo_url)
+            wp_deployed = 0
+            wp_sites = WordPressSite.query.filter_by(auto_deploy=True).all()
+            for wp_site in wp_sites:
+                if not wp_site.git_repo_url:
+                    continue
+                if cls._normalize_repo_url(wp_site.git_repo_url) != pushed_norm:
+                    continue
+                if (wp_site.git_branch or 'main') != pushed_branch:
+                    continue
+                wp_result = GitWordPressService.deploy_from_commit(
+                    site_id=wp_site.id,
+                    commit_sha=log.commit_sha,
+                    branch=pushed_branch,
+                    create_snapshot=True,
+                )
+                if wp_result.get('success'):
+                    wp_deployed += 1
+            if wp_deployed:
+                suffix = f' | WordPress sites deployed: {wp_deployed}'
+                log.status_message = (log.status_message or '') + suffix
+        except Exception:
+            pass  # WordPress fan-out is best-effort; never break the webhook
+        # --- end WordPress fan-out ---
 
         if pushed_branch != configured_branch:
             log.status = 'ignored'

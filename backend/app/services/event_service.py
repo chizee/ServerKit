@@ -53,6 +53,15 @@ EVENT_CATALOG = [
     {'type': 'domain.deleted', 'category': 'Domains', 'description': 'A domain was deleted'},
     {'type': 'api_key.created', 'category': 'API', 'description': 'An API key was created'},
     {'type': 'api_key.revoked', 'category': 'API', 'description': 'An API key was revoked'},
+    {'type': 'wordpress.site_down', 'category': 'WordPress', 'description': 'A WordPress site failed its health check'},
+    {'type': 'wordpress.site_up', 'category': 'WordPress', 'description': 'A WordPress site recovered after a failed health check'},
+    {'type': 'wordpress.created', 'category': 'WordPress', 'description': 'A WordPress site was created'},
+    {'type': 'wordpress.deleted', 'category': 'WordPress', 'description': 'A WordPress site was deleted'},
+    {'type': 'wordpress.backup_completed', 'category': 'WordPress', 'description': 'A WordPress site backup/snapshot completed'},
+    {'type': 'wordpress.updated', 'category': 'WordPress', 'description': 'A WordPress safe-update completed'},
+    {'type': 'wordpress.update_rolled_back', 'category': 'WordPress', 'description': 'A WordPress update was auto-rolled-back'},
+    {'type': 'wordpress.deployed', 'category': 'WordPress', 'description': 'A WordPress git deploy completed'},
+    {'type': 'wordpress.deploy_failed', 'category': 'WordPress', 'description': 'A WordPress git deploy failed'},
 ]
 
 
@@ -63,6 +72,22 @@ class EventService:
     def get_available_events():
         """Return the event catalog."""
         return EVENT_CATALOG
+
+    @staticmethod
+    def emit_wp(event_type, site, **extra):
+        """Emit a wordpress.* lifecycle event with a standard payload derived from a
+        WordPressSite. Best-effort — never raises into the caller (so emitting an
+        event can never break the WP operation that triggered it)."""
+        try:
+            payload = {'event': event_type, 'timestamp': datetime.utcnow().isoformat()}
+            if site is not None:
+                payload['site_id'] = getattr(site, 'id', None)
+                app = getattr(site, 'application', None)
+                payload['site_name'] = app.name if app else f'site {getattr(site, "id", "?")}'
+            payload.update(extra)
+            EventService.emit(event_type, payload)
+        except Exception as e:
+            logger.error(f'Failed to emit {event_type}: {e}')
 
     @staticmethod
     def emit(event_type, payload, user_id=None):

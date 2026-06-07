@@ -151,6 +151,44 @@
     padding: $space-4;
 }
 
+// Site tags / labels (chips + filter bar)
+.wp-tag-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-2;
+    margin: 0 $space-4 $space-4;
+}
+
+.wp-site-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-1;
+    margin-top: $space-3;
+}
+
+.wp-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    font-size: $font-size-xs;
+    line-height: 1.4;
+    border-radius: $radius-full;
+    background: $bg-tertiary;
+    color: $text-secondary;
+    border: 1px solid $border-subtle;
+
+    &--filter {
+        cursor: pointer;
+        background: $bg-card;
+
+        &.is-active {
+            background: $color-primary;
+            color: #fff;
+            border-color: $color-primary;
+        }
+    }
+}
+
 // Site Card
 .wp-site-card {
     background: $bg-card;
@@ -176,7 +214,7 @@
 .wp-site-icon {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, $color-wordpress 0%, #1a5f7f 100%);
+    background: $color-wordpress;
     border-radius: $radius-md;
     display: flex;
     align-items: center;
@@ -340,7 +378,7 @@
 // WordPress Detail Page
 .wp-detail-page {
     .wp-icon {
-        background: linear-gradient(135deg, $color-wordpress 0%, #1a5f7f 100%) !important;
+        background: $color-wordpress !important;
     }
 }
 
@@ -358,8 +396,7 @@
     border-radius: $radius-lg;
 
     &.production {
-        border-color: fade($color-danger, 30%);
-        border-left: 3px solid $color-danger;
+        border-color: fade($color-danger, 45%);
     }
 
     &.stale {
@@ -1303,6 +1340,47 @@
     text-align: center;
 }
 
+// ---- Monthly client reports (#33) ----
+.wp-report-month-list {
+    flex-wrap: wrap;
+    margin-top: $space-3;
+}
+
+.wp-report-actions {
+    margin-left: auto;
+    display: inline-flex;
+    gap: $space-2;
+}
+
+// Print isolation: when the report's "Print" button toggles
+// `body.wp-report-printing`, hide all app chrome and lay out only the report.
+// Uses the classic visibility trick so it doesn't depend on enumerating every
+// layout class, and only applies inside @media print so the screen is untouched.
+@media print {
+    body.wp-report-printing {
+        * {
+            visibility: hidden !important;
+        }
+
+        .wp-report-printable,
+        .wp-report-printable * {
+            visibility: visible !important;
+        }
+
+        .wp-report-printable {
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        .wp-report-no-print {
+            display: none !important;
+        }
+    }
+}
+
 .resource-gate-icon {
     display: inline-flex;
     align-items: center;
@@ -1495,4 +1573,54 @@
             background: fade($color-success, 10%);
         }
     }
+}
+
+// One-time admin credentials banner (after site create)
+.wp-creds-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+    margin: 0 $space-4 $space-4;
+    padding: $space-4;
+    background: fade($color-success, 8%);
+    border: 1px solid fade($color-success, 25%);
+    border-radius: $radius-md;
+
+    .wp-creds-banner-text {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+        font-size: $font-size-sm;
+
+        code {
+            font-family: $font-family-mono;
+            background: $bg-tertiary;
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+    }
+}
+
+// ============================================
+// SITE HEALTH + SSL PANEL HELPERS (Overview tab)
+// ============================================
+
+.app-health-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+}
+
+.app-health-disk {
+    margin-top: $space-4;
+
+    .app-info-label {
+        display: block;
+        margin-bottom: $space-2;
+    }
+}
+
+.ssl-action-btn {
+    margin-top: $space-3;
 }

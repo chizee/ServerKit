@@ -17,6 +17,8 @@ import GunicornTab from '../components/service-detail/GunicornTab';
 import CommandsTab from '../components/service-detail/CommandsTab';
 import GitConnectModal from '../components/service-detail/GitConnectModal';
 import OverviewTab from '../components/service-detail/OverviewTab';
+import EmptyState from '../components/EmptyState';
+import { Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const TAB_LABELS = {
@@ -124,18 +126,17 @@ const ServiceDetail = () => {
     }
 
     if (loading) {
-        return <div className="loading">Loading service...</div>;
+        return <EmptyState loading title="Loading service" />;
     }
 
     if (error || !service) {
         return (
-            <div className="empty-state">
-                <h3>Service not found</h3>
-                <p>{error || 'The service you are looking for does not exist.'}</p>
-                <Button onClick={() => navigate('/services')}>
-                    Back to Services
-                </Button>
-            </div>
+            <EmptyState
+                icon={Layers}
+                title="Service not found"
+                description={error || 'The service you are looking for does not exist.'}
+                action={<Button onClick={() => navigate('/services')}>Back to Services</Button>}
+            />
         );
     }
 

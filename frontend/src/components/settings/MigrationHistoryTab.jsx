@@ -1,26 +1,96 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
-import { Database, Loader, CheckCircle, ArrowUpCircle } from 'lucide-react';
+import { Database, Loader, CheckCircle, ArrowUpCircle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../hooks/useConfirm';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+
+// Revisions in this project are short descriptive slugs (e.g. 016_resource_grants),
+// so show them in full rather than truncating mid-word.
+const short = (rev) => rev || '';
 
 const MigrationHistoryTab = () => {
+    const toast = useToast();
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+
     const [revisions, setRevisions] = useState([]);
+    const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [applying, setApplying] = useState(false);
+    const [backupFirst, setBackupFirst] = useState(true);
 
-    useEffect(() => {
-        loadHistory();
-    }, []);
-
-    async function loadHistory() {
+    const load = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getMigrationHistory();
-            setRevisions(data.revisions || []);
+            setError(null);
+            const [hist, stat] = await Promise.all([
+                api.getMigrationHistory(),
+                api.getMigrationStatus(),
+            ]);
+            setRevisions(hist.revisions || []);
+            setStatus(stat);
         } catch (err) {
             setError(err.message || 'Failed to load migration history');
         } finally {
             setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    // History is returned oldest -> newest along a linear chain. Everything after
+    // the applied (current) revision is unapplied, through head. status.pending_count
+    // is computed once at boot and can be stale, so trust the ordered history.
+    const currentIdx = revisions.findIndex((r) => r.is_current);
+    const pending = currentIdx >= 0 ? revisions.slice(currentIdx + 1) : revisions.slice();
+    const pendingIds = new Set(pending.map((r) => r.revision));
+    const hasPending = pending.length > 0;
+
+    const currentRev = status?.current_revision;
+    const headRev = status?.head_revision;
+    const count = pending.length;
+    const plural = count === 1 ? '' : 's';
+
+    // The DB records a revision that no longer exists in the migration scripts
+    // (renamed during development). The schema is already in sync, so applying
+    // re-stamps the version pointer rather than running DDL.
+    const orphaned = Boolean(currentRev) && currentIdx === -1 && revisions.length > 0;
+
+    async function runMigrations() {
+        const ok = await confirm({
+            title: orphaned ? 'Re-sync database version?' : `Apply ${count} migration${plural}?`,
+            message: orphaned
+                ? `Your schema already matches ${short(headRev) || 'head'}; this repairs the version pointer${backupFirst ? ' after creating a backup' : ' (no backup will be created)'}.`
+                : backupFirst
+                    ? `A database backup is created first, then the schema is upgraded from ${short(currentRev) || 'none'} to ${short(headRev) || 'head'}.`
+                    : `The schema is upgraded from ${short(currentRev) || 'none'} to ${short(headRev) || 'head'}. No backup will be created.`,
+            confirmText: orphaned ? 'Re-sync database' : `Apply migration${plural}`,
+            cancelText: 'Cancel',
+            variant: 'warning',
+        });
+        if (!ok) return;
+
+        setApplying(true);
+        try {
+            if (backupFirst) {
+                try {
+                    const b = await api.createMigrationBackup();
+                    const name = b?.path ? b.path.split(/[\\/]/).pop() : null;
+                    toast.success(name ? `Database backed up (${name})` : 'Database backed up');
+                } catch (err) {
+                    toast.error(`Backup failed: ${err.message || 'unknown error'} — migrations not applied`);
+                    return;
+                }
+            }
+            const res = await api.applyMigrations();
+            toast.success(`Migrations applied — now at ${short(res?.revision || headRev)}`);
+            await load();
+        } catch (err) {
+            toast.error(`Migration failed: ${err.message || 'unknown error'}`);
+        } finally {
+            setApplying(false);
         }
     }
 
@@ -50,9 +120,66 @@ const MigrationHistoryTab = () => {
             <div className="settings-section-header">
                 <h2>Database Migrations</h2>
                 <p className="settings-section-description">
-                    History of all database schema versions applied to this instance.
+                    Schema versions applied to this instance. Apply pending updates after upgrading ServerKit.
                 </p>
             </div>
+
+            {hasPending ? (
+                <div className="migration-pending-banner">
+                    <ArrowUpCircle size={20} className="migration-pending-icon" aria-hidden="true" />
+                    <div className="migration-pending-body">
+                        <p className="migration-pending-title">
+                            {orphaned ? 'Database version needs repair' : `${count} migration${plural} pending`}
+                        </p>
+                        <p className="migration-pending-desc">
+                            {orphaned ? (
+                                <>
+                                    Recorded version <code>{short(currentRev)}</code> isn’t in the migration
+                                    history (it was renamed). Your schema already matches{' '}
+                                    <code>{short(headRev) || 'head'}</code> — re-sync to repair the version pointer.
+                                </>
+                            ) : (
+                                <>
+                                    Your database is at <code>{short(currentRev) || 'none'}</code>, latest is{' '}
+                                    <code>{short(headRev) || 'unknown'}</code>. Apply to bring the schema up to date.
+                                </>
+                            )}
+                        </p>
+                        <div className="migration-pending-actions">
+                            <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                onClick={runMigrations}
+                                disabled={applying}
+                            >
+                                {applying ? (
+                                    <><Loader size={14} className="spin" /> {orphaned ? 'Repairing…' : 'Applying…'}</>
+                                ) : orphaned ? (
+                                    <><Database size={14} /> Re-sync database</>
+                                ) : (
+                                    <><Database size={14} /> Apply {count} migration{plural}</>
+                                )}
+                            </button>
+                            <label className="migration-backup-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={backupFirst}
+                                    onChange={(e) => setBackupFirst(e.target.checked)}
+                                    disabled={applying}
+                                />
+                                Back up database first
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                revisions.length > 0 && (
+                    <div className="migration-uptodate">
+                        <ShieldCheck size={16} aria-hidden="true" />
+                        Schema is up to date{currentRev && <> — revision <code>{short(currentRev)}</code></>}.
+                    </div>
+                )
+            )}
 
             {revisions.length === 0 ? (
                 <div className="empty-state">
@@ -73,21 +200,19 @@ const MigrationHistoryTab = () => {
                             {revisions.map((rev, i) => (
                                 <tr key={i}>
                                     <td>
-                                        <code>{rev.revision.substring(0, 16)}</code>
+                                        <code>{short(rev.revision)}</code>
                                     </td>
                                     <td>{rev.description || 'Schema update'}</td>
                                     <td>
-                                        {rev.is_current && (
+                                        {rev.is_current ? (
                                             <Badge variant="success">
                                                 <CheckCircle size={12} /> Current
                                             </Badge>
-                                        )}
-                                        {rev.is_head && !rev.is_current && (
+                                        ) : pendingIds.has(rev.revision) ? (
                                             <Badge variant="warning">
                                                 <ArrowUpCircle size={12} /> Pending
                                             </Badge>
-                                        )}
-                                        {!rev.is_current && !rev.is_head && (
+                                        ) : (
                                             <Badge variant="secondary">Applied</Badge>
                                         )}
                                     </td>
@@ -97,6 +222,17 @@ const MigrationHistoryTab = () => {
                     </table>
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                title={confirmState.title}
+                message={confirmState.message}
+                confirmText={confirmState.confirmText}
+                cancelText={confirmState.cancelText}
+                variant={confirmState.variant}
+                onConfirm={handleConfirm}
+                onCancel={handleCancel}
+            />
         </div>
     );
 };

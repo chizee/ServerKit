@@ -93,7 +93,7 @@ def link_apps(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json()
@@ -114,7 +114,7 @@ def link_apps(app_id):
     if not target_app:
         return jsonify({'error': 'Target application not found'}), 404
 
-    if user.role != 'admin' and target_app.user_id != current_user_id:
+    if not _can_edit_app(user, target_app):
         return jsonify({'error': 'Access denied to target application'}), 403
 
     if app.app_type != target_app.app_type:
@@ -192,7 +192,7 @@ def get_linked_apps(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     linked_apps = []
@@ -239,7 +239,7 @@ def unlink_apps(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     if not app.linked_app_id:
@@ -276,7 +276,7 @@ def update_environment(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json()
@@ -311,10 +311,15 @@ def get_apps():
     environment_filter = request.args.get('environment')
     include_linked = request.args.get('include_linked', 'false').lower() == 'true'
 
-    if user.role == 'admin':
-        query = Application.query
-    else:
-        query = Application.query.filter_by(user_id=current_user_id)
+    # Workspace-aware scoping (#33). With no workspace context this is exactly the
+    # prior behavior (admin -> all, else -> own); with ?workspace_id / X-Workspace-Id
+    # it filters to that workspace (membership-checked).
+    from app.services.workspace_service import WorkspaceService
+    ws_id = WorkspaceService.resolve_workspace_id(
+        user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
+    query = WorkspaceService.scope_query(Application.query, Application, user,
+                                         workspace_id=ws_id, owner_attr='user_id',
+                                         grant_resource_type='application')
 
     if environment_filter:
         query = query.filter_by(environment_type=environment_filter)
@@ -330,21 +335,124 @@ def get_apps():
     }), 200
 
 
+@apps_bp.route('/<int:app_id>/workspace', methods=['PUT'])
+@jwt_required()
+def set_app_workspace(app_id):
+    """Reassign an application to a workspace (#33). Owner-or-admin on the app;
+    the target must be a workspace the caller can access (member or admin). A
+    null/'default' target moves it back to the default workspace."""
+    from app.models.workspace import Workspace
+    from app.services.workspace_service import WorkspaceService
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    # Use user.id (int) for comparisons — get_jwt_identity() is the stringified token id.
+    if user.role != 'admin' and app.user_id != user.id:
+        return jsonify({'error': 'Access denied'}), 403
+
+    target = (request.get_json() or {}).get('workspace_id')
+    if target in (None, '', 'default'):
+        ws_id = WorkspaceService.ensure_default_workspace().id
+    else:
+        ws = Workspace.query.get(target)
+        if not ws:
+            return jsonify({'error': 'Workspace not found'}), 404
+        if user.role != 'admin' and WorkspaceService.get_user_role(ws.id, user.id) is None:
+            return jsonify({'error': 'Not a member of the target workspace'}), 403
+        ws_id = ws.id
+
+    app.workspace_id = ws_id
+    db.session.commit()
+    return jsonify({'message': 'Workspace updated', 'app': app.to_dict()}), 200
+
+
+def _can_access_app(user, app):
+    """Read access (#33 ACL) — delegates to the shared seam."""
+    from app.services.resource_grant_service import ResourceGrantService
+    return ResourceGrantService.can_access_app(user, app)
+
+
+def _can_edit_app(user, app):
+    """Write/operate access (#33 ACL) — delegates to the shared seam."""
+    from app.services.resource_grant_service import ResourceGrantService
+    return ResourceGrantService.can_edit_app(user, app)
+
+
 @apps_bp.route('/<int:app_id>', methods=['GET'])
 @jwt_required()
 def get_app(app_id):
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+    user = User.query.get(get_jwt_identity())
     app = Application.query.get(app_id)
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Single app requests include linked app info by default
     return jsonify({'app': _attach_deploy_config(app.to_dict(include_linked=True))}), 200
+
+
+# ---- Per-resource access grants (#33 per-site ACL): share an app with a user ----
+
+@apps_bp.route('/<int:app_id>/grants', methods=['GET'])
+@jwt_required()
+def list_app_grants(app_id):
+    """List who has been granted access to this app (owner-or-admin)."""
+    from app.services.resource_grant_service import ResourceGrantService
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != user.id:
+        return jsonify({'error': 'Access denied'}), 403
+    grants = ResourceGrantService.list_for_resource('application', app.id)
+    return jsonify({'grants': [g.to_dict() for g in grants]}), 200
+
+
+@apps_bp.route('/<int:app_id>/grants', methods=['POST'])
+@jwt_required()
+def grant_app_access(app_id):
+    """Grant a user access to this app (owner-or-admin). Body: {user_id, role?}."""
+    from app.services.resource_grant_service import ResourceGrantService
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != user.id:
+        return jsonify({'error': 'Access denied'}), 403
+    data = request.get_json() or {}
+    grantee_id = data.get('user_id')
+    if not grantee_id:
+        return jsonify({'error': 'user_id is required'}), 400
+    grantee = User.query.get(grantee_id)
+    if not grantee:
+        return jsonify({'error': 'User not found'}), 404
+    if grantee.id == app.user_id:
+        return jsonify({'error': 'The owner already has access'}), 400
+    role = data.get('role') or 'editor'
+    if role not in ('viewer', 'editor'):
+        return jsonify({'error': "role must be 'viewer' or 'editor'"}), 400
+    grant = ResourceGrantService.grant(user_id=grantee.id, resource_type='application',
+                                       resource_id=app.id, granted_by=user.id, role=role)
+    return jsonify({'grant': grant.to_dict()}), 201
+
+
+@apps_bp.route('/<int:app_id>/grants/<int:grant_id>', methods=['DELETE'])
+@jwt_required()
+def revoke_app_access(app_id, grant_id):
+    """Revoke a grant on this app (owner-or-admin)."""
+    from app.services.resource_grant_service import ResourceGrantService
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if user.role != 'admin' and app.user_id != user.id:
+        return jsonify({'error': 'Access denied'}), 403
+    ok = ResourceGrantService.revoke(grant_id, resource_type='application', resource_id=app.id)
+    return jsonify({'success': ok}), (200 if ok else 404)
 
 
 @apps_bp.route('/from-repository', methods=['POST'])
@@ -530,6 +638,14 @@ def create_app():
     if app_type not in valid_types:
         return jsonify({'error': f'Invalid app_type. Must be one of: {", ".join(valid_types)}'}), 400
 
+    # Stamp the workspace (#33): the requested one (membership-checked) or the default.
+    from app.services.workspace_service import WorkspaceService
+    user = User.query.get(current_user_id)
+    ws_id = WorkspaceService.resolve_workspace_id(
+        user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
+    if ws_id is None:
+        ws_id = WorkspaceService.ensure_default_workspace().id
+
     app = Application(
         name=name,
         app_type=app_type,
@@ -539,7 +655,8 @@ def create_app():
         port=data.get('port'),
         root_path=data.get('root_path'),
         docker_image=data.get('docker_image'),
-        user_id=current_user_id
+        user_id=current_user_id,
+        workspace_id=ws_id
     )
 
     db.session.add(app)
@@ -561,7 +678,7 @@ def update_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json()
@@ -602,7 +719,7 @@ def delete_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
 
     cleanup_results = {
@@ -657,7 +774,7 @@ def start_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Handle Docker apps
@@ -693,7 +810,7 @@ def stop_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Handle Docker apps
@@ -728,7 +845,7 @@ def restart_app(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Handle Docker apps
@@ -764,7 +881,7 @@ def get_app_logs(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     lines = request.args.get('lines', 100, type=int)
@@ -819,7 +936,7 @@ def get_container_logs(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     # Parse query parameters
@@ -924,7 +1041,7 @@ def get_app_containers(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     containers = DockerService.get_all_app_containers(app)
@@ -947,7 +1064,7 @@ def get_app_status(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
-    if user.role != 'admin' and app.user_id != current_user_id:
+    if not _can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
     if app.app_type == 'docker' and app.root_path:

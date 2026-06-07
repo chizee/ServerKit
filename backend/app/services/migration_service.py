@@ -170,9 +170,21 @@ class MigrationService:
 
     @classmethod
     def get_status(cls):
-        """Return current migration status."""
+        """Return current migration status.
+
+        ``needs_migration`` is derived from the live revision vs head rather than
+        the cached boot flag, so the login gate (App.jsx) prompts whenever the
+        database isn't at head — including when the boot auto-upgrade couldn't
+        complete (e.g. an orphaned revision). When current == head it stays false,
+        so a normally up-to-date instance never sees the gate.
+        """
+        needs = bool(
+            cls._current_revision
+            and cls._head_revision
+            and cls._current_revision != cls._head_revision
+        )
         return {
-            'needs_migration': cls._needs_migration,
+            'needs_migration': needs,
             'current_revision': cls._current_revision,
             'head_revision': cls._head_revision,
             'pending_count': len(cls._pending_migrations),
@@ -233,15 +245,57 @@ class MigrationService:
 
     @classmethod
     def apply_migrations(cls, app):
-        """Run all pending Alembic migrations."""
+        """Run all pending Alembic migrations.
+
+        Self-heals an orphaned ``alembic_version``: if the DB records a revision
+        that no longer exists in the migration scripts (renamed/removed during
+        development), Alembic can't compute an upgrade path. Because the boot
+        schema sync (``_fix_missing_columns`` + ``create_all``) already brings the
+        live schema up to the ORM models (== head), we re-stamp to head to repair
+        the bookkeeping instead of failing.
+        """
         try:
             cfg = cls._get_alembic_config(app)
+            script = ScriptDirectory.from_config(cfg)
+
+            from app import db
+
+            # What revision does the DB think it's at, and does Alembic still know it?
+            with db.engine.connect() as conn:
+                context = MigrationContext.configure(conn)
+                db_heads = list(context.get_current_heads())
+
+            def _known(rev):
+                try:
+                    script.get_revision(rev)
+                    return True
+                except Exception:
+                    return False
+
+            orphaned = bool(db_heads) and not all(_known(r) for r in db_heads)
 
             with app.app_context():
-                command.upgrade(cfg, 'head')
+                if orphaned:
+                    # command.stamp() can't help here: it still resolves the
+                    # (unknown) current revision and fails the same way. The live
+                    # schema already matches head via the boot sync, so reset the
+                    # alembic_version table directly to head.
+                    head = script.get_current_head()
+                    logger.warning(
+                        f'Recorded revision {db_heads} not found in migration scripts — '
+                        f'resetting alembic_version to head ({head})'
+                    )
+                    with db.engine.begin() as conn:
+                        conn.execute(text('DELETE FROM alembic_version'))
+                        if head:
+                            conn.execute(
+                                text('INSERT INTO alembic_version (version_num) VALUES (:v)'),
+                                {'v': head},
+                            )
+                else:
+                    command.upgrade(cfg, 'head')
 
             # Update internal state
-            from app import db
             with db.engine.connect() as conn:
                 context = MigrationContext.configure(conn)
                 current_heads = context.get_current_heads()

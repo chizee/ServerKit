@@ -1882,6 +1882,75 @@
     }
 }
 
+// ─── Database Migrations ──────────────────────────────────────
+// Pending-update banner + apply action on the Settings → Migrations tab.
+.migration-pending-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-3;
+    padding: $space-4;
+    margin-bottom: $space-4;
+    background: fade($warning, 10%);
+    border: 1px solid fade($warning, 20%);
+    border-radius: $radius-md;
+
+    .migration-pending-icon { color: $warning; flex-shrink: 0; margin-top: 1px; }
+    .migration-pending-body { flex: 1; min-width: 0; }
+
+    .migration-pending-title {
+        margin: 0 0 $space-1;
+        font-weight: $font-weight-semibold;
+        color: $text-primary;
+    }
+
+    .migration-pending-desc {
+        margin: 0 0 $space-3;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+    }
+
+    .migration-pending-actions {
+        display: flex;
+        align-items: center;
+        gap: $space-4;
+        flex-wrap: wrap;
+    }
+
+    .migration-backup-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-2;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        cursor: pointer;
+        user-select: none;
+
+        input { accent-color: $accent-primary; cursor: pointer; }
+    }
+}
+
+.migration-uptodate {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    margin-bottom: $space-4;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    svg { color: $success; flex-shrink: 0; }
+}
+
+// Inline code chips shared by the banner and the up-to-date line.
+.migration-pending-desc code,
+.migration-uptodate code {
+    font-family: $font-mono;
+    font-size: $font-size-xs;
+    padding: 1px 5px;
+    background: $bg-tertiary;
+    border-radius: $radius-sm;
+    color: $text-primary;
+}
+
 // Items toggle list
 .sidebar-items-list {
     display: flex;

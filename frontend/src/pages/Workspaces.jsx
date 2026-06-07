@@ -4,6 +4,8 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
+import EmptyState from '../components/EmptyState';
+import { LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,7 +21,13 @@ const Workspaces = () => {
     const [members, setMembers] = useState([]);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [allUsers, setAllUsers] = useState([]);
-    const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0 });
+    const [showResourcesModal, setShowResourcesModal] = useState(null);
+    const [apps, setApps] = useState([]);
+    const [servers, setServers] = useState([]);
+    const [sharingApp, setSharingApp] = useState(null);
+    const [grants, setGrants] = useState([]);
+    const [grantRole, setGrantRole] = useState('editor');
+    const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6366f1' });
 
     const loadWorkspaces = useCallback(async () => {
         try {
@@ -39,7 +47,7 @@ const Workspaces = () => {
             await api.createWorkspace(form);
             toast.success('Workspace created');
             setShowCreateModal(false);
-            setForm({ name: '', description: '', max_servers: 0, max_users: 0 });
+            setForm({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6366f1' });
             loadWorkspaces();
         } catch (err) {
             toast.error(err.message);
@@ -101,6 +109,89 @@ const Workspaces = () => {
         }
     };
 
+    const asServerList = (data) => (Array.isArray(data) ? data : (data?.servers || []));
+
+    const loadResources = async (wsId) => {
+        try {
+            // allWorkspaces so we can see resources in OTHER workspaces to move them in.
+            const [appData, srvData] = await Promise.all([
+                api.getApps({ allWorkspaces: true }),
+                api.getServers({ allWorkspaces: true }).catch(() => []),
+            ]);
+            setApps(appData.apps || []);
+            setServers(asServerList(srvData));
+            setShowResourcesModal(wsId);
+        } catch (err) {
+            toast.error('Failed to load resources');
+        }
+    };
+
+    const handleMoveApp = async (appId, workspaceId) => {
+        try {
+            await api.setAppWorkspace(appId, workspaceId);
+            toast.success('Application moved');
+            const data = await api.getApps({ allWorkspaces: true });
+            setApps(data.apps || []);
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
+    const handleMoveServer = async (serverId, workspaceId) => {
+        try {
+            await api.setServerWorkspace(serverId, workspaceId);
+            toast.success('Server moved');
+            setServers(asServerList(await api.getServers({ allWorkspaces: true })));
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
+    // Per-app sharing (#33 per-site ACL) — inline sub-view of the Resources modal.
+    const loadSharing = async (appObj) => {
+        try {
+            const [gData, uData] = await Promise.all([
+                api.getAppGrants(appObj.id),
+                api.getUsers().catch(() => ({ users: [] })),
+            ]);
+            setGrants(gData.grants || []);
+            setAllUsers(uData.users || []);
+            setSharingApp(appObj);
+        } catch (err) {
+            toast.error('Failed to load sharing');
+        }
+    };
+
+    const refreshGrants = async (appId) => {
+        const gData = await api.getAppGrants(appId);
+        setGrants(gData.grants || []);
+    };
+
+    const handleGrant = async (userId) => {
+        try {
+            await api.grantAppAccess(sharingApp.id, userId, grantRole);
+            toast.success('Access granted');
+            await refreshGrants(sharingApp.id);
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
+    const handleRevoke = async (grantId) => {
+        try {
+            await api.revokeAppAccess(sharingApp.id, grantId);
+            toast.success('Access revoked');
+            await refreshGrants(sharingApp.id);
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
+    const closeResources = () => {
+        setShowResourcesModal(null);
+        setSharingApp(null);
+    };
+
     if (loading) return <Spinner />;
 
     return (
@@ -144,6 +235,7 @@ const Workspaces = () => {
                         )}
                         <div className="workspace-card__actions">
                             <Button size="sm" variant="outline" onClick={() => loadMembers(ws.id)}>Members</Button>
+                            <Button size="sm" variant="outline" onClick={() => loadResources(ws.id)}>Resources</Button>
                             {ws.status === 'active' && (
                                 <Button size="sm" variant="secondary" onClick={() => handleArchive(ws.id)}>Archive</Button>
                             )}
@@ -154,9 +246,11 @@ const Workspaces = () => {
                     </div>
                 ))}
                 {workspaces.length === 0 && (
-                    <div className="empty-state">
-                        <p>No workspaces yet. Create one to isolate servers by team or project.</p>
-                    </div>
+                    <EmptyState
+                        icon={LayoutGrid}
+                        title="No workspaces yet"
+                        description="Create one to isolate servers by team or project."
+                    />
                 )}
             </div>
 
@@ -185,6 +279,17 @@ const Workspaces = () => {
                                     <label>Max Users (0 = unlimited)</label>
                                     <Input type="number" value={form.max_users} onChange={e => setForm({...form, max_users: parseInt(e.target.value) || 0})} />
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label>Brand Color</label>
+                                <input
+                                    type="color"
+                                    className="workspace-color-input"
+                                    value={form.primary_color}
+                                    onChange={e => setForm({...form, primary_color: e.target.value})}
+                                    aria-label="Workspace brand color"
+                                />
+                                <span className="form-hint">Recolors the panel for anyone viewing this workspace. Leave the default for no custom branding.</span>
                             </div>
                         </div>
                         <div className="modal-footer">
@@ -229,6 +334,108 @@ const Workspaces = () => {
                     </div>
                 </div>
             )}
+
+            {showResourcesModal && (() => {
+                const appsIn = apps.filter(a => a.workspace_id === showResourcesModal);
+                const appsOut = apps.filter(a => a.workspace_id !== showResourcesModal);
+                const srvIn = servers.filter(s => s.workspace_id === showResourcesModal);
+                const srvOut = servers.filter(s => s.workspace_id !== showResourcesModal);
+                return (
+                    <div className="modal-overlay" onClick={closeResources}>
+                        <div className="modal" onClick={e => e.stopPropagation()}>
+                            {sharingApp ? (
+                                <>
+                                    <div className="modal-header">
+                                        <h2>Sharing: {sharingApp.name}</h2>
+                                        <button className="modal-close" onClick={closeResources}>&times;</button>
+                                    </div>
+                                    <div className="modal-body">
+                                        <Button size="sm" variant="outline" onClick={() => setSharingApp(null)}>&larr; Back</Button>
+                                        <p className="form-hint">Grant a user access to this application (and its WordPress site, databases, and domains) without transferring ownership.</p>
+                                        <div className="members-list">
+                                            {grants.length === 0 && <p className="form-hint">Not shared with anyone yet.</p>}
+                                            {grants.map(g => (
+                                                <div key={g.id} className="member-row">
+                                                    <div><strong>{g.username || g.email}</strong> <Badge variant="outline" className="ml-2">{g.role}</Badge></div>
+                                                    <Button size="sm" variant="destructive" onClick={() => handleRevoke(g.id)}>Revoke</Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <hr />
+                                        <h4>Grant Access</h4>
+                                        <div className="form-group">
+                                            <label>Role for new grants</label>
+                                            <select value={grantRole} onChange={e => setGrantRole(e.target.value)}>
+                                                <option value="editor">Editor (view + operate)</option>
+                                                <option value="viewer">Viewer (read-only)</option>
+                                            </select>
+                                        </div>
+                                        <div className="server-select-list">
+                                            {allUsers.filter(u => u.id !== sharingApp.user_id && !grants.find(g => g.user_id === u.id)).map(u => (
+                                                <div key={u.id} className="server-select-item" onClick={() => handleGrant(u.id)}>
+                                                    <span>{u.username || u.email}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="modal-header">
+                                        <h2>Workspace Resources</h2>
+                                        <button className="modal-close" onClick={closeResources}>&times;</button>
+                                    </div>
+                                    <div className="modal-body">
+                                        <h4>Applications</h4>
+                                        <div className="members-list">
+                                            {appsIn.length === 0 && <p className="form-hint">No applications in this workspace yet.</p>}
+                                            {appsIn.map(a => (
+                                                <div key={a.id} className="member-row">
+                                                    <div><strong>{a.name}</strong> <Badge variant="outline" className="ml-2">{a.app_type}</Badge></div>
+                                                    <div className="workspace-row-actions">
+                                                        <Button size="sm" variant="outline" onClick={() => loadSharing(a)}>Share</Button>
+                                                        <Button size="sm" variant="destructive" onClick={() => handleMoveApp(a.id, null)}>Remove</Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {appsOut.length > 0 && (
+                                            <div className="server-select-list">
+                                                {appsOut.map(a => (
+                                                    <div key={a.id} className="server-select-item" onClick={() => handleMoveApp(a.id, showResourcesModal)}>
+                                                        <span>{a.name}</span>
+                                                        <Badge variant="outline" className="ml-2">{a.app_type}</Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <hr />
+                                        <h4>Servers</h4>
+                                        <div className="members-list">
+                                            {srvIn.length === 0 && <p className="form-hint">No servers in this workspace yet.</p>}
+                                            {srvIn.map(s => (
+                                                <div key={s.id} className="member-row">
+                                                    <div><strong>{s.name}</strong></div>
+                                                    <Button size="sm" variant="destructive" onClick={() => handleMoveServer(s.id, null)}>Remove</Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {srvOut.length > 0 && (
+                                            <div className="server-select-list">
+                                                {srvOut.map(s => (
+                                                    <div key={s.id} className="server-select-item" onClick={() => handleMoveServer(s.id, showResourcesModal)}>
+                                                        <span>{s.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {deleteConfirm && (
                 <ConfirmDialog

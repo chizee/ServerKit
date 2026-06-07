@@ -30,6 +30,8 @@ import {
 import PackagesTab from '../components/serverdetail/PackagesTab';
 import ServicesTab from '../components/serverdetail/ServicesTab';
 import SystemStatusCard from '../components/serverdetail/SystemStatusCard';
+import EmptyState from '../components/EmptyState';
+import { BellRing, Boxes, Container, Clock3, Cloud } from 'lucide-react';
 
 const ServerDetail = () => {
     const { id, tab } = useParams();
@@ -176,7 +178,7 @@ const ServerDetail = () => {
     }
 
     if (loading) {
-        return <div className="loading">Loading server details...</div>;
+        return <EmptyState loading title="Loading server details" />;
     }
 
     if (error) {
@@ -517,11 +519,11 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
     if (sysItems.length === 0 && secItems.length === 0) {
         return (
             <div className="alerts-tab">
-                <div className="notifications-empty">
-                    <BellIcon />
-                    <h4>All clear</h4>
-                    <p>No active alerts for this server.</p>
-                </div>
+                <EmptyState
+                    icon={BellRing}
+                    title="All clear"
+                    description="No active alerts for this server."
+                />
             </div>
         );
     }
@@ -763,22 +765,17 @@ const DockerTab = ({ serverId, serverStatus, server }) => {
     const dockerCapability = server?.capabilities?.docker;
     if (serverStatus === 'online' && server && dockerCapability === false) {
         return (
-            <div className="empty-state docker-empty-state">
-                <h4>Docker not reachable from this agent</h4>
-                <p>
-                    The agent connected successfully but couldn&apos;t talk to a Docker daemon.
-                    Common causes:
-                </p>
-                <ul>
+            <div className="docker-empty-state">
+                <EmptyState
+                    icon={Container}
+                    title="Docker not reachable from this agent"
+                    description="The agent connected but could not talk to a Docker daemon. Make sure Docker is running on the host (and the agent user is in the docker group on Linux), then click Refresh on the Overview tab to re-probe capabilities."
+                />
+                <ul className="docker-empty-state__causes">
                     <li>Docker Desktop / dockerd is not running on the host</li>
                     <li>The agent user isn&apos;t in the <code>docker</code> group (Linux)</li>
                     <li>The npipe socket <code>{'//./pipe/docker_engine'}</code> isn&apos;t accessible (Windows)</li>
                 </ul>
-                <p>
-                    Start Docker on the host, then click <strong>Refresh</strong> on the Overview tab to
-                    re-probe capabilities. The Docker tab will appear normally once the agent
-                    can reach the daemon.
-                </p>
             </div>
         );
     }
@@ -818,7 +815,7 @@ const DockerTab = ({ serverId, serverStatus, server }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading Docker data...</div>;
+        return <EmptyState loading title="Loading Docker data" />;
     }
 
     return (
@@ -847,7 +844,7 @@ const DockerTab = ({ serverId, serverStatus, server }) => {
             {subTab === 'containers' && (
                 <div className="containers-list">
                     {containers.length === 0 ? (
-                        <div className="empty-list">No containers found on this server.</div>
+                        <EmptyState icon={Container} title="No containers" description="No containers are running on this server." />
                     ) : (
                         <table className="data-table">
                             <thead>
@@ -924,7 +921,7 @@ const DockerTab = ({ serverId, serverStatus, server }) => {
             {subTab === 'images' && (
                 <div className="images-list">
                     {images.length === 0 ? (
-                        <div className="empty-list">No images found on this server.</div>
+                        <EmptyState icon={Boxes} title="No images" description="No Docker images are present on this server." />
                     ) : (
                         <table className="data-table">
                             <thead>
@@ -1092,7 +1089,7 @@ const CronTab = ({ serverId, serverStatus }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading cron jobs...</div>;
+        return <EmptyState loading title="Loading cron jobs" />;
     }
 
     return (
@@ -1121,9 +1118,11 @@ const CronTab = ({ serverId, serverStatus }) => {
             )}
 
             {jobs.length === 0 ? (
-                <div className="empty-list">
-                    No cron jobs on this server. Click &quot;Add Job&quot; to schedule one.
-                </div>
+                <EmptyState
+                    icon={Clock3}
+                    title="No cron jobs"
+                    description="No scheduled jobs on this server. Use Add Job to schedule one."
+                />
             ) : (
                 <table className="data-table">
                     <thead>
@@ -1448,7 +1447,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
     }
 
     if (loading) {
-        return <div className="loading">Loading tunnels...</div>;
+        return <EmptyState loading title="Loading tunnels" />;
     }
 
     // Status banner — three distinct states the UI cares about:
@@ -1511,9 +1510,11 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
 
             {!notInstalled && !notAuthed && (
                 tunnels.length === 0 ? (
-                    <div className="empty-list">
-                        No tunnels on this server. Click &quot;Create Tunnel&quot; to make one.
-                    </div>
+                    <EmptyState
+                        icon={Cloud}
+                        title="No tunnels"
+                        description="No tunnels on this server. Use Create Tunnel to make one."
+                    />
                 ) : (
                     <table className="data-table">
                         <thead>
@@ -2448,13 +2449,6 @@ const DockerMiniIcon = () => (
 const PulseIcon = () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-    </svg>
-);
-
-const BellIcon = () => (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
 );
 

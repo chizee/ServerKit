@@ -520,6 +520,11 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None):
         # convenience setup (e.g. creating default rows).
         _run_lifecycle_hook(plugin, manifest, 'install')
 
+        # If the plugin declares an "ai" block, register its tools/context with
+        # the core assistant now so installing it teaches the assistant new
+        # abilities without a restart. Best effort.
+        _refresh_plugin_ai(plugin)
+
         logger.info(f'Plugin {slug} v{manifest["version"]} installed successfully')
         if template_results:
             plugin._template_install_results = template_results  # surfaced via to_dict if needed
@@ -700,6 +705,9 @@ def uninstall_plugin(plugin_id):
     # may need to read its own files). Best effort — never block teardown.
     _run_lifecycle_hook(plugin, manifest, 'uninstall')
 
+    # Drop any AI tools/context this plugin contributed to the assistant.
+    _unregister_plugin_ai(slug)
+
     # Remove backend files
     backend_dest = os.path.join(BACKEND_PLUGINS_DIR, slug)
     if os.path.exists(backend_dest):
@@ -729,6 +737,7 @@ def enable_plugin(plugin_id):
     plugin.error_message = None
     db.session.commit()
     _regenerate_frontend_manifest()
+    _refresh_plugin_ai(plugin)
     return plugin
 
 
@@ -740,7 +749,29 @@ def disable_plugin(plugin_id):
     plugin.status = InstalledPlugin.STATUS_DISABLED
     db.session.commit()
     _regenerate_frontend_manifest()
+    _unregister_plugin_ai(plugin.slug)
     return plugin
+
+
+def _refresh_plugin_ai(plugin):
+    """Register a plugin's AI tools/context with the core assistant (if it has an
+    ``ai`` manifest block). Idempotent; safe whether or not AI is initialized."""
+    try:
+        manifest = plugin.manifest or {}
+        if isinstance(manifest.get('ai'), dict):
+            from app.services.ai_tool_registry import ai_tool_registry
+            ai_tool_registry.reload_plugin(plugin.slug)
+    except Exception:
+        logger.warning(f'AI tool refresh failed for plugin {plugin.slug}', exc_info=True)
+
+
+def _unregister_plugin_ai(slug):
+    """Drop a plugin's AI tools/context from the core assistant."""
+    try:
+        from app.services.ai_tool_registry import ai_tool_registry
+        ai_tool_registry.unregister_plugin(slug)
+    except Exception:
+        logger.warning(f'AI tool unregister failed for plugin {slug}', exc_info=True)
 
 
 def _run_lifecycle_hook(plugin, manifest, phase):
