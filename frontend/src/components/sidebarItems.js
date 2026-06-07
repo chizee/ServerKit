@@ -88,6 +88,12 @@ export const SIDEBAR_ITEMS = [
         category: 'infrastructure',
         icon: '<rect x="2" y="7" width="6" height="6" rx="1"/><rect x="9" y="7" width="6" height="6" rx="1"/><rect x="16" y="7" width="6" height="6" rx="1"/><rect x="2" y="14" width="6" height="6" rx="1"/><rect x="9" y="14" width="6" height="6" rx="1"/>'
     },
+    // NOTE: "Git" appears under Infrastructure too, but it is contributed by the
+    // built-in serverkit-git PLUGIN (see plugins/contributions.js), which also
+    // registers the /git route. Keeping it plugin-owned means it correctly
+    // disappears (no dead link) when the plugin is disabled — so do NOT add a
+    // core 'git' item here. Sidebar presets that list 'git' still hide the
+    // plugin's nav item via getHiddenItemIds().
     {
         id: 'files',
         label: 'Files',

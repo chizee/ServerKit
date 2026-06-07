@@ -15,6 +15,7 @@
 // --------------------------------------------
 // 2. BASE STYLES
 // --------------------------------------------
+@import 'base/_fonts';        // self-hosted IBM Plex (no Google CDN)
 @import 'base/_reset';
 @import 'base/_typography';
 @import 'base/_utilities';
@@ -63,6 +64,7 @@
 @import 'components/_logs-drawer';
 @import 'components/_ai-assistant';
 @import 'components/_ui';
+@import 'components/_design-system';  // redesign shared primitives (sk-* namespace)
 
 // --------------------------------------------
 // 5. PAGE-SPECIFIC STYLES
