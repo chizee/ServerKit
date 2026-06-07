@@ -103,14 +103,14 @@ export const SIDEBAR_ITEMS = [
         icon: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'
     },
     {
+        // Redesign: Monitoring uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
+        // Status Pages now lives in the page's top bar (PageTopbar MONITOR_TABS),
+        // not as a sidebar sub-item. Route /status-pages is unchanged.
         id: 'monitoring',
         label: 'Monitoring',
         route: '/monitoring',
         category: 'operations',
-        icon: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-        subItems: [
-            { id: 'status-pages', label: 'Status Pages', route: '/status-pages', icon: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>' }
-        ]
+        icon: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'
     },
     {
         id: 'backups',
@@ -155,14 +155,14 @@ export const SIDEBAR_ITEMS = [
         icon: '<path d="M4 17l6-6-6-6M12 19h8"/>'
     },
     {
+        // Redesign: Marketplace uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
+        // Downloads now lives in the page's top bar (PageTopbar MARKET_TABS), not
+        // as a sidebar sub-item. Route /downloads is unchanged.
         id: 'marketplace',
         label: 'Marketplace',
         route: '/marketplace',
         category: 'system',
-        icon: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
-        subItems: [
-            { id: 'downloads', label: 'Downloads', route: '/downloads', icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' }
-        ]
+        icon: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>'
     }
 ];
 

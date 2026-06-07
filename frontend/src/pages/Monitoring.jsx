@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageTopbar } from '@/components/ds';
+import { MONITOR_TABS } from '../components/monitoring/monitorTabs';
 import {
     Activity,
     Bell,
@@ -273,34 +275,36 @@ const Monitoring = () => {
 
     return (
         <div className="page-container monitoring-page">
-            <div className="page-header">
-                <div>
-                    <h1>Monitoring & Alerts</h1>
-                    <p className="page-subtitle">System resource alerts and delivery</p>
-                </div>
-                <div className="page-actions">
-                    <Button variant="outline" onClick={loadData}>
-                        <RefreshCw size={16} />
-                        Refresh
-                    </Button>
-                    <Button
-                        variant={status?.enabled ? 'destructive' : 'default'}
-                        onClick={handleToggleMonitoring}
-                    >
-                        {status?.enabled ? (
-                            <>
-                                <Activity size={16} />
-                                Stop Monitoring
-                            </>
-                        ) : (
-                            <>
-                                <PlayCircle size={16} />
-                                Start Monitoring
-                            </>
-                        )}
-                    </Button>
-                </div>
-            </div>
+            <PageTopbar
+                icon={<Activity size={18} />}
+                title="Monitoring"
+                tabs={MONITOR_TABS}
+                actions={(
+                    <>
+                        <Button size="sm" variant="outline" onClick={loadData}>
+                            <RefreshCw size={16} />
+                            Refresh
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={status?.enabled ? 'destructive' : 'default'}
+                            onClick={handleToggleMonitoring}
+                        >
+                            {status?.enabled ? (
+                                <>
+                                    <Activity size={16} />
+                                    Stop Monitoring
+                                </>
+                            ) : (
+                                <>
+                                    <PlayCircle size={16} />
+                                    Start Monitoring
+                                </>
+                            )}
+                        </Button>
+                    </>
+                )}
+            />
 
             {error && (
                 <div className="alert alert-danger">

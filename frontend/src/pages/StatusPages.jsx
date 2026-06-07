@@ -10,12 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageTopbar } from '@/components/ds';
+import { MONITOR_TABS } from '../components/monitoring/monitorTabs';
 import {
     Activity,
     AlertTriangle,
     CheckCircle2,
     Copy,
     ExternalLink,
+    Globe,
     Globe2,
     PlayCircle,
     Plus,
@@ -305,24 +308,25 @@ const StatusPages = () => {
 
     return (
         <div className="page-container status-pages-page">
-            <div className="page-header">
-                <div className="page-header-content">
-                    <h1>Status Pages</h1>
-                    <p className="page-description">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
-                </div>
-                <div className="page-header-actions">
-                    <Button variant="outline" onClick={loadPages}>
-                        <RefreshCw size={16} />
-                        Refresh
-                    </Button>
-                    {isAdmin && (
-                        <Button onClick={() => setShowCreatePage(true)}>
-                            <Plus size={16} />
-                            Create Page
+            <PageTopbar
+                icon={<Globe size={18} />}
+                title="Status Pages"
+                tabs={MONITOR_TABS}
+                actions={(
+                    <>
+                        <Button size="sm" variant="outline" onClick={loadPages}>
+                            <RefreshCw size={16} />
+                            Refresh
                         </Button>
-                    )}
-                </div>
-            </div>
+                        {isAdmin && (
+                            <Button size="sm" onClick={() => setShowCreatePage(true)}>
+                                <Plus size={16} />
+                                Create Page
+                            </Button>
+                        )}
+                    </>
+                )}
+            />
 
             <div className="status-layout">
                 <aside className="status-pages-list" aria-label="Status pages">

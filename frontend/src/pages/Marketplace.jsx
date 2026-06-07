@@ -13,6 +13,7 @@ import {
     PackageCheck,
     Plug,
     PlugZap,
+    Puzzle,
     Search,
     ServerCog,
     ShieldCheck,
@@ -29,6 +30,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageTopbar } from '@/components/ds';
+import { MARKET_TABS } from '../components/marketplace/marketTabs';
 
 const CATEGORIES = ['ai', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
 
@@ -281,26 +284,19 @@ const Marketplace = () => {
 
     return (
         <div className="page-container marketplace-page">
-            <section className="marketplace-hero">
-                <div className="marketplace-hero__content">
-                    <div className="marketplace-eyebrow">
-                        <Sparkles aria-hidden="true" />
-                        Extension control plane
-                    </div>
-                    <div className="page-header-content">
-                        <h1>Marketplace</h1>
-                        <p className="page-description">
-                            One catalog for local registry mappings, published packages, and runtime plugins.
-                        </p>
-                    </div>
-                </div>
-                <div className="marketplace-hero__actions">
-                    <Button variant="outline" onClick={openZipInstaller}>
-                        <UploadCloud aria-hidden="true" />
-                        Import ZIP
-                    </Button>
-                </div>
-            </section>
+            <PageTopbar
+                icon={<Puzzle size={18} />}
+                title="Marketplace"
+                tabs={MARKET_TABS}
+                actions={(
+                    <>
+                        <Button variant="outline" size="sm" onClick={openZipInstaller}>
+                            <UploadCloud aria-hidden="true" />
+                            Import ZIP
+                        </Button>
+                    </>
+                )}
+            />
 
             <StatStrip ariaLabel="Marketplace summary">
                 <Stat label="Catalog" value={availableCount} />
