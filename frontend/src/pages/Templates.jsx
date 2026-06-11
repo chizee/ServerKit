@@ -5,7 +5,7 @@ import {
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
     Settings, Layers, LayoutTemplate, ChevronDown, Copy, Check, Tag, Cpu,
-    Newspaper, TrendingUp
+    Newspaper, TrendingUp, Rocket
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -268,6 +268,23 @@ const Templates = () => {
         }
     }
 
+    // Hover-reveal Deploy: skip the detail modal, go straight to install
+    async function handleDeploy(template) {
+        if (template.id === 'wordpress') {
+            navigate('/wordpress');
+            return;
+        }
+        try {
+            const result = await api.getTemplate(template.id);
+            if (result.template) {
+                setSelectedTemplate(result.template);
+                setShowInstallModal(true);
+            }
+        } catch (err) {
+            toast.error('Failed to load template details');
+        }
+    }
+
     function isFeatured(templateId) {
         return FEATURED_TEMPLATES.includes(templateId);
     }
@@ -413,38 +430,48 @@ const Templates = () => {
                     />
                 ) : (
                     sortedTemplates.map(template => (
-                        <div key={template.id} className="template-card" onClick={() => handleViewTemplate(template)}>
+                        <div key={template.id} className="tpl-card" onClick={() => handleViewTemplate(template)}>
                             {isFeatured(template.id) && (
-                                <span className="featured-badge">
-                                    <Star size={12} /> Featured
+                                <span className="tpl-ft" title="Featured">
+                                    <Star size={14} />
                                 </span>
                             )}
-                            <div className="template-icon">
-                                {renderIcon(template, 32)}
-                            </div>
-                            <div className="template-info">
-                                <h3>{template.name}</h3>
-                                <p className="template-description">{template.description}</p>
-                                <div className="template-meta">
-                                    <span className="template-version">v{template.version}</span>
-                                    {template.website && (
-                                        <span className="template-link-indicator" title="Has website">
-                                            <ExternalLink size={12} />
-                                        </span>
-                                    )}
-                                    {template.documentation && (
-                                        <span className="template-link-indicator" title="Has documentation">
-                                            <BookOpen size={12} />
-                                        </span>
-                                    )}
-                                    <div className="template-categories">
-                                        {(template.categories || []).slice(0, 2).map(cat => (
-                                            <span key={cat} className="category-badge">
-                                                {cat}
-                                            </span>
-                                        ))}
-                                    </div>
+                            <div className="tpl-top">
+                                <span className="tpl-ico">
+                                    {renderIcon(template, 22)}
+                                </span>
+                                <div className="tpl-id">
+                                    <div className="tpl-name">{template.name}</div>
+                                    <div className="tpl-ver">v{template.version}</div>
                                 </div>
+                            </div>
+                            <p className="tpl-desc">{template.description}</p>
+                            <div className="tpl-tags">
+                                {(template.categories || []).slice(0, 3).map(cat => (
+                                    <span key={cat} className="tg">
+                                        {cat}
+                                    </span>
+                                ))}
+                                {template.website && (
+                                    <span className="tpl-link" title="Has website">
+                                        <ExternalLink size={12} />
+                                    </span>
+                                )}
+                                {template.documentation && (
+                                    <span className="tpl-link" title="Has documentation">
+                                        <BookOpen size={12} />
+                                    </span>
+                                )}
+                                <Button
+                                    size="sm"
+                                    className="tpl-deploy"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeploy(template);
+                                    }}
+                                >
+                                    <Rocket size={12} /> Deploy
+                                </Button>
                             </div>
                         </div>
                     ))
@@ -452,7 +479,7 @@ const Templates = () => {
             </div>
 
             {/* Template Detail Modal */}
-            {selectedTemplate && (
+            {selectedTemplate && !showInstallModal && (
                 <div className="modal-overlay" onClick={() => setSelectedTemplate(null)}>
                     <div className="modal template-detail-drawer" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
