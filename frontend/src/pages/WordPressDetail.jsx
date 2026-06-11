@@ -9,7 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useLogsDrawer } from '../contexts/LogsDrawerContext';
 import { EnvironmentCard, SnapshotTable, GitConnectForm, CommitList, DiskUsageBar } from '../components/wordpress';
 import { HealthDot } from '../components/wordpress/HealthStatusPanel';
-import { Pill, EnvTag, MetricCard, SegControl } from '../components/ds';
+import { Pill, EnvTag, MetricCard, SegControl, ScoreGauge } from '../components/ds';
 import { ErrorBoundary, ErrorState } from '../components/ErrorBoundary';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -376,6 +376,12 @@ const WordPressDetail = () => {
                     </h1>
                     <div className="app-detail-subtitle">
                         <span>WordPress {site.wp_version || '—'}</span>
+                        {site.application?.php_version && (
+                            <>
+                                <span className="separator">·</span>
+                                <span>PHP {site.application.php_version}</span>
+                            </>
+                        )}
                         {site.url && (
                             <>
                                 <span className="separator">·</span>
@@ -898,17 +904,19 @@ const SecurityTab = ({ siteId }) => {
     const [integrity, setIntegrity] = useState(null);
     const [debug, setDebug] = useState(null);
     const [cron, setCron] = useState(null);
+    const [vulns, setVulns] = useState(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
 
     const loadAll = React.useCallback(async () => {
         try {
-            const [i, d, c] = await Promise.all([
+            const [i, d, c, v] = await Promise.all([
                 wordpressApi.getIntegrity(siteId).catch(() => null),
                 wordpressApi.getDebug(siteId).catch(() => null),
                 wordpressApi.getCron(siteId).catch(() => null),
+                wordpressApi.getVulnerabilities(siteId).catch(() => null),
             ]);
-            setIntegrity(i); setDebug(d); setCron(c);
+            setIntegrity(i); setDebug(d); setCron(c); setVulns(v);
         } finally {
             setLoading(false);
         }
@@ -960,9 +968,58 @@ const SecurityTab = ({ siteId }) => {
     const intRunning = integrity?.status === 'running';
     const issues = integrity?.issues || [];
 
+    // Posture checks — real signals only; checks that haven't run yet stay out
+    // of the score (demo's posture ring, computed client-side).
+    const vsum = vulns?.summary || {};
+    const checks = [
+        {
+            label: 'Core & plugin files verified',
+            state: integrity?.status === 'completed' ? (issues.length === 0 ? 'pass' : 'fail') : 'unknown',
+            detail: integrity?.status === 'completed'
+                ? (issues.length === 0 ? 'checksums clean' : `${issues.length} issue${issues.length === 1 ? '' : 's'}`)
+                : 'not checked yet',
+        },
+        {
+            label: 'WP_DEBUG disabled',
+            state: debug ? (debug.debug?.WP_DEBUG ? 'fail' : 'pass') : 'unknown',
+            detail: debug ? (debug.debug?.WP_DEBUG ? 'debug is on' : 'off') : 'unavailable',
+        },
+        {
+            label: 'No critical / high vulnerabilities',
+            state: vulns?.scanned_at ? (((vsum.critical ?? 0) + (vsum.high ?? 0)) === 0 ? 'pass' : 'fail') : 'unknown',
+            detail: vulns?.scanned_at
+                ? `${(vsum.critical ?? 0) + (vsum.high ?? 0)} found`
+                : 'no scan yet',
+        },
+    ];
+    const scored = checks.filter(c => c.state !== 'unknown');
+    const score = scored.length ? Math.round(scored.filter(c => c.state === 'pass').length / scored.length * 100) : null;
+    const scoreColor = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--amber)' : 'var(--red)';
+    const CHECK_PILL = { pass: 'green', fail: 'red', unknown: 'gray' };
+
     return (
         <div className="app-overview-grid">
             <div className="app-overview-left">
+                <div className="app-panel">
+                    <div className="app-panel-header">Security posture</div>
+                    <div className="app-panel-body wp-posture">
+                        {score !== null ? (
+                            <ScoreGauge value={score} size={110} stroke={9} color={scoreColor} label="posture" />
+                        ) : (
+                            <p className="hint">Run the checks below to compute a posture score.</p>
+                        )}
+                        <div className="wp-posture__checks">
+                            {checks.map(c => (
+                                <div key={c.label} className="wp-posture__check">
+                                    <span className="wp-posture__label">{c.label}</span>
+                                    <span className="wp-posture__detail">{c.detail}</span>
+                                    <Pill kind={CHECK_PILL[c.state]}>{c.state === 'unknown' ? 'pending' : c.state}</Pill>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
                 <div className="app-panel">
                     <div className="app-panel-header">File integrity</div>
                     <div className="app-panel-body">

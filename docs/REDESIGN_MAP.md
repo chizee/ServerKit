@@ -280,12 +280,17 @@ modal TargetPicker and **no terminal shell at all** on this page. Pass-1 restyle
 shape of the page is not the demo's. Needs the §5 unified-targets endpoint to be fully real; an interim
 win: host the existing SSH/xterm console (RemoteTerminal is built but unmounted) as a Terminal tab.
 
-### 8.4 WordPress — detail is close; list is thin
-- List: no bulk-select (demo: tri-state ckbox + bulk Start/Restart/Stop/Update/Backup bar) — JSX now,
-  fan-out or bulk route later; missing Plugins/Visits/Uptime/Server/Env columns = §5 `get_sites` enrichment.
-- Detail (mostly §5 data gaps, structure is right): security posture **ScoreGauge** (compute from existing
-  check rows — JSX-only), largest-tables **gauge bars**, PHP version in header subtitle, response-time chart,
-  referrers/devices bars, FilesDrawer w/ code viewer.
+### 8.4 WordPress — ✅ **JSX-only parts done 2026-06-11**
+- List: **bulk-select shipped** — header + per-row checkboxes, accent `is-selected` rows, bulkbar with
+  Start/Stop/Update-core/Backup/Clear-cache fanned out per site over the real APIs (unarchive/archive/
+  updateCore/createSnapshot/flushCache), each scoped by an `applies` filter (e.g. Stop only hits running
+  sites). Restart/bulk-Delete skipped (no site-level restart API; delete too destructive for bulk).
+- Detail: **posture ScoreGauge shipped** in the Security tab — score computed client-side from 3 real signals
+  (integrity clean, WP_DEBUG off, no critical/high vulns) with a checklist; unrun checks stay out of the
+  score. **PHP version added to the header subtitle** (`site.application.php_version`).
+- Still §5 (data missing): Plugins/Visits/Uptime/Server/Env list columns (`get_sites` enrichment),
+  largest-tables + gauge bars (no table-size endpoint), response-time chart, referrers/devices bars,
+  FilesDrawer w/ code viewer.
 
 ### 8.5 Files — high parity; 3 visible gaps
 Syntax-highlighted preview (`PreviewDrawer.jsx:113` plain textarea vs `.pv-code` tokens — the planned

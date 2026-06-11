@@ -12,6 +12,7 @@ import { WORDPRESS_TABS } from '../components/wordpress/wordpressTabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 function WordPress() {
     const [sites, setSites] = useState([]);
@@ -28,6 +29,8 @@ function WordPress() {
     const [importLoading, setImportLoading] = useState(false);
     const [importForm, setImportForm] = useState({ name: '', adminEmail: '', oldUrl: '' });
     const [importFile, setImportFile] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     const navigate = useNavigate();
     const toast = useToast();
@@ -78,6 +81,27 @@ function WordPress() {
             toast.error(`Failed to create site: ${error.message}`);
         } finally {
             setCreateLoading(false);
+        }
+    };
+
+    // Bulk ops fan out per-site (no bulk route yet — §5); `applies` filters the
+    // selection to sites the action makes sense for.
+    const bulkRun = async (label, fn, applies = () => true) => {
+        const targets = sites.filter(s => selectedIds.has(s.id) && applies(s));
+        if (targets.length === 0) {
+            toast.info(`No selected sites need "${label}"`);
+            return;
+        }
+        setBulkLoading(true);
+        try {
+            const results = await Promise.allSettled(targets.map(s => fn(s)));
+            const failed = results.filter(r => r.status === 'rejected').length;
+            if (failed) toast.error(`${label}: ${failed} of ${targets.length} failed`);
+            else toast.success(`${label} sent to ${targets.length} site${targets.length === 1 ? '' : 's'}`);
+            setSelectedIds(new Set());
+            await loadSites();
+        } finally {
+            setBulkLoading(false);
         }
     };
 
@@ -236,10 +260,50 @@ function WordPress() {
                             )}
                         </div>
 
+                        {selectedIds.size > 0 && (
+                            <div className="wp-list__bulkbar">
+                                <span className="wp-list__bulkcount">{selectedIds.size} selected</span>
+                                <div className="wp-list__bulkactions">
+                                    <Button variant="outline" size="sm" disabled={bulkLoading}
+                                        onClick={() => bulkRun('Start', s => wordpressApi.unarchiveSite(s.id), s => s.status !== 'running')}>
+                                        Start
+                                    </Button>
+                                    <Button variant="outline" size="sm" disabled={bulkLoading}
+                                        onClick={() => bulkRun('Stop', s => wordpressApi.archiveSite(s.id), s => s.status === 'running')}>
+                                        Stop
+                                    </Button>
+                                    <Button variant="outline" size="sm" disabled={bulkLoading}
+                                        onClick={() => bulkRun('Update core', s => wordpressApi.updateCore(s.id), s => s.status === 'running')}>
+                                        Update
+                                    </Button>
+                                    <Button variant="outline" size="sm" disabled={bulkLoading}
+                                        onClick={() => bulkRun('Backup', s => wordpressApi.createSnapshot(s.id, { name: 'bulk-backup' }), s => s.status === 'running')}>
+                                        Backup
+                                    </Button>
+                                    <Button variant="outline" size="sm" disabled={bulkLoading}
+                                        onClick={() => bulkRun('Clear cache', s => wordpressApi.flushCache(s.id), s => s.status === 'running')}>
+                                        Clear cache
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                                        Clear
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="wp-list__card">
                             <table className="sk-dtable">
                                 <thead>
                                     <tr>
+                                        <th className="wp-list__ck">
+                                            <Checkbox
+                                                checked={shownSites.length > 0 && shownSites.every(s => selectedIds.has(s.id))}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedIds(checked ? new Set(shownSites.map(s => s.id)) : new Set());
+                                                }}
+                                                aria-label="Select all sites"
+                                            />
+                                        </th>
                                         <th>Site</th>
                                         <th>Environments</th>
                                         <th>Version</th>
@@ -250,7 +314,25 @@ function WordPress() {
                                 </thead>
                                 <tbody>
                                     {shownSites.map(site => (
-                                        <tr key={site.id} className="is-clickable" onClick={() => navigate(`/wordpress/${site.id}`)}>
+                                        <tr
+                                            key={site.id}
+                                            className={`is-clickable ${selectedIds.has(site.id) ? 'is-selected' : ''}`}
+                                            onClick={() => navigate(`/wordpress/${site.id}`)}
+                                        >
+                                            <td className="wp-list__ck" onClick={e => e.stopPropagation()}>
+                                                <Checkbox
+                                                    checked={selectedIds.has(site.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedIds(prev => {
+                                                            const next = new Set(prev);
+                                                            if (checked) next.add(site.id);
+                                                            else next.delete(site.id);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    aria-label={`Select ${site.name || `site ${site.id}`}`}
+                                                />
+                                            </td>
                                             <td>
                                                 <div className="sk-cell-name">
                                                     <span className="wp-list__tile" aria-hidden="true">
