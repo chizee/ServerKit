@@ -1,23 +1,26 @@
 // ============================================
-// FILE MANAGER
+// FILE MANAGER — flush three-pane console (demo `.fmgr` look):
+// left tree rail / toolbar + dense listing / status bar, joined by
+// 1px borders instead of floating cards.
 // ============================================
 
-// Type colour palette — used for icon tinting and card glows
-$ft-folder:   #fbbf24;
-$ft-code:     #8b5cf6;
-$ft-image:    #10b981;
+// Type colour palette — categorical icon/card tints (literal hex: these feed
+// SCSS fade(), which can't take var()). Aligned to the redesign palette.
+$ft-folder:   #f5b945;
+$ft-code:     #b07bf5;
+$ft-image:    #3ddc97;
 $ft-video:    #ec4899;
 $ft-audio:    #f59e0b;
 $ft-archive:  #ef4444;
-$ft-data:     #14b8a6;
-$ft-text:     #94a3b8;
-$ft-terminal: #34d399;
-$ft-default:  #94a3b8;
+$ft-data:     #49c7f0;
+$ft-text:     #9aa1af;
+$ft-terminal: #3ddc97;
+$ft-default:  #646b7a;
 
 .file-manager {
     display: flex;
     flex-direction: column;
-    gap: $space-2;
+    gap: 0;
     position: relative;
     height: min(900px, calc(100vh - 72px));
     min-height: 560px;
@@ -29,7 +32,7 @@ $ft-default:  #94a3b8;
         height: 100vh;
         min-height: 0;
         margin: 0;
-        padding: $space-3;
+        padding: 0;
         box-sizing: border-box;
     }
 
@@ -37,42 +40,19 @@ $ft-default:  #94a3b8;
     // body keeps filling the remaining height.
     > .sk-topbar {
         flex-shrink: 0;
-        padding-left: 0;
-        padding-right: 0;
+        padding-left: $space-4;
+        padding-right: $space-4;
         margin-bottom: 0;
-    }
-
-    // ─── Page header ────────────────────────────────────
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: $space-3;
-        margin-bottom: $space-1;
-
-        .page-header-content {
-            h1 {
-                font-size: $font-size-2xl;
-                font-weight: $font-weight-semibold;
-                margin: 0 0 $space-1 0;
-                letter-spacing: -0.01em;
-            }
-        }
-
-        .page-header-actions {
-            display: flex;
-            gap: $space-2;
-            flex-wrap: wrap;
-        }
     }
 
     // ─── Upload tray ────────────────────────────────────
     .upload-tray {
-        background: $bg-card;
+        background: var(--surface);
         border: 1px solid $border-default;
         border-radius: $radius-lg;
         overflow: hidden;
+        margin: $space-2 $space-4 0;
+        flex-shrink: 0;
     }
 
     .upload-tray-header {
@@ -80,7 +60,7 @@ $ft-default:  #94a3b8;
         align-items: center;
         gap: $space-3;
         padding: $space-3 $space-4;
-        background: $bg-elevated;
+        background: var(--surface-2);
         border-bottom: 1px solid $border-default;
         font-size: $font-size-sm;
         font-weight: $font-weight-medium;
@@ -122,7 +102,7 @@ $ft-default:  #94a3b8;
 
         .upload-bar {
             height: 4px;
-            background: $border-default;
+            background: var(--surface-3);
             border-radius: $radius-sm;
             overflow: hidden;
 
@@ -149,15 +129,16 @@ $ft-default:  #94a3b8;
         }
     }
 
-    // ─── Toolbar ────────────────────────────────────────
+    // ─── Toolbar (flush bar under the top bar) ──────────
     .file-manager-toolbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: $space-2;
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-lg;
+        padding: 9px $space-4;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--border-soft);
+        border-radius: 0;
         gap: $space-2;
         flex-wrap: nowrap;
         flex-shrink: 0;
@@ -181,17 +162,14 @@ $ft-default:  #94a3b8;
     .nav-buttons {
         display: flex;
         gap: 2px;
-        padding: 2px;
-        background: $bg-tertiary;
-        border-radius: $radius-md;
 
         .nav-btn {
             background: transparent;
             border: none;
-            width: 28px;
-            height: 28px;
-            border-radius: $radius-sm;
-            color: $text-secondary;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            color: var(--text-dim);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -199,10 +177,10 @@ $ft-default:  #94a3b8;
             @include transition(all);
 
             &:hover:not(:disabled) {
-                background: $bg-hover;
-                color: $text-primary;
+                background: var(--surface-2);
+                color: var(--text);
             }
-            &:disabled { opacity: 0.35; cursor: not-allowed; }
+            &:disabled { opacity: 0.32; cursor: not-allowed; }
         }
     }
 
@@ -212,23 +190,29 @@ $ft-default:  #94a3b8;
         flex-wrap: wrap;
         min-width: 0;
         font-family: $font-mono;
-        font-size: $font-size-sm;
+        font-size: 12.5px;
         gap: 1px;
 
         .crumb-segment { display: inline-flex; align-items: center; }
-        .crumb-separator { color: $text-tertiary; margin: 0 2px; opacity: 0.5; }
+        .crumb-separator { color: var(--text-ghost); margin: 0 1px; }
         .crumb {
             background: transparent;
             border: none;
-            padding: 4px $space-2;
+            padding: 4px 8px;
             border-radius: $radius-sm;
-            color: $text-secondary;
+            color: var(--text-dim);
             cursor: pointer;
             font: inherit;
+            white-space: nowrap;
             @include transition(all);
 
-            &:hover { background: $bg-hover; color: $text-primary; }
-            &.crumb-active { color: $text-primary; font-weight: $font-weight-medium; }
+            &:hover { background: var(--surface-2); color: var(--text); }
+            &.crumb-active {
+                color: var(--text);
+                font-weight: $font-weight-medium;
+                cursor: default;
+                &:hover { background: none; }
+            }
         }
     }
 
@@ -237,15 +221,15 @@ $ft-default:  #94a3b8;
         position: relative;
         display: flex;
         align-items: center;
-        background: $bg-tertiary;
-        border: 1px solid transparent;
-        border-radius: $radius-md;
-        width: clamp(180px, 22vw, 280px);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        width: clamp(160px, 18vw, 220px);
         @include transition(all);
 
         &:focus-within {
-            border-color: $accent-primary;
-            background: $bg-body;
+            border-color: var(--accent-dim);
+            background: var(--surface);
         }
 
         .search-field-icon {
@@ -258,7 +242,7 @@ $ft-default:  #94a3b8;
         input {
             background: transparent;
             border: none;
-            padding: 7px $space-3 7px 32px;
+            padding: 6px $space-3 6px 32px;
             font-size: $font-size-sm;
             color: $text-primary;
             width: 100%;
@@ -284,135 +268,48 @@ $ft-default:  #94a3b8;
         }
     }
 
-    // ─── Sort popover ───────────────────────────────────
-    .sort-control { position: relative; }
-
-    .sort-popover {
-        position: absolute;
-        top: calc(100% + 6px);
-        right: 0;
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-md;
-        box-shadow: $shadow-lg;
-        min-width: 160px;
-        padding: 4px;
-        z-index: $z-dropdown;
-
-        .sort-popover-label {
-            padding: 6px $space-3 4px;
-            font-size: $font-size-xs;
-            color: $text-tertiary;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: $font-weight-semibold;
-        }
-        .sort-popover-divider { height: 1px; background: $border-default; margin: 4px 0; }
-        .sort-popover-item {
-            display: flex;
-            align-items: center;
-            gap: $space-2;
-            width: 100%;
-            padding: 6px $space-3;
-            background: transparent;
-            border: none;
-            border-radius: $radius-sm;
-            color: $text-primary;
-            font-size: $font-size-sm;
-            text-align: left;
-            cursor: pointer;
-            @include transition(background);
-
-            &:hover { background: $bg-hover; }
-            &.active { color: $accent-primary; }
-            svg { color: $accent-primary; }
-            > span { flex: 1; }
-        }
-    }
-
     // ─── Toolbar chip / icon button ─────────────────────
     .toolbar-chip {
         display: inline-flex;
         align-items: center;
         gap: $space-2;
         padding: 6px $space-3;
-        background: $bg-tertiary;
-        border: 1px solid transparent;
-        border-radius: $radius-md;
-        color: $text-secondary;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-dim);
         font-size: $font-size-sm;
         font-weight: $font-weight-medium;
         cursor: pointer;
         white-space: nowrap;
         @include transition(all);
 
-        &:hover:not(:disabled) { background: $bg-hover; color: $text-primary; }
+        &:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
         &.active {
-            background: $accent-glow;
-            border-color: fade($accent-primary-raw, 30%);
-            color: $accent-primary;
+            background: var(--accent-bg);
+            border-color: var(--accent-dim);
+            color: var(--accent-bright);
         }
         &:disabled { opacity: 0.5; cursor: not-allowed; }
         svg { flex-shrink: 0; }
-    }
-
-    .toolbar-select {
-        display: inline-flex;
-        align-items: center;
-        gap: $space-1;
-        min-height: 34px;
-        padding: 0 $space-2;
-        background: $bg-tertiary;
-        border: 1px solid transparent;
-        border-radius: $radius-md;
-        color: $text-secondary;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-medium;
-        white-space: nowrap;
-
-        span {
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            font-weight: $font-weight-semibold;
-        }
-
-        svg {
-            color: $text-tertiary;
-            flex-shrink: 0;
-        }
-
-        select {
-            min-width: 92px;
-            background: transparent;
-            border: none;
-            color: $text-primary;
-            font: inherit;
-            outline: none;
-            cursor: pointer;
-        }
-
-        &:focus-within {
-            border-color: fade($accent-primary-raw, 35%);
-            background: $bg-body;
-        }
     }
 
     .toolbar-icon-btn {
         background: transparent;
         border: none;
         padding: 7px;
-        border-radius: $radius-md;
-        color: $text-secondary;
+        border-radius: 8px;
+        color: var(--text-dim);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         @include transition(all);
 
-        &:hover:not(:disabled) { background: $bg-hover; color: $text-primary; }
+        &:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
         &.active {
-            background: $accent-glow;
-            color: $accent-primary;
+            background: var(--accent-bg);
+            color: var(--accent-bright);
         }
         &.small { padding: 4px; }
     }
@@ -430,98 +327,42 @@ $ft-default:  #94a3b8;
         display: flex;
         gap: 2px;
         padding: 2px;
-        background: $bg-tertiary;
-        border-radius: $radius-md;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
 
         .view-toggle-btn {
             background: transparent;
             border: none;
-            padding: 6px 9px;
-            border-radius: $radius-sm;
-            color: $text-tertiary;
+            width: 30px;
+            height: 26px;
+            border-radius: 6px;
+            color: var(--text-faint);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             @include transition(all);
 
-            &:hover { color: $text-primary; }
+            &:hover { color: var(--text); }
             &.active {
-                background: $bg-card;
-                color: $accent-primary;
-                box-shadow: $shadow-sm;
+                background: var(--surface-3);
+                color: var(--text);
             }
         }
     }
 
-    // ─── Filter chips row ───────────────────────────────
-    .filter-chips-row {
-        display: flex;
-        gap: $space-2;
-        padding: $space-2 0;
-        overflow-x: auto;
-        scrollbar-width: thin;
-
-        &::-webkit-scrollbar { height: 4px; }
-        &::-webkit-scrollbar-thumb { background: $border-default; border-radius: $radius-sm; }
-    }
-
-    .filter-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: $space-2;
-        padding: 5px 10px 5px 9px;
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-full;
-        color: $text-secondary;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-medium;
-        cursor: pointer;
-        white-space: nowrap;
-        @include transition(all);
-
-        &:hover:not(:disabled) {
-            background: $bg-hover;
-            color: $text-primary;
-            border-color: $border-active;
-        }
-        &.active {
-            background: $accent-primary;
-            border-color: $accent-primary;
-            color: white;
-
-            .filter-chip-count {
-                background: rgba(255, 255, 255, 0.2);
-                color: white;
-            }
-        }
-        &:disabled { opacity: 0.4; cursor: not-allowed; }
-        svg { flex-shrink: 0; }
-    }
-
-    .filter-chip-count {
-        display: inline-block;
-        min-width: 18px;
-        padding: 0 5px;
-        background: $bg-tertiary;
-        border-radius: $radius-full;
-        font-size: 10px;
-        font-weight: $font-weight-semibold;
-        text-align: center;
-        line-height: 16px;
-        color: $text-tertiary;
-    }
-
-    // ─── Bulk action bar ────────────────────────────────
+    // ─── Bulk action bar (flush accent strip) ───────────
     .bulk-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: $space-2 $space-3 $space-2 $space-4;
-        background: fade($accent-primary-raw, 10%);
-        border: 1px solid fade($accent-primary-raw, 35%);
-        border-radius: $radius-lg;
+        padding: $space-2 $space-4;
+        background: var(--accent-bg-soft);
+        border: none;
+        border-bottom: 1px solid var(--accent-dim);
+        border-radius: 0;
+        flex-shrink: 0;
         animation: slide-down 0.2s ease;
     }
 
@@ -534,7 +375,7 @@ $ft-default:  #94a3b8;
         display: flex;
         align-items: center;
         gap: $space-2;
-        color: $accent-primary;
+        color: var(--accent-bright);
         font-size: $font-size-sm;
         font-weight: $font-weight-medium;
 
@@ -554,16 +395,16 @@ $ft-default:  #94a3b8;
         align-items: center;
         gap: 6px;
         padding: 6px $space-3;
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-md;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
         color: $text-primary;
         font-size: $font-size-sm;
         font-weight: $font-weight-medium;
         cursor: pointer;
         @include transition(all);
 
-        &:hover { background: $bg-hover; border-color: $border-hover; }
+        &:hover { background: var(--surface-2); border-color: var(--border-strong); }
         &.danger {
             color: $danger;
             border-color: transparent;
@@ -573,15 +414,15 @@ $ft-default:  #94a3b8;
             background: transparent;
             border-color: transparent;
             color: $text-secondary;
-            &:hover { background: $bg-hover; color: $text-primary; }
+            &:hover { background: var(--surface-2); color: $text-primary; }
         }
     }
 
-    // ─── Body layout: left sidebar + main ──────────────
+    // ─── Body layout: left rail + main ─────────────────
     .file-manager-body {
         display: grid;
-        grid-template-columns: 248px 1fr;
-        gap: $space-3;
+        grid-template-columns: 240px 1fr;
+        gap: 0;
         min-height: 0;
         flex: 1;
         overflow: hidden;
@@ -604,16 +445,19 @@ $ft-default:  #94a3b8;
         flex-direction: column;
     }
 
-    // ─── Left sidebar ──────────────────────────────────
+    // ─── Left rail ──────────────────────────────────────
     .file-manager-sidebar.left {
         display: flex;
         flex-direction: column;
-        gap: $space-2;
+        gap: 0;
         height: 100%;
         max-height: none;
         overflow-y: auto;
         position: relative;
         top: auto;
+        padding: $space-3 $space-2;
+        background: var(--bg-sidebar);
+        border-right: 1px solid var(--border-soft);
         scrollbar-width: thin;
 
         &::-webkit-scrollbar { width: 4px; }
@@ -638,32 +482,39 @@ $ft-default:  #94a3b8;
         @media (max-width: $breakpoint-lg) { transform: translateX(-100%); }
     }
 
+    // Rail sections are flat groups under mono eyebrow headers (no cards)
     .sidebar-section {
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-lg;
-        overflow: hidden;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+
+        & + .sidebar-section { margin-top: $space-2; }
     }
 
     .sidebar-section-header {
         display: flex;
         align-items: center;
         gap: $space-2;
-        padding: $space-3;
-        background: $bg-elevated;
+        padding: 10px $space-2 5px;
+        background: transparent;
         border: none;
         width: 100%;
         text-align: left;
         cursor: pointer;
-        color: $text-primary;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-medium;
-        @include transition(background);
+        color: var(--text-ghost);
+        font-family: $font-mono;
+        font-size: 10px;
+        font-weight: $font-weight-semibold;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        @include transition(color);
 
-        &:hover { background: $bg-tertiary; }
-        &.static { cursor: default; &:hover { background: $bg-elevated; } }
+        &:hover { background: transparent; color: var(--text-faint); }
+        &.static { cursor: default; &:hover { color: var(--text-ghost); } }
 
-        > svg:first-child { color: $accent-primary; }
+        svg { color: inherit; flex-shrink: 0; }
+        > svg:first-child { width: 13px; height: 13px; }
         span { flex: 1; }
     }
 
@@ -671,9 +522,7 @@ $ft-default:  #94a3b8;
         padding: 0;
         cursor: default;
 
-        &:hover {
-            background: $bg-elevated;
-        }
+        &:hover { background: transparent; }
 
         .sidebar-section-toggle {
             display: flex;
@@ -681,25 +530,22 @@ $ft-default:  #94a3b8;
             gap: $space-2;
             flex: 1;
             min-width: 0;
-            padding: $space-3;
+            padding: 10px $space-2 5px;
             background: transparent;
             border: none;
             color: inherit;
             font: inherit;
+            letter-spacing: inherit;
+            text-transform: inherit;
             text-align: left;
             cursor: pointer;
+            @include transition(color);
 
-            &:hover {
-                background: $bg-tertiary;
-            }
+            &:hover { background: transparent; color: var(--text-faint); }
 
-            > svg:first-child {
-                color: $accent-primary;
-            }
+            > svg:first-child { width: 13px; height: 13px; color: inherit; }
 
-            span {
-                flex: 1;
-            }
+            span { flex: 1; }
         }
     }
 
@@ -707,19 +553,19 @@ $ft-default:  #94a3b8;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 30px;
-        height: 30px;
-        margin-right: $space-2;
-        background: $bg-card;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-md;
-        color: $accent-primary;
+        width: 26px;
+        height: 26px;
+        margin-right: 2px;
+        background: transparent;
+        border: none;
+        border-radius: $radius-sm;
+        color: var(--text-faint);
         cursor: pointer;
         @include transition(all);
 
         &:hover:not(:disabled) {
-            background: $accent-glow;
-            border-color: fade($accent-primary-raw, 35%);
+            background: var(--surface-2);
+            color: var(--accent-bright);
         }
 
         &:disabled {
@@ -728,17 +574,17 @@ $ft-default:  #94a3b8;
         }
     }
 
-    .sidebar-section-content { padding: $space-3 $space-4; }
-    .tree-content { padding: $space-2; }
+    .sidebar-section-content { padding: $space-1 0; }
+    .tree-content { padding: $space-1 0; }
 
     // ─── Type filters ───────────────────────────────────
     .type-filter-panel {
-        padding: $space-2;
+        padding: $space-1 0;
     }
 
     .type-filter-list {
         display: grid;
-        gap: 2px;
+        gap: 1px;
     }
 
     .type-filter-item {
@@ -747,11 +593,11 @@ $ft-default:  #94a3b8;
         justify-content: space-between;
         gap: $space-2;
         width: 100%;
-        padding: 6px $space-2;
+        padding: 5px $space-2;
         background: transparent;
         border: none;
-        border-radius: $radius-md;
-        color: $text-secondary;
+        border-radius: $radius-sm;
+        color: var(--text-dim);
         cursor: pointer;
         font-size: $font-size-xs;
         font-weight: $font-weight-medium;
@@ -759,13 +605,13 @@ $ft-default:  #94a3b8;
         @include transition(all);
 
         &:hover:not(:disabled) {
-            background: $bg-hover;
-            color: $text-primary;
+            background: var(--surface-2);
+            color: var(--text);
         }
 
         &.active {
-            background: $accent-glow;
-            color: $accent-primary;
+            background: var(--accent-bg);
+            color: var(--accent-bright);
         }
 
         &:disabled {
@@ -775,46 +621,48 @@ $ft-default:  #94a3b8;
 
         span:last-child {
             min-width: 20px;
-            padding: 1px 6px;
-            background: $bg-tertiary;
-            border-radius: $radius-full;
-            color: $text-tertiary;
+            color: var(--text-ghost);
             font-family: $font-mono;
             font-size: 10px;
-            text-align: center;
+            text-align: right;
         }
+
+        &.active span:last-child { color: var(--accent-bright); opacity: 0.8; }
     }
 
     .sidebar-sort-control {
         display: grid;
         gap: $space-1;
         margin-top: $space-2;
-        padding-top: $space-2;
-        border-top: 1px solid $border-subtle;
+        padding: $space-2 $space-2 0;
+        border-top: 1px solid var(--border-soft);
 
         > span {
             display: flex;
             align-items: center;
             gap: $space-1;
-            color: $text-tertiary;
-            font-size: $font-size-xs;
+            color: var(--text-ghost);
+            font-family: $font-mono;
+            font-size: 10px;
             font-weight: $font-weight-semibold;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
 
         select {
             width: 100%;
-            min-height: 30px;
+            min-height: 28px;
             padding: 4px $space-2;
-            background: $bg-tertiary;
-            border: 1px solid $border-subtle;
-            border-radius: $radius-md;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: $radius-sm;
             color: $text-primary;
             font-size: $font-size-xs;
             outline: none;
             cursor: pointer;
 
             &:focus {
-                border-color: $accent-primary;
+                border-color: var(--accent-dim);
             }
         }
     }
@@ -823,7 +671,7 @@ $ft-default:  #94a3b8;
     .folder-tree {
         display: flex;
         flex-direction: column;
-        font-size: $font-size-sm;
+        font-size: 13px;
     }
 
     .tree-node {
@@ -834,21 +682,21 @@ $ft-default:  #94a3b8;
     .tree-row {
         display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 4px 6px;
+        gap: 6px;
+        padding: 5px $space-2;
         border-radius: $radius-sm;
         cursor: pointer;
-        color: $text-primary;
+        color: var(--text-dim);
         @include transition(background);
         user-select: none;
 
-        &:hover { background: $bg-hover; }
+        &:hover { background: var(--surface-2); }
 
         &.active {
-            background: $accent-glow;
+            background: var(--accent-bg);
 
-            .tree-name { color: $accent-primary; font-weight: $font-weight-medium; }
-            .tree-folder-icon { color: $accent-primary; }
+            .tree-name { color: var(--text); font-weight: $font-weight-medium; }
+            .tree-folder-icon { color: var(--accent-bright); }
         }
     }
 
@@ -861,12 +709,12 @@ $ft-default:  #94a3b8;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: $text-tertiary;
+        color: var(--text-faint);
         cursor: pointer;
         flex-shrink: 0;
         border-radius: $radius-sm;
 
-        &:hover { background: $bg-tertiary; color: $text-primary; }
+        &:hover { background: var(--surface-3); color: var(--text); }
     }
 
     .tree-chevron-spinner {
@@ -887,7 +735,7 @@ $ft-default:  #94a3b8;
     .tree-name {
         flex: 1;
         @include truncate();
-        font-size: $font-size-sm;
+        font-size: 13px;
     }
 
     .tree-children {
@@ -896,73 +744,10 @@ $ft-default:  #94a3b8;
     }
 
     .tree-empty {
-        padding: 4px 6px;
+        padding: 4px $space-2;
         font-size: $font-size-xs;
         color: $text-tertiary;
         font-style: italic;
-    }
-
-    // ─── Quick Access list ──────────────────────────────
-    .quick-access-list {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: $space-2;
-    }
-
-    .quick-access-item {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        padding: $space-2;
-        border-radius: $radius-md;
-        cursor: pointer;
-        @include transition(background);
-
-        &:hover {
-            background: $bg-hover;
-            .quick-access-remove { opacity: 1; }
-        }
-
-        &.active {
-            background: $accent-glow;
-            > svg { color: $accent-primary; }
-            .quick-access-name { color: $accent-primary; }
-        }
-
-        > svg { color: $ft-folder; flex-shrink: 0; }
-    }
-
-    .quick-access-text { flex: 1; min-width: 0; overflow: hidden; }
-    .quick-access-name {
-        font-size: $font-size-sm;
-        color: $text-primary;
-        font-weight: $font-weight-medium;
-        @include truncate();
-    }
-    .quick-access-path {
-        font-size: $font-size-xs;
-        color: $text-tertiary;
-        font-family: $font-mono;
-        @include truncate();
-    }
-    .quick-access-remove {
-        background: transparent;
-        border: none;
-        padding: 4px;
-        border-radius: $radius-sm;
-        color: $text-tertiary;
-        cursor: pointer;
-        opacity: 0;
-        @include transition(all);
-        &:hover { background: $bg-tertiary; color: $danger; }
-    }
-    .quick-access-empty {
-        padding: $space-4;
-        text-align: center;
-        color: $text-tertiary;
-        font-size: $font-size-xs;
-        line-height: 1.5;
     }
 
     // ─── Disk usage ─────────────────────────────────────
@@ -970,20 +755,22 @@ $ft-default:  #94a3b8;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: $space-3;
+        margin-bottom: $space-2;
+        padding: 0 $space-2;
     }
 
     .disk-updated {
         display: flex;
         align-items: center;
         gap: $space-1;
-        font-size: $font-size-xs;
-        color: $text-tertiary;
+        font-family: $font-mono;
+        font-size: 10px;
+        color: var(--text-ghost);
     }
 
     .disk-mount-item {
-        padding: $space-3 0;
-        border-bottom: 1px solid $border-subtle;
+        padding: $space-2;
+        border-bottom: 1px solid var(--border-soft);
 
         &:last-child { border-bottom: none; padding-bottom: 0; }
         &:first-child { padding-top: 0; }
@@ -998,12 +785,13 @@ $ft-default:  #94a3b8;
 
     .disk-mount-point {
         font-family: $font-mono;
-        font-size: $font-size-sm;
+        font-size: 12px;
         color: $text-primary;
     }
 
     .disk-percent {
-        font-size: $font-size-sm;
+        font-family: $font-mono;
+        font-size: 11px;
         font-weight: $font-weight-medium;
         &.healthy { color: $success; }
         &.warning { color: $warning; }
@@ -1011,13 +799,13 @@ $ft-default:  #94a3b8;
     }
 
     .disk-progress {
-        height: 6px;
-        background: $border-default;
-        border-radius: $radius-sm;
+        height: 5px;
+        background: var(--surface-3);
+        border-radius: 3px;
         overflow: hidden;
         margin-bottom: $space-2;
 
-        .disk-progress-fill { height: 100%; @include transition(width); }
+        .disk-progress-fill { height: 100%; border-radius: 3px; @include transition(width); }
         &.healthy .disk-progress-fill { background: $success; }
         &.warning .disk-progress-fill { background: $warning; }
         &.critical .disk-progress-fill { background: $danger; }
@@ -1026,151 +814,18 @@ $ft-default:  #94a3b8;
     .disk-mount-info {
         display: flex;
         justify-content: space-between;
-        font-size: $font-size-xs;
+        font-family: $font-mono;
+        font-size: 10.5px;
         color: $text-tertiary;
     }
 
     .disk-device { font-family: $font-mono; }
 
-    // ─── Analysis ───────────────────────────────────────
-    .analysis-loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: $space-2;
-        padding: $space-6 0;
-        color: $text-secondary;
-        font-size: $font-size-sm;
-    }
-
-    .analysis-total {
-        font-size: $font-size-sm;
-        font-weight: $font-weight-medium;
-        color: $text-primary;
-        margin-bottom: $space-3;
-    }
-
-    .analysis-tabs {
-        display: flex;
-        gap: $space-2;
-        margin-bottom: $space-3;
-    }
-
-    .analysis-tab {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: $space-1;
-        padding: $space-2;
-        background: $bg-tertiary;
-        border: 1px solid transparent;
-        border-radius: $radius-md;
-        font-size: $font-size-xs;
-        color: $text-secondary;
-        cursor: pointer;
-        @include transition(all);
-
-        &:hover { background: $bg-hover; }
-        &.active {
-            background: $accent-glow;
-            border-color: fade($accent-primary-raw, 30%);
-            color: $accent-primary;
-        }
-    }
-
-    .analysis-bars { display: flex; flex-direction: column; gap: $space-2; }
-
-    .analysis-bar-item {
-        cursor: pointer;
-        padding: $space-2;
-        border-radius: $radius-md;
-        @include transition(background);
-        &:hover { background: $bg-hover; }
-    }
-
-    .analysis-bar-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: $space-1;
-    }
-
-    .analysis-bar-name {
-        display: flex;
-        align-items: center;
-        gap: $space-1;
-        font-size: $font-size-xs;
-        color: $text-primary;
-        @include truncate();
-        svg { color: $ft-folder; flex-shrink: 0; }
-    }
-
-    .analysis-bar-size {
-        font-size: $font-size-xs;
-        color: $text-tertiary;
-        font-family: $font-mono;
-    }
-
-    .analysis-bar-track {
-        height: 4px;
-        background: $border-default;
-        border-radius: $radius-sm;
-        overflow: hidden;
-    }
-
-    .analysis-bar-fill {
-        height: 100%;
-        background: $accent-primary;
-        @include transition(width);
-    }
-
-    .analysis-files { display: flex; flex-direction: column; gap: $space-1; }
-
-    .analysis-file-item {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        padding: $space-2;
-        border-radius: $radius-md;
-        cursor: pointer;
-        @include transition(background);
-        &:hover { background: $bg-hover; }
-        svg { color: $text-tertiary; flex-shrink: 0; }
-    }
-
-    .analysis-file-name {
-        flex: 1;
-        font-size: $font-size-xs;
-        color: $text-primary;
-        @include truncate();
-    }
-
-    .analysis-file-size {
-        font-size: $font-size-xs;
-        color: $text-tertiary;
-        font-family: $font-mono;
-    }
-
-    .analysis-empty {
-        padding: $space-4 0;
-        text-align: center;
-        color: $text-tertiary;
-        font-size: $font-size-sm;
-    }
-
-    .type-breakdown-chart { margin-bottom: $space-3; }
-    .type-breakdown-legend { display: flex; flex-direction: column; gap: $space-2; }
-    .type-legend-item { display: flex; align-items: center; gap: $space-2; }
-    .type-legend-color { width: 10px; height: 10px; border-radius: $radius-sm; flex-shrink: 0; }
-    .type-legend-name { flex: 1; font-size: $font-size-xs; color: $text-primary; }
-    .type-legend-size { font-size: $font-size-xs; color: $text-tertiary; font-family: $font-mono; }
-
-    // ─── File area container ────────────────────────────
+    // ─── File area (flush, no card) ─────────────────────
     .file-list-container {
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-lg;
+        background: transparent;
+        border: none;
+        border-radius: 0;
         overflow: auto;
         position: relative;
         min-height: 0;
@@ -1247,8 +902,8 @@ $ft-default:  #94a3b8;
     .file-grid {
         display: grid;
         gap: $space-2;
-        padding: $space-3;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        padding: $space-3 $space-4;
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     }
 
     &.grid-sm .file-grid {
@@ -1274,52 +929,24 @@ $ft-default:  #94a3b8;
         flex-direction: column;
         align-items: center;
         padding: $space-3 $space-2;
-        background: $bg-elevated;
+        background: transparent;
         border: 1px solid transparent;
-        border-radius: $radius-lg;
+        border-radius: 11px;
         cursor: pointer;
         @include transition(all);
         user-select: none;
 
-        // type-tinted top accent bar
-        &::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            border-radius: $radius-lg $radius-lg 0 0;
-            opacity: 0;
-            @include transition(opacity);
-        }
-
-        &.type-folder::before   { background: $ft-folder;   }
-        &.type-code::before     { background: $ft-code;     }
-        &.type-image::before    { background: $ft-image;    }
-        &.type-video::before    { background: $ft-video;    }
-        &.type-audio::before    { background: $ft-audio;    }
-        &.type-archive::before  { background: $ft-archive;  }
-        &.type-data::before     { background: $ft-data;     }
-        &.type-text::before     { background: $ft-text;     }
-        &.type-terminal::before { background: $ft-terminal; }
-        &.type-default::before  { background: $ft-default;  }
-
         &:hover {
-            background: $bg-hover;
-            border-color: $border-active;
-            transform: translateY(-2px);
-            box-shadow: $shadow-md;
+            background: var(--surface-2);
 
-            &::before { opacity: 1; }
             .file-card-check { opacity: 1; }
             .ext-badge { opacity: 1; }
         }
 
         &.selected {
-            background: $accent-glow;
-            border-color: fade($accent-primary-raw, 50%);
-            box-shadow: 0 0 0 1px fade($accent-primary-raw, 25%);
+            background: var(--accent-bg);
+            border-color: var(--accent-dim);
 
-            &::before { opacity: 1; }
             .file-card-check { opacity: 1; }
         }
 
@@ -1341,17 +968,17 @@ $ft-default:  #94a3b8;
 
     .file-card-thumb {
         position: relative;
-        width: 76px;
-        height: 76px;
+        width: 68px;
+        height: 68px;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: $space-2;
-        border-radius: $radius-md;
+        border-radius: 9px;
         overflow: hidden;
         @include transition(all);
 
-        > svg { width: 44px; height: 44px; }
+        > svg { width: 38px; height: 38px; }
 
         .thumb-image {
             width: 100%;
@@ -1366,8 +993,8 @@ $ft-default:  #94a3b8;
             right: 2px;
             width: 18px;
             height: 18px;
-            background: $bg-card;
-            border: 1px solid $border-default;
+            background: var(--surface);
+            border: 1px solid var(--border);
             border-radius: $radius-full;
             display: flex;
             align-items: center;
@@ -1408,8 +1035,8 @@ $ft-default:  #94a3b8;
     }
 
     .file-card-meta {
-        font-size: 11px;
-        color: $text-tertiary;
+        font-size: 10px;
+        color: var(--text-ghost);
         font-family: $font-mono;
     }
 
@@ -1431,11 +1058,11 @@ $ft-default:  #94a3b8;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 18px;
-        height: 18px;
-        background: $bg-card;
-        border: 1.5px solid $border-active;
-        border-radius: $radius-sm;
+        width: 16px;
+        height: 16px;
+        background: var(--surface);
+        border: 1.5px solid var(--border-strong);
+        border-radius: 5px;
         color: white;
         @include transition(all);
 
@@ -1454,19 +1081,24 @@ $ft-default:  #94a3b8;
         justify-content: center;
     }
 
-    // ─── LIST VIEW ──────────────────────────────────────
+    // ─── LIST VIEW (dense, sticky mono headers) ─────────
     .file-list {
         .file-list-header {
             display: grid;
             grid-template-columns: 36px 1fr 110px 130px 130px 140px;
-            padding: $space-2 $space-4;
-            background: $bg-elevated;
-            font-size: $font-size-xs;
+            padding: 8px $space-4;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: $bg-body;
+            font-family: $font-mono;
+            font-size: 10.5px;
             font-weight: $font-weight-semibold;
             text-transform: uppercase;
-            color: $text-tertiary;
-            border-bottom: 1px solid $border-default;
-            letter-spacing: 0.04em;
+            color: var(--text-faint);
+            border-bottom: 1px solid var(--border-soft);
+            letter-spacing: 0.06em;
+            align-items: center;
 
             .col-actions { text-align: right; }
             .col-check {
@@ -1480,8 +1112,8 @@ $ft-default:  #94a3b8;
         .file-item {
             display: grid;
             grid-template-columns: 36px 1fr 110px 130px 130px 140px;
-            padding: $space-3 $space-4;
-            border-bottom: 1px solid $border-subtle;
+            padding: 7px $space-4;
+            border-bottom: 1px solid var(--border-soft);
             cursor: pointer;
             align-items: center;
             user-select: none;
@@ -1490,12 +1122,12 @@ $ft-default:  #94a3b8;
             &:last-child { border-bottom: none; }
 
             &:hover {
-                background: $bg-hover;
+                background: var(--surface-2);
                 .col-actions .row-action { opacity: 1; }
                 .col-check .checkbox { border-color: $border-hover; }
             }
 
-            &.selected { background: $accent-glow; }
+            &.selected { background: var(--accent-bg); }
 
             .col-check {
                 display: flex;
@@ -1508,7 +1140,7 @@ $ft-default:  #94a3b8;
             .col-name {
                 display: flex;
                 align-items: center;
-                gap: $space-3;
+                gap: 11px;
                 overflow: hidden;
                 min-width: 0;
 
@@ -1517,21 +1149,21 @@ $ft-default:  #94a3b8;
                     text-overflow: ellipsis;
                     white-space: nowrap;
                     color: $text-primary;
-                    font-size: $font-size-sm;
+                    font-size: 13px;
                 }
                 .link-indicator { color: $text-tertiary; font-size: $font-size-xs; }
             }
 
             .col-size,
-            .col-modified,
-            .col-permissions {
-                font-size: $font-size-sm;
-                color: $text-secondary;
+            .col-modified {
+                font-family: $font-mono;
+                font-size: 12px;
+                color: var(--text-dim);
             }
             .col-permissions {
                 font-family: $font-mono;
-                font-size: $font-size-xs;
-                color: $text-tertiary;
+                font-size: 11.5px;
+                color: var(--text-faint);
             }
             .col-actions {
                 display: flex;
@@ -1551,9 +1183,9 @@ $ft-default:  #94a3b8;
     .row-action {
         background: transparent;
         border: none;
-        padding: 6px;
+        padding: 5px;
         border-radius: $radius-sm;
-        color: $text-tertiary;
+        color: var(--text-faint);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -1561,7 +1193,7 @@ $ft-default:  #94a3b8;
         opacity: 0;
         @include transition(all);
 
-        &:hover { background: $bg-tertiary; color: $text-primary; }
+        &:hover { background: var(--surface-3); color: var(--text); }
         &.danger:hover { background: $danger-bg; color: $danger; }
     }
 
@@ -1581,17 +1213,19 @@ $ft-default:  #94a3b8;
         &.default  { color: $ft-default;  }
     }
 
-    // ─── Status bar ─────────────────────────────────────
+    // ─── Status bar (flush bottom strip) ────────────────
     .status-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: $space-1 $space-3;
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-md;
-        font-size: $font-size-xs;
-        color: $text-tertiary;
+        padding: 7px $space-4;
+        background: transparent;
+        border: none;
+        border-top: 1px solid var(--border-soft);
+        border-radius: 0;
+        font-family: $font-mono;
+        font-size: 11px;
+        color: var(--text-faint);
         flex-wrap: wrap;
         gap: $space-3;
         flex-shrink: 0;
@@ -1607,50 +1241,49 @@ $ft-default:  #94a3b8;
             display: inline-flex;
             align-items: center;
             gap: $space-1;
-            svg { color: $text-tertiary; }
+            svg { color: var(--text-ghost); }
         }
 
         .status-label {
-            color: $text-tertiary;
+            color: var(--text-ghost);
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.08em;
             font-weight: $font-weight-semibold;
             font-size: 9px;
         }
 
         .status-value {
-            color: $text-secondary;
-            font-family: $font-mono;
+            color: var(--text-dim);
         }
 
         .status-divider {
             width: 1px;
             height: 12px;
-            background: $border-default;
+            background: var(--border);
         }
 
         .status-selection {
-            color: $accent-primary;
+            color: var(--accent-bright);
             font-weight: $font-weight-medium;
         }
 
         .status-shortcuts {
-            font-family: $font-mono;
-            color: $text-tertiary;
-            opacity: 0.7;
+            color: var(--text-ghost);
             display: none;
+
+            @media (min-width: $breakpoint-lg) { display: inline; }
         }
     }
 
     // ─── Context menu ───────────────────────────────────
     .context-menu {
         position: fixed;
-        background: $bg-card;
-        border: 1px solid $border-default;
-        border-radius: $radius-md;
-        box-shadow: $shadow-lg;
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
+        border-radius: 11px;
+        box-shadow: var(--shadow-lg);
         min-width: 200px;
-        padding: 4px;
+        padding: 5px;
         z-index: $z-tooltip;
         animation: ctx-pop 0.12s ease-out;
 
@@ -1659,7 +1292,7 @@ $ft-default:  #94a3b8;
             align-items: center;
             gap: $space-2;
             width: 100%;
-            padding: $space-2 $space-3;
+            padding: 7px $space-3;
             background: transparent;
             border: none;
             border-radius: $radius-sm;
@@ -1669,7 +1302,7 @@ $ft-default:  #94a3b8;
             cursor: pointer;
             @include transition(background);
 
-            &:hover { background: $bg-hover; }
+            &:hover { background: var(--surface-3); }
             &.danger { color: $danger; }
             &.danger:hover { background: $danger-bg; }
             svg { flex-shrink: 0; opacity: 0.85; }
@@ -1678,7 +1311,7 @@ $ft-default:  #94a3b8;
 
     .context-menu-divider {
         height: 1px;
-        background: $border-default;
+        background: var(--border);
         margin: 4px 0;
     }
 
@@ -1730,8 +1363,8 @@ $drawer-width: 520px;
     bottom: 0;
     width: $drawer-width;
     max-width: 100%;
-    background: $bg-card;
-    border-left: 1px solid $border-default;
+    background: var(--surface);
+    border-left: 1px solid var(--border-soft);
     box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
     z-index: $z-modal;
     display: flex;
@@ -1757,8 +1390,7 @@ $drawer-width: 520px;
     align-items: center;
     gap: $space-3;
     padding: $space-4;
-    border-bottom: 1px solid $border-default;
-    background: $bg-elevated;
+    border-bottom: 1px solid var(--border-soft);
 
     > svg { flex-shrink: 0; }
 
@@ -1798,7 +1430,7 @@ $drawer-width: 520px;
         justify-content: center;
         @include transition(all);
 
-        &:hover { background: $bg-hover; color: $text-primary; }
+        &:hover { background: var(--surface-2); color: $text-primary; }
     }
 }
 
@@ -1807,8 +1439,7 @@ $drawer-width: 520px;
     grid-template-columns: 1fr 1fr;
     gap: $space-3;
     padding: $space-3 $space-4;
-    background: $bg-elevated;
-    border-bottom: 1px solid $border-default;
+    border-bottom: 1px solid var(--border-soft);
 
     .meta-item {
         display: flex;
@@ -1820,11 +1451,12 @@ $drawer-width: 520px;
     }
 
     .meta-label {
+        font-family: $font-mono;
         font-size: 9px;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         font-weight: $font-weight-semibold;
-        color: $text-tertiary;
+        color: var(--text-ghost);
     }
 
     .meta-value {
@@ -1841,7 +1473,7 @@ $drawer-width: 520px;
     flex-wrap: wrap;
     gap: $space-1;
     padding: $space-3 $space-4;
-    border-bottom: 1px solid $border-default;
+    border-bottom: 1px solid var(--border-soft);
 }
 
 .drawer-action-btn {
@@ -1849,16 +1481,16 @@ $drawer-width: 520px;
     align-items: center;
     gap: 6px;
     padding: 6px $space-3;
-    background: $bg-elevated;
-    border: 1px solid $border-default;
-    border-radius: $radius-md;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
     color: $text-primary;
     font-size: $font-size-xs;
     font-weight: $font-weight-medium;
     cursor: pointer;
     @include transition(all);
 
-    &:hover { background: $bg-hover; border-color: $border-hover; }
+    &:hover { background: var(--surface-3); border-color: var(--border-strong); }
     &.danger {
         color: $danger;
         border-color: transparent;
@@ -1894,7 +1526,7 @@ $drawer-width: 520px;
             max-width: 100%;
             max-height: 100%;
             border-radius: $radius-md;
-            box-shadow: $shadow-lg;
+            box-shadow: var(--shadow-lg);
         }
     }
 
@@ -1910,14 +1542,15 @@ $drawer-width: 520px;
         justify-content: space-between;
         align-items: center;
         padding: $space-2 $space-4;
-        background: $bg-elevated;
-        border-bottom: 1px solid $border-default;
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--border-soft);
 
         .editor-status {
-            font-size: $font-size-xs;
-            color: $text-tertiary;
+            font-family: $font-mono;
+            font-size: 10px;
+            color: var(--text-ghost);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
             font-weight: $font-weight-semibold;
         }
 
@@ -1958,12 +1591,6 @@ $drawer-width: 520px;
 // ─── Responsive ─────────────────────────────────────────
 @media (max-width: $breakpoint-md) {
     .file-manager {
-        .page-header {
-            flex-direction: column;
-            align-items: stretch;
-            .page-header-actions { justify-content: flex-end; }
-        }
-
         .file-manager-toolbar {
             flex-direction: column;
             align-items: stretch;
@@ -2006,13 +1633,14 @@ $drawer-width: 520px;
 }
 
 .file-manager-target-banner {
-    margin: $space-2 0 $space-3;
+    margin: $space-2 $space-4 0;
     padding: $space-2 $space-3;
     border-radius: $radius-md;
-    background: fade($accent-primary-raw, 10%);
+    background: var(--accent-bg-soft);
     color: var(--text-primary);
     font-size: $font-size-sm;
     border: 1px solid fade($accent-primary-raw, 25%);
+    flex-shrink: 0;
 }
 
 .target-picker {
@@ -2020,9 +1648,9 @@ $drawer-width: 520px;
     align-items: center;
     gap: $space-1;
     padding: $space-1 $space-2;
-    background: var(--surface);
+    background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: $radius-md;
+    border-radius: 8px;
     .target-picker__select {
         background: transparent;
         border: none;
