@@ -250,7 +250,13 @@ export default function Databases() {
     function activate(node) {
         setSelectedNode(node);
         if (node.kind === 'table') openTableTab(node);
-        else if (node.expandable) toggle(node);
+        else if (node.kind === 'database') {
+            // single click opens the database's SQL console (it used to be
+            // reachable only via the context menu) and expands its tables;
+            // collapsing stays on the chevron so re-clicks don't fold the tree
+            openConsole(node.conn, node.engine);
+            if (node.expandable && !expanded.has(node.id)) toggle(node);
+        } else if (node.expandable) toggle(node);
     }
 
     // ─── tree context menu ────────────────────────────────────

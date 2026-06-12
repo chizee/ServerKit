@@ -255,8 +255,10 @@ Demo is a **flush, full-height, zero-padding 3-pane console** (topbar / tree-rai
 toolbar/tree-panel/workspace/statusbar) — this alone makes it "not the demo". Then the deferred items:
 - **De-cardify** (STYLE): `_databases.scss` — `.db-explorer` (≈:14) padding/gap→0; `.dbx-toolbar` (≈:90),
   `.dbx-tree-panel` (≈:187), `.dbx-workspace` (≈:377), `.dbx-statusbar` (≈:853) → borders-only, radius 0.
-- **SQL editor** (JSX, the big one): bare `<textarea>` (`ConsoleTab.jsx:164`) vs demo's line-number gutter +
-  `.kw`/`.num`/`.str` keyword tints + styled `.ro-badge`.
+- ~~**SQL editor**~~ ✅ **done 2026-06-11**: `databases/SqlEditor.jsx` — transparent-textarea-over-highlighted-pre
+  overlay with line-number gutter + SQL keyword/string/number/comment tints (`.dbx-sqled`); also **click-to-open
+  UX fixed** — single-clicking a database node now opens its SQL console (was context-menu-only) and expands its
+  tables; collapse stays on the chevron.
 - **Semantic cell tints** (JSX): port demo `cellEl` (`view_databases.jsx:24–31`) into `ResultsGrid.jsx` —
   NULL ghost-italic, emails/URLs green, publish/running green, draft/stopped amber.
 - Small: tree status-dot glow (`box-shadow: 0 0 6px currentColor`), `+` new-tab pill, ctx-menu "Browse rows"

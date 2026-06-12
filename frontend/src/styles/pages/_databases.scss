@@ -569,22 +569,75 @@ $dbx-sqlite: #3d8fd1;
 
     .dbx-editor-wrap { position: relative; flex: 1; min-width: 0; }
 
-    .dbx-editor {
-        width: 100%;
+    // SQL editor (demo .sql-editor): line-number gutter + keyword tints. A
+    // transparent textarea sits over a highlighted <pre>; gutter/pre/textarea
+    // MUST share identical font metrics or the overlay drifts.
+    .dbx-sqled {
+        display: flex;
         height: 184px;
         min-height: 96px;
         max-height: 50vh;
         resize: vertical;
-        padding: $space-3 $space-4;
+        overflow: hidden;
         background: $bg-body;
-        border: none;
         border-bottom: 1px solid $border-default;
-        color: $text-primary;
-        font-family: $font-mono;
-        font-size: $font-size-sm;
-        line-height: $line-height-relaxed;
-        outline: none;
-        &::placeholder { color: $text-tertiary; }
+
+        &__gutter {
+            flex-shrink: 0;
+            min-width: 40px;
+            padding: $space-3 10px $space-3 $space-3;
+            overflow: hidden;
+            text-align: right;
+            font-family: $font-mono;
+            font-size: $font-size-sm;
+            line-height: $line-height-relaxed;
+            color: $text-tertiary;
+            border-right: 1px solid $border-subtle;
+            user-select: none;
+        }
+
+        &__stack {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+        }
+
+        &__hl,
+        &__input {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            padding: $space-3 $space-4;
+            font-family: $font-mono;
+            font-size: $font-size-sm;
+            line-height: $line-height-relaxed;
+            white-space: pre;
+            tab-size: 4;
+        }
+
+        &__hl {
+            overflow: hidden;
+            pointer-events: none;
+            color: $text-primary;
+
+            .tok-kw { color: var(--accent-bright); font-weight: $font-weight-semibold; }
+            .tok-str { color: $success; }
+            .tok-num { color: $warning; }
+            .tok-cmt { color: var(--text-ghost); font-style: italic; }
+        }
+
+        &__input {
+            background: transparent;
+            border: none;
+            resize: none;
+            outline: none;
+            color: transparent;
+            caret-color: $text-primary;
+            overflow: auto;
+
+            &::placeholder { color: $text-tertiary; }
+            &::selection { background: fade($accent-primary-raw, 28%); }
+        }
     }
 
     .dbx-editor-badge {
