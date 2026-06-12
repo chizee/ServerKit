@@ -56,6 +56,15 @@ Severity counts: **3 High, 5 Medium, 7 Low/Informational.**
   future caller can't bypass it. Cron is intentionally **not** AllowedPaths-
   restricted (that would break legitimate jobs like `/usr/bin/certbot renew`);
   its blast radius is addressed by M3 instead.
+- **M4 — fixed.** Added `.github/workflows/agent-ci.yml` (go vet + go test +
+  cross-compile build matrix for linux amd64/arm64 and windows/amd64 — darwin
+  excluded because the tray dep can't cross-compile from Linux) and
+  `backend-ci.yml` (full pytest suite). Also added
+  `backend/tests/test_agent_poll_e2e.py`, an end-to-end test that drives the
+  real panel↔agent command loop (HMAC auth → register → queue → poll → result →
+  the synchronous waiter resolves) over the poll transport, which shares the
+  WebSocket path's auth/registry/routing code. This is the "prove it actually
+  works" net the subsystem lacked.
 - **M3 — fixed.** The DEB/RPM units now run as the dedicated unprivileged
   `serverkit-agent` account with the same hardening as `install.sh`
   (`NoNewPrivileges=yes`, `ProtectSystem=strict`, `ProtectHome=yes`,
