@@ -128,7 +128,9 @@ func registerCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&connStr, "connection-string", "c", "", "panel connection string (single value, replaces --token + --server)")
+	// no shorthand: "c" belongs to the global --config persistent flag, and
+	// pflag panics on shorthand redefinition the moment any command runs
+	cmd.Flags().StringVar(&connStr, "connection-string", "", "panel connection string (single value, replaces --token + --server)")
 	cmd.Flags().StringVarP(&token, "token", "t", "", "registration token (use with --server)")
 	cmd.Flags().StringVarP(&serverURL, "server", "s", "", "ServerKit server URL (use with --token)")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "display name for this server")
