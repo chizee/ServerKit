@@ -353,48 +353,39 @@ const NewService = () => {
                 )}
             />
 
-            <div className="new-service-page__mode-strip" aria-label="Service source options">
+            <div className="new-service-page__method-grid" aria-label="Service source options">
                 <button
-                    className={`new-service-page__mode-card ${sourceMode === 'github' ? 'new-service-page__mode-card--active' : ''}`}
+                    className={`new-service-page__method-card ${sourceMode === 'github' ? 'new-service-page__method-card--on' : ''}`}
                     type="button"
                     onClick={() => handleSourceModeChange('github')}
                 >
-                    <span className="new-service-page__mode-icon">
-                        <Github size={18} />
+                    <span className="new-service-page__method-icon">
+                        <Github size={21} />
                     </span>
-                    <span>
-                        <strong>GitHub</strong>
-                        <small>Connect with OAuth and choose a repository</small>
-                    </span>
-                    {sourceMode === 'github' ? <CheckCircle2 size={18} /> : <ArrowRight size={18} />}
+                    <span className="new-service-page__method-title">GitHub</span>
+                    <span className="new-service-page__method-sub">Connect with OAuth and choose a repository</span>
                 </button>
                 <button
-                    className={`new-service-page__mode-card ${sourceMode === 'manual' ? 'new-service-page__mode-card--active' : ''}`}
+                    className={`new-service-page__method-card ${sourceMode === 'manual' ? 'new-service-page__method-card--on' : ''}`}
                     type="button"
                     onClick={() => handleSourceModeChange('manual')}
                 >
-                    <span className="new-service-page__mode-icon">
-                        <KeyRound size={18} />
+                    <span className="new-service-page__method-icon">
+                        <KeyRound size={21} />
                     </span>
-                    <span>
-                        <strong>Other Git Remote</strong>
-                        <small>GitLab, Bitbucket, Gitea, or SSH</small>
-                    </span>
-                    {sourceMode === 'manual' ? <CheckCircle2 size={18} /> : <ArrowRight size={18} />}
+                    <span className="new-service-page__method-title">Other Git Remote</span>
+                    <span className="new-service-page__method-sub">GitLab, Bitbucket, Gitea, or SSH</span>
                 </button>
                 <button
-                    className={`new-service-page__mode-card ${sourceMode === 'template' ? 'new-service-page__mode-card--active' : ''}`}
+                    className={`new-service-page__method-card ${sourceMode === 'template' ? 'new-service-page__method-card--on' : ''}`}
                     type="button"
                     onClick={() => handleSourceModeChange('template')}
                 >
-                    <span className="new-service-page__mode-icon">
-                        <Package size={18} />
+                    <span className="new-service-page__method-icon">
+                        <Package size={21} />
                     </span>
-                    <span>
-                        <strong>Deploy Template</strong>
-                        <small>Fast import from manifest-ready repos</small>
-                    </span>
-                    {sourceMode === 'template' ? <CheckCircle2 size={18} /> : <ArrowRight size={18} />}
+                    <span className="new-service-page__method-title">Deploy Template</span>
+                    <span className="new-service-page__method-sub">Fast import from manifest-ready repos</span>
                 </button>
             </div>
 
