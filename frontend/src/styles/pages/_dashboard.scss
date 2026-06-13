@@ -467,12 +467,74 @@
 }
 
 // --- Process Table ---
+// Pairs side-by-side with the Recent Activity panel (8/4 split, mirroring the
+// prototype's 1.55fr/1fr). Collapses to full width when activity stacks below.
 .table-panel {
-    grid-column: span 12;
+    grid-column: span 8;
     background: $bg-card;
     border: 1px solid $border-subtle;
     border-radius: $radius-sm;
     overflow: hidden;
+
+    @media (max-width: $breakpoint-lg) {
+        grid-column: span 12;
+    }
+}
+
+// --- Recent Activity Panel ---
+// Admin-only audit feed. Rows are rendered by the DS <Feed>/<FeedItem>
+// primitives (.sk-feed*); this only provides the card shell + header + placement.
+.activity-panel {
+    grid-column: span 4;
+    background: $bg-card;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-sm;
+    padding: $space-5;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    @media (max-width: $breakpoint-lg) {
+        grid-column: span 12;
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: $space-3;
+    }
+
+    &__title {
+        font-size: $font-size-sm;
+        text-transform: uppercase;
+        color: $text-tertiary;
+        font-weight: $font-weight-semibold;
+        letter-spacing: 0.05em;
+    }
+
+    &__link {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-1;
+        font-size: $font-size-xs;
+        color: $text-tertiary;
+        text-decoration: none;
+        border-radius: $radius-sm;
+        transition: color $transition-fast;
+        @include focus-ring();
+
+        &:hover {
+            color: $accent-primary;
+        }
+    }
+
+    &__empty {
+        padding: $space-5 0;
+        text-align: center;
+        font-size: $font-size-sm;
+        color: $text-tertiary;
+    }
 }
 
 .table-header {

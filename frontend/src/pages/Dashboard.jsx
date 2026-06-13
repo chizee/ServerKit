@@ -4,15 +4,60 @@ import {
     HardDrive, Activity,
     RefreshCw, Zap,
     Database, Container, Globe, Code, Layers, Server, Terminal,
-    ChevronDown, Check
+    ChevronDown, Check, ChevronRight,
+    Plus, Trash2, Pencil, LogIn, Power, Shield, AlertTriangle, History
 } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useMetrics } from '../hooks/useMetrics';
 import MetricsGraph from '../components/MetricsGraph';
 import useDashboardLayout from '../hooks/useDashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { MetricCard, Pill } from '@/components/ds';
+import { MetricCard, Pill, Feed, FeedItem } from '@/components/ds';
+
+// Map an audit action verb to a tinted icon + semantic tone token.
+// Falls back to a neutral history icon for unrecognised actions.
+function getActivityVisual(action = '') {
+    const a = action.toLowerCase();
+    if (a.includes('login_failed')) return { tone: 'red', icon: <AlertTriangle size={15} /> };
+    if (a.includes('login') || a.includes('logout') || a.includes('auth')) return { tone: 'cyan', icon: <LogIn size={15} /> };
+    if (a.includes('delete') || a.includes('remove') || a.includes('disable')) return { tone: 'red', icon: <Trash2 size={15} /> };
+    if (a.includes('create') || a.includes('add') || a.includes('enable')) return { tone: 'green', icon: <Plus size={15} /> };
+    if (a.includes('update') || a.includes('edit') || a.includes('permission')) return { tone: 'amber', icon: <Pencil size={15} /> };
+    if (a.includes('start') || a.includes('restart') || a.includes('stop')) return { tone: 'violet', icon: <Power size={15} /> };
+    if (a.includes('security') || a.includes('firewall') || a.includes('ssl') || a.includes('cert')) return { tone: 'accent', icon: <Shield size={15} /> };
+    return { tone: 'accent', icon: <History size={15} /> };
+}
+
+// Build a readable "actor verb target" sentence from an audit-log item.
+// action is dotted (e.g. "user.create"); we humanise the verb and append the
+// target_type/id when present.
+function describeActivity(item) {
+    const actor = item.username || (item.user_id ? `user #${item.user_id}` : 'System');
+    const verb = (item.action || '').split('.').slice(1).join(' ').replace(/_/g, ' ') || (item.action || 'activity');
+    const target = item.target_type
+        ? `${item.target_type}${item.target_id ? ` #${item.target_id}` : ''}`
+        : '';
+    return { actor, verb, target };
+}
+
+// Short relative time from an ISO timestamp ("just now", "5m ago", "3h ago",
+// "2d ago"), falling back to a localized date for older entries.
+function formatRelativeTime(iso) {
+    if (!iso) return '';
+    const then = new Date(iso);
+    if (isNaN(then)) return '';
+    const secs = Math.floor((Date.now() - then.getTime()) / 1000);
+    if (secs < 60) return 'just now';
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return then.toLocaleDateString();
+}
 
 // Refresh interval options in seconds
 const REFRESH_OPTIONS = [
@@ -25,11 +70,16 @@ const REFRESH_OPTIONS = [
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const { isAdmin } = useAuth();
     const { metrics: localMetrics, loading: metricsLoading, connected, refresh: refreshMetrics } = useMetrics(true);
     const { widgets } = useDashboardLayout();
     const [apps, setApps] = useState([]);
     const [systemInfo, setSystemInfo] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // Recent activity feed (admin-only — endpoint is /admin/activity/feed)
+    const [activity, setActivity] = useState([]);
+    const [activityLoading, setActivityLoading] = useState(true);
     const [refreshInterval, setRefreshInterval] = useState(() => {
         const saved = localStorage.getItem('dashboard_refresh_interval');
         return saved ? parseInt(saved, 10) : 10;
@@ -134,6 +184,27 @@ const Dashboard = () => {
     useEffect(() => {
         loadData();
     }, []);
+
+    // Load the recent-activity feed — admins only (avoids a 403 for others)
+    useEffect(() => {
+        if (!isAdmin) {
+            setActivityLoading(false);
+            return;
+        }
+        let cancelled = false;
+        setActivityLoading(true);
+        api.getActivityFeed({ per_page: 8 })
+            .then(data => {
+                if (!cancelled) setActivity(data?.logs || []);
+            })
+            .catch(err => {
+                if (!cancelled) console.error('Failed to load activity feed:', err);
+            })
+            .finally(() => {
+                if (!cancelled) setActivityLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [isAdmin]);
 
     // Polling fallback when WebSocket is not connected (local only)
     useEffect(() => {
@@ -481,6 +552,41 @@ const Dashboard = () => {
                     };
                     return WIDGET_RENDERERS[w.id]?.();
                 })}
+
+                {/* Recent activity — admin-only audit feed, paired with Applications */}
+                {isAdmin && (
+                    <div className="activity-panel">
+                        <div className="activity-panel__head">
+                            <h3 className="activity-panel__title">Recent Activity</h3>
+                            <Link to="/security/audit" className="activity-panel__link">
+                                Audit log <ChevronRight size={14} aria-hidden="true" />
+                            </Link>
+                        </div>
+                        {activityLoading ? (
+                            <div className="activity-panel__empty">Loading activity…</div>
+                        ) : activity.length === 0 ? (
+                            <div className="activity-panel__empty">No recent activity</div>
+                        ) : (
+                            <Feed>
+                                {activity.map(item => {
+                                    const { tone, icon } = getActivityVisual(item.action);
+                                    const { actor, verb, target } = describeActivity(item);
+                                    return (
+                                        <FeedItem
+                                            key={item.id}
+                                            icon={icon}
+                                            tone={tone}
+                                            time={formatRelativeTime(item.created_at)}
+                                        >
+                                            <b>{actor}</b> {verb}
+                                            {target && <> · {target}</>}
+                                        </FeedItem>
+                                    );
+                                })}
+                            </Feed>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
