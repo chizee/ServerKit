@@ -3,13 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
     HardDrive, Activity,
     RefreshCw, Zap,
-    Database, Container, Globe, Code, Layers, Server, Terminal
+    Database, Container, Globe, Code, Layers, Server, Terminal,
+    ChevronDown, Check
 } from 'lucide-react';
 import api from '../services/api';
 import { useMetrics } from '../hooks/useMetrics';
 import MetricsGraph from '../components/MetricsGraph';
 import useDashboardLayout from '../hooks/useDashboardLayout';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { MetricCard, Pill } from '@/components/ds';
 
 // Refresh interval options in seconds
@@ -20,15 +22,6 @@ const REFRESH_OPTIONS = [
     { label: '30s', value: 30 },
     { label: '1m', value: 60 },
 ];
-
-const ServerSelectorIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-        <line x1="6" y1="6" x2="6.01" y2="6"/>
-        <line x1="6" y1="18" x2="6.01" y2="18"/>
-    </svg>
-);
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -49,6 +42,7 @@ const Dashboard = () => {
     // Server selector state
     const [servers, setServers] = useState([]);
     const [selectedServer, setSelectedServer] = useState({ id: 'local', name: 'Local (this server)' });
+    const [serverMenuOpen, setServerMenuOpen] = useState(false);
     const isRemote = selectedServer.id !== 'local';
 
     // Remote metrics (when a non-local server is selected)
@@ -157,8 +151,7 @@ const Dashboard = () => {
         localStorage.setItem('dashboard_refresh_interval', value.toString());
     }, []);
 
-    function handleServerChange(e) {
-        const serverId = e.target.value;
+    function handleServerChange(serverId) {
         const server = servers.find(s => s.id === serverId) || { id: 'local', name: 'Local (this server)' };
         setSelectedServer(server);
         // Reset ticking counters when switching servers
@@ -236,7 +229,55 @@ const Dashboard = () => {
             {/* Top Bar */}
             <div className="top-bar">
                 <div className="server-identity">
-                    <h1>{hostname}</h1>
+                    <Popover open={serverMenuOpen} onOpenChange={setServerMenuOpen}>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className={`srv-switch${serverMenuOpen ? ' srv-switch--open' : ''}`}
+                                aria-label="Switch server"
+                            >
+                                <span className="srv-switch__name">{hostname}</span>
+                                <ChevronDown size={18} className="srv-switch__chev" aria-hidden="true" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                            align="start"
+                            sideOffset={7}
+                            className="env-menu"
+                        >
+                            <div className="env-menu__head">Connected servers · {servers.length}</div>
+                            {servers.map(server => {
+                                const online = server.status === 'online';
+                                const active = server.id === selectedServer.id;
+                                return (
+                                    <button
+                                        type="button"
+                                        key={server.id}
+                                        className="env-opt"
+                                        onClick={() => { handleServerChange(server.id); setServerMenuOpen(false); }}
+                                    >
+                                        <span
+                                            className={`env-opt__dot env-opt__dot--${online ? 'online' : 'offline'}`}
+                                            aria-hidden="true"
+                                        ></span>
+                                        <span className="env-opt__body">
+                                            <span className="env-opt__name">{server.name}</span>
+                                            <span className="env-opt__meta">
+                                                {server.group_name || (server.is_local ? 'local' : server.id)}
+                                                {' · '}
+                                                {online ? 'online' : 'offline'}
+                                            </span>
+                                        </span>
+                                        {active && (
+                                            <span className="env-opt__check" aria-hidden="true">
+                                                <Check size={15} />
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </PopoverContent>
+                    </Popover>
                     <div className="server-details">
                         <span
                             className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`}
@@ -254,18 +295,6 @@ const Dashboard = () => {
                     </div>
                 </div>
                 <div className="top-bar-right">
-                    {servers.length > 1 && (
-                        <div className="server-selector">
-                            <ServerSelectorIcon />
-                            <select value={selectedServer.id} onChange={handleServerChange}>
-                                {servers.map(server => (
-                                    <option key={server.id} value={server.id} disabled={server.status === 'offline'}>
-                                        {server.name} {server.status === 'offline' ? '(Offline)' : ''}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
                     <div className="clock-widget">
                         <span className="clock-time">{displayTime}</span>
                         <span className="clock-zone">{serverTime?.timezone_id || 'UTC'}</span>
