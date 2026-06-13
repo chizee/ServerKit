@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MetricCard, Pill, SegControl } from '@/components/ds';
+import { MetricCard, Pill, SegControl, PageTopbar } from '@/components/ds';
 
 const CronJobs = () => {
     const toast = useToast();
@@ -215,22 +215,22 @@ const CronJobs = () => {
 
     return (
         <div className="page-container cron-page">
-            <div className="page-header">
-                <div>
-                    <h1>Cron Jobs</h1>
-                    <p className="page-subtitle">Manage scheduled tasks and automated jobs</p>
-                </div>
-                <div className="page-header-actions">
-                    <Button variant="outline" onClick={loadData}>
-                        <RefreshCw size={15} />
-                        Refresh
-                    </Button>
-                    <Button onClick={openCreateModal}>
-                        <Plus size={15} />
-                        Create Job
-                    </Button>
-                </div>
-            </div>
+            <PageTopbar
+                icon={<Clock size={18} />}
+                title="Cron Jobs"
+                actions={(
+                    <>
+                        <Button variant="outline" onClick={loadData}>
+                            <RefreshCw size={15} />
+                            Refresh
+                        </Button>
+                        <Button onClick={openCreateModal}>
+                            <Plus size={15} />
+                            Create Job
+                        </Button>
+                    </>
+                )}
+            />
 
             {error && (
                 <div className="alert alert-danger">
