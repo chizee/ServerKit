@@ -213,6 +213,10 @@ def create_app(config_name=None):
     from app.api.registrars import registrars_bp
     app.register_blueprint(registrars_bp, url_prefix='/api/v1/registrars')
 
+    # Register blueprints - Unified connection registry (read-only "all connections")
+    from app.api.connections import connections_bp
+    app.register_blueprint(connections_bp, url_prefix='/api/v1/connections')
+
     # Register blueprints - Database Migrations
     from app.api.migrations import migrations_bp
     app.register_blueprint(migrations_bp, url_prefix='/api/v1/migrations')
@@ -327,12 +331,15 @@ def create_app(config_name=None):
         try:
             from app.services.dns_provider_service import DNSProviderService
             from app.services.storage_provider_service import StorageProviderService
+            from app.services.cloud_provisioning_service import CloudProvisioningService
             n_dns = DNSProviderService.encrypt_legacy_secrets()
             n_store = StorageProviderService.encrypt_legacy_secrets()
-            if n_dns or n_store:
+            n_cloud = CloudProvisioningService.encrypt_legacy_secrets()
+            if n_dns or n_store or n_cloud:
                 import logging as _logging
                 _logging.getLogger(__name__).info(
-                    f'Encrypted legacy secrets at rest: {n_dns} DNS provider(s), {n_store} storage field(s)')
+                    f'Encrypted legacy secrets at rest: {n_dns} DNS provider(s), '
+                    f'{n_store} storage field(s), {n_cloud} cloud provider(s)')
         except Exception as e:
             import logging as _logging
             _logging.getLogger(__name__).warning(f'Legacy secret encryption skipped: {e}')

@@ -26,7 +26,7 @@ Three consequences fall out of that table:
 
 ---
 
-## ✅ Update (2026-06-15): Phases 1–5 shipped (roadmap complete bar the optional #18)
+## ✅ Update (2026-06-15): roadmap complete — #1–#18 all shipped
 
 Built in one session and verified — `npm run build` (frontend, clean), `eslint` (clean), `py_compile` + venv import (backend, clean). Runtime click-through with real provider credentials is still the operator's to do.
 
@@ -35,10 +35,11 @@ Built in one session and verified — `npm run build` (frontend, clean), `eslint
 - **Phase 3 — domain ownership & expiry:** #9 `RegistrarConnection` model (**Fernet-encrypted** from the start), #10 `RegistrarService` (GoDaddy portfolio + expiry), #11 *not needed as written* — expiry is sourced **live** from the registrar, so no `domains`-table migration was required, #12 the `RegistrarPortfolio` panel on the Domains page ("N days left", colour-coded by urgency, Sync button), #13 registrar card shows "N domains · M expiring ≤30d". **Namecheap** is now live too (XML API; the connect form takes the API key, account username and a whitelisted server IP).
 - **Phase 4 — S3 in the Files app:** #14 `/files/s3/*` endpoints (browse / read / write / delete / download-url / upload) on `StorageProviderService`, reusing the configured backup bucket; #15 an "S3 bucket" target in the File Manager — paths stay slash-rooted in the UI and map to keys server-side, virtual folders from prefixes, edit/upload/download/delete work, and folders/rename/permissions are disabled. Offered only when an S3/B2 destination is configured.
 - **Phase 5 — encrypt secrets at rest:** #16 DNS-provider and storage secrets are now Fernet-encrypted (encrypt on write, `decrypt_secret_safe` at point-of-use with a plaintext fallback so legacy rows keep working); #17 an idempotent startup migration (`encrypt_legacy_secrets`) encrypts any pre-existing plaintext values in place. Added `decrypt_secret_safe` + `is_encrypted` to `crypto.py`.
+- **#18 — credential unification (the optional cleanup):** the last plaintext store (`CloudProvider`, whose `api_key_encrypted` column held plaintext) now encrypts identically to the rest, so **all five stores** use the same `crypto` primitives + startup migration. Added a read-only `ConnectionRegistry` + `GET /api/v1/connections` that presents every connected account as one normalized, secret-free list (the "hub reads one list" single source of truth). A full write-side "one model replaces five" migration was deliberately **not** done — it would risk five working subsystems for no user-facing gain; the uniform encryption + read registry deliver #18's practical value.
 
 New backend: `models/registrar_connection.py`, `services/registrar_service.py`, `api/registrars.py` (`/api/v1/registrars`, registered). New/changed frontend: expanded `providerCatalog.js` (6 categories, 16 tiles), rebuilt `ConnectProviderModal.jsx` (5 provider kinds), `ConnectionsHub.jsx`, `ProviderCard.jsx` cross-links, `ProviderBrands.jsx` icons, `components/domains/RegistrarPortfolio.jsx`, `services/api/connections.js`.
 
-**Still open:** only the optional **#18** (fold the four credential homes behind one unified `Connection` abstraction) — a refactor, not a feature. Every provider the user asked for now works.
+**Nothing open** — every task #1–#18 is done. Each external account type (source, infrastructure, DNS, registrar, email relay, storage) connects through the hub, secrets are encrypted at rest across all five stores, and `GET /api/v1/connections` lists them all in one normalized view.
 
 ---
 
@@ -199,9 +200,10 @@ The one system that genuinely doesn't exist. This is what turns Domains from "DN
 - **Done when:** Existing installs are encrypted with zero user action.
 - **Landed:** Idempotent `DNSProviderService.encrypt_legacy_secrets()` + `StorageProviderService.encrypt_legacy_secrets()` run on startup inside `create_app()`, encrypting any plaintext values in place (skipping already-encrypted ones via `is_encrypted`). Logs how many it touched; wrapped in try/except so a migration hiccup never blocks boot.
 
-### #18 — (Optional) one credential abstraction `[L]` ❌
+### #18 — (Optional) one credential abstraction `[L]` ❌ — ✅ Done (read facade + uniform encryption; write-model unification deliberately deferred)
 - **Do:** Fold the four credential homes (SourceConnection, DNSProviderConfig, storage.json, cloud-provisioning config) behind a single `Connection` interface so every provider stores/scopes/encrypts identically and the hub reads one list.
 - **Done when:** Adding a provider is one declarative entry + one service, with storage/scoping/encryption inherited.
+- **Landed:** Delivered as the two valuable, low-risk halves rather than a five-subsystem rewrite. (1) **Uniform encryption** — fixed the last plaintext store: `CloudProvider.api_key_encrypted` (which held plaintext) is now Fernet-encrypted on write, decrypted at point-of-use in `_auth_headers`, with an idempotent `encrypt_legacy_secrets()` migration run at startup alongside the DNS/storage ones. All five stores now use the same `crypto` primitives. (2) **Unified read** — new `services/connection_registry.py` (`ConnectionRegistry.list_all`) + `api/connections.py` (`GET /api/v1/connections`, registered) return every connected account as one normalized, secret-free list; frontend `api.getAllConnections()`. Verified by booting `create_app('testing')` and running the registry live (returns a list; endpoint present in the URL map). **Not done (intentionally):** collapsing the five models into one and migrating their data — high risk, no user-facing benefit; the per-store write paths stay as-is.
 
 ---
 

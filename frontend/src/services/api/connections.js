@@ -1,6 +1,12 @@
 // Domain-registrar connections — the portfolio + expiry surface that powers the
 // Connections → Registrars cards and the Domains-page portfolio.
 
+// Unified, read-only list of every connected external account (source, DNS,
+// infra, registrar, storage) — the single "what's connected" source of truth.
+export async function getAllConnections() {
+    return this.request('/connections');
+}
+
 export async function getRegistrarConnections() {
     return this.request('/registrars/connections');
 }
