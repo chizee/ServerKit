@@ -41,6 +41,11 @@ const QUICK_ACCESS = [
 // upload/download) is panel-host-only until the matching agent verbs land.
 const REMOTE_SUPPORTED = new Set(['browse', 'read', 'write']);
 
+// Operations the S3 target can't serve (no real directories, permissions, or
+// in-place rename). Everything else — browse/read/write/delete/upload/download —
+// works against the bucket.
+const S3_BLOCKED = new Set(['create file', 'create folder', 'rename', 'change permissions']);
+
 function deriveParent(path) {
     if (!path || path === '/' || path === '') return null;
     // A Windows drive root ("C:/" or "C:") sits directly under the agent's
@@ -98,7 +103,23 @@ function FileManager() {
     // operations the agent can't serve yet.
     const [target, setTarget] = useState({ kind: 'local' });
     const isRemote = target.kind === 'agent';
+    const isS3 = target.kind === 's3';
     const previousTargetRef = useRef({ kind: 'local', server_id: null });
+
+    // The "S3 bucket" target is offered only when an S3-compatible backup
+    // destination is configured (Connections → Storage, or the Backups page).
+    const [s3Available, setS3Available] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        api.getStorageConfig()
+            .then((c) => {
+                if (cancelled) return;
+                const p = c?.provider;
+                setS3Available((p === 's3' || p === 'b2') && Boolean(c?.[p]?.bucket));
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     // ─── core ────────────────────────────────────────────
     const [currentPath, setCurrentPath] = useState(() => searchParams.get('path') || '/home');
@@ -221,32 +242,41 @@ function FileManager() {
     // host while they think they're editing a remote server.
     const fileApi = useMemo(() => ({
         browse: async (path, hidden) => {
+            if (isS3) return api.browseS3(path);
             if (isRemote) {
                 return unwrapAgentData(await api.browseRemoteFiles(target.server_id, path));
             }
             return api.browseFiles(path, hidden);
         },
         read: async (path) => {
+            if (isS3) return api.readS3(path);
             if (isRemote) {
                 return unwrapAgentData(await api.readRemoteFile(target.server_id, path));
             }
             return api.readFile(path);
         },
         write: async (path, content) => {
+            if (isS3) return api.writeS3(path, content);
             if (isRemote) {
                 return unwrapAgentData(await api.writeRemoteFile(target.server_id, path, content));
             }
             return api.writeFile(path, content);
         },
-    }), [isRemote, target]);
+        del: async (path) => (isS3 ? api.deleteS3(path) : api.deleteFile(path)),
+        download: (entry) => (isS3 ? api.downloadS3File(entry.path) : api.downloadFile(entry.path)),
+    }), [isRemote, isS3, target]);
 
     const remoteGuard = useCallback((op) => {
         if (isRemote && !REMOTE_SUPPORTED.has(op)) {
             toast.error(`${op} is not yet supported on remote agents`);
             return true;
         }
+        if (isS3 && S3_BLOCKED.has(op)) {
+            toast.error(`${op} isn't available on S3 buckets`);
+            return true;
+        }
         return false;
-    }, [isRemote, toast]);
+    }, [isRemote, isS3, toast]);
 
     // When the user switches to a remote target, jump to its first
     // advertised allowed_path so they don't see a "panel /home" view
@@ -260,6 +290,8 @@ function FileManager() {
 
         if (target.kind === 'agent' && Array.isArray(target.allowedPaths) && target.allowedPaths.length > 0) {
             setCurrentPath(target.allowedPaths[0]);
+        } else if (target.kind === 's3') {
+            setCurrentPath('/');
         } else if (target.kind === 'local') {
             setCurrentPath('/home');
         }
@@ -518,7 +550,7 @@ function FileManager() {
                 const failures = [];
                 for (const it of items) {
                     try {
-                        await api.deleteFile(it.path);
+                        await fileApi.del(it.path);
                     } catch (error) {
                         failures.push(`${it.name}: ${error.message}`);
                     }
@@ -595,7 +627,8 @@ function FileManager() {
             const itemId = queue[i].id;
             try {
                 setUploads((p) => p.map((u) => u.id === itemId ? { ...u, status: 'uploading' } : u));
-                await api.uploadFile(currentPath, file, (progress) => {
+                const doUpload = isS3 ? api.uploadS3 : api.uploadFile;
+                await doUpload(currentPath, file, (progress) => {
                     setUploads((p) => p.map((u) => u.id === itemId ? { ...u, progress } : u));
                 });
                 setUploads((p) => p.map((u) => u.id === itemId ? { ...u, status: 'done', progress: 100 } : u));
@@ -759,7 +792,7 @@ function FileManager() {
     };
 
     const downloadSelected = () => {
-        selectedEntries.filter((e) => !e.is_dir).forEach((e) => api.downloadFile(e.path));
+        selectedEntries.filter((e) => !e.is_dir).forEach((e) => fileApi.download(e));
     };
 
     const getDiskColor = (percent) => {
@@ -796,6 +829,13 @@ function FileManager() {
                 <div className="file-manager-target-banner">
                     Browsing on <strong>{target.name}</strong> — read/write only.
                     Mkdir/delete/rename/upload aren&apos;t yet supported on remote agents.
+                </div>
+            )}
+
+            {isS3 && (
+                <div className="file-manager-target-banner">
+                    Browsing your <strong>S3 bucket</strong>. Upload, download, edit and delete work;
+                    folders, rename and permissions don&apos;t apply to object storage.
                 </div>
             )}
 
@@ -850,7 +890,7 @@ function FileManager() {
                         <button className="nav-btn" onClick={goUp} disabled={!parentPath} title="Up">
                             <ArrowUp size={14} />
                         </button>
-                        <button className="nav-btn" onClick={() => navigateTo('/home')} title="Home">
+                        <button className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title="Home">
                             <Home size={14} />
                         </button>
                     </div>
@@ -869,7 +909,12 @@ function FileManager() {
                     </div>
                 </div>
                 <div className="toolbar-right">
-                    <TargetPicker feature="files" value={target} onChange={setTarget} />
+                    <TargetPicker
+                        feature="files"
+                        value={target}
+                        onChange={setTarget}
+                        extraOptions={s3Available ? [{ value: 's3', label: 'S3 bucket' }] : []}
+                    />
                     <div className="search-field">
                         <Search size={14} className="search-field-icon" />
                         <input
@@ -959,6 +1004,7 @@ function FileManager() {
             <div className={`file-manager-body ${previewFile ? 'has-preview' : ''}`}>
                 {sidebarVisible && (
                     <aside className="file-manager-sidebar left">
+                        {!isS3 && (<>
                         {/* Quick access (demo rail shortcuts) */}
                         <div className="sidebar-section">
                             <div className="sidebar-section-header static">
@@ -1010,6 +1056,7 @@ function FileManager() {
                                 </div>
                             )}
                         </div>
+                        </>)}
 
                         {/* Types */}
                         <div className="sidebar-section">
@@ -1172,7 +1219,7 @@ function FileManager() {
                                         onOpen={handleOpen}
                                         onToggleSelect={handleToggleSelect}
                                         onContext={openContextMenu}
-                                        onDownload={(e) => api.downloadFile(e.path)}
+                                        onDownload={(e) => fileApi.download(e)}
                                         onRename={openRenameModal}
                                         onPermissions={openPermissionsModal}
                                         onDelete={(e) => handleDelete(e)}
@@ -1193,7 +1240,7 @@ function FileManager() {
                     onCancelEdit={() => setEditing(false)}
                     onSave={handleSaveFile}
                     onClose={() => { setPreviewFile(null); setEditing(false); }}
-                    onDownload={(e) => api.downloadFile(e.path)}
+                    onDownload={(e) => fileApi.download(e)}
                     onRename={openRenameModal}
                     onPermissions={openPermissionsModal}
                     onCopyPath={copyPathToClipboard}
@@ -1243,7 +1290,7 @@ function FileManager() {
                 selectionCount={selectedEntries.length}
                 onClose={() => setContextMenu(null)}
                 onOpen={handleOpen}
-                onDownload={(e) => api.downloadFile(e.path)}
+                onDownload={(e) => fileApi.download(e)}
                 onRename={openRenameModal}
                 onPermissions={openPermissionsModal}
                 onCopyPath={copyPathToClipboard}

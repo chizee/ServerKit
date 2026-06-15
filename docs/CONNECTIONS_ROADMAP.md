@@ -26,17 +26,18 @@ Three consequences fall out of that table:
 
 ---
 
-## ✅ Update (2026-06-15): Phases 1–3 shipped
+## ✅ Update (2026-06-15): Phases 1–4 shipped
 
 Built in one session and verified — `npm run build` (frontend, clean), `eslint` (clean), `py_compile` + venv import (backend, clean). Runtime click-through with real provider credentials is still the operator's to do.
 
 - **Phase 1 — surface what exists:** #2 Infrastructure category (DigitalOcean / Hetzner / Vultr / Linode → existing `/cloud`), #3 S3 + Backblaze B2 storage cards (→ existing `/backups/storage`), #4 cross-links on every connected card ("N servers — Servers →", "N domains — Domains →", bucket → Backups, "New service →").
 - **Phase 2 — complete the tiles:** #5 GitLab source (full OAuth mirror of GitHub, 9 routes), #6 DigitalOcean DNS, #7 GoDaddy DNS (both as new dispatch branches in `dns_provider_service.py`), **#8 SMTP relay** — a real Postfix smarthost (`relayhost` + SASL `sasl_passwd`) with an OS-agnostic `smtplib` connection test; new `EmailRelayConfig` model (password Fernet-encrypted) + `/email/relay` routes + a presets-driven modal (Postmark / SES / Mailgun / SendGrid / custom). All four "coming soon" tiles are now live.
 - **Phase 3 — domain ownership & expiry:** #9 `RegistrarConnection` model (**Fernet-encrypted** from the start), #10 `RegistrarService` (GoDaddy portfolio + expiry), #11 *not needed as written* — expiry is sourced **live** from the registrar, so no `domains`-table migration was required, #12 the `RegistrarPortfolio` panel on the Domains page ("N days left", colour-coded by urgency, Sync button), #13 registrar card shows "N domains · M expiring ≤30d". **Namecheap** intentionally left "coming soon" (XML API + IP allow-listing).
+- **Phase 4 — S3 in the Files app:** #14 `/files/s3/*` endpoints (browse / read / write / delete / download-url / upload) on `StorageProviderService`, reusing the configured backup bucket; #15 an "S3 bucket" target in the File Manager — paths stay slash-rooted in the UI and map to keys server-side, virtual folders from prefixes, edit/upload/download/delete work, and folders/rename/permissions are disabled. Offered only when an S3/B2 destination is configured.
 
 New backend: `models/registrar_connection.py`, `services/registrar_service.py`, `api/registrars.py` (`/api/v1/registrars`, registered). New/changed frontend: expanded `providerCatalog.js` (6 categories, 16 tiles), rebuilt `ConnectProviderModal.jsx` (5 provider kinds), `ConnectionsHub.jsx`, `ProviderCard.jsx` cross-links, `ProviderBrands.jsx` icons, `components/domains/RegistrarPortfolio.jsx`, `services/api/connections.js`.
 
-**Still open:** Namecheap registrar, #14/#15 (S3 in the Files app), and Phase 5 #16/#17 (encrypt the *pre-existing* DNS + storage plaintext secrets — the new registrar + SMTP-relay secrets are already encrypted).
+**Still open:** Namecheap registrar, and Phase 5 #16/#17 (encrypt the *pre-existing* DNS + storage plaintext secrets — the new registrar + SMTP-relay secrets are already encrypted).
 
 ---
 
@@ -170,15 +171,17 @@ The one system that genuinely doesn't exist. This is what turns Domains from "DN
 
 ## Phase 4 — S3 as a first-class Files target (*"S3 connects in the files app"*)
 
-### #14 — `/files/s3/*` endpoints over the storage client `[M]` ❌
+### #14 — `/files/s3/*` endpoints over the storage client `[M]` ❌ — ✅ Done
 - **Today:** `file_service.py` / `api/files.py` are local-filesystem only (`ALLOWED_ROOTS`); no remote/pluggable backend. `storage_provider_service.py` already holds a working boto3 client.
 - **Do:** Add `GET /files/s3/browse`, `/read`, `POST /files/s3/write`, `DELETE /files/s3/delete`, `GET /files/s3/info` that map `list_objects_v2` / `get` / `put` / `delete` into the same entry shape `browse` returns (virtual folders from `/`-suffixed prefixes).
 - **Reuse:** The Phase 1 (#3) storage credentials — no new creds, no new config.
 - **Done when:** The API can list and transfer bucket objects in the File Manager's data shape.
+- **Landed:** `StorageProviderService.s3_browse / s3_read / s3_write / s3_upload / s3_delete / s3_presigned_get` + routes `/api/v1/files/s3/{browse,read,write,delete,download-url,upload}`. UI paths are slash-rooted and mapped to keys server-side; folders are virtual (CommonPrefixes); download hands back a short-lived presigned URL; delete removes a single object or a whole prefix. Reuses the configured backup bucket — no new creds.
 
-### #15 — S3 bucket in the File Manager target picker `[M]` ❌
+### #15 — S3 bucket in the File Manager target picker `[M]` ❌ — ✅ Done
 - **Do:** Add an "S3 bucket" option to `FileManager.jsx`'s target picker (next to Local + agents). When active, browse by prefix and **disable** ops S3 can't do (mkdir, rename, chmod).
 - **Done when:** A user browses, uploads to, downloads from and deletes in their bucket from the Files app — the literal ask.
+- **Landed:** `TargetPicker` gained a backward-compatible `extraOptions` prop; the File Manager shows an "S3 bucket" target when an S3/B2 backup destination is configured, routes browse/read/write/delete/download/upload through the existing `fileApi` adapter, disables folders/rename/permissions via the op guard, hides the local-only sidebar (quick-access/tree) on S3, and shows a context banner. Verified: `npm run build` + `eslint` (clean), backend `py_compile` + venv import.
 
 ---
 

@@ -408,3 +408,174 @@ class StorageProviderService:
                 return f"{size:.1f} {unit}"
             size /= 1024
         return f"{size:.1f} PB"
+
+    # ── File-browser access (powers the Files app's "S3 bucket" target) ──
+    # Paths arrive slash-rooted from the UI (e.g. "/photos/cat.jpg"); we strip the
+    # leading slash to an S3 key. Root "/" → "" (bucket root). The configured
+    # backup path_prefix is intentionally ignored so the browser sees the whole
+    # bucket. All methods reuse the same boto3 client as backups (S3 / B2).
+
+    S3_MAX_EDIT_SIZE = 5 * 1024 * 1024  # 5 MB
+    _EDITABLE_EXT = {
+        '.txt', '.md', '.markdown', '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg',
+        '.conf', '.env', '.csv', '.tsv', '.log', '.xml', '.html', '.htm', '.css', '.scss',
+        '.js', '.jsx', '.ts', '.tsx', '.py', '.rb', '.php', '.go', '.rs', '.java', '.c',
+        '.h', '.cpp', '.sh', '.bash', '.sql', '.svg',
+    }
+
+    @classmethod
+    def _s3_client_bucket(cls):
+        client, bucket, _ = cls._get_client()
+        if client is None or not bucket:
+            return None, None
+        return client, bucket
+
+    @staticmethod
+    def _key_from_path(path):
+        return (path or '').lstrip('/')
+
+    @classmethod
+    def _is_editable_key(cls, key, size):
+        ext = os.path.splitext(key)[1].lower()
+        return size <= cls.S3_MAX_EDIT_SIZE and ext in cls._EDITABLE_EXT
+
+    @classmethod
+    def s3_browse(cls, path='/'):
+        client, bucket = cls._s3_client_bucket()
+        if client is None:
+            return {'success': False, 'error': 'No S3-compatible storage is configured'}
+        import mimetypes
+        prefix = cls._key_from_path(path)
+        if prefix and not prefix.endswith('/'):
+            prefix += '/'
+        try:
+            entries = []
+            paginator = client.get_paginator('list_objects_v2')
+            for page in paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/'):
+                for cp in page.get('CommonPrefixes', []):
+                    full = cp['Prefix'].rstrip('/')
+                    entries.append({
+                        'name': full.split('/')[-1], 'path': '/' + full,
+                        'is_dir': True, 'is_file': False, 'is_link': False,
+                        'size': 0, 'size_human': '—', 'modified': None,
+                        'mime_type': None, 'is_editable': False,
+                        'is_readable': True, 'is_writable': True,
+                    })
+                for obj in page.get('Contents', []):
+                    key = obj['Key']
+                    if key == prefix:  # the folder placeholder object itself
+                        continue
+                    name = key.split('/')[-1]
+                    if not name:
+                        continue
+                    size = obj.get('Size', 0)
+                    mime, _ = mimetypes.guess_type(name)
+                    entries.append({
+                        'name': name, 'path': '/' + key,
+                        'is_dir': False, 'is_file': True, 'is_link': False,
+                        'size': size, 'size_human': cls._format_size(size),
+                        'modified': obj['LastModified'].isoformat() if obj.get('LastModified') else None,
+                        'mime_type': mime, 'is_editable': cls._is_editable_key(key, size),
+                        'is_readable': True, 'is_writable': True,
+                    })
+            entries.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+
+            parent = None
+            stripped = prefix.rstrip('/')
+            if stripped:
+                parent = '/' + stripped.rsplit('/', 1)[0] if '/' in stripped else '/'
+            return {'success': True, 'path': path or '/', 'parent': parent,
+                    'entries': entries, 'total': len(entries)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def s3_read(cls, path):
+        client, bucket = cls._s3_client_bucket()
+        if client is None:
+            return {'success': False, 'error': 'No S3-compatible storage is configured'}
+        key = cls._key_from_path(path)
+        try:
+            head = client.head_object(Bucket=bucket, Key=key)
+            size = head.get('ContentLength', 0)
+            if size > cls.S3_MAX_EDIT_SIZE:
+                return {'success': False, 'error': f'File too large to edit ({cls._format_size(size)})'}
+            obj = client.get_object(Bucket=bucket, Key=key)
+            raw = obj['Body'].read()
+            try:
+                content = raw.decode('utf-8')
+            except UnicodeDecodeError:
+                return {'success': False, 'error': 'Binary file cannot be edited', 'is_binary': True}
+            return {'success': True, 'path': path, 'content': content,
+                    'encoding': 'utf-8', 'size': size, 'is_binary': False}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def s3_write(cls, path, content):
+        client, bucket = cls._s3_client_bucket()
+        if client is None:
+            return {'success': False, 'error': 'No S3-compatible storage is configured'}
+        key = cls._key_from_path(path)
+        if not key:
+            return {'success': False, 'error': 'A key is required'}
+        try:
+            body = (content or '').encode('utf-8')
+            client.put_object(Bucket=bucket, Key=key, Body=body)
+            return {'success': True, 'path': path, 'size': len(body)}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def s3_upload(cls, dest_path, filename, fileobj):
+        client, bucket = cls._s3_client_bucket()
+        if client is None:
+            return {'success': False, 'error': 'No S3-compatible storage is configured'}
+        prefix = cls._key_from_path(dest_path)
+        if prefix and not prefix.endswith('/'):
+            prefix += '/'
+        key = f'{prefix}{filename}'
+        try:
+            client.upload_fileobj(fileobj, bucket, key)
+            return {'success': True, 'path': '/' + key}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def s3_delete(cls, path):
+        client, bucket = cls._s3_client_bucket()
+        if client is None:
+            return {'success': False, 'error': 'No S3-compatible storage is configured'}
+        key = cls._key_from_path(path)
+        if not key:
+            return {'success': False, 'error': 'A key is required'}
+        try:
+            # Collect the object itself plus anything beneath it (folder delete).
+            to_delete = set()
+            paginator = client.get_paginator('list_objects_v2')
+            for p in (key, key + '/'):
+                for page in paginator.paginate(Bucket=bucket, Prefix=p):
+                    for obj in page.get('Contents', []):
+                        to_delete.add(obj['Key'])
+            if not to_delete:
+                client.delete_object(Bucket=bucket, Key=key)
+            else:
+                objs = [{'Key': k} for k in to_delete]
+                for i in range(0, len(objs), 1000):
+                    client.delete_objects(Bucket=bucket, Delete={'Objects': objs[i:i + 1000]})
+            return {'success': True, 'path': path}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def s3_presigned_get(cls, path, expires=300):
+        client, bucket = cls._s3_client_bucket()
+        if client is None:
+            return {'success': False, 'error': 'No S3-compatible storage is configured'}
+        key = cls._key_from_path(path)
+        try:
+            url = client.generate_presigned_url(
+                'get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=expires)
+            return {'success': True, 'url': url}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
