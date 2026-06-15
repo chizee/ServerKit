@@ -40,6 +40,31 @@ class SiteDomainService:
         """Public IP that wildcard/custom A-records should point at (Phase 3)."""
         return SystemSettings.get('server_public_ip') or current_app.config.get('SERVER_PUBLIC_IP') or None
 
+    @classmethod
+    def https_enabled(cls):
+        """True once the wildcard certificate for the base domain is set up, so
+        managed subdomains should be served over HTTPS (Phase 5)."""
+        return bool(SystemSettings.get('sites_https_enabled', False))
+
+    @classmethod
+    def wildcard_cert_paths(cls):
+        """(fullchain, privkey) paths for the base domain's wildcard cert, or
+        (None, None) when no base domain is configured."""
+        base = cls.base_domain()
+        if not base:
+            return (None, None)
+        return (f'/etc/letsencrypt/live/{base}/fullchain.pem',
+                f'/etc/letsencrypt/live/{base}/privkey.pem')
+
+    @classmethod
+    def covers(cls, host):
+        """Whether the base domain's wildcard cert covers ``host`` — i.e. host is
+        the base domain or a direct subdomain of it."""
+        base = cls.base_domain()
+        if not base or not host:
+            return False
+        return host == base or host.endswith('.' + base)
+
     @staticmethod
     def slugify(name):
         """Turn a site name into a DNS-safe label (a-z, 0-9, single dashes)."""

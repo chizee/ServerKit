@@ -35,6 +35,18 @@ export async function getAdminStats() {
     return this.request('/admin/stats');
 }
 
+// Managed-sites domain & HTTPS (Phase 5)
+export async function getSitesHttpsStatus() {
+    return this.request('/admin/sites-https/status');
+}
+
+export async function setupSitesHttps(providerId, email) {
+    return this.request('/admin/sites-https/setup', {
+        method: 'POST',
+        body: { provider_id: providerId, email }
+    });
+}
+
 // System endpoints
 export async function getSystemMetrics() {
     return this.request('/system/metrics');

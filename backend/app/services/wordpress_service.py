@@ -1744,7 +1744,7 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
             # (e.g. an unconfigured production install).
             site_host = SiteDomainService.subdomain_for(safe_name)
             if site_host:
-                site_url = SiteDomainService.site_url(site_host)
+                site_url = SiteDomainService.site_url(site_host, ssl=SiteDomainService.https_enabled())
             else:
                 site_url = f'http://localhost:{http_port}' if http_port else 'http://localhost'
             wp_warning = None
@@ -1892,16 +1892,23 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
         raises; returns ``{'nginx', 'warning'}``."""
         from app.models.domain import Domain
         from app.services.nginx_service import NginxService
+        from app.services.site_domain_service import SiteDomainService
 
         if not app.port:
             return {'nginx': None, 'warning': None}
         domains = [d.name for d in Domain.query.filter_by(application_id=app.id).all()]
         if not domains:
             return {'nginx': None, 'warning': None}
+        # Serve the wildcard cert when HTTPS is set up and every vhost domain is a
+        # managed subdomain it covers (custom domains carry their own cert).
+        ssl_cert = ssl_key = None
+        if SiteDomainService.https_enabled() and all(SiteDomainService.covers(d) for d in domains):
+            ssl_cert, ssl_key = SiteDomainService.wildcard_cert_paths()
         try:
             res = NginxService.create_site(
                 name=app.name, app_type='docker', domains=domains,
                 root_path=app.root_path or '', port=app.port,
+                ssl_cert=ssl_cert, ssl_key=ssl_key,
             )
             if res.get('success'):
                 en = NginxService.enable_site(app.name)
