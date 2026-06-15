@@ -26,18 +26,19 @@ Three consequences fall out of that table:
 
 ---
 
-## ✅ Update (2026-06-15): Phases 1–4 shipped
+## ✅ Update (2026-06-15): Phases 1–5 shipped (roadmap complete bar the optional #18)
 
 Built in one session and verified — `npm run build` (frontend, clean), `eslint` (clean), `py_compile` + venv import (backend, clean). Runtime click-through with real provider credentials is still the operator's to do.
 
 - **Phase 1 — surface what exists:** #2 Infrastructure category (DigitalOcean / Hetzner / Vultr / Linode → existing `/cloud`), #3 S3 + Backblaze B2 storage cards (→ existing `/backups/storage`), #4 cross-links on every connected card ("N servers — Servers →", "N domains — Domains →", bucket → Backups, "New service →").
 - **Phase 2 — complete the tiles:** #5 GitLab source (full OAuth mirror of GitHub, 9 routes), #6 DigitalOcean DNS, #7 GoDaddy DNS (both as new dispatch branches in `dns_provider_service.py`), **#8 SMTP relay** — a real Postfix smarthost (`relayhost` + SASL `sasl_passwd`) with an OS-agnostic `smtplib` connection test; new `EmailRelayConfig` model (password Fernet-encrypted) + `/email/relay` routes + a presets-driven modal (Postmark / SES / Mailgun / SendGrid / custom). All four "coming soon" tiles are now live.
-- **Phase 3 — domain ownership & expiry:** #9 `RegistrarConnection` model (**Fernet-encrypted** from the start), #10 `RegistrarService` (GoDaddy portfolio + expiry), #11 *not needed as written* — expiry is sourced **live** from the registrar, so no `domains`-table migration was required, #12 the `RegistrarPortfolio` panel on the Domains page ("N days left", colour-coded by urgency, Sync button), #13 registrar card shows "N domains · M expiring ≤30d". **Namecheap** intentionally left "coming soon" (XML API + IP allow-listing).
+- **Phase 3 — domain ownership & expiry:** #9 `RegistrarConnection` model (**Fernet-encrypted** from the start), #10 `RegistrarService` (GoDaddy portfolio + expiry), #11 *not needed as written* — expiry is sourced **live** from the registrar, so no `domains`-table migration was required, #12 the `RegistrarPortfolio` panel on the Domains page ("N days left", colour-coded by urgency, Sync button), #13 registrar card shows "N domains · M expiring ≤30d". **Namecheap** is now live too (XML API; the connect form takes the API key, account username and a whitelisted server IP).
 - **Phase 4 — S3 in the Files app:** #14 `/files/s3/*` endpoints (browse / read / write / delete / download-url / upload) on `StorageProviderService`, reusing the configured backup bucket; #15 an "S3 bucket" target in the File Manager — paths stay slash-rooted in the UI and map to keys server-side, virtual folders from prefixes, edit/upload/download/delete work, and folders/rename/permissions are disabled. Offered only when an S3/B2 destination is configured.
+- **Phase 5 — encrypt secrets at rest:** #16 DNS-provider and storage secrets are now Fernet-encrypted (encrypt on write, `decrypt_secret_safe` at point-of-use with a plaintext fallback so legacy rows keep working); #17 an idempotent startup migration (`encrypt_legacy_secrets`) encrypts any pre-existing plaintext values in place. Added `decrypt_secret_safe` + `is_encrypted` to `crypto.py`.
 
 New backend: `models/registrar_connection.py`, `services/registrar_service.py`, `api/registrars.py` (`/api/v1/registrars`, registered). New/changed frontend: expanded `providerCatalog.js` (6 categories, 16 tiles), rebuilt `ConnectProviderModal.jsx` (5 provider kinds), `ConnectionsHub.jsx`, `ProviderCard.jsx` cross-links, `ProviderBrands.jsx` icons, `components/domains/RegistrarPortfolio.jsx`, `services/api/connections.js`.
 
-**Still open:** Namecheap registrar, and Phase 5 #16/#17 (encrypt the *pre-existing* DNS + storage plaintext secrets — the new registrar + SMTP-relay secrets are already encrypted).
+**Still open:** only the optional **#18** (fold the four credential homes behind one unified `Connection` abstraction) — a refactor, not a feature. Every provider the user asked for now works.
 
 ---
 
@@ -187,14 +188,16 @@ The one system that genuinely doesn't exist. This is what turns Domains from "DN
 
 ## Phase 5 — Harden & unify credentials (security)
 
-### #16 — Encrypt DNS + storage secrets at rest `[M]` 🐛
+### #16 — Encrypt DNS + storage secrets at rest `[M]` 🐛 — ✅ Done
 - **Today:** `DNSProviderConfig.api_key`/`api_secret` are plaintext; `storage.json` is only masked-on-read. `encrypt_secret`/`decrypt_secret` already exist and are used by source connections, AI, server and pairing.
 - **Do:** Wrap reads/writes of DNS + storage + (new) registrar secrets in `encrypt_secret`/`decrypt_secret`.
 - **Done when:** No third-party secret is persisted in plaintext.
+- **Landed:** Added `decrypt_secret_safe` + `is_encrypted` to `crypto.py` (decrypt with plaintext fallback so encrypted and not-yet-migrated values coexist). DNS: encrypt in `add_provider`, decrypt at point-of-use via `_api_key`/`_api_secret` in the four header/client builders. Storage: encrypt in `save_config`, decrypt in `get_config` (so `_get_client` and the S3 browser get plaintext). Registrar + SMTP-relay secrets were already encrypted. Verified by an encrypt→decrypt round-trip + legacy-plaintext passthrough + `is_encrypted` detection test.
 
-### #17 — Migrate existing plaintext secrets `[S]` 🐛
+### #17 — Migrate existing plaintext secrets `[S]` 🐛 — ✅ Done
 - **Do:** One-time migration that encrypts any already-stored DNS/storage secrets and records the migration in the migration-history surface.
 - **Done when:** Existing installs are encrypted with zero user action.
+- **Landed:** Idempotent `DNSProviderService.encrypt_legacy_secrets()` + `StorageProviderService.encrypt_legacy_secrets()` run on startup inside `create_app()`, encrypting any plaintext values in place (skipping already-encrypted ones via `is_encrypted`). Logs how many it touched; wrapped in try/except so a migration hiccup never blocks boot.
 
 ### #18 — (Optional) one credential abstraction `[L]` ❌
 - **Do:** Fold the four credential homes (SourceConnection, DNSProviderConfig, storage.json, cloud-provisioning config) behind a single `Connection` interface so every provider stores/scopes/encrypts identically and the hub reads one list.

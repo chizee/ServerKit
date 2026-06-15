@@ -465,15 +465,25 @@ function StorageBody({ provider, isAdmin, storageConfig, onSave, onTest }) {
 
 // ── Registrar: GoDaddy (domain portfolio + expiry) ──
 function RegistrarBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
-    const [form, setForm] = useState({ name: provider.name, api_key: '', api_secret: '' });
+    const isNamecheap = provider.provider === 'namecheap';
+    const [form, setForm] = useState({ name: provider.name, api_key: '', api_secret: '', username: '', client_ip: '' });
     const [busy, setBusy] = useState(false);
-    const canAdd = form.api_key.trim() && form.api_secret.trim();
+    const canAdd = isNamecheap
+        ? Boolean(form.api_key.trim() && form.username.trim() && form.client_ip.trim())
+        : Boolean(form.api_key.trim() && form.api_secret.trim());
 
     async function withBusy(fn) { setBusy(true); try { return await fn(); } finally { setBusy(false); } }
     async function add(e) {
         e.preventDefault();
-        const ok = await withBusy(() => onAdd({ provider: provider.provider, name: form.name.trim() || provider.name, api_key: form.api_key.trim(), api_secret: form.api_secret.trim() }));
-        if (ok) setForm({ name: provider.name, api_key: '', api_secret: '' });
+        const payload = { provider: provider.provider, name: form.name.trim() || provider.name, api_key: form.api_key.trim() };
+        if (isNamecheap) {
+            payload.username = form.username.trim();
+            payload.client_ip = form.client_ip.trim();
+        } else {
+            payload.api_secret = form.api_secret.trim();
+        }
+        const ok = await withBusy(() => onAdd(payload));
+        if (ok) setForm({ name: provider.name, api_key: '', api_secret: '', username: '', client_ip: '' });
     }
 
     return (
@@ -513,12 +523,25 @@ function RegistrarBody({ provider, isAdmin, connections, onAdd, onRemove, onTest
                         </div>
                         <div className="form-group">
                             <Label htmlFor="reg-key">API key</Label>
-                            <Input id="reg-key" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder="GoDaddy API key (Production)" autoComplete="off" />
+                            <Input id="reg-key" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={isNamecheap ? 'Namecheap API key' : 'GoDaddy API key (Production)'} autoComplete="off" />
                         </div>
-                        <div className="form-group">
-                            <Label htmlFor="reg-secret">API secret</Label>
-                            <Input id="reg-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder="GoDaddy API secret" autoComplete="off" />
-                        </div>
+                        {isNamecheap ? (
+                            <>
+                                <div className="form-group">
+                                    <Label htmlFor="reg-user">API username</Label>
+                                    <Input id="reg-user" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="Namecheap account username" autoComplete="off" />
+                                </div>
+                                <div className="form-group">
+                                    <Label htmlFor="reg-ip">Allow-listed IP</Label>
+                                    <Input id="reg-ip" value={form.client_ip} onChange={(e) => setForm((f) => ({ ...f, client_ip: e.target.value }))} placeholder="This server's public IP" autoComplete="off" />
+                                </div>
+                            </>
+                        ) : (
+                            <div className="form-group">
+                                <Label htmlFor="reg-secret">API secret</Label>
+                                <Input id="reg-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder="GoDaddy API secret" autoComplete="off" />
+                            </div>
+                        )}
                     </div>
                     {provider.docUrl && (
                         <a className="conn-form__doc" href={provider.docUrl} target="_blank" rel="noreferrer">

@@ -26,9 +26,12 @@ class RegistrarService:
     # left out until implemented, and shown as "coming soon" in the catalog.
     SUPPORTED = {
         'godaddy': {'name': 'GoDaddy', 'fields': ['api_key', 'api_secret']},
+        'namecheap': {'name': 'Namecheap', 'fields': ['api_key', 'username', 'client_ip']},
     }
 
     GODADDY_BASE = 'https://api.godaddy.com/v1'
+    NAMECHEAP_BASE = 'https://api.namecheap.com/xml.response'
+    NAMECHEAP_NS = {'nc': 'http://api.namecheap.com/xml.response'}
 
     # --- Connections (CRUD) ---
 
@@ -46,17 +49,27 @@ class RegistrarService:
         if provider not in cls.SUPPORTED:
             raise ValueError(f'Unsupported registrar: {provider or "(none)"}')
         api_key = (data.get('api_key') or '').strip()
-        api_secret = (data.get('api_secret') or '').strip()
-        if not api_key or not api_secret:
-            raise ValueError('api_key and api_secret are required')
+        if not api_key:
+            raise ValueError('api_key is required')
 
         conn = RegistrarConnection(
             provider=provider,
             name=(data.get('name') or '').strip() or cls.SUPPORTED[provider]['name'],
             api_key_encrypted=encrypt_secret(api_key),
-            api_secret_encrypted=encrypt_secret(api_secret),
             user_id=user_id,
         )
+        if provider == 'godaddy':
+            api_secret = (data.get('api_secret') or '').strip()
+            if not api_secret:
+                raise ValueError('api_secret is required')
+            conn.api_secret_encrypted = encrypt_secret(api_secret)
+        elif provider == 'namecheap':
+            username = (data.get('username') or '').strip()
+            client_ip = (data.get('client_ip') or '').strip()
+            if not username or not client_ip:
+                raise ValueError('username and client_ip are required')
+            conn.config = {'username': username, 'client_ip': client_ip}
+
         db.session.add(conn)
         db.session.commit()
         return conn
@@ -73,6 +86,10 @@ class RegistrarService:
     @staticmethod
     def _creds(conn):
         return decrypt_secret(conn.api_key_encrypted), decrypt_secret(conn.api_secret_encrypted)
+
+    @staticmethod
+    def _api_key(conn):
+        return decrypt_secret(conn.api_key_encrypted) if conn.api_key_encrypted else ''
 
     # --- GoDaddy ---
 
@@ -104,6 +121,68 @@ class RegistrarService:
             for d in rows
         ]
 
+    # --- Namecheap (XML API; the calling server IP must be allow-listed) ---
+
+    @classmethod
+    def _namecheap_params(cls, conn, command):
+        cfg = conn.config
+        return {
+            'ApiUser': cfg.get('username', ''),
+            'ApiKey': cls._api_key(conn),
+            'UserName': cfg.get('username', ''),
+            'ClientIp': cfg.get('client_ip', ''),
+            'Command': command,
+        }
+
+    @staticmethod
+    def _namecheap_date(value):
+        # Namecheap returns "MM/DD/YYYY"; normalize to ISO "YYYY-MM-DD".
+        try:
+            m, d, y = (value or '').split('/')
+            return f'{int(y):04d}-{int(m):02d}-{int(d):02d}'
+        except Exception:
+            return None
+
+    @classmethod
+    def _namecheap_test(cls, conn):
+        import xml.etree.ElementTree as ET
+        try:
+            params = cls._namecheap_params(conn, 'namecheap.domains.getList')
+            params['PageSize'] = 1
+            resp = requests.get(cls.NAMECHEAP_BASE, params=params, timeout=15)
+            root = ET.fromstring(resp.text)
+            if root.get('Status') == 'OK':
+                return {'success': True, 'message': 'Namecheap connection works'}
+            err = root.find('.//nc:Error', cls.NAMECHEAP_NS)
+            msg = (err.text if err is not None and err.text else
+                   'Check the API key, username, and that this server IP is allow-listed in Namecheap.')
+            return {'success': False, 'error': msg}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def _namecheap_list_domains(cls, conn):
+        import xml.etree.ElementTree as ET
+        params = cls._namecheap_params(conn, 'namecheap.domains.getList')
+        params['PageSize'] = 100
+        resp = requests.get(cls.NAMECHEAP_BASE, params=params, timeout=20)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+        if root.get('Status') != 'OK':
+            err = root.find('.//nc:Error', cls.NAMECHEAP_NS)
+            raise RuntimeError(err.text if err is not None and err.text else 'Namecheap API error')
+        out = []
+        for d in root.findall('.//nc:Domain', cls.NAMECHEAP_NS):
+            out.append(cls._normalize_domain(conn, {
+                'domain': d.get('Name'),
+                'status': 'expired' if d.get('IsExpired') == 'true' else 'active',
+                'expires': cls._namecheap_date(d.get('Expires')),
+                'auto_renew': d.get('AutoRenew') == 'true',
+                'locked': d.get('IsLocked') == 'true',
+                'nameservers': None,
+            }))
+        return out
+
     # --- Public capability methods ---
 
     @classmethod
@@ -119,6 +198,8 @@ class RegistrarService:
                 if resp.status_code in (401, 403):
                     return {'success': False, 'error': 'Access denied — check the API key/secret (must be a Production key, not OTE).'}
                 return {'success': False, 'error': f'GoDaddy returned HTTP {resp.status_code}'}
+            if conn.provider == 'namecheap':
+                return cls._namecheap_test(conn)
             return {'success': False, 'error': f'Unsupported registrar: {conn.provider}'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -127,6 +208,8 @@ class RegistrarService:
     def list_domains(cls, conn):
         if conn.provider == 'godaddy':
             return cls._godaddy_list_domains(conn)
+        if conn.provider == 'namecheap':
+            return cls._namecheap_list_domains(conn)
         return []
 
     @classmethod

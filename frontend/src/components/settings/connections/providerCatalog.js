@@ -81,7 +81,11 @@ export const CONNECTION_PROVIDERS = [
         blurb: 'Track domains you own at GoDaddy and when they expire.',
         docUrl: 'https://developer.godaddy.com/keys', manageHref: '/domains',
     },
-    { id: 'namecheap', category: 'registrar', name: 'Namecheap', comingSoon: true, blurb: 'Domain ownership and expiry from Namecheap.' },
+    {
+        id: 'namecheap', category: 'registrar', name: 'Namecheap', kind: 'registrar', provider: 'namecheap',
+        blurb: 'Track domains you own at Namecheap and when they expire.',
+        docUrl: 'https://ap.www.namecheap.com/settings/tools/apiaccess/', manageHref: '/domains',
+    },
 
     // ── Email & delivery ──
     {

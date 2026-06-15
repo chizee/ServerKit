@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from app import paths
+from app.utils.crypto import encrypt_secret, decrypt_secret_safe, is_encrypted
 
 
 class StorageProviderService:
@@ -14,13 +15,27 @@ class StorageProviderService:
 
     CONFIG_FILE = os.path.join(paths.SERVERKIT_CONFIG_DIR, 'storage.json')
 
+    # Secret fields encrypted at rest (Fernet) in storage.json.
+    SECRET_FIELDS = {'s3': ['access_key', 'secret_key'], 'b2': ['key_id', 'application_key']}
+
+    @classmethod
+    def _decrypt_config(cls, config: Dict) -> Dict:
+        """Decrypt secret fields in-place (plaintext fallback for legacy values)."""
+        for provider, fields in cls.SECRET_FIELDS.items():
+            section = config.get(provider)
+            if isinstance(section, dict):
+                for field in fields:
+                    if section.get(field):
+                        section[field] = decrypt_secret_safe(section[field])
+        return config
+
     @classmethod
     def get_config(cls) -> Dict:
-        """Get storage provider configuration."""
+        """Get storage provider configuration (secrets decrypted in memory)."""
         if os.path.exists(cls.CONFIG_FILE):
             try:
                 with open(cls.CONFIG_FILE, 'r') as f:
-                    return json.load(f)
+                    return cls._decrypt_config(json.load(f))
             except Exception:
                 pass
 
@@ -86,6 +101,14 @@ class StorageProviderService:
                         if new_val and len(new_val) > 4 and new_val[4:] == '*' * (len(new_val) - 4):
                             # Keep existing value if masked
                             config[provider][field] = existing.get(provider, {}).get(field, '')
+
+            # Encrypt secrets at rest (idempotent — skip already-encrypted values).
+            for provider, fields in secret_fields.items():
+                if provider in config:
+                    for field in fields:
+                        val = config[provider].get(field, '')
+                        if val and not is_encrypted(val):
+                            config[provider][field] = encrypt_secret(val)
 
             with open(cls.CONFIG_FILE, 'w') as f:
                 json.dump(config, f, indent=2)
@@ -579,3 +602,33 @@ class StorageProviderService:
             return {'success': True, 'url': url}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def encrypt_legacy_secrets(cls) -> int:
+        """One-time, idempotent: encrypt any storage secrets still stored in
+        plaintext in storage.json (configs saved before encryption-at-rest)."""
+        if not os.path.exists(cls.CONFIG_FILE):
+            return 0
+        try:
+            with open(cls.CONFIG_FILE, 'r') as f:
+                raw = json.load(f)
+        except Exception:
+            return 0
+        changed = 0
+        for provider, fields in cls.SECRET_FIELDS.items():
+            section = raw.get(provider)
+            if isinstance(section, dict):
+                for field in fields:
+                    val = section.get(field, '')
+                    if val and not is_encrypted(val):
+                        section[field] = encrypt_secret(val)
+                        changed += 1
+        if changed:
+            try:
+                with open(cls.CONFIG_FILE, 'w') as f:
+                    json.dump(raw, f, indent=2)
+                if os.name != 'nt':
+                    os.chmod(cls.CONFIG_FILE, 0o600)
+            except Exception:
+                return 0
+        return changed

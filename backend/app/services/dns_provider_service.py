@@ -6,6 +6,7 @@ import requests
 
 from app import db
 from app.models.email import DNSProviderConfig
+from app.utils.crypto import encrypt_secret, decrypt_secret_safe, is_encrypted
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,8 @@ class DNSProviderService:
             config = DNSProviderConfig(
                 name=name,
                 provider=provider,
-                api_key=api_key,
-                api_secret=api_secret,
+                api_key=encrypt_secret(api_key) if api_key else api_key,
+                api_secret=encrypt_secret(api_secret) if api_secret else api_secret,
                 api_email=api_email,
                 is_default=is_default,
             )
@@ -64,6 +65,35 @@ class DNSProviderService:
         except Exception as e:
             db.session.rollback()
             return {'success': False, 'error': str(e)}
+
+    # ── Secret access (decrypt with plaintext fallback for legacy rows) ──
+
+    @staticmethod
+    def _api_key(config: DNSProviderConfig) -> str:
+        return decrypt_secret_safe(config.api_key)
+
+    @staticmethod
+    def _api_secret(config: DNSProviderConfig) -> str:
+        return decrypt_secret_safe(config.api_secret)
+
+    @classmethod
+    def encrypt_legacy_secrets(cls) -> int:
+        """One-time, idempotent: encrypt any DNS-provider secrets still stored in
+        plaintext (rows created before encryption-at-rest landed)."""
+        changed = 0
+        for config in DNSProviderConfig.query.all():
+            dirty = False
+            if config.api_key and not is_encrypted(config.api_key):
+                config.api_key = encrypt_secret(config.api_key)
+                dirty = True
+            if config.api_secret and not is_encrypted(config.api_secret):
+                config.api_secret = encrypt_secret(config.api_secret)
+                dirty = True
+            if dirty:
+                changed += 1
+        if changed:
+            db.session.commit()
+        return changed
 
     @classmethod
     def test_connection(cls, provider_id: int) -> Dict:
@@ -220,11 +250,11 @@ class DNSProviderService:
         if config.api_email:
             return {
                 'X-Auth-Email': config.api_email,
-                'X-Auth-Key': config.api_key,
+                'X-Auth-Key': cls._api_key(config),
                 'Content-Type': 'application/json',
             }
         return {
-            'Authorization': f'Bearer {config.api_key}',
+            'Authorization': f'Bearer {cls._api_key(config)}',
             'Content-Type': 'application/json',
         }
 
@@ -352,8 +382,8 @@ class DNSProviderService:
 
         return boto3.client(
             'route53',
-            aws_access_key_id=config.api_key,
-            aws_secret_access_key=config.api_secret,
+            aws_access_key_id=cls._api_key(config),
+            aws_secret_access_key=cls._api_secret(config),
         )
 
     @classmethod
@@ -459,7 +489,7 @@ class DNSProviderService:
     def _digitalocean_headers(cls, config: DNSProviderConfig) -> Dict:
         """Build DigitalOcean API headers (single-token auth)."""
         return {
-            'Authorization': f'Bearer {config.api_key}',
+            'Authorization': f'Bearer {cls._api_key(config)}',
             'Content-Type': 'application/json',
         }
 
@@ -570,7 +600,7 @@ class DNSProviderService:
     def _godaddy_headers(cls, config: DNSProviderConfig) -> Dict:
         """Build GoDaddy API headers (key+secret auth)."""
         return {
-            'Authorization': f'sso-key {config.api_key}:{config.api_secret}',
+            'Authorization': f'sso-key {cls._api_key(config)}:{cls._api_secret(config)}',
             'Content-Type': 'application/json',
         }
 

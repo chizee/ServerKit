@@ -322,6 +322,21 @@ def create_app(config_name=None):
         SettingsService.initialize_defaults()
         SettingsService.migrate_legacy_roles()
 
+        # Encrypt any legacy plaintext provider secrets at rest (idempotent —
+        # DNS-provider api keys and storage credentials predate encryption).
+        try:
+            from app.services.dns_provider_service import DNSProviderService
+            from app.services.storage_provider_service import StorageProviderService
+            n_dns = DNSProviderService.encrypt_legacy_secrets()
+            n_store = StorageProviderService.encrypt_legacy_secrets()
+            if n_dns or n_store:
+                import logging as _logging
+                _logging.getLogger(__name__).info(
+                    f'Encrypted legacy secrets at rest: {n_dns} DNS provider(s), {n_store} storage field(s)')
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(f'Legacy secret encryption skipped: {e}')
+
         # Load installed plugins (dynamic blueprints) AFTER migrations,
         # so the installed_plugins table exists.
         try:
