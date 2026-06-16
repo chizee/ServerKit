@@ -11,13 +11,15 @@ const wordpressApi = {
         body: data
     }),
 
-    // Import an existing WP site from an uploaded SQL dump (multipart upload).
-    importSite: ({ name, adminEmail, oldUrl, sqlFile }) => {
+    // Import an existing WP site from an uploaded SQL dump, plus an optional
+    // wp-content/full-site .zip (plugins/themes/uploads). Multipart upload.
+    importSite: ({ name, adminEmail, oldUrl, sqlFile, wpContentFile }) => {
         const fd = new FormData();
         fd.append('name', name);
         fd.append('adminEmail', adminEmail || '');
         fd.append('oldUrl', oldUrl);
         fd.append('sql', sqlFile);
+        if (wpContentFile) fd.append('wp_content', wpContentFile);
         return api.request(`${BASE_PATH}/import`, { method: 'POST', body: fd });
     },
 

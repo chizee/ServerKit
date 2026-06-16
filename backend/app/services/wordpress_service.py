@@ -1408,6 +1408,86 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    @staticmethod
+    def _safe_extract_zip(zip_path: str, dest_dir: str) -> Dict:
+        """Extract a zip into dest_dir, rejecting any member whose path would
+        escape it (zip-slip / absolute-path / `..` traversal). Returns {success}.
+        """
+        import zipfile
+        try:
+            dest_abs = os.path.abspath(dest_dir)
+            with zipfile.ZipFile(zip_path) as zf:
+                for member in zf.namelist():
+                    target = os.path.abspath(os.path.join(dest_abs, member))
+                    if target != dest_abs and not target.startswith(dest_abs + os.sep):
+                        return {'success': False, 'error': f'Unsafe path in archive: {member}'}
+                zf.extractall(dest_abs)
+            return {'success': True}
+        except zipfile.BadZipFile:
+            return {'success': False, 'error': 'Not a valid zip archive'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @staticmethod
+    def _resolve_wp_content_dir(extracted_dir: str) -> Optional[str]:
+        """Locate the wp-content directory inside an extracted archive — handles a
+        zip OF wp-content, a full-site zip, or a single wrapper folder. Returns the
+        path to use as wp-content, or None if none is recognizable."""
+        markers = {'plugins', 'themes', 'uploads', 'mu-plugins'}
+        candidates = [extracted_dir]
+        try:
+            for entry in os.listdir(extracted_dir):
+                p = os.path.join(extracted_dir, entry)
+                if os.path.isdir(p):
+                    candidates.append(p)
+        except OSError:
+            pass
+        # 1) An explicit wp-content dir at the root or one level down.
+        for base in candidates:
+            wpc = os.path.join(base, 'wp-content')
+            if os.path.isdir(wpc):
+                return wpc
+        # 2) The root (or a wrapper dir) IS wp-content (has plugins/themes/uploads).
+        for base in candidates:
+            try:
+                if set(os.listdir(base)) & markers:
+                    return base
+            except OSError:
+                continue
+        return None
+
+    @classmethod
+    def _import_wp_content_zip(cls, zip_path: str, target_container: str) -> Dict:
+        """Extract an uploaded wp-content/full-site zip (zip-slip-guarded) and copy
+        its wp-content into the target WordPress container via `docker cp`, then
+        hand the files to the web user. Never raises."""
+        import tempfile
+        tmp = tempfile.mkdtemp(prefix='wpimport_')
+        try:
+            ext = cls._safe_extract_zip(zip_path, tmp)
+            if not ext.get('success'):
+                return ext
+            wpc = cls._resolve_wp_content_dir(tmp)
+            if not wpc:
+                return {'success': False, 'error': 'No wp-content found in the archive'}
+            cp = subprocess.run(
+                ['docker', 'cp', f'{wpc}/.', f'{target_container}:/var/www/html/wp-content'],
+                capture_output=True, text=True, timeout=600,
+            )
+            if cp.returncode != 0:
+                return {'success': False, 'error': cp.stderr or 'docker cp failed'}
+            # Imported files land root-owned; hand wp-content to the web user.
+            subprocess.run(
+                ['docker', 'exec', target_container, 'chown', '-R', 'www-data:www-data',
+                 '/var/www/html/wp-content'],
+                capture_output=True, text=True, timeout=300,
+            )
+            return {'success': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     # ========================================
     # WORDPRESS STANDALONE (DOCKER) MANAGEMENT
     # ========================================
@@ -1769,6 +1849,21 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
             cls.wp_cli(root_path, ['option', 'update', 'home', new_url])
             cls.wp_cli(root_path, ['option', 'update', 'siteurl', new_url])
             sr = cls.search_replace(root_path, old_url, new_url, dry_run=False)
+
+            warnings = []
+            if not sr.get('success'):
+                warnings.append('Search-replace reported an issue; verify links inside wp-admin.')
+
+            # 3.5) Optionally import wp-content (plugins/themes/uploads) from a zip.
+            wp_content_imported = False
+            if wp_content_zip_path:
+                wpc = cls._import_wp_content_zip(wp_content_zip_path, wp_site.application.name)
+                if wpc.get('success'):
+                    wp_content_imported = True
+                else:
+                    warnings.append('Database imported, but wp-content import failed: '
+                                    + (wpc.get('error') or 'unknown error'))
+
             cls.wp_cli(root_path, ['cache', 'flush'])
             cls.wp_cli(root_path, ['rewrite', 'flush'])
 
@@ -1785,11 +1880,10 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
                 'http_port': http_port,
                 'old_url': old_url,
                 'new_url': new_url,
+                'wp_content_imported': wp_content_imported,
             }
-            if not sr.get('success'):
-                out['warning'] = 'Search-replace reported an issue; verify links inside wp-admin.'
-            if wp_content_zip_path:
-                out['warning'] = 'wp-content import is not yet supported; only the database was imported.'
+            if warnings:
+                out['warning'] = '; '.join(warnings)
             return out
         except Exception as e:
             return {'success': False, 'error': str(e),

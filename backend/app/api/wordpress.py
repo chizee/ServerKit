@@ -78,7 +78,8 @@ def create_site():
 @wordpress_bp.route('/sites/import', methods=['POST'])
 @jwt_required()
 def import_site():
-    """Import an existing WordPress site from an uploaded SQL dump (multipart)."""
+    """Import an existing WordPress site from an uploaded SQL dump plus an optional
+    wp-content/full-site .zip (multipart)."""
     import os
     import tempfile
     name = request.form.get('name')
@@ -97,11 +98,21 @@ def import_site():
     if not (fname.endswith('.sql') or fname.endswith('.sql.gz') or fname.endswith('.gz')):
         return jsonify({'error': 'Dump must be a .sql or .sql.gz file'}), 400
 
+    # Optional wp-content / full-site zip (plugins/themes/uploads).
+    zip_file = request.files.get('wp_content')
+    if zip_file and zip_file.filename and not zip_file.filename.lower().endswith('.zip'):
+        return jsonify({'error': 'wp-content archive must be a .zip file'}), 400
+
     suffix = '.sql.gz' if fname.endswith('.gz') else '.sql'
     fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix='wp_import_')
     os.close(fd)
+    zip_tmp = None
     try:
         sql_file.save(tmp_path)
+        if zip_file and zip_file.filename:
+            zfd, zip_tmp = tempfile.mkstemp(suffix='.zip', prefix='wp_import_content_')
+            os.close(zfd)
+            zip_file.save(zip_tmp)
         current_user_id = get_jwt_identity()
         result = WordPressService.import_site(
             name=name,
@@ -109,12 +120,15 @@ def import_site():
             user_id=current_user_id,
             sql_path=tmp_path,
             old_url=old_url,
+            wp_content_zip_path=zip_tmp,
         )
     finally:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
+        for p in (tmp_path, zip_tmp):
+            if p:
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
     return (jsonify(result), 201) if result.get('success') else (jsonify(result), 400)
 
 

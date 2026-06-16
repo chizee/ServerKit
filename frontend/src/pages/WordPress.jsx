@@ -30,6 +30,7 @@ function WordPress() {
     const [importLoading, setImportLoading] = useState(false);
     const [importForm, setImportForm] = useState({ name: '', adminEmail: '', oldUrl: '' });
     const [importFile, setImportFile] = useState(null);
+    const [wpContentFile, setWpContentFile] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -117,13 +118,16 @@ function WordPress() {
                 adminEmail: importForm.adminEmail,
                 oldUrl: importForm.oldUrl,
                 sqlFile: importFile,
+                wpContentFile: wpContentFile,
             });
             if (result.success) {
                 toast.success('WordPress site imported successfully');
+                if (result.wp_content_imported) toast.success('wp-content (plugins/themes/uploads) imported');
                 if (result.warning) toast.info(result.warning, { duration: 8000 });
                 setShowImportModal(false);
                 setImportForm({ name: '', adminEmail: '', oldUrl: '' });
                 setImportFile(null);
+                setWpContentFile(null);
                 await loadSites();
             } else {
                 toast.error(result.error || 'Failed to import site');
@@ -474,6 +478,17 @@ function WordPress() {
                                     onChange={e => setImportFile(e.target.files?.[0] || null)}
                                 />
                                 <span className="form-hint">Export via phpMyAdmin or the wp db export command. .sql.gz is supported and recommended (100MB upload limit).</span>
+                            </div>
+
+                            <div className="form-group">
+                                <Label>wp-content archive (optional)</Label>
+                                <input
+                                    type="file"
+                                    accept=".zip"
+                                    disabled={importLoading}
+                                    onChange={e => setWpContentFile(e.target.files?.[0] || null)}
+                                />
+                                <span className="form-hint">A .zip of wp-content (plugins/themes/uploads) or the full site. Copied into the new container after the database import. Leave empty to import the database only.</span>
                             </div>
                         </div>
                         <div className="modal-footer">
