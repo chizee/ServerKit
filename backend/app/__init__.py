@@ -303,6 +303,10 @@ def create_app(config_name=None):
     from app.api.dns_zones import dns_zones_bp
     app.register_blueprint(dns_zones_bp, url_prefix='/api/v1/dns')
 
+    # Register blueprints - Dynamic DNS
+    from app.api.ddns import ddns_bp
+    app.register_blueprint(ddns_bp, url_prefix='/api/v1/ddns')
+
     # Register blueprints - Nginx Advanced
     from app.api.nginx_advanced import nginx_advanced_bp
     app.register_blueprint(nginx_advanced_bp, url_prefix='/api/v1/nginx/advanced')
