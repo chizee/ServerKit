@@ -15,11 +15,58 @@ env:
   GO_VERSION: '1.23'
 
 jobs:
-  build:
-    name: Build Agent
+  version:
+    name: Resolve Version
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/agent-v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Releasing agent version: $VERSION"
+
+  build-ui:
+    name: Build Agent UI
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # The agent embeds its desktop UI via //go:embed all:dist, so the React
+      # app must be built into agent/internal/agentui/dist before `go build`.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: agent/ui/package-lock.json
+
+      - name: Build agent UI
+        working-directory: agent/ui
+        run: npm ci && npm run build
+
+      - name: Upload UI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-ui-dist
+          path: agent/internal/agentui/dist/
+          retention-days: 5
+
+  build-binaries:
+    name: Build Binary (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: [version, build-ui]
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - goos: linux
@@ -45,29 +92,11 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: agent/go.sum
 
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
-
-      # The agent embeds its desktop UI via //go:embed all:dist, so the React
-      # app must be built into agent/internal/agentui/dist before `go build`.
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - name: Download UI artifact
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: agent/ui/package-lock.json
-
-      - name: Build agent UI (required by //go:embed)
-        working-directory: agent/ui
-        run: npm ci && npm run build
+          name: agent-ui-dist
+          path: agent/internal/agentui/dist/
 
       - name: Build binary
         env:
@@ -84,7 +113,7 @@ jobs:
           else
             EXTRA_LDFLAGS=""
           fi
-          go build -ldflags="-s -w $EXTRA_LDFLAGS -X main.Version=${{ steps.version.outputs.version }} -X github.com/serverkit/agent/internal/agent.Version=${{ steps.version.outputs.version }}" \
+          go build -ldflags="-s -w $EXTRA_LDFLAGS -X main.Version=${{ needs.version.outputs.version }} -X github.com/serverkit/agent/internal/agent.Version=${{ needs.version.outputs.version }}" \
             -o ../dist/serverkit-agent-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }} \
             ./cmd/agent
 
@@ -92,46 +121,37 @@ jobs:
         if: matrix.goos == 'linux'
         run: |
           cd dist
-          tar -czvf serverkit-agent-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
+          tar -czvf serverkit-agent-${{ needs.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
             serverkit-agent-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Compress binary (Windows)
         if: matrix.goos == 'windows'
         run: |
           cd dist
-          zip serverkit-agent-${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip \
+          zip serverkit-agent-${{ needs.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip \
             serverkit-agent-${{ matrix.goos }}-${{ matrix.goarch }}.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: serverkit-agent-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/serverkit-agent-${{ steps.version.outputs.version }}-*
+          path: dist/serverkit-agent-${{ needs.version.outputs.version }}-*
           retention-days: 5
 
   # Build .deb packages
   build-deb:
-    name: Build DEB Package
+    name: Build DEB Package (${{ matrix.arch }})
     runs-on: ubuntu-latest
-    needs: build
+    needs: [version, build-binaries]
 
     strategy:
+      fail-fast: false
       matrix:
         arch: [amd64, arm64]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download binary
         uses: actions/download-artifact@v4
@@ -142,13 +162,13 @@ jobs:
       - name: Extract binary
         run: |
           cd dist
-          tar -xzf serverkit-agent-${{ steps.version.outputs.version }}-linux-${{ matrix.arch }}.tar.gz
+          tar -xzf serverkit-agent-${{ needs.version.outputs.version }}-linux-${{ matrix.arch }}.tar.gz
 
       - name: Build DEB package
         run: |
           chmod +x agent/packaging/deb/build.sh
           cd agent/packaging/deb
-          ./build.sh "${{ steps.version.outputs.version }}" "${{ matrix.arch }}" "../../../dist/serverkit-agent-linux-${{ matrix.arch }}" "../../../packages"
+          ./build.sh "${{ needs.version.outputs.version }}" "${{ matrix.arch }}" "../../../dist/serverkit-agent-linux-${{ matrix.arch }}" "../../../packages"
 
       - name: Upload DEB package
         uses: actions/upload-artifact@v4
@@ -159,11 +179,12 @@ jobs:
 
   # Build .rpm packages
   build-rpm:
-    name: Build RPM Package
+    name: Build RPM Package (${{ matrix.rpmarch }})
     runs-on: ubuntu-latest
-    needs: build
+    needs: [version, build-binaries]
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - goarch: amd64
@@ -174,16 +195,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install RPM build tools
         run: |
@@ -199,13 +210,13 @@ jobs:
       - name: Extract binary
         run: |
           cd dist
-          tar -xzf serverkit-agent-${{ steps.version.outputs.version }}-linux-${{ matrix.goarch }}.tar.gz
+          tar -xzf serverkit-agent-${{ needs.version.outputs.version }}-linux-${{ matrix.goarch }}.tar.gz
 
       - name: Build RPM package
         run: |
           chmod +x agent/packaging/rpm/build.sh
           cd agent/packaging/rpm
-          ./build.sh "${{ steps.version.outputs.version }}" "${{ matrix.rpmarch }}" "../../../dist/serverkit-agent-linux-${{ matrix.goarch }}" "../../../packages"
+          ./build.sh "${{ needs.version.outputs.version }}" "${{ matrix.rpmarch }}" "../../../dist/serverkit-agent-linux-${{ matrix.goarch }}" "../../../packages"
 
       - name: Upload RPM package
         uses: actions/upload-artifact@v4
@@ -218,9 +229,10 @@ jobs:
   build-msi:
     name: Build MSI Installer (${{ matrix.arch }})
     runs-on: windows-latest
-    needs: build
+    needs: [version, build-binaries]
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - goarch: amd64
@@ -232,24 +244,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get version
-        id: version
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Install WiX Toolset
         run: |
           dotnet tool install --global wix --version 5.0.2
 
       - name: Install WiX Util extension
         run: |
-          wix extension add --global WixToolset.Util.wixext
+          wix extension add --global WixToolset.Util.wixext --version 5.0.2
 
       - name: Download binary
         uses: actions/download-artifact@v4
@@ -261,13 +262,13 @@ jobs:
         shell: bash
         run: |
           cd dist
-          unzip serverkit-agent-${{ steps.version.outputs.version }}-windows-${{ matrix.goarch }}.zip
+          unzip serverkit-agent-${{ needs.version.outputs.version }}-windows-${{ matrix.goarch }}.zip
 
       - name: Build MSI
         shell: pwsh
         run: |
           cd agent/packaging/msi
-          .\build.ps1 -Version "${{ steps.version.outputs.version }}" -Arch "${{ matrix.arch }}" -BinaryPath "..\..\..\dist\serverkit-agent-windows-${{ matrix.goarch }}.exe" -OutputDir "..\..\..\packages"
+          .\build.ps1 -Version "${{ needs.version.outputs.version }}" -Arch "${{ matrix.arch }}" -BinaryPath "..\..\..\dist\serverkit-agent-windows-${{ matrix.goarch }}.exe" -OutputDir "..\..\..\packages"
 
       - name: Upload MSI
         uses: actions/upload-artifact@v4
@@ -280,21 +281,11 @@ jobs:
   build-docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: build
+    needs: version
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -317,33 +308,20 @@ jobs:
           push: ${{ secrets.DOCKERHUB_USERNAME != '' }}
           tags: |
             jhd3197/serverkit-agent:latest
-            jhd3197/serverkit-agent:${{ steps.version.outputs.version }}
+            jhd3197/serverkit-agent:${{ needs.version.outputs.version }}
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
+            VERSION=${{ needs.version.outputs.version }}
             BUILD_TIME=${{ github.event.repository.updated_at }}
             GIT_COMMIT=${{ github.sha }}
 
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build, build-deb, build-rpm, build-msi, build-docker]
+    needs: [build-binaries, build-deb, build-rpm, build-msi, build-docker]
     permissions:
       contents: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -371,44 +349,42 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: agent-v${{ steps.version.outputs.version }}
-          name: ServerKit Agent v${{ steps.version.outputs.version }}
+          tag_name: agent-v${{ needs.version.outputs.version }}
+          name: ServerKit Agent v${{ needs.version.outputs.version }}
           draft: false
           prerelease: false
           files: |
             release/*
           body: |
-            ## ServerKit Agent v${{ steps.version.outputs.version }}
+            ## ServerKit Agent v${{ needs.version.outputs.version }}
 
             ### Downloads
 
             #### Binary Archives
             | Platform | Architecture | Download |
             |----------|--------------|----------|
-            | Linux | x64 (amd64) | `serverkit-agent-${{ steps.version.outputs.version }}-linux-amd64.tar.gz` |
-            | Linux | ARM64 | `serverkit-agent-${{ steps.version.outputs.version }}-linux-arm64.tar.gz` |
-            | Windows | x64 (amd64) | `serverkit-agent-${{ steps.version.outputs.version }}-windows-amd64.zip` |
-            | Windows | ARM64 | `serverkit-agent-${{ steps.version.outputs.version }}-windows-arm64.zip` |
+            | Linux | x64 (amd64) | `serverkit-agent-${{ needs.version.outputs.version }}-linux-amd64.tar.gz` |
+            | Linux | ARM64 | `serverkit-agent-${{ needs.version.outputs.version }}-linux-arm64.tar.gz` |
+            | Windows | x64 (amd64) | `serverkit-agent-${{ needs.version.outputs.version }}-windows-amd64.zip` |
+            | Windows | ARM64 | `serverkit-agent-${{ needs.version.outputs.version }}-windows-arm64.zip` |
 
             #### Linux Packages
             | Format | Architecture | Download |
             |--------|--------------|----------|
-            | DEB (Debian/Ubuntu) | amd64 | `serverkit-agent_${{ steps.version.outputs.version }}_amd64.deb` |
-            | DEB (Debian/Ubuntu) | arm64 | `serverkit-agent_${{ steps.version.outputs.version }}_arm64.deb` |
-            | RPM (RHEL/Fedora) | x86_64 | `serverkit-agent-${{ steps.version.outputs.version }}-1.x86_64.rpm` |
-            | RPM (RHEL/Fedora) | aarch64 | `serverkit-agent-${{ steps.version.outputs.version }}-1.aarch64.rpm` |
+            | DEB (Debian/Ubuntu) | amd64 | `serverkit-agent_${{ needs.version.outputs.version }}_amd64.deb` |
+            | DEB (Debian/Ubuntu) | arm64 | `serverkit-agent_${{ needs.version.outputs.version }}_arm64.deb` |
+            | RPM (RHEL/Fedora) | x86_64 | `serverkit-agent-${{ needs.version.outputs.version }}-1.x86_64.rpm` |
+            | RPM (RHEL/Fedora) | aarch64 | `serverkit-agent-${{ needs.version.outputs.version }}-1.aarch64.rpm` |
 
             #### Windows Installer
             | Format | Architecture | Download |
-            |--------|--------------|----------|
-            | MSI | x64 | `serverkit-agent-${{ steps.version.outputs.version }}-x64.msi` |
-            | MSI | ARM64 | `serverkit-agent-${{ steps.version.outputs.version }}-arm64.msi` |
-
-            > **New:** The Windows MSI now opens a native pairing wizard right after install — no browser, no WebView2 runtime needed. The Start-menu shortcut and login autostart both run the unified desktop app: pairing wizard if not yet configured, otherwise the system tray.
+            |--------|--------------|--------|
+            | MSI | x64 | `serverkit-agent-${{ needs.version.outputs.version }}-x64.msi` |
+            | MSI | ARM64 | `serverkit-agent-${{ needs.version.outputs.version }}-arm64.msi` |
 
             #### Docker
             ```bash
-            docker pull jhd3197/serverkit-agent:${{ steps.version.outputs.version }}
+            docker pull jhd3197/serverkit-agent:${{ needs.version.outputs.version }}
             docker pull jhd3197/serverkit-agent:latest
             ```
 
@@ -416,15 +392,15 @@ jobs:
 
             **Debian/Ubuntu:**
             ```bash
-            curl -LO https://github.com/${{ github.repository }}/releases/download/agent-v${{ steps.version.outputs.version }}/serverkit-agent_${{ steps.version.outputs.version }}_amd64.deb
-            sudo dpkg -i serverkit-agent_${{ steps.version.outputs.version }}_amd64.deb
+            curl -LO https://github.com/${{ github.repository }}/releases/download/agent-v${{ needs.version.outputs.version }}/serverkit-agent_${{ needs.version.outputs.version }}_amd64.deb
+            sudo dpkg -i serverkit-agent_${{ needs.version.outputs.version }}_amd64.deb
             sudo serverkit-agent register --token "YOUR_TOKEN" --server "https://your-serverkit.com"
             sudo systemctl start serverkit-agent
             ```
 
             **RHEL/Fedora:**
             ```bash
-            sudo rpm -i https://github.com/${{ github.repository }}/releases/download/agent-v${{ steps.version.outputs.version }}/serverkit-agent-${{ steps.version.outputs.version }}-1.x86_64.rpm
+            sudo rpm -i https://github.com/${{ github.repository }}/releases/download/agent-v${{ needs.version.outputs.version }}/serverkit-agent-${{ needs.version.outputs.version }}-1.x86_64.rpm
             sudo serverkit-agent register --token "YOUR_TOKEN" --server "https://your-serverkit.com"
             sudo systemctl start serverkit-agent
             ```
@@ -441,7 +417,7 @@ jobs:
             docker run -d --name serverkit-agent \
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
               -v serverkit-config:/etc/serverkit-agent \
-              jhd3197/serverkit-agent:${{ steps.version.outputs.version }}
+              jhd3197/serverkit-agent:${{ needs.version.outputs.version }}
             ```
 
             ### Verification
@@ -460,24 +436,14 @@ jobs:
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [build, build-deb, build-rpm, build-msi, build-docker, release]
+    needs: [version, release]
 
     steps:
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/agent-v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Create summary
         run: |
           echo "## Agent Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Built Binaries" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -501,4 +467,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Release" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Release created at: https://github.com/${{ github.repository }}/releases/tag/agent-v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Release created at: https://github.com/${{ github.repository }}/releases/tag/agent-v${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY

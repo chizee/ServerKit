@@ -18,20 +18,12 @@ on:
       - 'agent/**'
       - '.github/workflows/agent-ci.yml'
 
-defaults:
-  run:
-    working-directory: agent
-
 jobs:
-  test:
-    name: vet & test (linux)
+  build-ui:
+    name: Build Agent UI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: agent/go.mod
-          cache-dependency-path: agent/go.sum
       # The agent embeds the desktop UI via //go:embed all:dist, so the
       # React app must be built into agent/internal/agentui/dist before any
       # `go` command — otherwise the embed fails with "no matching files".
@@ -40,9 +32,33 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: agent/ui/package-lock.json
-      - name: Build agent UI (required by //go:embed)
+      - name: Build agent UI
         working-directory: agent/ui
         run: npm ci && npm run build
+      - name: Upload UI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-ui-dist
+          path: agent/internal/agentui/dist/
+          retention-days: 1
+
+  test:
+    name: vet & test (linux)
+    runs-on: ubuntu-latest
+    needs: build-ui
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+      - uses: actions/download-artifact@v4
+        with:
+          name: agent-ui-dist
+          path: agent/internal/agentui/dist/
       - name: go vet
         run: go vet ./...
       - name: go test
@@ -51,6 +67,10 @@ jobs:
   build:
     name: build (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
+    needs: build-ui
+    defaults:
+      run:
+        working-directory: agent
     # darwin is intentionally NOT in this matrix: the tray dependency
     # (fyne.io/systray) needs the macOS Cocoa toolchain and cannot be
     # cross-compiled from Linux. It is built on a macOS host at release time
@@ -72,16 +92,10 @@ jobs:
         with:
           go-version-file: agent/go.mod
           cache-dependency-path: agent/go.sum
-      # Build the embedded desktop UI before `go build` (see //go:embed
-      # all:dist in internal/agentui/embed.go).
-      - uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: agent/ui/package-lock.json
-      - name: Build agent UI (required by //go:embed)
-        working-directory: agent/ui
-        run: npm ci && npm run build
+          name: agent-ui-dist
+          path: agent/internal/agentui/dist/
       - name: go build
         env:
           GOOS: ${{ matrix.goos }}

@@ -22,8 +22,10 @@ WINDOWS_LDFLAGS := $(AGENT_LDFLAGS) -H=windowsgui
 
 BINARY_NAME := serverkit-agent
 DIST_DIR := dist
+UI_DIR := ui
+UI_DIST := internal/agentui/dist
 
-.PHONY: all build clean test lint deps dev run docker-build docker-push docker-buildx
+.PHONY: all build clean test lint deps dev run docker-build docker-push docker-buildx build-ui
 
 all: build
 
@@ -32,8 +34,14 @@ deps:
 	go mod download
 	go mod tidy
 
+# Build the embedded React UI (required by //go:embed in internal/agentui/embed.go)
+build-ui:
+	@cd $(UI_DIR) && npm ci && npm run build
+
+$(UI_DIST): build-ui
+
 # Build for current platform
-build:
+build: $(UI_DIST)
 	CGO_ENABLED=0 go build -ldflags "$(AGENT_LDFLAGS)" -o $(BINARY_NAME) ./cmd/agent
 
 # Build for current platform with debug symbols
@@ -45,7 +53,7 @@ run: build
 	./$(BINARY_NAME) start
 
 # Build for all platforms
-build-all:
+build-all: $(UI_DIST)
 	@mkdir -p $(DIST_DIR)
 	@echo "Building for Linux amd64..."
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-linux-amd64 ./cmd/agent
@@ -62,13 +70,13 @@ build-all:
 	@echo "Done! Binaries in $(DIST_DIR)/"
 
 # Build Linux only
-build-linux:
+build-linux: $(UI_DIST)
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/agent
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(AGENT_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/agent
 
 # Build Windows only
-build-windows:
+build-windows: $(UI_DIST)
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(DIST_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/agent
 
@@ -93,6 +101,7 @@ fmt:
 clean:
 	rm -f $(BINARY_NAME)
 	rm -rf $(DIST_DIR)
+	rm -rf $(UI_DIST)
 	rm -f coverage.out coverage.html
 
 # Install locally
