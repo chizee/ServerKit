@@ -41,6 +41,7 @@ from app.models.image_scan import ImageVulnerabilityScan, SbomArtifact
 from app.models.passkey import PasskeyCredential
 from app.models.secret_vault import SecretVault, Secret
 from app.models.webhook_gateway import WebhookEndpoint, WebhookDelivery
+from app.models.waf_policy import WafPolicy
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -68,4 +69,5 @@ __all__ = [
     'PasskeyCredential',
     'SecretVault', 'Secret',
     'WebhookEndpoint', 'WebhookDelivery',
+    'WafPolicy',
 ]

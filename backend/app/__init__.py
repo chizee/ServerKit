@@ -311,6 +311,10 @@ def create_app(config_name=None):
     from app.api.image_updates import image_updates_bp
     app.register_blueprint(image_updates_bp, url_prefix='/api/v1/image-updates')
 
+    # Register blueprints - Per-application WAF (ModSecurity + OWASP CRS)
+    from app.api.waf import waf_bp
+    app.register_blueprint(waf_bp, url_prefix='/api/v1/waf')
+
     # Register blueprints - GPU monitoring
     from app.api.gpu import gpu_bp
     app.register_blueprint(gpu_bp, url_prefix='/api/v1/gpu')
