@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParam
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LayoutProvider } from './contexts/LayoutContext';
 import { ResourceTierProvider } from './contexts/ResourceTierContext';
 import { Toaster } from './components/ui/sonner';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -319,14 +320,16 @@ function App() {
         <Router>
             <PageTitleUpdater />
             <ThemeProvider>
-                <AuthProvider>
-                    <ResourceTierProvider>
-                        <ToastProvider>
-                            <AppRoutes />
-                            <Toaster />
-                        </ToastProvider>
-                    </ResourceTierProvider>
-                </AuthProvider>
+                <LayoutProvider>
+                    <AuthProvider>
+                        <ResourceTierProvider>
+                            <ToastProvider>
+                                <AppRoutes />
+                                <Toaster />
+                            </ToastProvider>
+                        </ResourceTierProvider>
+                    </AuthProvider>
+                </LayoutProvider>
             </ThemeProvider>
         </Router>
     );

@@ -696,3 +696,65 @@
         box-shadow: 0 0 6px currentColor;
     }
 }
+
+// ============================================
+// COMPACT RAIL LAYOUT  —  [data-layout="rail"]
+// A 64px icon-only rail that expands to the full sidebar on hover/focus.
+// Desktop only: below $breakpoint-md the off-canvas drawer is unchanged.
+// ============================================
+@media (min-width: ($breakpoint-md + 1)) {
+    [data-layout="rail"] {
+        .main-content {
+            margin-left: $sidebar-rail-width;
+        }
+
+        .sidebar {
+            width: $sidebar-rail-width;
+            transition: width 0.18s $ease-out-quint;
+
+            @media (prefers-reduced-motion: reduce) {
+                transition: none;
+            }
+
+            // Expand to the full sidebar while hovered or keyboard-focused. The
+            // panel is position: fixed, so it overlays content instead of
+            // pushing it — the .main-content offset stays at the rail width.
+            &:hover,
+            &:focus-within {
+                width: $sidebar-width;
+                box-shadow: 8px 0 32px rgba(0, 0, 0, 0.28);
+            }
+
+            // Collapsed state: bare icon rail. font-size: 0 hides nav text while
+            // keeping it in the accessibility tree; fixed-size SVG icons stay.
+            &:not(:hover):not(:focus-within) {
+                .nav-item {
+                    justify-content: center;
+                    gap: 0;
+                    font-size: 0;
+                }
+
+                .nav-sub-item {
+                    padding-left: 0.625rem;
+                }
+
+                .brand-section,
+                .workspace-switcher,
+                .user-mini {
+                    justify-content: center;
+                    gap: 0;
+                }
+
+                .brand-text,
+                .brand-star,
+                .nav-category,
+                .nav-expand-btn,
+                .workspace-switcher__select,
+                .user-meta,
+                .user-menu-arrow {
+                    display: none;
+                }
+            }
+        }
+    }
+}
