@@ -9,6 +9,7 @@
 #
 #   INSTALL_FROM_RELEASE=1   fetch a pre-built tarball instead of compiling
 #   BUILD_FROM_SOURCE=1      force a source build even when a release exists
+#   SERVERKIT_SKIP_SSL=1     run on plain HTTP (no HTTPS / no certbot attempt)
 #
 # The Flask backend runs straight on the host (it needs real system access);
 # the React frontend is built to static files and served by the host nginx.
@@ -38,6 +39,7 @@ CHANNEL="${CHANNEL:-Stable}"
 
 PANEL_DOMAIN="${PANEL_DOMAIN:-}"
 PANEL_PORT="${PANEL_PORT:-80}"
+SERVERKIT_SKIP_SSL="${SERVERKIT_SKIP_SSL:-0}"
 
 # Runtime state populated as we go (declared up-front for `set -u`).
 OS_FAMILY="unknown"
@@ -45,6 +47,7 @@ ARCH=""
 DL_ARCH=""
 PKG_MGR=""
 SAFE_MODE=false
+SSL_MODE="insecure"
 
 # ---------------------------------------------------------------------------
 # Terminal styling
@@ -510,9 +513,16 @@ write_config() {
 
     # Widen CORS / advertise a public URL when a panel domain is known.
     local public_url="" cors_origins="http://localhost,https://localhost"
+    local url_scheme="http"
     if [ -n "$PANEL_DOMAIN" ]; then
-        public_url="http://$PANEL_DOMAIN"
-        cors_origins="http://localhost,https://localhost,http://$PANEL_DOMAIN,https://$PANEL_DOMAIN"
+        if [ "$SSL_MODE" = "secure" ]; then
+            url_scheme="https"
+            cors_origins="http://localhost,https://localhost,https://$PANEL_DOMAIN"
+        else
+            url_scheme="http"
+            cors_origins="http://localhost,https://localhost,http://$PANEL_DOMAIN"
+        fi
+        public_url="${url_scheme}://$PANEL_DOMAIN"
     fi
 
     cat > "$INSTALL_DIR/.env" <<EOF
@@ -553,31 +563,12 @@ server {
     listen 80 default_server;
     server_name _;
     if (\$host ~* ^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\$) {
-        return 301 http://$PANEL_DOMAIN\$request_uri;
+        return 301 ${url_scheme}://$PANEL_DOMAIN\$request_uri;
     }
 }
 EOF
         good "Canonical-domain redirect configured for $PANEL_DOMAIN"
     fi
-}
-
-# ---------------------------------------------------------------------------
-# Self-signed certificate placeholder
-# ---------------------------------------------------------------------------
-seed_self_signed_cert() {
-    phase "SSL Certificate"
-
-    if [ -f "$INSTALL_DIR/nginx/ssl/fullchain.pem" ]; then
-        good "SSL certificate already present."
-        return
-    fi
-
-    step "Creating a self-signed certificate..."
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout "$INSTALL_DIR/nginx/ssl/privkey.pem" \
-        -out "$INSTALL_DIR/nginx/ssl/fullchain.pem" \
-        -subj "/CN=localhost" 2>/dev/null
-    warn "Self-signed cert in place — swap in a real certificate for production."
 }
 
 # ---------------------------------------------------------------------------
@@ -618,7 +609,7 @@ configure_nginx() {
     systemctl stop nginx 2>/dev/null || true
     rm -f /etc/nginx/sites-enabled/default
 
-    mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/serverkit-conf.d
+    mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/serverkit-conf.d /var/www/certbot
 
     # Fedora/RHEL nginx.conf doesn't include sites-enabled by default.
     if ! grep -q "sites-enabled" /etc/nginx/nginx.conf; then
@@ -637,15 +628,78 @@ configure_nginx() {
     done
 
     cp "$INSTALL_DIR/nginx/sites-available/serverkit.conf" /etc/nginx/sites-available/
-    ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/
+    cp "$INSTALL_DIR/nginx/sites-available/serverkit-insecure.conf" /etc/nginx/sites-available/
     cp "$INSTALL_DIR/nginx/sites-available/example.conf.template" /etc/nginx/sites-available/
+
+    # Decide whether we can use HTTPS. SSL is best-effort: if certbot fails or
+    # no domain is given, we fall back to plain HTTP rather than forcing the
+    # user to fix DNS/certs before they can use ServerKit.
+    choose_ssl_mode
+    install_nginx_config_for_mode
 
     # SELinux: let nginx make upstream connections to the app containers.
     if { [ "$OS_FAMILY" = "fedora" ] || [ "$OS_FAMILY" = "rhel" ]; } && command -v setsebool &>/dev/null; then
         setsebool -P httpd_can_network_connect 1 2>/dev/null || true
     fi
 
-    good "Nginx configured."
+    good "Nginx configured ($SSL_MODE)."
+}
+
+# ---------------------------------------------------------------------------
+# Choose secure or insecure mode. Never block the install because of SSL.
+# ---------------------------------------------------------------------------
+choose_ssl_mode() {
+    if [ "$SERVERKIT_SKIP_SSL" = "1" ]; then
+        SSL_MODE="insecure"
+        warn "SERVERKIT_SKIP_SSL=1 — using plain HTTP."
+        return
+    fi
+
+    if [ -z "$PANEL_DOMAIN" ]; then
+        SSL_MODE="insecure"
+        warn "No panel domain provided — using plain HTTP (access by IP)."
+        warn "Set PANEL_DOMAIN and re-run the installer to try HTTPS automatically."
+        return
+    fi
+
+    if ! command -v certbot &>/dev/null; then
+        SSL_MODE="insecure"
+        warn "Certbot not installed — cannot request SSL automatically."
+        warn "Continuing with plain HTTP. Install certbot and run: certbot --nginx -d $PANEL_DOMAIN"
+        return
+    fi
+
+    # Temporarily use the insecure config so certbot's webroot challenge can
+    # answer on port 80.
+    ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
+    step "Attempting Let's Encrypt certificate for $PANEL_DOMAIN..."
+    if systemctl start nginx 2>/dev/null && \
+       certbot certonly --webroot -w /var/www/certbot -d "$PANEL_DOMAIN" \
+           --non-interactive --agree-tos --register-unsafely-without-email 2>/dev/null; then
+        SSL_MODE="secure"
+        good "Let's Encrypt certificate issued for $PANEL_DOMAIN."
+    else
+        SSL_MODE="insecure"
+        warn "Could not obtain SSL certificate for $PANEL_DOMAIN."
+        warn "Common causes: DNS not pointing to this server, port 80 not reachable, or rate limits."
+        warn "Continuing with plain HTTP. Retry later with: certbot --nginx -d $PANEL_DOMAIN"
+    fi
+    systemctl stop nginx 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# Install the nginx config matching the chosen SSL mode.
+# ---------------------------------------------------------------------------
+install_nginx_config_for_mode() {
+    if [ "$SSL_MODE" = "secure" ]; then
+        sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$PANEL_DOMAIN/|g" \
+            /etc/nginx/sites-available/serverkit.conf
+        ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/serverkit.conf
+    else
+        ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
+    fi
+    mkdir -p /etc/serverkit
+    printf '%s\n' "$SSL_MODE" > /etc/serverkit/ssl-mode
 }
 
 # ---------------------------------------------------------------------------
@@ -745,31 +799,6 @@ await_health() {
 }
 
 # ---------------------------------------------------------------------------
-# Let's Encrypt for the panel domain
-# ---------------------------------------------------------------------------
-issue_panel_cert() {
-    if [ -z "$PANEL_DOMAIN" ]; then
-        good "No domain set — skipping SSL (panel reachable by IP)."
-        return
-    fi
-
-    phase "Panel SSL Certificate"
-
-    if ! command -v certbot &>/dev/null; then
-        warn "Certbot is not installed — skipping SSL."
-        return
-    fi
-
-    step "Requesting a Let's Encrypt certificate for $PANEL_DOMAIN..."
-    if certbot --nginx -d "$PANEL_DOMAIN" --non-interactive --agree-tos \
-        --register-unsafely-without-email --redirect 2>/dev/null; then
-        good "Certificate issued for $PANEL_DOMAIN"
-    else
-        warn "Certbot failed — retry manually: certbot --nginx -d $PANEL_DOMAIN"
-    fi
-}
-
-# ---------------------------------------------------------------------------
 # Safety copy of an existing install before we touch it
 # ---------------------------------------------------------------------------
 snapshot_existing() {
@@ -794,11 +823,22 @@ print_outro() {
     printf '  %s%s%s\n\n' "$V4" "──────────────────────────────────────" "$RST"
 
     if [ -n "$PANEL_DOMAIN" ]; then
-        printf '  %sPanel URL%s      https://%s\n' "$BLD" "$RST" "$PANEL_DOMAIN"
+        if [ "$SSL_MODE" = "secure" ]; then
+            printf '  %sPanel URL%s      https://%s\n' "$BLD" "$RST" "$PANEL_DOMAIN"
+        else
+            printf '  %sPanel URL%s      http://%s\n' "$BLD" "$RST" "$PANEL_DOMAIN"
+        fi
     else
         printf '  %sPanel URL%s      http://%s\n' "$BLD" "$RST" "$ip"
     fi
-    printf '  %sFirst step%s     create an admin user\n\n' "$BLD" "$RST"
+
+    if [ "$SSL_MODE" != "secure" ]; then
+        printf '\n  %sWARNING%s        Running without HTTPS. Passwords and tokens will be\n' "$BLD" "$RST"
+        printf '                 transmitted unencrypted. Set PANEL_DOMAIN and run\n'
+        printf '                 certbot, or set SERVERKIT_SKIP_SSL=1 to suppress this warning.\n'
+    fi
+
+    printf '\n  %sFirst step%s     create an admin user\n\n' "$BLD" "$RST"
 
     printf '  %sCLI%s            serverkit status\n' "$BLD" "$RST"
     printf '                 serverkit create-admin\n'
@@ -831,8 +871,9 @@ prompt_for_domain() {
     [ -z "$PANEL_DOMAIN" ] && [ -t 0 ] || return 0
     printf '\n'
     printf '%sEnter your panel domain (e.g. panel.example.com)%s\n' "$BLD" "$RST"
-    printf 'Leave blank to access via IP\n'
+    printf 'Leave blank to access via IP (no SSL attempt)\n'
     printf '%sTip:%s set PANEL_DOMAIN=... in the environment to skip this prompt\n' "$BLD" "$RST"
+    printf '      set SERVERKIT_SKIP_SSL=1 to disable HTTPS entirely\n'
     printf '> '
     read -r PANEL_DOMAIN
     PANEL_DOMAIN=$(printf '%s' "$PANEL_DOMAIN" | tr -d ' ')
@@ -883,17 +924,15 @@ main() {
         fi
     fi
 
-    write_config
-    seed_self_signed_cert
     sync_templates
     configure_nginx
+    write_config
     install_service
 
     # Tolerate failures through start + health so rollback can run.
     set +e
     launch_services
     await_health || revert_install
-    issue_panel_cert
     set -e
 
     ping_telemetry

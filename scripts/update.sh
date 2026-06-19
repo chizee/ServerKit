@@ -252,6 +252,30 @@ phase "Refreshing Configuration"
 if [ -f "$INSTALL_DIR/nginx/sites-available/serverkit.conf" ]; then
     cp "$INSTALL_DIR/nginx/sites-available/serverkit.conf" /etc/nginx/sites-available/
 fi
+if [ -f "$INSTALL_DIR/nginx/sites-available/serverkit-insecure.conf" ]; then
+    cp "$INSTALL_DIR/nginx/sites-available/serverkit-insecure.conf" /etc/nginx/sites-available/
+fi
+
+# Preserve the user's secure/insecure SSL choice across updates.
+SSL_MODE="insecure"
+if [ -f /etc/serverkit/ssl-mode ]; then
+    SSL_MODE=$(cat /etc/serverkit/ssl-mode)
+fi
+if [ "$SSL_MODE" = "secure" ] && [ -f /etc/nginx/sites-available/serverkit.conf ]; then
+    # Re-apply the Let's Encrypt path if we know the panel domain.
+    PANEL_DOMAIN="${PANEL_DOMAIN:-}"
+    if [ -z "$PANEL_DOMAIN" ] && [ -f "$INSTALL_DIR/.env" ]; then
+        PANEL_DOMAIN=$(grep -E '^SERVERKIT_PUBLIC_URL=' "$INSTALL_DIR/.env" 2>/dev/null | \
+            sed 's|^SERVERKIT_PUBLIC_URL=||; s|^https\?://||; s|/.*||' || true)
+    fi
+    if [ -n "$PANEL_DOMAIN" ] && [ -d "/etc/letsencrypt/live/$PANEL_DOMAIN" ]; then
+        sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$PANEL_DOMAIN/|g" \
+            /etc/nginx/sites-available/serverkit.conf
+    fi
+    ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/serverkit.conf
+else
+    ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
+fi
 
 mkdir -p /etc/nginx/serverkit-locations
 for conf in /etc/nginx/sites-enabled/*; do

@@ -21,26 +21,32 @@ def register_security_headers(app: Flask):
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
 
         # Content Security Policy
-        # In debug mode, allow inline styles/scripts for Vite dev tooling
+        # In debug mode, allow inline styles/scripts for Vite dev tooling.
+        # The production policy intentionally matches the nginx edge config so
+        # responses served directly by Flask are consistent with Cloudflare/nginx.
         if app.debug:
             csp_directives = [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self'",
                 "connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:*",
                 "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
             ]
         else:
             csp_directives = [
                 "default-src 'self'",
-                "script-src 'self'",
-                "style-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self'",
                 "connect-src 'self' ws: wss:",
                 "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
             ]
         response.headers['Content-Security-Policy'] = '; '.join(csp_directives)
 
@@ -48,7 +54,8 @@ def register_security_headers(app: Flask):
         response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
 
         # HSTS - only in production and on HTTPS
+        # 63072000 seconds = 2 years, matching the nginx edge config and preload requirements
         if not app.debug:
-            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            response.headers['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains; preload'
 
         return response

@@ -19,6 +19,9 @@ class DNSZoneService:
                 {'record_type': 'A', 'name': '@', 'content': '{{server_ip}}', 'ttl': 3600},
                 {'record_type': 'A', 'name': 'www', 'content': '{{server_ip}}', 'ttl': 3600},
                 {'record_type': 'CNAME', 'name': 'mail', 'content': '{{domain}}', 'ttl': 3600},
+                # Authorize only Let's Encrypt (what ServerKit issues with) to mint
+                # certs for this domain. Satisfies CAA scanners and blocks rogue CAs.
+                {'record_type': 'CAA', 'name': '@', 'content': '0 issue "letsencrypt.org"', 'ttl': 3600},
             ],
         },
         'email-hosting': {
