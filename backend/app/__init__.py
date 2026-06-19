@@ -45,9 +45,28 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     jwt.init_app(app)
     limiter.init_app(app)
+
+    # Build CORS origins. Start with static config/env, then append the
+    # persisted canonical domain from system settings so pointing an A record
+    # at the panel works without restarting to edit .env.
+    cors_origins = list(app.config['CORS_ORIGINS'])
+    try:
+        with app.app_context():
+            from app.services.settings_service import SettingsService
+            from app.utils.domain import canonical_origin
+            canonical_domain = SettingsService.get('canonical_domain', '') or ''
+            if canonical_domain:
+                https_enabled = SettingsService.get('canonical_https_enabled', False) or False
+                origin = canonical_origin(canonical_domain, https_enabled)
+                if origin not in cors_origins:
+                    cors_origins.append(origin)
+    except Exception:
+        # Database may not exist yet during first install / migrations.
+        pass
+
     CORS(
         app,
-        origins=app.config['CORS_ORIGINS'],
+        origins=cors_origins,
         supports_credentials=True,
         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key'],
         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']

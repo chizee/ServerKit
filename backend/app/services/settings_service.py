@@ -62,6 +62,18 @@ class SettingsService:
             'type': 'boolean',
             'description': 'Whether the wildcard certificate for the sites base domain is set up; managed subdomains serve HTTPS when true.'
         },
+        # Canonical panel domain. When set, the panel uses this domain for
+        # agent install commands, CORS origins, and optional IP redirects.
+        'canonical_domain': {
+            'value': '',
+            'type': 'string',
+            'description': 'Canonical domain for this ServerKit panel (e.g., serverkit.example.com). Used for agent URLs and CORS.'
+        },
+        'canonical_https_enabled': {
+            'value': False,
+            'type': 'boolean',
+            'description': 'Whether the canonical domain is served over HTTPS. Controls CORS origins and agent install instructions.'
+        },
         # SSO / OAuth settings
         'sso_google_enabled': {'value': False, 'type': 'boolean', 'description': 'Enable Google OAuth login'},
         'sso_google_client_id': {'value': '', 'type': 'string', 'description': 'Google OAuth client ID'},
