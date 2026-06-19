@@ -249,11 +249,34 @@ fi
 # ---------------------------------------------------------------------------
 phase "Refreshing Configuration"
 
+# Recover the panel domain baked into the *current* live config before we
+# overwrite it -- older installs predate /etc/serverkit/panel-domain.
+PRIOR_PANEL_DOMAIN=$(grep -oE '/etc/letsencrypt/live/[^/]+/' \
+    /etc/nginx/sites-available/serverkit.conf 2>/dev/null | head -n1 | \
+    sed -E 's|.*/live/([^/]+)/|\1|')
+[ "$PRIOR_PANEL_DOMAIN" = "YOUR_DOMAIN" ] && PRIOR_PANEL_DOMAIN=""
+
 if [ -f "$INSTALL_DIR/nginx/sites-available/serverkit.conf" ]; then
     cp "$INSTALL_DIR/nginx/sites-available/serverkit.conf" /etc/nginx/sites-available/
 fi
 if [ -f "$INSTALL_DIR/nginx/sites-available/serverkit-insecure.conf" ]; then
     cp "$INSTALL_DIR/nginx/sites-available/serverkit-insecure.conf" /etc/nginx/sites-available/
+fi
+
+# Re-apply the server-wide TLS floor (TLS 1.2/1.3 + AEAD ciphers) so existing
+# installs get hardened on update too, not just fresh installs.
+if [ -f /etc/nginx/nginx.conf ]; then
+    SK_CIPHERS='ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
+    if grep -qE '^[[:space:]]*ssl_protocols[[:space:]]' /etc/nginx/nginx.conf; then
+        sed -i -E 's|^([[:space:]]*)ssl_protocols[[:space:]].*|\1ssl_protocols TLSv1.2 TLSv1.3;|' /etc/nginx/nginx.conf
+    else
+        sed -i '/http {/a \    ssl_protocols TLSv1.2 TLSv1.3;' /etc/nginx/nginx.conf
+    fi
+    if grep -qE '^[[:space:]]*ssl_ciphers[[:space:]]' /etc/nginx/nginx.conf; then
+        sed -i -E "s|^([[:space:]]*)ssl_ciphers[[:space:]].*|\1ssl_ciphers ${SK_CIPHERS};|" /etc/nginx/nginx.conf
+    else
+        sed -i "/http {/a \\    ssl_ciphers ${SK_CIPHERS};" /etc/nginx/nginx.conf
+    fi
 fi
 
 # Preserve the user's secure/insecure SSL choice across updates.
@@ -262,17 +285,24 @@ if [ -f /etc/serverkit/ssl-mode ]; then
     SSL_MODE=$(cat /etc/serverkit/ssl-mode)
 fi
 if [ "$SSL_MODE" = "secure" ] && [ -f /etc/nginx/sites-available/serverkit.conf ]; then
-    # Re-apply the Let's Encrypt path if we know the panel domain.
+    # Recover the panel domain: prefer the value install.sh persisted, then the
+    # one scraped from the prior live config above. (The old .env scrape was
+    # broken -- SERVERKIT_PUBLIC_URL is written commented out.)
     PANEL_DOMAIN="${PANEL_DOMAIN:-}"
-    if [ -z "$PANEL_DOMAIN" ] && [ -f "$INSTALL_DIR/.env" ]; then
-        PANEL_DOMAIN=$(grep -E '^SERVERKIT_PUBLIC_URL=' "$INSTALL_DIR/.env" 2>/dev/null | \
-            sed 's|^SERVERKIT_PUBLIC_URL=||; s|^https\?://||; s|/.*||' || true)
+    if [ -z "$PANEL_DOMAIN" ] && [ -f /etc/serverkit/panel-domain ]; then
+        PANEL_DOMAIN=$(cat /etc/serverkit/panel-domain 2>/dev/null || true)
     fi
+    [ -z "$PANEL_DOMAIN" ] && PANEL_DOMAIN="$PRIOR_PANEL_DOMAIN"
+
     if [ -n "$PANEL_DOMAIN" ] && [ -d "/etc/letsencrypt/live/$PANEL_DOMAIN" ]; then
         sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$PANEL_DOMAIN/|g" \
             /etc/nginx/sites-available/serverkit.conf
+        ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/serverkit.conf
+    else
+        warn "SSL mode is 'secure' but no certificate was found for '${PANEL_DOMAIN:-unknown}'."
+        warn "Using the HTTP config so nginx still reloads. Re-run certbot to restore HTTPS."
+        ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
     fi
-    ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/serverkit.conf
 else
     ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
 fi

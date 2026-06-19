@@ -616,6 +616,11 @@ configure_nginx() {
         sed -i '/http {/a \    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
     fi
 
+    # Server-wide TLS floor: harden ssl_protocols/ssl_ciphers in the main
+    # nginx.conf so even the default server and vhosts ServerKit did not
+    # generate cannot negotiate TLS 1.0/1.1 or weak ciphers.
+    harden_global_tls
+
     # Drop any foreign catch-all vhost that would shadow the panel.
     for conf in /etc/nginx/sites-enabled/*; do
         [ -f "$conf" ] || continue
@@ -700,6 +705,34 @@ install_nginx_config_for_mode() {
     fi
     mkdir -p /etc/serverkit
     printf '%s\n' "$SSL_MODE" > /etc/serverkit/ssl-mode
+    # Persist the domain so update.sh can re-apply the cert path on upgrades
+    # without depending on the (commented-out) .env public URL.
+    [ -n "$PANEL_DOMAIN" ] && printf '%s\n' "$PANEL_DOMAIN" > /etc/serverkit/panel-domain
+}
+
+# ---------------------------------------------------------------------------
+# Server-wide TLS floor. Rewrites the ssl_protocols / ssl_ciphers lines in the
+# main nginx.conf (or injects them) so every HTTPS listener is forced onto
+# TLS 1.2/1.3 with AEAD-only ciphers. Editing nginx.conf in place -- rather than
+# adding a conf.d snippet -- avoids nginx's "duplicate ssl_protocols" error on
+# distros (Debian/Ubuntu) that already set it in http{}. Idempotent.
+# ---------------------------------------------------------------------------
+harden_global_tls() {
+    local conf=/etc/nginx/nginx.conf
+    [ -f "$conf" ] || return 0
+    local ciphers='ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
+
+    if grep -qE '^[[:space:]]*ssl_protocols[[:space:]]' "$conf"; then
+        sed -i -E 's|^([[:space:]]*)ssl_protocols[[:space:]].*|\1ssl_protocols TLSv1.2 TLSv1.3;|' "$conf"
+    else
+        sed -i '/http {/a \    ssl_protocols TLSv1.2 TLSv1.3;' "$conf"
+    fi
+
+    if grep -qE '^[[:space:]]*ssl_ciphers[[:space:]]' "$conf"; then
+        sed -i -E "s|^([[:space:]]*)ssl_ciphers[[:space:]].*|\1ssl_ciphers ${ciphers};|" "$conf"
+    else
+        sed -i "/http {/a \\    ssl_ciphers ${ciphers};" "$conf"
+    fi
 }
 
 # ---------------------------------------------------------------------------
