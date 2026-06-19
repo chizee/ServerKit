@@ -106,6 +106,17 @@ class Application(db.Model):
             }
         else:
             result['image_scan'] = None
+
+        # Lightweight image-update badge (latest digest check only)
+        latest_update = self.image_update_checks.first()
+        if latest_update:
+            result['image_update'] = {
+                'status': latest_update.status,
+                'update_available': latest_update.update_available,
+                'checked_at': latest_update.checked_at.isoformat() if latest_update.checked_at else None,
+            }
+        else:
+            result['image_update'] = None
         if include_linked and self.linked_app:
             result['linked_app'] = {
                 'id': self.linked_app.id,

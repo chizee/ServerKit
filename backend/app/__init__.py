@@ -307,6 +307,10 @@ def create_app(config_name=None):
     from app.api.ddns import ddns_bp
     app.register_blueprint(ddns_bp, url_prefix='/api/v1/ddns')
 
+    # Register blueprints - Image update checks
+    from app.api.image_updates import image_updates_bp
+    app.register_blueprint(image_updates_bp, url_prefix='/api/v1/image-updates')
+
     # Register blueprints - Nginx Advanced
     from app.api.nginx_advanced import nginx_advanced_bp
     app.register_blueprint(nginx_advanced_bp, url_prefix='/api/v1/nginx/advanced')
