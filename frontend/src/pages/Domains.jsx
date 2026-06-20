@@ -14,8 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { PageTopbar, MetricCard, SegControl, Pill, Drawer } from '@/components/ds';
-import { DOMAIN_TABS } from '../components/domains/domainTabs';
+import { MetricCard, SegControl, Pill, Drawer } from '@/components/ds';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 
 const Domains = () => {
@@ -225,24 +225,20 @@ const Domains = () => {
                 : filter === 'issues' ? !d.ssl_enabled : true
     ));
 
-    return (
-        <div className="page-container domains-page">
-            <PageTopbar
-                icon={<Globe size={18} />}
-                title="Domains"
-                tabs={DOMAIN_TABS}
-                actions={(
-                    <>
-                        <Button variant="outline" size="sm" onClick={loadData}>
-                            <RefreshCw size={15} /> Check DNS
-                        </Button>
-                        <Button size="sm" onClick={() => setShowAddModal(true)}>
-                            <Plus size={15} /> Add domain
-                        </Button>
-                    </>
-                )}
-            />
+    useTopbarActions(() =>
+        <>
+            <Button variant="outline" size="sm" onClick={loadData}>
+                <RefreshCw size={15} /> Check DNS
+            </Button>
+            <Button size="sm" onClick={() => setShowAddModal(true)}>
+                <Plus size={15} /> Add domain
+            </Button>
+        </>,
+        [],
+    );
 
+    return (
+        <div className="sk-tabgroup__inner domains-page">
             <RegistrarPortfolio />
 
             {error && (

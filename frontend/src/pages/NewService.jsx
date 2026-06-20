@@ -10,7 +10,6 @@ import {
     Link2,
     Lock,
     Package,
-    Plus,
     RefreshCw,
     Rocket,
     Search,
@@ -22,8 +21,7 @@ import {
 import { SiGithub } from 'react-icons/si';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { PageTopbar } from '@/components/ds';
-import { SERVICE_TABS } from '../components/services/serviceTabs';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -386,22 +384,18 @@ const NewService = () => {
         }
     }
 
-    return (
-        <div className="page-container new-service-page">
-            <PageTopbar
-                icon={<Plus size={18} />}
-                title="New Service"
-                tabs={SERVICE_TABS}
-                actions={(
-                    <Button type="button" variant="outline" size="sm" asChild>
-                        <Link to="/settings/connections">
-                            <Link2 size={16} />
-                            Connections
-                        </Link>
-                    </Button>
-                )}
-            />
+    useTopbarActions(() =>
+        <Button type="button" variant="outline" size="sm" asChild>
+            <Link to="/settings/connections">
+                <Link2 size={16} />
+                Connections
+            </Link>
+        </Button>,
+        []
+    );
 
+    return (
+        <div className="sk-tabgroup__inner new-service-page">
             <div className="new-service-page__method-grid" aria-label="Service source options">
                 <button
                     className={`new-service-page__method-card ${sourceMode === 'github' ? 'new-service-page__method-card--on' : ''}`}

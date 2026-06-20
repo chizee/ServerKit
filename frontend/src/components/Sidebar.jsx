@@ -178,13 +178,19 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         const visibleSubs = hasChildren
             ? item.subItems.filter(sub => !sub.requiresCondition || conditions[sub.requiresCondition])
             : [];
+        // Items can claim extra active paths (e.g. Servers stays lit across its
+        // Agent Fleet / Fleet Monitor / Cloud / Config Templates tabs) so the
+        // highlight doesn't drop when a sub-tab lives on its own route.
+        const groupActive = item.matchPrefixes?.some(
+            (p) => location.pathname === p || location.pathname.startsWith(p + '/')
+        );
 
         return (
             <React.Fragment key={item.id}>
                 <div className={`nav-item-row ${hasChildren ? 'has-children' : ''}`}>
                     <NavLink
                         to={item.route}
-                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                        className={({ isActive }) => `nav-item ${isActive || groupActive ? 'active' : ''}`}
                         end={item.end || hasChildren}
                     >
                         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"

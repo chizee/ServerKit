@@ -4,9 +4,9 @@ import {
     Cable, KeyRound, Ban, Check, Trash2, RefreshCw, X,
 } from 'lucide-react';
 import useTabParam from '../hooks/useTabParam';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { api } from '../services/api';
-import { PageTopbar, MetricCard, Pill } from '@/components/ds';
-import { FILE_TABS } from '../components/files/fileTabs';
+import { MetricCard, Pill } from '@/components/ds';
 import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
@@ -231,6 +231,55 @@ function FTPServer() {
         setShowPasswordModal(true);
     };
 
+    const isInstalled = status?.any_installed;
+    const isRunning = status?.any_running;
+
+    useTopbarActions(() =>
+        <>
+        {!isInstalled ? (
+            <Button onClick={() => setShowInstallModal(true)}>
+                Install FTP Server
+            </Button>
+        ) : (
+            <>
+                <Button
+                    variant="outline"
+                    onClick={handleTestConnection}
+                    disabled={actionLoading}
+                >
+                    Test Connection
+                </Button>
+                {isRunning ? (
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={() => handleServiceAction('restart')}
+                            disabled={actionLoading}
+                        >
+                            Restart
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => handleServiceAction('stop')}
+                            disabled={actionLoading}
+                        >
+                            Stop
+                        </Button>
+                    </>
+                ) : (
+                    <Button
+                        onClick={() => handleServiceAction('start')}
+                        disabled={actionLoading}
+                    >
+                        Start
+                    </Button>
+                )}
+            </>
+        )}
+        </>,
+        [isInstalled, isRunning, actionLoading],
+    );
+
     if (loading) {
         return (
             <div className="page-loading">
@@ -239,8 +288,6 @@ function FTPServer() {
         );
     }
 
-    const isInstalled = status?.any_installed;
-    const isRunning = status?.any_running;
     const activeServer = status?.active_server;
     const disabledUsers = users.filter((user) => !user.is_active).length;
     const ftpPort = config?.settings
@@ -248,57 +295,7 @@ function FTPServer() {
         : null;
 
     return (
-        <div className="page-container ftp-server">
-            <PageTopbar
-                icon={<Network size={18} />}
-                title="FTP Server"
-                tabs={FILE_TABS}
-                actions={(
-                    <>
-                    {!isInstalled ? (
-                        <Button onClick={() => setShowInstallModal(true)}>
-                            Install FTP Server
-                        </Button>
-                    ) : (
-                        <>
-                            <Button
-                                variant="outline"
-                                onClick={handleTestConnection}
-                                disabled={actionLoading}
-                            >
-                                Test Connection
-                            </Button>
-                            {isRunning ? (
-                                <>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => handleServiceAction('restart')}
-                                        disabled={actionLoading}
-                                    >
-                                        Restart
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        onClick={() => handleServiceAction('stop')}
-                                        disabled={actionLoading}
-                                    >
-                                        Stop
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button
-                                    onClick={() => handleServiceAction('start')}
-                                    disabled={actionLoading}
-                                >
-                                    Start
-                                </Button>
-                            )}
-                        </>
-                    )}
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner ftp-server">
             {!isInstalled ? (
                 <EmptyState
                     size="lg"

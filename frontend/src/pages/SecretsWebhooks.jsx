@@ -23,7 +23,7 @@ const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 export default function SecretsWebhooks() {
     const { tab } = useParams();
     const navigate = useNavigate();
-    const { toast } = useToast();
+    const toast = useToast();
     const activeTab = VALID_TABS.includes(tab) ? tab : 'vaults';
 
     const [vaults, setVaults] = useState([]);

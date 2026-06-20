@@ -9,14 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PageTopbar, Pill } from '@/components/ds';
-import { MONITOR_TABS } from '../components/monitoring/monitorTabs';
+import { Pill } from '@/components/ds';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity,
     CheckCircle2,
     Copy,
     ExternalLink,
-    Globe,
     Globe2,
     PlayCircle,
     Plus,
@@ -300,30 +299,28 @@ const StatusPages = () => {
         }
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    useTopbarActions(() =>
+        (
+            <>
+                <Button size="sm" variant="outline" onClick={loadPages}>
+                    <RefreshCw size={16} />
+                    Refresh
+                </Button>
+                {isAdmin && (
+                    <Button size="sm" onClick={() => setShowCreatePage(true)}>
+                        <Plus size={16} />
+                        Create Page
+                    </Button>
+                )}
+            </>
+        ),
+        [isAdmin]
+    );
+
+    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
 
     return (
-        <div className="page-container status-pages-page">
-            <PageTopbar
-                icon={<Globe size={18} />}
-                title="Status Pages"
-                tabs={MONITOR_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" variant="outline" onClick={loadPages}>
-                            <RefreshCw size={16} />
-                            Refresh
-                        </Button>
-                        {isAdmin && (
-                            <Button size="sm" onClick={() => setShowCreatePage(true)}>
-                                <Plus size={16} />
-                                Create Page
-                            </Button>
-                        )}
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner status-pages-page">
             <div className="status-layout">
                 <aside className="status-pages-list" aria-label="Status pages">
                     {pages.map((page) => (

@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PageTopbar, MetricCard, Pill, Gauge } from '@/components/ds';
-import { MONITOR_TABS } from '../components/monitoring/monitorTabs';
+import { MetricCard, Pill, Gauge } from '@/components/ds';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity,
     Bell,
@@ -291,47 +291,45 @@ const Monitoring = () => {
         }));
     };
 
+    useTopbarActions(() =>
+        (
+            <>
+                <Button size="sm" variant="outline" onClick={loadData}>
+                    <RefreshCw size={16} />
+                    Refresh
+                </Button>
+                <Button
+                    size="sm"
+                    variant={status?.enabled ? 'destructive' : 'default'}
+                    onClick={handleToggleMonitoring}
+                >
+                    {status?.enabled ? (
+                        <>
+                            <Activity size={16} />
+                            Stop Monitoring
+                        </>
+                    ) : (
+                        <>
+                            <PlayCircle size={16} />
+                            Start Monitoring
+                        </>
+                    )}
+                </Button>
+            </>
+        ),
+        [status?.enabled]
+    );
+
     if (loading) {
         return (
-            <div className="page-container monitoring-page">
+            <div className="sk-tabgroup__inner monitoring-page">
                 <EmptyState loading size="lg" title="Loading monitoring data" />
             </div>
         );
     }
 
     return (
-        <div className="page-container monitoring-page">
-            <PageTopbar
-                icon={<Activity size={18} />}
-                title="Monitoring"
-                tabs={MONITOR_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" variant="outline" onClick={loadData}>
-                            <RefreshCw size={16} />
-                            Refresh
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant={status?.enabled ? 'destructive' : 'default'}
-                            onClick={handleToggleMonitoring}
-                        >
-                            {status?.enabled ? (
-                                <>
-                                    <Activity size={16} />
-                                    Stop Monitoring
-                                </>
-                            ) : (
-                                <>
-                                    <PlayCircle size={16} />
-                                    Start Monitoring
-                                </>
-                            )}
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner monitoring-page">
             {error && (
                 <div className="alert alert-danger">
                     {error}

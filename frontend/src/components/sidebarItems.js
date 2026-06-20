@@ -1,3 +1,14 @@
+import { SERVER_TABS } from './servers/serverTabs';
+import { DOMAIN_TABS } from './domains/domainTabs';
+import { SERVICE_TABS } from './services/serviceTabs';
+import { FILE_TABS } from './files/fileTabs';
+import { MONITOR_TABS } from './monitoring/monitorTabs';
+import { MARKET_TABS } from './marketplace/marketTabs';
+
+// Path prefixes for a tab group, used to keep the group's sidebar item lit
+// across all its tabs (e.g. Servers stays active on /fleet, /cloud, …).
+const groupPrefixes = (tabs) => tabs.map((t) => t.to);
+
 // Sidebar navigation items definition
 // Items with subItems render as collapsible groups (collapsed by default)
 // The 'dashboard' item is always visible and cannot be hidden
@@ -30,6 +41,9 @@ export const SIDEBAR_ITEMS = [
         id: 'servers',
         label: 'Servers',
         route: '/servers',
+        // Keep "Servers" lit across the whole tab group (Agent Fleet, Fleet
+        // Monitor, Cloud Servers, Config Templates) — see serverTabs.jsx.
+        matchPrefixes: groupPrefixes(SERVER_TABS),
         category: 'infrastructure',
         icon: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>'
     },
@@ -41,6 +55,7 @@ export const SIDEBAR_ITEMS = [
         id: 'domains',
         label: 'Domains',
         route: '/domains',
+        matchPrefixes: groupPrefixes(DOMAIN_TABS),
         category: 'infrastructure',
         icon: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'
     },
@@ -52,15 +67,6 @@ export const SIDEBAR_ITEMS = [
         icon: '<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>'
     },
     {
-        // Dynamic DNS lives under Infrastructure next to Domains/DNS — it keeps a
-        // DNS A-record pointed at a changing public IP via a token-authed update URL.
-        id: 'dynamic-dns',
-        label: 'Dynamic DNS',
-        route: '/dynamic-dns',
-        category: 'infrastructure',
-        icon: '<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/>'
-    },
-    {
         // Redesign: Services uses the top-bar layout (REDESIGN_MAP §6 decision 3).
         // New Service / Templates / Deploy Activity now live in the page's top
         // bar (PageTopbar SERVICE_TABS), not as sidebar sub-items. Routes
@@ -68,6 +74,7 @@ export const SIDEBAR_ITEMS = [
         id: 'services',
         label: 'Services',
         route: '/services',
+        matchPrefixes: groupPrefixes(SERVICE_TABS),
         category: 'infrastructure',
         icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
     },
@@ -115,6 +122,7 @@ export const SIDEBAR_ITEMS = [
         id: 'files',
         label: 'Files',
         route: '/files',
+        matchPrefixes: groupPrefixes(FILE_TABS),
         category: 'operations',
         icon: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'
     },
@@ -125,6 +133,7 @@ export const SIDEBAR_ITEMS = [
         id: 'monitoring',
         label: 'Monitoring',
         route: '/monitoring',
+        matchPrefixes: groupPrefixes(MONITOR_TABS),
         category: 'operations',
         icon: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'
     },
@@ -191,6 +200,7 @@ export const SIDEBAR_ITEMS = [
         id: 'marketplace',
         label: 'Marketplace',
         route: '/marketplace',
+        matchPrefixes: groupPrefixes(MARKET_TABS),
         category: 'system',
         icon: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>'
     }

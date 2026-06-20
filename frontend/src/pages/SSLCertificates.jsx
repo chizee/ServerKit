@@ -5,8 +5,8 @@ import {
     Settings, Download
 } from 'lucide-react';
 import api from '../services/api';
-import { PageTopbar, Pill } from '@/components/ds';
-import { DOMAIN_TABS } from '../components/domains/domainTabs';
+import { Pill } from '@/components/ds';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import EmptyState from '../components/EmptyState';
@@ -166,10 +166,43 @@ const SSLCertificates = () => {
         }
     }
 
+    const certificates = status?.certificates || [];
+    const expiringSoon = status?.expiring_soon || [];
+    const certbotInstalled = status?.certbot_installed ?? false;
+
+    useTopbarActions(() =>
+        <>
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSetupAutoRenewal}
+                disabled={actionLoading || !certbotInstalled}
+                title="Configure automatic renewal via systemd or cron"
+            >
+                <Settings size={15} />
+                Auto-Renew
+            </Button>
+            {certificates.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleRenewAll} disabled={actionLoading}>
+                    <RefreshCw size={15} />
+                    Renew All
+                </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={loadData}>
+                <RefreshCw size={15} />
+                Refresh
+            </Button>
+            <Button size="sm" onClick={() => setShowObtainModal(true)} disabled={!certbotInstalled}>
+                <Plus size={15} />
+                New Certificate
+            </Button>
+        </>,
+        [actionLoading, certbotInstalled, certificates.length],
+    );
+
     if (loading) {
         return (
-            <div className="page-container ssl-page">
-                <PageTopbar icon={<Lock size={18} />} title="SSL Certificates" tabs={DOMAIN_TABS} />
+            <div className="sk-tabgroup__inner ssl-page">
                 <div className="ssl-status-bar">
                     {[1, 2, 3].map(i => (
                         <div key={i} className="ssl-status-item">
@@ -196,46 +229,8 @@ const SSLCertificates = () => {
         );
     }
 
-    const certificates = status?.certificates || [];
-    const expiringSoon = status?.expiring_soon || [];
-    const certbotInstalled = status?.certbot_installed ?? false;
-
     return (
-        <div className="page-container ssl-page">
-            <PageTopbar
-                icon={<Lock size={18} />}
-                title="SSL Certificates"
-                tabs={DOMAIN_TABS}
-                actions={(
-                    <>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleSetupAutoRenewal}
-                            disabled={actionLoading || !certbotInstalled}
-                            title="Configure automatic renewal via systemd or cron"
-                        >
-                            <Settings size={15} />
-                            Auto-Renew
-                        </Button>
-                        {certificates.length > 0 && (
-                            <Button variant="outline" size="sm" onClick={handleRenewAll} disabled={actionLoading}>
-                                <RefreshCw size={15} />
-                                Renew All
-                            </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={loadData}>
-                            <RefreshCw size={15} />
-                            Refresh
-                        </Button>
-                        <Button size="sm" onClick={() => setShowObtainModal(true)} disabled={!certbotInstalled}>
-                            <Plus size={15} />
-                            New Certificate
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner ssl-page">
             {/* Status Cards */}
             <div className="ssl-status-bar">
                 <div className="ssl-status-item">

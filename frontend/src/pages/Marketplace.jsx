@@ -13,7 +13,6 @@ import {
     PackageCheck,
     Plug,
     PlugZap,
-    Puzzle,
     Search,
     ServerCog,
     ShieldCheck,
@@ -30,8 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PageTopbar } from '@/components/ds';
-import { MARKET_TABS } from '../components/marketplace/marketTabs';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 
 const CATEGORIES = ['ai', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
 
@@ -261,7 +259,17 @@ const Marketplace = () => {
         return 'outline';
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    useTopbarActions(() =>
+        <>
+            <Button variant="outline" size="sm" onClick={openZipInstaller}>
+                <UploadCloud aria-hidden="true" />
+                Import ZIP
+            </Button>
+        </>,
+        [],
+    );
+
+    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
 
     const installedIds = new Set(myExtensions.map((extension) => String(extension.extension_id)));
     const localCatalogEntries = builtins.map(getLocalCatalogEntry);
@@ -283,21 +291,7 @@ const Marketplace = () => {
     const hasFilters = Boolean(search.trim() || category);
 
     return (
-        <div className="page-container marketplace-page">
-            <PageTopbar
-                icon={<Puzzle size={18} />}
-                title="Marketplace"
-                tabs={MARKET_TABS}
-                actions={(
-                    <>
-                        <Button variant="outline" size="sm" onClick={openZipInstaller}>
-                            <UploadCloud aria-hidden="true" />
-                            Import ZIP
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner marketplace-page">
             <StatStrip ariaLabel="Marketplace summary">
                 <Stat label="Catalog" value={availableCount} />
                 <Stat label="Local Entries" value={builtins.length} />

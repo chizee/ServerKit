@@ -11,8 +11,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PageTopbar } from '@/components/ds';
-import { SERVICE_TABS } from '../components/services/serviceTabs';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import EmptyState from '../components/EmptyState';
 
 // Featured templates (curated list)
@@ -315,38 +314,34 @@ const Templates = () => {
     const visibleCategories = showAllCategories ? categories : categories.slice(0, 10);
     const hiddenCategoryCount = Math.max(categories.length - visibleCategories.length, 0);
 
+    useTopbarActions(() =>
+        <div className="search-box">
+            <Search size={18} className="search-icon" />
+            <Input
+                type="text"
+                placeholder="Search templates..."
+                value={searchQuery}
+                onChange={(e) => setSearchQueryFilter(e.target.value)}
+            />
+            {searchQuery && (
+                <Button variant="ghost" size="icon" className="search-clear" onClick={() => setSearchQueryFilter('')}>
+                    <X size={16} />
+                </Button>
+            )}
+        </div>,
+        [searchQuery]
+    );
+
     if (loading) {
         return (
-            <div className="page-container">
+            <div className="sk-tabgroup__inner">
                 <EmptyState loading title="Loading templates" />
             </div>
         );
     }
 
     return (
-        <div className="page-container templates-page">
-            <PageTopbar
-                icon={<LayoutTemplate size={18} />}
-                title="App Templates"
-                tabs={SERVICE_TABS}
-                actions={(
-                    <div className="search-box">
-                        <Search size={18} className="search-icon" />
-                        <Input
-                            type="text"
-                            placeholder="Search templates..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQueryFilter(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <Button variant="ghost" size="icon" className="search-clear" onClick={() => setSearchQueryFilter('')}>
-                                <X size={16} />
-                            </Button>
-                        )}
-                    </div>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner templates-page">
             {/* Results and Filters */}
             <div className="templates-results-header">
                 <span className="results-count">

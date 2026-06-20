@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity,
     AlertTriangle,
@@ -24,8 +25,7 @@ import { useToast } from '../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PageTopbar, Pill } from '@/components/ds';
-import { SERVER_TABS } from '../components/servers/serverTabs';
+import { Pill } from '@/components/ds';
 
 const CHART_COLORS = [
     '#6366f1', '#ec4899', '#14b8a6', '#f59e0b',
@@ -53,6 +53,16 @@ const FleetMonitor = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [loading, setLoading] = useState(true);
     const { addToast } = useToast();
+
+    // Publish the Refresh button to the shared tab-group top bar; re-registers
+    // on `loading` so the spinner/disabled state stays in sync.
+    useTopbarActions(() =>
+        <Button size="sm" onClick={fetchTabData} disabled={loading}>
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            Refresh
+        </Button>,
+        [loading]
+    );
 
     // Overview state
     const [heatmapData, setHeatmapData] = useState([]);
@@ -234,21 +244,7 @@ const FleetMonitor = () => {
     };
 
     return (
-        <div className="page-container">
-            <PageTopbar
-                icon={<Activity size={18} />}
-                title="Fleet Monitor"
-                tabs={SERVER_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" onClick={fetchTabData} disabled={loading}>
-                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                            Refresh
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                     {[

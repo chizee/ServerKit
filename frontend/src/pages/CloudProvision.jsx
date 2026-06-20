@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,8 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Cloud, Server } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
-import { SERVER_TABS } from '../components/servers/serverTabs';
 
 const CloudProvision = () => {
     const toast = useToast();
@@ -46,6 +45,17 @@ const CloudProvision = () => {
     }, [toast]);
 
     useEffect(() => { loadData(); }, [loadData]);
+
+    // Publish the admin actions to the shared tab-group top bar.
+    useTopbarActions(() =>
+        user?.is_admin ? (
+            <>
+                <Button size="sm" variant="outline" onClick={() => setShowCreateProvider(true)}>Add Provider</Button>
+                <Button size="sm" onClick={() => setShowCreateServer(true)}>New Server</Button>
+            </>
+        ) : null,
+        [user?.is_admin]
+    );
 
     const handleCreateProvider = async () => {
         try {
@@ -91,26 +101,10 @@ const CloudProvision = () => {
         return 'warning';
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
 
     return (
-        <div className="page-container cloud-provision-page">
-            <PageTopbar
-                icon={<Cloud size={18} />}
-                title="Cloud Provisioning"
-                tabs={SERVER_TABS}
-                actions={(
-                    <>
-                        {user?.is_admin && (
-                            <>
-                                <Button size="sm" variant="outline" onClick={() => setShowCreateProvider(true)}>Add Provider</Button>
-                                <Button size="sm" onClick={() => setShowCreateServer(true)}>New Server</Button>
-                            </>
-                        )}
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner cloud-provision-page">
             <Tabs defaultValue="servers">
                 <TabsList>
                     <TabsTrigger value="servers">Servers</TabsTrigger>

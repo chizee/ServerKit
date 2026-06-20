@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
-    Users,
     Shield,
     Activity,
     Download,
@@ -29,8 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PageTopbar, MetricCard, Pill, Gauge } from '@/components/ds';
-import { SERVER_TABS } from '../components/servers/serverTabs';
+import { MetricCard, Pill, Gauge } from '@/components/ds';
 
 const AgentFleet = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -54,6 +53,16 @@ const AgentFleet = () => {
     useEffect(() => {
         fetchData();
     }, [activeTab]);
+
+    // Publish the Refresh button to the shared tab-group top bar; re-registers
+    // on `loading` so the spinner/disabled state stays in sync.
+    useTopbarActions(() =>
+        <Button size="sm" onClick={fetchData} disabled={loading}>
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            Refresh
+        </Button>,
+        [loading]
+    );
 
     const fetchData = async () => {
         setLoading(true);
@@ -195,21 +204,7 @@ const AgentFleet = () => {
     };
 
     return (
-        <div className="page-container">
-            <PageTopbar
-                icon={<Users size={18} />}
-                title="Agent Fleet"
-                tabs={SERVER_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" onClick={fetchData} disabled={loading}>
-                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                            Refresh
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                     {[

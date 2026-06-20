@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Globe, Network } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
-import { DOMAIN_TABS } from '../components/domains/domainTabs';
+import { Globe } from 'lucide-react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -173,20 +172,17 @@ const DNSZones = () => {
         }
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    useTopbarActions(() =>
+        user?.is_admin && (
+            <Button size="sm" onClick={() => setShowCreateZone(true)}>Add Zone</Button>
+        ),
+        [user?.is_admin],
+    );
+
+    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
 
     return (
-        <div className="page-container dns-zones-page">
-            <PageTopbar
-                icon={<Network size={18} />}
-                title="DNS Zones"
-                meta={`${zones.length} zone${zones.length !== 1 ? 's' : ''}`}
-                tabs={DOMAIN_TABS}
-                actions={user?.is_admin && (
-                    <Button size="sm" onClick={() => setShowCreateZone(true)}>Add Zone</Button>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner dns-zones-page">
             <div className="dns-layout">
                 <div className="dns-zones-list">
                     {zones.map(zone => (
