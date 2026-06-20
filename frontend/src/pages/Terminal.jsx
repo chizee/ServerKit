@@ -13,86 +13,44 @@ import { formatBytes, logKindFromPath } from '../components/log-viewer/logHelper
 import { Pill, PageTopbar } from '../components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     FileText, Clock, AlertCircle, Search, X, RefreshCw, AlertTriangle, Activity,
     Play, Square, RotateCw, Terminal as TerminalIcon, Server as ServerIcon,
+    ScrollText, Cpu, Settings,
 } from 'lucide-react';
 
 // 'logs' stays first so the default landing keeps working on installs with no
 // paired agents (the interactive shell needs a connected agent).
 const VALID_TABS = ['logs', 'journal', 'processes', 'services', 'terminal'];
 
+// Section tabs rendered inline in the PageTopbar (Servers-style), routed via
+// /terminal/<tab>. Logs is the default landing (/terminal).
+const TERMINAL_TABS = [
+    { to: '/terminal/terminal', label: 'Terminal', icon: <TerminalIcon size={15} /> },
+    { to: '/terminal', label: 'Log Files', end: true, icon: <FileText size={15} /> },
+    { to: '/terminal/journal', label: 'System Journal', icon: <ScrollText size={15} /> },
+    { to: '/terminal/processes', label: 'Processes', icon: <Cpu size={15} /> },
+    { to: '/terminal/services', label: 'Services', icon: <Settings size={15} /> },
+];
+
 const Terminal = () => {
-    const [activeTab, setActiveTab] = useTabParam('/terminal', VALID_TABS);
+    const [activeTab] = useTabParam('/terminal', VALID_TABS);
 
     return (
         <div className="page-container page-container--full-bleed terminal-page">
             <PageTopbar
                 icon={<TerminalIcon size={18} />}
-                title="Terminal / Logs"
-                meta="shells · logs · processes · services"
+                title="Logs"
+                tabs={TERMINAL_TABS}
             />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="terminal">
-                        <TerminalIcon size={16} />
-                        Terminal
-                    </TabsTrigger>
-                    <TabsTrigger value="logs">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                        </svg>
-                        Log Files
-                    </TabsTrigger>
-                    <TabsTrigger value="journal">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <line x1="9" y1="9" x2="15" y2="9"/>
-                            <line x1="9" y1="13" x2="15" y2="13"/>
-                            <line x1="9" y1="17" x2="11" y2="17"/>
-                        </svg>
-                        System Journal
-                    </TabsTrigger>
-                    <TabsTrigger value="processes">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                            <line x1="8" y1="21" x2="16" y2="21"/>
-                            <line x1="12" y1="17" x2="12" y2="21"/>
-                        </svg>
-                        Processes
-                    </TabsTrigger>
-                    <TabsTrigger value="services">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                        Services
-                    </TabsTrigger>
-                </TabsList>
-
-                <div className="tab-content">
-                    <TabsContent value="terminal">
-                        <TerminalShellTab />
-                    </TabsContent>
-                    <TabsContent value="logs">
-                        <LogFilesTab />
-                    </TabsContent>
-                    <TabsContent value="journal">
-                        <JournalTab />
-                    </TabsContent>
-                    <TabsContent value="processes">
-                        <ProcessesTab />
-                    </TabsContent>
-                    <TabsContent value="services">
-                        <ServicesTab />
-                    </TabsContent>
-                </div>
-            </Tabs>
+            <div className="tab-content">
+                {activeTab === 'terminal' && <TerminalShellTab />}
+                {activeTab === 'logs' && <LogFilesTab />}
+                {activeTab === 'journal' && <JournalTab />}
+                {activeTab === 'processes' && <ProcessesTab />}
+                {activeTab === 'services' && <ServicesTab />}
+            </div>
         </div>
     );
 };

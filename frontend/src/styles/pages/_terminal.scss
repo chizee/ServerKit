@@ -813,30 +813,21 @@ $lk-default:  #646b7a;
 
     > .sk-topbar { flex-shrink: 0; }
 
-    > [data-orientation] {
+    // The routed sections now render straight into .tab-content (no shadcn
+    // Tabs wrapper); it fills the height and the active pane flexes to fit.
+    > .tab-content {
         flex: 1;
         min-height: 0;
         display: flex;
         flex-direction: column;
-    }
-
-    .tab-content {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .tab-content > [role="tabpanel"] {
-        flex: 1;
-        min-height: 0;
     }
 
     .term-shell,
     .lv-page:not(.fullscreen),
     .proc-page,
     .svc-page {
-        height: 100%;
+        flex: 1;
+        height: auto;
         min-height: 0;
     }
 }
