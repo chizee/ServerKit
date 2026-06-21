@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SlidersHorizontal, GitBranch, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { DangerZone } from '../DangerZone';
+import RepoConnectForm from '../git/RepoConnectForm';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
@@ -17,10 +18,16 @@ const SVC_SETTINGS_GROUPS = [
     { label: 'Advanced', items: [{ id: 'danger', label: 'Danger Zone', icon: AlertTriangle }] },
 ];
 
-const SettingsTab = ({ app, deployConfig, onUpdate, onOpenGitModal }) => {
+const SVC_SETTINGS_ITEMS = SVC_SETTINGS_GROUPS.flatMap((g) => g.items);
+
+const SettingsTab = ({ app, deployConfig, onUpdate }) => {
     const navigate = useNavigate();
     const toast = useToast();
-    const [section, setSection] = useState('environment');
+    // Section lives in the URL (/services/:id/settings/:section) so it's
+    // shareable and survives a refresh — same as the WordPress detail page.
+    const { section: sectionParam } = useParams();
+    const section = SVC_SETTINGS_ITEMS.some((s) => s.id === sectionParam) ? sectionParam : 'environment';
+    const setSection = (s) => navigate(`/services/${app.id}/settings/${s}`, { replace: true });
     const [deleting, setDeleting] = useState(false);
     const [environmentType, setEnvironmentType] = useState(app.environment_type || 'standalone');
     const [savingEnvironment, setSavingEnvironment] = useState(false);
@@ -75,6 +82,50 @@ const SettingsTab = ({ app, deployConfig, onUpdate, onOpenGitModal }) => {
             toast.error('Failed to delete service');
             setDeleting(false);
         }
+    }
+
+    // Repo state shaped for the shared RepoConnectForm (the same component the
+    // WordPress Git settings use). A connected deploy config == connected repo.
+    const gitStatus = {
+        connected: Boolean(deployConfig),
+        repo_url: deployConfig?.repo_url,
+        branch: deployConfig?.branch,
+        auto_deploy: deployConfig?.auto_deploy,
+        last_deploy_commit: deployConfig?.last_deploy_commit,
+        last_deploy_at: deployConfig?.last_deploy_at,
+    };
+
+    async function handleConnectRepo(data) {
+        const repoUrl = (data.repo_url || '').trim();
+        await api.configureDeployment(
+            app.id,
+            repoUrl,
+            data.branch || 'main',
+            data.auto_deploy,
+            // Preserve any existing deploy scripts (not editable in this form).
+            deployConfig?.pre_deploy_script || null,
+            deployConfig?.post_deploy_script || null
+        );
+        if (data.auto_deploy && !deployConfig) {
+            try {
+                await api.createWebhook({
+                    deploy_on_push: true,
+                    app_id: app.id,
+                    repo_url: repoUrl,
+                    branch: data.branch || 'main',
+                });
+            } catch {
+                // Webhook creation is best-effort.
+            }
+        }
+        toast.success('Repository connected');
+        onUpdate();
+    }
+
+    async function handleDisconnectRepo() {
+        await api.removeDeployment(app.id);
+        toast.success('Repository disconnected');
+        onUpdate();
     }
 
     return (
@@ -162,27 +213,23 @@ const SettingsTab = ({ app, deployConfig, onUpdate, onOpenGitModal }) => {
                     </div>
                 )}
 
-                {/* Repository Configuration */}
+                {/* Repository — the same shared RepoConnectForm the WordPress Git
+                    settings use (provider picker + URL fallback, connected summary
+                    with Disconnect), wired to the service deployment API. */}
                 {section === 'repository' && (
                     <div className="svc-settings__section">
                         <h3 className="svc-settings__section-title">Repository</h3>
-                        <div className="card">
-                            <div className="settings-row">
-                                <div className="settings-label">
-                                    <span>Connected Repository</span>
-                                    <span className="settings-hint">
-                                        {deployConfig
-                                            ? `${deployConfig.repo_url} (${deployConfig.branch || 'main'})`
-                                            : 'No repository connected'}
-                                    </span>
-                                </div>
-                                <div className="settings-control">
-                                    <Button variant="outline" onClick={onOpenGitModal}>
-                                        {deployConfig ? 'Edit' : 'Connect'}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
+                        <RepoConnectForm
+                            gitStatus={gitStatus}
+                            onConnect={handleConnectRepo}
+                            onDisconnect={handleDisconnectRepo}
+                            intro={{
+                                title: 'Connect a Git repository',
+                                subtitle: 'Link a repo so ServerKit can pull your code and redeploy on every push.',
+                            }}
+                            submitLabel="Connect Repository"
+                            idPrefix="svc"
+                        />
                     </div>
                 )}
 

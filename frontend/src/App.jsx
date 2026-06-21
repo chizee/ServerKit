@@ -275,6 +275,10 @@ function AppRoutes() {
                     <Route path="deployments/:jobId" element={<Deployments />} />
                 </Route>
                 <Route path="services/:id" element={<ServiceDetail />} />
+                <Route path="services/:id/:tab" element={<ServiceDetail />} />
+                {/* Settings sub-section in the URL (e.g. .../settings/repository)
+                    so the Settings left-nav is shareable and survives a refresh. */}
+                <Route path="services/:id/:tab/:section" element={<ServiceDetail />} />
                 <Route path="apps" element={<Navigate to="/services" replace />} />
                 <Route path="apps/:id" element={<ApplicationDetail />} />
                 <Route path="apps/:id/:tab" element={<ApplicationDetail />} />

@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useService } from '../hooks/useService';
+import useTabParam from '../hooks/useTabParam';
 import { getTabsForType } from '../utils/serviceTypes';
 import EnvironmentVariables from '../components/EnvironmentVariables';
 import EventsTab from '../components/service-detail/EventsTab';
@@ -15,7 +16,6 @@ import MetricsTab from '../components/service-detail/MetricsTab';
 import PackagesTab from '../components/service-detail/PackagesTab';
 import GunicornTab from '../components/service-detail/GunicornTab';
 import CommandsTab from '../components/service-detail/CommandsTab';
-import GitConnectModal from '../components/service-detail/GitConnectModal';
 import OverviewTab from '../components/service-detail/OverviewTab';
 import EmptyState from '../components/EmptyState';
 import { Layers, FileArchive, RotateCcw, LayoutDashboard, History, ScrollText, Variable, Terminal, Activity, Package, Server, SquareTerminal, Settings } from 'lucide-react';
@@ -64,10 +64,11 @@ const ServiceDetail = () => {
     const toast = useToast();
     const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
     const { service, deployConfig, loading, error, reload, performAction, deleteService } = useService(id);
-    const [activeTab, setActiveTab] = useState('overview');
+    // Active tab lives in the URL (/services/:id/:tab) so it's shareable and
+    // survives a refresh — same pattern as the WordPress detail page.
+    const [activeTab, setActiveTab] = useTabParam(`/services/${id}`, Object.keys(TAB_LABELS));
     const [showDeployMenu, setShowDeployMenu] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
-    const [showGitModal, setShowGitModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(null);
     const [versions, setVersions] = useState([]);
     const [currentVersion, setCurrentVersion] = useState(null);
@@ -422,7 +423,7 @@ const ServiceDetail = () => {
                         )}
                     </span>
                 ) : deployConfig ? (
-                    <div className="svc-detail__repo-pill" onClick={() => setShowGitModal(true)}>
+                    <div className="svc-detail__repo-pill" onClick={() => navigate(`/services/${id}/settings/repository`)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="18" cy="18" r="3"/>
                             <circle cx="6" cy="6" r="3"/>
@@ -436,7 +437,7 @@ const ServiceDetail = () => {
                         )}
                     </div>
                 ) : (
-                    <button className="svc-detail__connect-repo" onClick={() => setShowGitModal(true)}>
+                    <button className="svc-detail__connect-repo" onClick={() => navigate(`/services/${id}/settings/repository`)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="18" cy="18" r="3"/>
                             <circle cx="6" cy="6" r="3"/>
@@ -526,24 +527,11 @@ const ServiceDetail = () => {
                         app={service}
                         deployConfig={deployConfig}
                         onUpdate={reload}
-                        onOpenGitModal={() => setShowGitModal(true)}
                     />
                 )}
             </div>
             </div>
 
-            {/* Git Connect Modal */}
-            {showGitModal && isGitBased && (
-                <GitConnectModal
-                    appId={service.id}
-                    deployConfig={deployConfig}
-                    onClose={() => setShowGitModal(false)}
-                    onSaved={() => {
-                        setShowGitModal(false);
-                        reload();
-                    }}
-                />
-            )}
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 title={confirmState.title}
