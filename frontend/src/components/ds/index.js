@@ -13,4 +13,6 @@ export { ScoreGauge } from './ScoreGauge';
 export { Feed, FeedItem } from './Feed';
 export { Drawer } from './Drawer';
 export { PageTopbar } from './PageTopbar';
+export { DataTable } from './DataTable';
+export { ResourceCard, ResourceList } from './ResourceCard';
 export { svcGrad, initials, gaugeColor } from './utils';

@@ -6,11 +6,11 @@ This service routes Docker commands to the appropriate agent
 and returns the results.
 """
 
-from typing import Optional, List, Dict, Any
-from flask_jwt_extended import get_jwt_identity
+from typing import List, Dict, Any
 
 from app.services.agent_registry import agent_registry
 from app.models.server import Server
+from app.utils.formatting import format_bytes
 
 
 class RemoteDockerService:
@@ -360,12 +360,7 @@ class RemoteDockerService:
 
     @staticmethod
     def _human_bytes(n: int) -> str:
-        n = float(n or 0)
-        for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
-            if n < 1024:
-                return f"{n:.1f}{unit}"
-            n /= 1024
-        return f"{n:.1f}PB"
+        return format_bytes(n, suffix_sep='')
 
     @classmethod
     def _normalize_agent_metrics(cls, flat: Dict[str, Any]) -> Dict[str, Any]:

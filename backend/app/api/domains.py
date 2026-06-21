@@ -2,6 +2,7 @@ import re
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
+from app.middleware.rbac import admin_required
 from app.models import Domain, Application, User
 from app.services.nginx_service import NginxService
 from app.services.ssl_service import SSLService
@@ -67,20 +68,6 @@ def validate_and_sanitize_domain(domain_name: str) -> tuple:
             return None, f'Domain label "{label}" is too long (max 63 characters per label)'
 
     return domain.lower(), None
-
-
-def admin_required(fn):
-    """Decorator to require admin role."""
-    from functools import wraps
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return fn(*args, **kwargs)
-    return wrapper
 
 
 @domains_bp.route('', methods=['GET'])

@@ -11,6 +11,8 @@ import re
 import subprocess
 from typing import Dict
 
+from app.utils.slug import slugify as _slugify
+
 
 class EnvironmentDomainService:
     """Service for managing per-environment domains and Nginx configs."""
@@ -358,10 +360,7 @@ class EnvironmentDomainService:
         Returns:
             Lowercase slug with only alphanumeric chars and hyphens
         """
-        text = text.lower()
-        text = re.sub(r'[^a-z0-9]+', '-', text)
-        text = text.strip('-')
-        return text
+        return _slugify(text)
 
     @classmethod
     def _reload_nginx(cls) -> Dict:

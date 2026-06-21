@@ -1,23 +1,9 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import User
+from flask_jwt_extended import jwt_required
+from app.middleware.rbac import admin_required
 from app.services.ssl_service import SSLService
 
 ssl_bp = Blueprint('ssl', __name__)
-
-
-def admin_required(fn):
-    """Decorator to require admin role."""
-    from functools import wraps
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return fn(*args, **kwargs)
-    return wrapper
 
 
 @ssl_bp.route('/certificates', methods=['GET'])

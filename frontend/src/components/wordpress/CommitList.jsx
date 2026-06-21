@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { GitCommit, Rocket, Copy, CheckCircle } from 'lucide-react';
+import { GitCommit, Rocket, Copy, CheckCircle, ExternalLink } from 'lucide-react';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { detectProvider } from '../git/GitProviders';
 
-const CommitList = ({ commits, currentCommit, onDeploy, onCreateDev, loading = false }) => {
+// Build a web URL to a commit on the host from the clone URL + sha so the log is
+// clickable. Handles https + scp-style ssh remotes and Bitbucket's /commits path.
+function commitUrl(repoUrl, sha) {
+    if (!repoUrl || !sha) return null;
+    let base = repoUrl.trim().replace(/\.git$/i, '');
+    const ssh = base.match(/^git@([^:]+):(.+)$/);
+    if (ssh) base = `https://${ssh[1]}/${ssh[2]}`;
+    if (!/^https?:\/\//i.test(base)) return null;
+    const seg = detectProvider(repoUrl)?.key === 'bitbucket' ? 'commits' : 'commit';
+    return `${base}/${seg}/${sha}`;
+}
+
+const CommitList = ({ commits, currentCommit, onDeploy, onCreateDev, loading = false, repoUrl }) => {
     const [actionLoading, setActionLoading] = useState({});
     const [showDevModal, setShowDevModal] = useState(null);
 
@@ -80,7 +93,20 @@ const CommitList = ({ commits, currentCommit, onDeploy, onCreateDev, loading = f
 
                         <div className="commit-info">
                             <div className="commit-header">
-                                <span className="commit-sha mono">{commit.sha.substring(0, 7)}</span>
+                                {commitUrl(repoUrl, commit.sha) ? (
+                                    <a
+                                        className="commit-sha mono commit-sha--link"
+                                        href={commitUrl(repoUrl, commit.sha)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="View this commit on the remote"
+                                    >
+                                        {commit.sha.substring(0, 7)}
+                                        <ExternalLink size={11} />
+                                    </a>
+                                ) : (
+                                    <span className="commit-sha mono">{commit.sha.substring(0, 7)}</span>
+                                )}
                                 {isCurrent && <span className="current-badge">Deployed</span>}
                                 <span className="commit-date">{formatDate(commit.date)}</span>
                             </div>
@@ -151,7 +177,7 @@ const CreateDevModal = ({ commit, onClose, onCreate, loading }) => {
                 Create a development environment with code from commit{' '}
                 <code>{commit.sha.substring(0, 7)}</code>
             </p>
-            <p className="commit-message-preview">"{commit.message}"</p>
+            <p className="commit-message-preview">&ldquo;{commit.message}&rdquo;</p>
 
             <form onSubmit={handleSubmit}>
                 <div className="form-group">

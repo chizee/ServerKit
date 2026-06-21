@@ -499,7 +499,38 @@
 // _applications.scss and are ALSO rendered by the Applications detail page,
 // which keeps its current look until its own pass. Same pattern as the
 // `.server-detail-page` block in _servers.scss.
+
+// Run the detail page FULL-BLEED, like the WordPress list page: drop the
+// .main-content 40px frame so the .sk-topbar spans edge-to-edge. (Unlike the
+// generic full-bleed rule in _main-content.scss, we keep the normal scroll —
+// no height:100vh/overflow:hidden — because this is a long scrolling page, not
+// a self-managing two-pane tool.) .app-detail-body re-pads the content below.
+.main-content:has(.wp-detail-page) {
+    padding: 0;
+
+    // padding:0 also drops the base rule's mobile top-clearance, so restore it
+    // (the fixed mobile header would otherwise overlap the top bar).
+    @media (max-width: $breakpoint-md) {
+        margin-top: calc(#{$mobile-header-height} + env(safe-area-inset-top));
+    }
+}
+
 .wp-detail-page {
+    // The full-bleed top bar sits flush above the padded body (no page gap).
+    gap: 0;
+
+    // Content below the full-bleed top bar: a CENTERED max-width column (like the
+    // prototype), laid out as a flex column so identity / tabs / content are
+    // evenly spaced (fixes the tab-touches-content gap).
+    .app-detail-body {
+        display: flex;
+        flex-direction: column;
+        gap: $space-5;
+        width: 100%;
+        max-width: 1200px;
+        margin-inline: auto;
+        padding: $space-6 $space-6 $space-10;
+    }
 
     // ---- Breadcrumbs (mono trail) ----
     .app-detail-breadcrumbs {
@@ -525,24 +556,179 @@
     }
 
     // ---- Header (demo .site-header: gradient surface + accent wash) ----
+    // Identity row — NO card background (matches the prototype): just the icon +
+    // name + status sitting directly on the page.
     .app-detail-header {
         position: relative;
         gap: $space-4;
-        padding: 20px 22px;
-        background: linear-gradient(120deg, var(--surface) 0%, var(--surface-2) 100%);
-        border: 1px solid var(--border-soft);
-        border-radius: var(--radius-lg);
+        padding: 4px 0 0;
+        background: none;
+        border: none;
+        border-radius: 0;
+    }
 
-        // No overflow:hidden (the env-switch menu must escape the header),
-        // so the wash inherits the radius instead.
-        &::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: var(--radius-lg);
-            background: radial-gradient(420px 200px at 0% 0%, var(--accent-bg-soft), transparent 70%);
-            pointer-events: none;
+    // The detail page uses the canonical PageTopbar (.sk-topbar) for its top bar
+    // so the chrome matches the WordPress LIST page and every other page. Tweaks:
+    // a breadcrumb title and a compact, wrapping action cluster (the detail page
+    // carries more actions than a typical page).
+    .wp-detail-topbar {
+        // Full-bleed now that .main-content has no padding; match the list page's
+        // sk-topbar inset. Many actions, so wrap the bar as a whole instead of
+        // squeezing the title (which made the breadcrumb collide with a button).
+        padding: 10px $space-4;
+        flex-wrap: wrap;
+        row-gap: 8px;
+
+        // The bar's flex:1 spacer would force the actions onto their own line
+        // every time; drop it and push the cluster right with margin instead, so
+        // the actions sit beside the title when they fit and wrap only when not.
+        .sk-topbar__spacer { display: none; }
+
+        .sk-topbar__titles { flex-shrink: 0; }
+
+        .wp-crumbs {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+
+            a {
+                color: var(--text-dim);
+                text-decoration: none;
+                &:hover { color: var(--accent-bright); }
+            }
+            &__sep { color: var(--text-ghost); }
+            &__cur { color: var(--text); }
         }
+
+        .sk-topbar__actions {
+            margin-left: auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            row-gap: 6px;
+
+            .ui-button {
+                height: 32px;
+                padding: 0 10px;
+                font-size: 12.5px;
+                gap: 6px;
+            }
+        }
+    }
+
+    // Overview top grid: Site information (left) + Traffic chart (right), matching
+    // the mockup's ~40/60 split; collapses to one column on narrow screens.
+    .wp-overview-main {
+        display: grid;
+        grid-template-columns: minmax(300px, 0.85fr) 1.15fr;
+        gap: $space-4;
+        margin-bottom: $space-4;
+
+        @media (max-width: $breakpoint-lg) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    // Traffic panel: stack the title over a muted mono sub-label.
+    .wp-traffic-panel {
+        .app-panel-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+        }
+        .wp-panel-sub {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: $font-weight-normal;
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--text-faint);
+        }
+    }
+
+    // Recent activity spans full width beneath the main grid.
+    .wp-activity-panel { margin-bottom: $space-4; }
+
+    // WP detail carries more tabs than fit one row at common widths, so let the
+    // strip WRAP instead of scrolling — otherwise the right-pinned Settings tab
+    // gets pushed off-screen and becomes unreachable.
+    .app-detail-tabs {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        row-gap: 2px;
+    }
+
+    // Settings tab pinned to the far right of the tab strip (the mockup's gear).
+    .app-detail-tab--end { margin-left: auto; }
+
+    // Settings tab — left sub-nav + content (PHP, Updates, …).
+    .wp-settings {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: $space-4;
+        align-items: start;
+
+        @media (max-width: $breakpoint-md) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .wp-settings__nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        position: sticky;
+        top: $space-4;
+
+        @media (max-width: $breakpoint-md) {
+            position: static;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+    }
+
+    .wp-settings__navitem {
+        display: flex;
+        width: 100%; // fill the nav column — a flex <button> otherwise shrinks
+                     // to its label, so each item's box was a different width
+        align-items: center;
+        gap: 9px;
+        padding: 9px 12px;
+        border: none;
+        border-radius: 8px;
+        background: none;
+        color: var(--text-dim);
+        font-size: 13.5px;
+        font-weight: $font-weight-medium;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.14s, color 0.14s;
+
+        svg { color: var(--text-faint); flex-shrink: 0; }
+
+        &:hover { background: var(--surface-hover); color: var(--text); }
+        &.is-active {
+            background: var(--accent-bg);
+            color: var(--accent-bright);
+            svg { color: var(--accent-bright); }
+        }
+    }
+
+    .wp-settings__content { min-width: 0; }
+
+    // Grouped left nav — an uppercase mono label per group (the sidebar-style
+    // "group section" the user asked for).
+    .wp-settings__group + .wp-settings__group { margin-top: $space-4; }
+
+    .wp-settings__grouplabel {
+        padding: 0 12px;
+        margin-bottom: 6px;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: $font-weight-semibold;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-faint);
     }
 
     .app-detail-icon {
@@ -1125,6 +1311,17 @@
         background: var(--accent-bg);
         padding: 2px 7px;
         border-radius: 5px;
+    }
+    // Clickable SHA → the commit on the remote host.
+    a.commit-sha--link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-decoration: none;
+        transition: background 0.14s;
+
+        svg { opacity: 0.6; }
+        &:hover { background: var(--accent-bg-soft); text-decoration: underline; svg { opacity: 1; } }
     }
 
     .current-badge {

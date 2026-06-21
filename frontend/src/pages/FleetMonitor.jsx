@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity,
     AlertTriangle,
@@ -24,8 +25,7 @@ import { useToast } from '../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PageTopbar, Pill } from '@/components/ds';
-import { SERVER_TABS } from '../components/servers/serverTabs';
+import { Pill } from '@/components/ds';
 
 const CHART_COLORS = [
     '#6366f1', '#ec4899', '#14b8a6', '#f59e0b',
@@ -41,18 +41,37 @@ const METRIC_LABELS = {
     network_tx: 'Network TX'
 };
 
+const heatLevel = (value) => {
+    if (value == null) return 'empty';
+    if (value >= 90) return 'critical';
+    if (value >= 75) return 'high';
+    if (value >= 50) return 'medium';
+    return 'low';
+};
+
 const heatColor = (value) => {
-    if (value == null) return 'var(--card-bg)';
-    if (value >= 90) return 'var(--red)';
-    if (value >= 75) return '#f97316';
-    if (value >= 50) return 'var(--amber)';
+    const level = heatLevel(value);
+    if (level === 'empty') return 'var(--card-bg)';
+    if (level === 'critical') return 'var(--red)';
+    if (level === 'high') return '#f97316';
+    if (level === 'medium') return 'var(--amber)';
     return 'var(--green)';
 };
 
 const FleetMonitor = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [loading, setLoading] = useState(true);
-    const { addToast } = useToast();
+    const toast = useToast();
+
+    // Publish the Refresh button to the shared tab-group top bar; re-registers
+    // on `loading` so the spinner/disabled state stays in sync.
+    useTopbarActions(() =>
+        <Button size="sm" onClick={fetchTabData} disabled={loading}>
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            Refresh
+        </Button>,
+        [loading]
+    );
 
     // Overview state
     const [heatmapData, setHeatmapData] = useState([]);
@@ -132,7 +151,7 @@ const FleetMonitor = () => {
             const data = await api.getFleetComparison(selectedServers, compMetric, compPeriod);
             setCompData(data);
         } catch (e) {
-            addToast('Error', 'Failed to load comparison data', 'error');
+            toast.error('Failed to load comparison data');
         } finally {
             setLoading(false);
         }
@@ -143,7 +162,7 @@ const FleetMonitor = () => {
             const data = await api.getCapacityForecast(serverId || forecastServer, forecastMetric);
             setForecast(data);
         } catch (e) {
-            addToast('Error', 'Failed to load forecast', 'error');
+            toast.error('Failed to load forecast');
         }
     };
 
@@ -154,7 +173,7 @@ const FleetMonitor = () => {
             const data = await api.searchFleet(searchQuery, searchType);
             setSearchResults(data);
         } catch (e) {
-            addToast('Error', 'Search failed', 'error');
+            toast.error('Search failed');
         } finally {
             setLoading(false);
         }
@@ -165,7 +184,7 @@ const FleetMonitor = () => {
             await api.acknowledgeFleetAlert(id);
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to acknowledge alert', 'error');
+            toast.error('Failed to acknowledge alert');
         }
     };
 
@@ -174,17 +193,17 @@ const FleetMonitor = () => {
             await api.resolveFleetAlert(id);
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to resolve alert', 'error');
+            toast.error('Failed to resolve alert');
         }
     };
 
     const saveThreshold = async () => {
         try {
             await api.createFleetThreshold(newThreshold);
-            addToast('Success', 'Threshold saved', 'success');
+            toast.success('Threshold saved');
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to save threshold', 'error');
+            toast.error('Failed to save threshold');
         }
     };
 
@@ -193,7 +212,7 @@ const FleetMonitor = () => {
             await api.deleteFleetThreshold(id);
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to delete threshold', 'error');
+            toast.error('Failed to delete threshold');
         }
     };
 
@@ -229,26 +248,12 @@ const FleetMonitor = () => {
             a.click();
             URL.revokeObjectURL(url);
         } catch (e) {
-            addToast('Error', 'Export failed', 'error');
+            toast.error('Export failed');
         }
     };
 
     return (
-        <div className="page-container">
-            <PageTopbar
-                icon={<Activity size={18} />}
-                title="Fleet Monitor"
-                tabs={SERVER_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" onClick={fetchTabData} disabled={loading}>
-                            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-                            Refresh
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                     {[
@@ -295,22 +300,19 @@ const FleetMonitor = () => {
                                                     )}
                                                 </div>
                                                 <div
-                                                    className="fleet-heatmap__cell"
-                                                    style={{ backgroundColor: heatColor(server.cpu), color: server.cpu >= 75 ? '#fff' : 'inherit' }}
+                                                    className={`fleet-heatmap__cell is-${heatLevel(server.cpu)}`}
                                                     title={`CPU: ${server.cpu ?? 'N/A'}%`}
                                                 >
                                                     {server.cpu != null ? `${server.cpu}%` : '-'}
                                                 </div>
                                                 <div
-                                                    className="fleet-heatmap__cell"
-                                                    style={{ backgroundColor: heatColor(server.memory), color: server.memory >= 75 ? '#fff' : 'inherit' }}
+                                                    className={`fleet-heatmap__cell is-${heatLevel(server.memory)}`}
                                                     title={`Memory: ${server.memory ?? 'N/A'}%`}
                                                 >
                                                     {server.memory != null ? `${server.memory}%` : '-'}
                                                 </div>
                                                 <div
-                                                    className="fleet-heatmap__cell"
-                                                    style={{ backgroundColor: heatColor(server.disk), color: server.disk >= 75 ? '#fff' : 'inherit' }}
+                                                    className={`fleet-heatmap__cell is-${heatLevel(server.disk)}`}
                                                     title={`Disk: ${server.disk ?? 'N/A'}%`}
                                                 >
                                                     {server.disk != null ? `${server.disk}%` : '-'}
@@ -334,10 +336,10 @@ const FleetMonitor = () => {
                         </div>
                         <div className="flex gap-3 items-center text-sm text-gray-500">
                             <span>Legend:</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'var(--green)' }}></span> 0-50%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'var(--amber)' }}></span> 50-75%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: '#f97316' }}></span> 75-90%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'var(--red)' }}></span> 90-100%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-low"></span> 0-50%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-medium"></span> 50-75%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-high"></span> 75-90%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-critical"></span> 90-100%</span>
                         </div>
                     </div>
                 )}

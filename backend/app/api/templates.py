@@ -10,26 +10,14 @@ Provides REST endpoints for:
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.middleware.rbac import admin_required
 from app.models import User, Application
 from app.services.deployment_job_service import DeploymentJobService
 from app.services.template_service import TemplateService
 from app.services.resource_grant_service import ResourceGrantService
+from app.utils.slug import validate_app_name
 
 templates_bp = Blueprint('templates', __name__)
-
-
-def admin_required(fn):
-    """Decorator to require admin role."""
-    from functools import wraps
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return fn(*args, **kwargs)
-    return wrapper
 
 
 # ==================== TEMPLATE BROWSING ====================
@@ -146,11 +134,9 @@ def install_template(template_id):
             return jsonify({'error': 'app_name is required'}), 400
 
         # Validate app name
-        import re
-        if not re.match(r'^[a-z0-9][a-z0-9-]*[a-z0-9]$', app_name) or len(app_name) < 3:
-            return jsonify({
-                'error': 'App name must be lowercase alphanumeric with hyphens, at least 3 characters'
-            }), 400
+        valid, error = validate_app_name(app_name, min_length=3)
+        if not valid:
+            return jsonify({'error': error}), 400
 
         user_variables = data.get('variables', {})
         server_id = data.get('server_id') or data.get('target_server_id')
@@ -195,13 +181,12 @@ def validate_installation():
         errors = []
 
         # Validate app name
-        import re
         if not app_name:
             errors.append('App name is required')
-        elif len(app_name) < 2:
-            errors.append('App name must be at least 2 characters')
-        elif not re.match(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$', app_name):
-            errors.append('App name must be lowercase alphanumeric with optional hyphens (not at start/end)')
+        else:
+            valid, error = validate_app_name(app_name, min_length=2)
+            if not valid:
+                errors.append(error)
 
         # Check if app name is taken
         if app_name:

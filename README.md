@@ -40,6 +40,174 @@ English | [Español](docs/README.es.md) | [中文版](docs/README.zh-CN.md) | [P
 
 ---
 
+
+<!-- SK:SHOTS:START -->
+## 📸 Screenshots
+
+> Captured from a mock-data demo build — every hostname, IP, domain, and metric below is fictional.
+
+<details open>
+<summary><strong>Dashboard</strong> — Live server metrics, KPI cards, your apps at a glance, and a recent-activity feed</summary>
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+</details>
+
+<details>
+<summary><strong>AI Assistant</strong> — Built-in, Prompture-powered assistant — reads page context, answers questions, and runs tools on your infra</summary>
+
+![AI Assistant](docs/screenshots/ai.png)
+
+</details>
+
+<details>
+<summary><strong>Services</strong> — Static, Node.js, Python, PHP, and Docker apps with status, domain, and last-deploy</summary>
+
+![Services](docs/screenshots/services.png)
+
+</details>
+
+<details>
+<summary><strong>Service Detail</strong> — Per-app deployments, git connection, live resource usage, logs, and settings</summary>
+
+![Service Detail](docs/screenshots/service-detail.png)
+
+</details>
+
+<details>
+<summary><strong>WordPress</strong> — Per-site WordPress dashboard — status, core version, disk, DB config, Quick Actions, and live site-health checks</summary>
+
+![WordPress](docs/screenshots/wordpress.png)
+
+</details>
+
+<details>
+<summary><strong>Docker</strong> — Containers, images, volumes, and networks with live CPU/RAM per container</summary>
+
+![Docker](docs/screenshots/docker.png)
+
+</details>
+
+<details>
+<summary><strong>Databases</strong> — MySQL / PostgreSQL / SQLite explorer with a live source tree and SQL console</summary>
+
+![Databases](docs/screenshots/databases.png)
+
+</details>
+
+<details>
+<summary><strong>SQL Console</strong> — Run SQL against any database from the browser with a live, typed results grid</summary>
+
+![SQL Console](docs/screenshots/sql.png)
+
+</details>
+
+<details>
+<summary><strong>Domains</strong> — Domains mapped to sites with SSL status, expiry tracking, and auto-renew</summary>
+
+![Domains](docs/screenshots/domains.png)
+
+</details>
+
+<details>
+<summary><strong>DNS Zones</strong> — Multi-provider DNS — Cloudflare, Route 53, DigitalOcean — with full record editing</summary>
+
+![DNS Zones](docs/screenshots/dns.png)
+
+</details>
+
+<details>
+<summary><strong>Monitoring</strong> — Live host gauges, threshold-based alert rules, delivery channels, and alert history</summary>
+
+![Monitoring](docs/screenshots/monitoring.png)
+
+</details>
+
+<details>
+<summary><strong>Security</strong> — Security posture score, ClamAV malware scanning, file integrity, firewall, and Fail2Ban</summary>
+
+![Security](docs/screenshots/security.png)
+
+</details>
+
+<details>
+<summary><strong>Backups</strong> — Scheduled app/database/file backups with S3/B2 remote sync and one-click restore</summary>
+
+![Backups](docs/screenshots/backups.png)
+
+</details>
+
+<details>
+<summary><strong>Mail</strong> — Full mail stack — Postfix, Dovecot, OpenDKIM, SpamAssassin, Roundcube — with DKIM/SPF/DMARC</summary>
+
+![Mail](docs/screenshots/email.png)
+
+</details>
+
+<details>
+<summary><strong>Cron Jobs</strong> — Scheduled tasks with cron expressions, human-readable timing, and enable toggles</summary>
+
+![Cron Jobs](docs/screenshots/cron.png)
+
+</details>
+
+<details>
+<summary><strong>File Manager</strong> — Browse, edit, and upload files from the browser with per-mount disk usage</summary>
+
+![File Manager](docs/screenshots/files.png)
+
+</details>
+
+<details>
+<summary><strong>Logs & Terminal</strong> — In-browser log viewer, process list, journald, and full SSH terminal sessions</summary>
+
+![Logs & Terminal](docs/screenshots/terminal.png)
+
+</details>
+
+<details>
+<summary><strong>Servers</strong> — Manage every server from one panel with live CPU/RAM/disk telemetry per host</summary>
+
+![Servers](docs/screenshots/servers.png)
+
+</details>
+
+<details>
+<summary><strong>Agent Fleet</strong> — Fleet health, agent version distribution, staged rollouts, and command queue</summary>
+
+![Agent Fleet](docs/screenshots/fleet.png)
+
+</details>
+
+<details>
+<summary><strong>Remote Access</strong> — Expose a private/NAT-ed home service publicly by WireGuard-pairing two agents — no port forwarding</summary>
+
+![Remote Access](docs/screenshots/remote-access.png)
+
+</details>
+
+<details>
+<summary><strong>Workflow Builder</strong> — Node-based visual automation — chain triggers, builds, deploys, and notifications on a canvas</summary>
+
+![Workflow Builder](docs/screenshots/workflow.png)
+
+</details>
+
+<details>
+<summary><strong>Settings</strong> — Profile, security, appearance/branding, users, connections, and notification channels</summary>
+
+![Settings](docs/screenshots/settings.png)
+
+</details>
+
+<details>
+<summary><strong>Login</strong> — Email/password sign-in with SSO (Google/GitHub/GitLab) and 2FA support</summary>
+
+![Login](docs/screenshots/login.png)
+
+</details>
+<!-- SK:SHOTS:END -->
+
 ## 🎯 Features
 
 ### 🚀 Apps & Deployment

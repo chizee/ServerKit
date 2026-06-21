@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from app import paths
 from app.utils.crypto import encrypt_secret, decrypt_secret_safe, is_encrypted
+from app.utils.formatting import format_bytes
 
 
 class StorageProviderService:
@@ -433,11 +434,7 @@ class StorageProviderService:
     @staticmethod
     def _format_size(size: int) -> str:
         """Format size in human readable format."""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if size < 1024:
-                return f"{size:.1f} {unit}"
-            size /= 1024
-        return f"{size:.1f} PB"
+        return format_bytes(size, suffix_sep=' ')
 
     # ── File-browser access (powers the Files app's "S3 bucket" target) ──
     # Paths arrive slash-rooted from the UI (e.g. "/photos/cat.jpg"); we strip the

@@ -1,6 +1,7 @@
 import logging
 from app import db
 from app.models.marketplace import Extension, ExtensionInstall
+from app.utils.slug import unique_slug
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,12 @@ class MarketplaceService:
 
     @staticmethod
     def create_extension(data, user_id=None):
-        slug = data.get('slug', data['name'].lower().replace(' ', '-'))
-        if Extension.query.filter_by(slug=slug).first():
-            raise ValueError(f"Extension '{slug}' already exists")
+        base = data.get('slug') or data['name']
+        slug = unique_slug(
+            base,
+            lambda s: Extension.query.filter_by(slug=s).first() is not None,
+            default='extension',
+        )
 
         ext = Extension(
             name=data['name'],

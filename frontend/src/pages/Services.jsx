@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Box, Layers, Plus, Activity, Square, Clock, Play, RotateCw, GitBranch, Github, FolderOpen, FileArchive } from 'lucide-react';
+import { Layers, Plus, Activity, Square, Clock, Play, RotateCw, GitBranch, Github, FolderOpen, FileArchive } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { getServiceType, getStatusConfig, formatRelativeTime } from '../utils/serviceTypes';
 import EmptyState from '../components/EmptyState';
-import { PageTopbar, MetricCard, Pill, SegControl } from '@/components/ds';
-import { SERVICE_TABS } from '../components/services/serviceTabs';
+import { MetricCard, Pill, SegControl } from '@/components/ds';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -133,29 +133,24 @@ const Services = () => {
         return { total: apps.length, running, stopped, topType, recentDeploy };
     }, [apps]);
 
+    useTopbarActions(() =>
+        <>
+            <Button size="sm" asChild>
+                <Link to="/services/new">
+                    <Plus size={16} />
+                    New Service
+                </Link>
+            </Button>
+        </>,
+        []
+    );
+
     if (loading) {
         return <div className="loading">Loading services...</div>;
     }
 
     return (
-        <div className="page-container services-page">
-            <PageTopbar
-                icon={<Box size={18} />}
-                title="Services"
-                meta={`${stats.total} services · ${stats.running} live`}
-                tabs={SERVICE_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" asChild>
-                            <Link to="/services/new">
-                                <Plus size={16} />
-                                New Service
-                            </Link>
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner services-page">
             {/* Summary */}
             {apps.length > 0 && (
                 <div className="svc-kpis">

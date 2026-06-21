@@ -1,14 +1,33 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { SlidersHorizontal, GitBranch, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { DangerZone } from '../DangerZone';
+import RepoConnectForm from '../git/RepoConnectForm';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
-const SettingsTab = ({ app, deployConfig, onUpdate, onOpenGitModal }) => {
+// Grouped left sub-nav for the service Settings tab — mirrors the WordPress
+// detail page's settings layout: an uppercase mono group label per section with
+// the existing setting panels on the right. Groups give it structure (and room
+// to grow) instead of one long flat stack.
+const SVC_SETTINGS_GROUPS = [
+    { label: 'General', items: [{ id: 'environment', label: 'Environment', icon: SlidersHorizontal }] },
+    { label: 'Connections', items: [{ id: 'repository', label: 'Repository', icon: GitBranch }] },
+    { label: 'Advanced', items: [{ id: 'danger', label: 'Danger Zone', icon: AlertTriangle }] },
+];
+
+const SVC_SETTINGS_ITEMS = SVC_SETTINGS_GROUPS.flatMap((g) => g.items);
+
+const SettingsTab = ({ app, deployConfig, onUpdate }) => {
     const navigate = useNavigate();
     const toast = useToast();
+    // Section lives in the URL (/services/:id/settings/:section) so it's
+    // shareable and survives a refresh — same as the WordPress detail page.
+    const { section: sectionParam } = useParams();
+    const section = SVC_SETTINGS_ITEMS.some((s) => s.id === sectionParam) ? sectionParam : 'environment';
+    const setSection = (s) => navigate(`/services/${app.id}/settings/${s}`, { replace: true });
     const [deleting, setDeleting] = useState(false);
     const [environmentType, setEnvironmentType] = useState(app.environment_type || 'standalone');
     const [savingEnvironment, setSavingEnvironment] = useState(false);
@@ -65,102 +84,169 @@ const SettingsTab = ({ app, deployConfig, onUpdate, onOpenGitModal }) => {
         }
     }
 
+    // Repo state shaped for the shared RepoConnectForm (the same component the
+    // WordPress Git settings use). A connected deploy config == connected repo.
+    const gitStatus = {
+        connected: Boolean(deployConfig),
+        repo_url: deployConfig?.repo_url,
+        branch: deployConfig?.branch,
+        auto_deploy: deployConfig?.auto_deploy,
+        last_deploy_commit: deployConfig?.last_deploy_commit,
+        last_deploy_at: deployConfig?.last_deploy_at,
+    };
+
+    async function handleConnectRepo(data) {
+        const repoUrl = (data.repo_url || '').trim();
+        await api.configureDeployment(
+            app.id,
+            repoUrl,
+            data.branch || 'main',
+            data.auto_deploy,
+            // Preserve any existing deploy scripts (not editable in this form).
+            deployConfig?.pre_deploy_script || null,
+            deployConfig?.post_deploy_script || null
+        );
+        if (data.auto_deploy && !deployConfig) {
+            try {
+                await api.createWebhook({
+                    deploy_on_push: true,
+                    app_id: app.id,
+                    repo_url: repoUrl,
+                    branch: data.branch || 'main',
+                });
+            } catch {
+                // Webhook creation is best-effort.
+            }
+        }
+        toast.success('Repository connected');
+        onUpdate();
+    }
+
+    async function handleDisconnectRepo() {
+        await api.removeDeployment(app.id);
+        toast.success('Repository disconnected');
+        onUpdate();
+    }
+
     return (
         <div className="svc-settings">
-            {/* Repository Configuration */}
-            <div className="svc-settings__section">
-                <h3 className="svc-settings__section-title">Repository</h3>
-                <div className="card">
-                    <div className="settings-row">
-                        <div className="settings-label">
-                            <span>Connected Repository</span>
-                            <span className="settings-hint">
-                                {deployConfig
-                                    ? `${deployConfig.repo_url} (${deployConfig.branch || 'main'})`
-                                    : 'No repository connected'}
-                            </span>
-                        </div>
-                        <div className="settings-control">
-                            <Button variant="outline" onClick={onOpenGitModal}>
-                                {deployConfig ? 'Edit' : 'Connect'}
-                            </Button>
-                        </div>
+            <nav className="svc-settings__nav" aria-label="Service settings sections">
+                {SVC_SETTINGS_GROUPS.map(g => (
+                    <div className="svc-settings__group" key={g.label}>
+                        <div className="svc-settings__grouplabel">{g.label}</div>
+                        {g.items.map(s => (
+                            <button
+                                type="button"
+                                key={s.id}
+                                className={`svc-settings__navitem ${section === s.id ? 'is-active' : ''}`}
+                                onClick={() => setSection(s.id)}
+                            >
+                                <s.icon size={15} />
+                                {s.label}
+                            </button>
+                        ))}
                     </div>
-                </div>
-            </div>
+                ))}
+            </nav>
 
-            {/* Environment Configuration */}
-            <div className="svc-settings__section">
-                <h3 className="svc-settings__section-title">Environment</h3>
-                <div className="card settings-section">
-                    <div className="settings-row">
-                        <div className="settings-label">
-                            <span>Environment Type</span>
-                            <span className="settings-hint">
-                                {app.has_linked_app
-                                    ? 'This app is linked. Unlink to change environment type.'
-                                    : 'Set how this application is used in your workflow.'}
-                            </span>
-                        </div>
-                        <div className="settings-control">
-                            {app.has_linked_app ? (
-                                <span className={`env-badge env-${app.environment_type}`}>
-                                    {envLabels[app.environment_type] || app.environment_type}
-                                </span>
-                            ) : (
-                                <Select
-                                    value={environmentType}
-                                    onValueChange={handleEnvironmentChange}
-                                    disabled={savingEnvironment}
-                                >
-                                    <SelectTrigger className="settings-select">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="standalone">Standalone</SelectItem>
-                                        <SelectItem value="development">Development</SelectItem>
-                                        <SelectItem value="staging">Staging</SelectItem>
-                                        <SelectItem value="production">Production</SelectItem>
-                                    </SelectContent>
-                                </Select>
+            <div className="svc-settings__content">
+                {/* Environment Configuration */}
+                {section === 'environment' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Environment</h3>
+                        <div className="card settings-section">
+                            <div className="settings-row">
+                                <div className="settings-label">
+                                    <span>Environment Type</span>
+                                    <span className="settings-hint">
+                                        {app.has_linked_app
+                                            ? 'This app is linked. Unlink to change environment type.'
+                                            : 'Set how this application is used in your workflow.'}
+                                    </span>
+                                </div>
+                                <div className="settings-control">
+                                    {app.has_linked_app ? (
+                                        <span className={`env-badge env-${app.environment_type}`}>
+                                            {envLabels[app.environment_type] || app.environment_type}
+                                        </span>
+                                    ) : (
+                                        <Select
+                                            value={environmentType}
+                                            onValueChange={handleEnvironmentChange}
+                                            disabled={savingEnvironment}
+                                        >
+                                            <SelectTrigger className="settings-select">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="standalone">Standalone</SelectItem>
+                                                <SelectItem value="development">Development</SelectItem>
+                                                <SelectItem value="staging">Staging</SelectItem>
+                                                <SelectItem value="production">Production</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                    {savingEnvironment && <span className="settings-saving">Saving...</span>}
+                                </div>
+                            </div>
+
+                            {app.has_linked_app && (
+                                <div className="settings-row">
+                                    <div className="settings-label">
+                                        <span>Linked Application</span>
+                                        <span className="settings-hint">
+                                            Unlinking will reset both apps to standalone mode.
+                                        </span>
+                                    </div>
+                                    <div className="settings-control">
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleUnlink}
+                                            disabled={unlinking}
+                                        >
+                                            {unlinking ? 'Unlinking...' : 'Unlink'}
+                                        </Button>
+                                    </div>
+                                </div>
                             )}
-                            {savingEnvironment && <span className="settings-saving">Saving...</span>}
                         </div>
                     </div>
+                )}
 
-                    {app.has_linked_app && (
-                        <div className="settings-row">
-                            <div className="settings-label">
-                                <span>Linked Application</span>
-                                <span className="settings-hint">
-                                    Unlinking will reset both apps to standalone mode.
-                                </span>
-                            </div>
-                            <div className="settings-control">
-                                <Button
-                                    variant="outline"
-                                    onClick={handleUnlink}
-                                    disabled={unlinking}
-                                >
-                                    {unlinking ? 'Unlinking...' : 'Unlink'}
+                {/* Repository — the same shared RepoConnectForm the WordPress Git
+                    settings use (provider picker + URL fallback, connected summary
+                    with Disconnect), wired to the service deployment API. */}
+                {section === 'repository' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Repository</h3>
+                        <RepoConnectForm
+                            gitStatus={gitStatus}
+                            onConnect={handleConnectRepo}
+                            onDisconnect={handleDisconnectRepo}
+                            intro={{
+                                title: 'Connect a Git repository',
+                                subtitle: 'Link a repo so ServerKit can pull your code and redeploy on every push.',
+                            }}
+                            submitLabel="Connect Repository"
+                            idPrefix="svc"
+                        />
+                    </div>
+                )}
+
+                {/* Danger Zone */}
+                {section === 'danger' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Danger Zone</h3>
+                        <DangerZone
+                            description="Once you delete a service, there is no going back. All data will be permanently removed."
+                            action={
+                                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                                    {deleting ? 'Deleting...' : 'Delete Service'}
                                 </Button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Danger Zone */}
-            <div className="svc-settings__section">
-                <h3 className="svc-settings__section-title">Danger Zone</h3>
-                <DangerZone
-                    description="Once you delete a service, there is no going back. All data will be permanently removed."
-                    action={
-                        <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-                            {deleting ? 'Deleting...' : 'Delete Service'}
-                        </Button>
-                    }
-                />
+                            }
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

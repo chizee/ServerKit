@@ -12,13 +12,12 @@ import {
     XCircle,
 } from 'lucide-react';
 import api from '../services/api';
-import { PageTopbar } from '@/components/ds';
-import { SERVER_TABS } from '../components/servers/serverTabs';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DataTable } from '@/components/ds';
 
 const Servers = () => {
     const [servers, setServers] = useState([]);
@@ -221,7 +220,7 @@ const Servers = () => {
 
     if (loading) {
         return (
-            <div className="page-container servers-page servers-page--loading">
+            <div className="servers-page servers-page--loading">
                 <div className="servers-loading-card">
                     <ServerIcon />
                     <span>Scanning fleet...</span>
@@ -235,12 +234,7 @@ const Servers = () => {
     const someVisibleSelected = visibleIds.some(id => selectedIds.has(id));
 
     return (
-        <div className="page-container page-container--full-bleed servers-page servers-page--ops">
-            <PageTopbar
-                icon={<ServerLucideIcon size={18} />}
-                title="Servers"
-                tabs={SERVER_TABS}
-            />
+        <div className="servers-page servers-page--ops">
             <div className="servers-ops-workspace">
                 <aside className="servers-fleet-rail">
                     <section className="servers-rail-section servers-rail-section--health">
@@ -291,9 +285,9 @@ const Servers = () => {
                                 <Folder size={14} />
                                 Groups
                             </span>
-                            <button type="button" onClick={() => setShowGroupModal(true)}>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setShowGroupModal(true)}>
                                 Manage
-                            </button>
+                            </Button>
                         </div>
                         <div className="servers-group-nav">
                             {groupFilters.map(filter => (
@@ -346,8 +340,10 @@ const Servers = () => {
                             <strong>{filteredServers.length}</strong>
                             <span>{filteredServers.length === 1 ? 'server' : 'servers'}</span>
                             {hasActiveFilters && (
-                                <button
+                                <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="sm"
                                     className="servers-clear-filters"
                                     onClick={() => {
                                         setSelectedGroup('all');
@@ -356,7 +352,7 @@ const Servers = () => {
                                     }}
                                 >
                                     Clear filters
-                                </button>
+                                </Button>
                             )}
                         </div>
                     </div>
@@ -405,41 +401,41 @@ const Servers = () => {
                         />
                     ) : (
                         <div className="servers-table-wrap">
-                            <table className="servers-table">
-                                <thead>
-                                    <tr>
-                                        <th className="col-check">
-                                            <input
-                                                type="checkbox"
-                                                aria-label="Select all visible servers"
-                                                checked={allVisibleSelected}
-                                                ref={el => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
-                                                onChange={() => toggleSelectAll(visibleIds)}
-                                            />
-                                        </th>
-                                        <th>Server</th>
-                                        <th>Status</th>
-                                        <th>Group</th>
-                                        <th>OS · Agent</th>
-                                        <th>Telemetry</th>
-                                        <th>Last seen</th>
-                                        <th className="col-actions" aria-label="Actions" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredServers.map(server => (
-                                        <ServerRow
-                                            key={server.id}
-                                            server={server}
-                                            selected={selectedIds.has(server.id)}
-                                            onToggle={() => toggleSelect(server.id)}
-                                            onPing={() => handlePingServer(server.id)}
-                                            onDelete={() => setDeleteTarget(server)}
-                                            onCopyInstall={() => handleCopyInstall(server)}
+                            <DataTable
+                                tableClassName="servers-table"
+                                sortable={false}
+                                columns={[
+                                    { key: 'select', header: (
+                                        <input
+                                            type="checkbox"
+                                            aria-label="Select all visible servers"
+                                            checked={allVisibleSelected}
+                                            ref={el => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                                            onChange={() => toggleSelectAll(visibleIds)}
                                         />
-                                    ))}
-                                </tbody>
-                            </table>
+                                    ), className: 'col-check' },
+                                    { key: 'server', header: 'Server' },
+                                    { key: 'status', header: 'Status' },
+                                    { key: 'group', header: 'Group' },
+                                    { key: 'os', header: 'OS · Agent' },
+                                    { key: 'telemetry', header: 'Telemetry' },
+                                    { key: 'lastSeen', header: 'Last seen' },
+                                    { key: 'actions', header: '', className: 'col-actions' },
+                                ]}
+                                data={filteredServers}
+                                keyField="id"
+                                renderRow={(server, { key }) => (
+                                    <ServerRow
+                                        key={key}
+                                        server={server}
+                                        selected={selectedIds.has(server.id)}
+                                        onToggle={() => toggleSelect(server.id)}
+                                        onPing={() => handlePingServer(server.id)}
+                                        onDelete={() => setDeleteTarget(server)}
+                                        onCopyInstall={() => handleCopyInstall(server)}
+                                    />
+                                )}
+                            />
                         </div>
                     )}
                 </main>
@@ -502,7 +498,7 @@ const formatLastSeen = (timestamp) => {
 
 const clamp = (v) => Math.min(100, Math.max(0, Number(v) || 0));
 
-const ServerRow = ({ server, selected, onToggle, onPing, onDelete, onCopyInstall }) => {
+const ServerRow = ({ server, selected, onToggle, onPing, onDelete, onCopyInstall, className = '', onClick }) => {
     const [menuPos, setMenuPos] = useState(null);
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
@@ -553,7 +549,10 @@ const ServerRow = ({ server, selected, onToggle, onPing, onDelete, onCopyInstall
     const hasMetrics = server.metrics && status === 'online';
 
     return (
-        <tr className={`server-row server-row--${status} ${selected ? 'is-selected' : ''}`}>
+        <tr
+            className={`server-row server-row--${status} ${selected ? 'is-selected' : ''} ${className}`.trim()}
+            onClick={onClick}
+        >
             <td className="col-check">
                 <input
                     type="checkbox"

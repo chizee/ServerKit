@@ -4,6 +4,7 @@ import os
 import subprocess
 import re
 
+from app.utils.formatting import format_bytes
 from app.utils.system import PackageManager, ServiceControl, run_privileged, privileged_cmd
 try:
     import pwd
@@ -713,8 +714,4 @@ userlist_deny=NO
     @staticmethod
     def _format_size(size: int) -> str:
         """Format size in human-readable format."""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if size < 1024:
-                return f"{size:.1f} {unit}"
-            size /= 1024
-        return f"{size:.1f} PB"
+        return format_bytes(size, suffix_sep=' ')

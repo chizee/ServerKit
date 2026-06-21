@@ -33,6 +33,16 @@ import Servers from './pages/Servers';
 import ServerDetail from './pages/ServerDetail';
 import AgentFleet from './pages/AgentFleet';
 import FleetMonitor from './pages/FleetMonitor';
+import TabGroupLayout from './layouts/TabGroupLayout';
+import { SERVER_TABS } from './components/servers/serverTabs';
+import { DOMAIN_TABS } from './components/domains/domainTabs';
+import { SERVICE_TABS } from './components/services/serviceTabs';
+import { FILE_TABS } from './components/files/fileTabs';
+import { MONITOR_TABS } from './components/monitoring/monitorTabs';
+import { MARKET_TABS } from './components/marketplace/marketTabs';
+import { WORDPRESS_TABS } from './components/wordpress/wordpressTabs';
+import { BACKUP_TABS } from './components/backups/backupTabs';
+import { SECURITY_TABS } from './components/security/securityTabs';
 import Downloads from './pages/Downloads';
 import WordPress from './pages/WordPress';
 import WordPressDetail from './pages/WordPressDetail';
@@ -59,6 +69,7 @@ import Documentation from './pages/Documentation';
 import Deployments from './pages/Deployments';
 import GpuMonitor from './pages/GpuMonitor';
 import DynamicDns from './pages/DynamicDns';
+import QueueOperations from './pages/QueueOperations';
 import useExtensionRoutes from './plugins/ExtensionRoutes';
 import { useContributions } from './plugins/contributions';
 
@@ -109,6 +120,7 @@ const PAGE_TITLES = {
     '/documentation': 'Documentation',
     '/gpu': 'GPU Monitor',
     '/dynamic-dns': 'Dynamic DNS',
+    '/queue': 'Queue Bus',
 };
 
 function PageTitleUpdater() {
@@ -250,69 +262,101 @@ function AppRoutes() {
                 </PrivateRoute>
             }>
                 <Route index element={<Dashboard />} />
-                <Route path="services" element={<Services />} />
-                <Route path="services/new" element={<NewService />} />
+                {/* Tab groups — each parent TabGroupLayout renders the shared
+                    PageTopbar + sub-nav once and swaps only the routed content
+                    below, so the tabs act like real tabs (no full-page remount)
+                    and keep the group's sidebar item lit. Detail / full-bleed
+                    routes (services/:id, wordpress/:id, …) stay outside. */}
+                <Route element={<TabGroupLayout tabs={SERVICE_TABS} />}>
+                    <Route path="services" element={<Services />} />
+                    <Route path="services/new" element={<NewService />} />
+                    <Route path="templates" element={<Templates />} />
+                    <Route path="deployments" element={<Deployments />} />
+                    <Route path="deployments/:jobId" element={<Deployments />} />
+                </Route>
                 <Route path="services/:id" element={<ServiceDetail />} />
+                <Route path="services/:id/:tab" element={<ServiceDetail />} />
+                {/* Settings sub-section in the URL (e.g. .../settings/repository)
+                    so the Settings left-nav is shareable and survives a refresh. */}
+                <Route path="services/:id/:tab/:section" element={<ServiceDetail />} />
                 <Route path="apps" element={<Navigate to="/services" replace />} />
                 <Route path="apps/:id" element={<ApplicationDetail />} />
                 <Route path="apps/:id/:tab" element={<ApplicationDetail />} />
-                <Route path="wordpress" element={<WordPress />} />
-                <Route path="wordpress/projects" element={<WordPressProjects />} />
+                <Route element={<TabGroupLayout tabs={WORDPRESS_TABS} />}>
+                    <Route path="wordpress" element={<WordPress />} />
+                    <Route path="wordpress/projects" element={<WordPressProjects />} />
+                </Route>
                 <Route path="wordpress/projects/:id" element={<WordPressProject />} />
                 <Route path="wordpress/projects/:id/:tab" element={<WordPressProject />} />
                 <Route path="wordpress/:id" element={<WordPressDetail />} />
                 <Route path="wordpress/:id/:tab" element={<WordPressDetail />} />
-                <Route path="templates" element={<Templates />} />
-                <Route path="deployments" element={<Deployments />} />
-                <Route path="deployments/:jobId" element={<Deployments />} />
+                {/* Settings sub-section in the URL (e.g. .../settings/git) so the
+                    Settings left-nav is shareable and survives a refresh. */}
+                <Route path="wordpress/:id/:tab/:section" element={<WordPressDetail />} />
                 <Route path="workflow" element={<WorkflowBuilder />} />
-                <Route path="domains" element={<Domains />} />
-                <Route path="remote-access" element={<RemoteAccess />} />
+                <Route element={<TabGroupLayout tabs={DOMAIN_TABS} />}>
+                    <Route path="domains" element={<Domains />} />
+                    <Route path="dns" element={<DNSZones />} />
+                    <Route path="ssl" element={<SSLCertificates />} />
+                    <Route path="dynamic-dns" element={<DynamicDns />} />
+                </Route>
                 <Route path="databases" element={<Databases />} />
                 <Route path="databases/:tab" element={<Databases />} />
-                <Route path="ssl" element={<SSLCertificates />} />
                 <Route path="docker" element={<Docker />} />
                 <Route path="docker/:tab" element={<Docker />} />
-                <Route path="servers" element={<Servers />} />
+                <Route element={<TabGroupLayout tabs={SERVER_TABS} />}>
+                    <Route path="servers" element={<Servers />} />
+                    <Route path="fleet" element={<AgentFleet />} />
+                    <Route path="fleet-monitor" element={<FleetMonitor />} />
+                    <Route path="cloud" element={<CloudProvision />} />
+                    <Route path="remote-access" element={<RemoteAccess />} />
+                    <Route path="server-templates" element={<ServerTemplates />} />
+                </Route>
                 <Route path="servers/:id" element={<ServerDetail />} />
                 <Route path="servers/:id/:tab" element={<ServerDetail />} />
-                <Route path="fleet" element={<AgentFleet />} />
-                <Route path="fleet-monitor" element={<FleetMonitor />} />
                 <Route path="agent-plugins" element={<Navigate to="/marketplace" replace />} />
-                <Route path="server-templates" element={<ServerTemplates />} />
                 <Route path="workspaces" element={<Workspaces />} />
                 <Route path="workspaces/:id" element={<WorkspaceDetail />} />
-                <Route path="dns" element={<DNSZones />} />
-                <Route path="status-pages" element={<StatusPages />} />
-                <Route path="cloud" element={<CloudProvision />} />
-                <Route path="marketplace" element={<Marketplace />} />
+                <Route element={<TabGroupLayout tabs={MARKET_TABS} />}>
+                    <Route path="marketplace" element={<Marketplace />} />
+                    <Route path="downloads" element={<Downloads />} />
+                </Route>
                 <Route path="style-guide" element={<StyleGuide />} />
                 <Route path="style-guide/:tab" element={<StyleGuide />} />
                 <Route path="app-map" element={<AppMap />} />
                 <Route path="app-map/:tab" element={<AppMap />} />
                 <Route path="documentation" element={<Documentation />} />
-                <Route path="downloads" element={<Downloads />} />
                 <Route path="firewall" element={<Navigate to="/security/firewall" replace />} />
                 <Route path="git-ext" element={<LegacyGitExtRedirect />} />
                 <Route path="git-ext/:tab" element={<LegacyGitExtRedirect />} />
-                <Route path="files" element={<FileManager />} />
-                <Route path="ftp" element={<FTPServer />} />
-                <Route path="ftp/:tab" element={<FTPServer />} />
-                <Route path="monitoring" element={<Monitoring />} />
-                <Route path="monitoring/:tab" element={<Monitoring />} />
+                <Route element={<TabGroupLayout tabs={FILE_TABS} />}>
+                    <Route path="files" element={<FileManager />} />
+                    <Route path="ftp" element={<FTPServer />} />
+                    <Route path="ftp/:tab" element={<FTPServer />} />
+                </Route>
+                <Route element={<TabGroupLayout tabs={MONITOR_TABS} />}>
+                    <Route path="monitoring" element={<Monitoring />} />
+                    <Route path="monitoring/:tab" element={<Monitoring />} />
+                    <Route path="status-pages" element={<StatusPages />} />
+                </Route>
                 <Route path="gpu" element={<GpuMonitor />} />
-                <Route path="dynamic-dns" element={<DynamicDns />} />
-                <Route path="backups" element={<Backups />} />
-                <Route path="backups/:tab" element={<Backups />} />
+                <Route element={<TabGroupLayout tabs={BACKUP_TABS} />}>
+                    <Route path="backups" element={<Backups />} />
+                    <Route path="backups/:tab" element={<Backups />} />
+                </Route>
                 <Route path="cron" element={<CronJobs />} />
-                <Route path="security" element={<Security />} />
-                <Route path="security/:tab" element={<Security />} />
+                <Route element={<TabGroupLayout tabs={SECURITY_TABS} />}>
+                    <Route path="security" element={<Security />} />
+                    <Route path="security/:tab" element={<Security />} />
+                </Route>
                 <Route path="email" element={<Email />} />
                 <Route path="email/:tab" element={<Email />} />
                 <Route path="terminal" element={<Terminal />} />
+                <Route path="terminal/terminal" element={<Navigate to="/terminal/shell" replace />} />
                 <Route path="terminal/:tab" element={<Terminal />} />
                 <Route path="secrets" element={<SecretsWebhooks />} />
                 <Route path="secrets/:tab" element={<SecretsWebhooks />} />
+                <Route path="queue" element={<QueueOperations />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="settings/:tab" element={<Settings />} />
                 {dashboardRoutes}

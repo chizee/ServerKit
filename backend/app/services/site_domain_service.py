@@ -13,11 +13,10 @@ development that defaults to ``lvh.me``, a public resolver that maps
 zero DNS setup. When no base domain is configured the helpers return ``None``
 and callers fall back to the legacy ``localhost:<port>`` behaviour.
 """
-import re
-
 from flask import current_app
 
 from app.models.system_settings import SystemSettings
+from app.utils.slug import slugify as _slugify
 
 
 class SiteDomainService:
@@ -68,10 +67,7 @@ class SiteDomainService:
     @staticmethod
     def slugify(name):
         """Turn a site name into a DNS-safe label (a-z, 0-9, single dashes)."""
-        s = (name or '').strip().lower()
-        s = re.sub(r'[^a-z0-9-]', '-', s)
-        s = re.sub(r'-+', '-', s).strip('-')
-        return s or 'site'
+        return _slugify(name) or 'site'
 
     @classmethod
     def subdomain_for(cls, name):

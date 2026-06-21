@@ -633,7 +633,7 @@ function Firewall() {
                                 ) : (
                                     <p>
                                         <strong>firewalld</strong> is a dynamically managed firewall with zone-based
-                                        configuration. It's the default firewall on CentOS and RHEL systems.
+                                        configuration. It&apos;s the default firewall on CentOS and RHEL systems.
                                     </p>
                                 )}
                             </div>

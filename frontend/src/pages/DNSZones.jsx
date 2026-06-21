@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Globe, Network } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
-import { DOMAIN_TABS } from '../components/domains/domainTabs';
+import { Globe } from 'lucide-react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { FormField, FormRow } from '../components/FormField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { DataTable } from '@/components/ds';
 import {
     Select,
     SelectTrigger,
@@ -173,20 +173,17 @@ const DNSZones = () => {
         }
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    useTopbarActions(() =>
+        user?.is_admin && (
+            <Button size="sm" onClick={() => setShowCreateZone(true)}>Add Zone</Button>
+        ),
+        [user?.is_admin],
+    );
+
+    if (loading) return <PageLoader />;
 
     return (
-        <div className="page-container dns-zones-page">
-            <PageTopbar
-                icon={<Network size={18} />}
-                title="DNS Zones"
-                meta={`${zones.length} zone${zones.length !== 1 ? 's' : ''}`}
-                tabs={DOMAIN_TABS}
-                actions={user?.is_admin && (
-                    <Button size="sm" onClick={() => setShowCreateZone(true)}>Add Zone</Button>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner dns-zones-page">
             <div className="dns-layout">
                 <div className="dns-zones-list">
                     {zones.map(zone => (
@@ -219,37 +216,34 @@ const DNSZones = () => {
                                 )}
                             </div>
                         </div>
-                        <table className="sk-dtable dns-records-table">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Name</th>
-                                    <th>Content</th>
-                                    <th>TTL</th>
-                                    <th>Priority</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {records.map(rec => (
-                                    <tr key={rec.id}>
-                                        <td><span className={`dns-rtype dns-rtype--${(rec.record_type || '').toLowerCase()}`}>{rec.record_type}</span></td>
-                                        <td>{rec.name}</td>
-                                        <td className="sk-cell-mono">{rec.content}</td>
-                                        <td>{rec.ttl}</td>
-                                        <td>{rec.priority || '-'}</td>
-                                        <td>
-                                            {user?.is_admin && (
-                                                <Button variant="destructive" size="sm" onClick={() => handleDeleteRecord(rec.id)}>Delete</Button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {records.length === 0 && (
-                                    <tr><td colSpan={6} className="text-center text-muted">No records</td></tr>
-                                )}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            tableClassName="sk-dtable dns-records-table"
+                            sortable={false}
+                            data={records}
+                            keyField="id"
+                            emptyTitle="No records"
+                            emptyMessage="This zone has no DNS records yet."
+                            columns={[
+                                {
+                                    key: 'type',
+                                    header: 'Type',
+                                    render: (rec) => <span className={`dns-rtype dns-rtype--${(rec.record_type || '').toLowerCase()}`}>{rec.record_type}</span>,
+                                },
+                                { key: 'name', header: 'Name' },
+                                { key: 'content', header: 'Content', render: (rec) => <span className="sk-cell-mono">{rec.content}</span> },
+                                { key: 'ttl', header: 'TTL' },
+                                { key: 'priority', header: 'Priority', render: (rec) => rec.priority || '-' },
+                                {
+                                    key: 'actions',
+                                    header: '',
+                                    render: (rec) => (
+                                        user?.is_admin && (
+                                            <Button variant="destructive" size="sm" onClick={() => handleDeleteRecord(rec.id)}>Delete</Button>
+                                        )
+                                    ),
+                                },
+                            ]}
+                        />
                     </div>
                 )}
             </div>
@@ -262,14 +256,12 @@ const DNSZones = () => {
                             <button className="modal-close" onClick={() => setShowCreateZone(false)}>&times;</button>
                         </div>
                         <div className="modal-body">
-                            <div className="form-group">
-                                <Label>Domain</Label>
-                                <Input value={zoneForm.domain} onChange={e => setZoneForm({...zoneForm, domain: e.target.value})} placeholder="example.com" />
-                            </div>
-                            <div className="form-group">
-                                <Label>Provider</Label>
+                            <FormField label="Domain" htmlFor="zone-domain">
+                                <Input id="zone-domain" value={zoneForm.domain} onChange={e => setZoneForm({...zoneForm, domain: e.target.value})} placeholder="example.com" />
+                            </FormField>
+                            <FormField label="Provider">
                                 <Select value={zoneForm.provider} onValueChange={v => setZoneForm({...zoneForm, provider: v})}>
-                                    <SelectTrigger>
+                                    <SelectTrigger id="zone-provider">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -279,7 +271,7 @@ const DNSZones = () => {
                                         <SelectItem value="digitalocean">DigitalOcean</SelectItem>
                                     </SelectContent>
                                 </Select>
-                            </div>
+                            </FormField>
                             {zoneForm.provider !== 'manual' && (() => {
                                 const cfg = PROVIDER_CONFIG[zoneForm.provider];
                                 return (
@@ -287,19 +279,16 @@ const DNSZones = () => {
                                         {cfg.helpText && (
                                             <p className="text-muted text-sm">{cfg.helpText}</p>
                                         )}
-                                        <div className="form-group">
-                                            <Label>{cfg.zoneLabel}</Label>
-                                            <Input value={zoneForm.provider_zone_id} onChange={e => setZoneForm({...zoneForm, provider_zone_id: e.target.value})} placeholder={cfg.zonePlaceholder} />
-                                        </div>
-                                        <div className="form-group">
-                                            <Label>{cfg.tokenLabel}</Label>
-                                            <Input type="password" value={zoneForm.api_token} onChange={e => setZoneForm({...zoneForm, api_token: e.target.value})} placeholder={cfg.tokenPlaceholder} />
-                                        </div>
+                                        <FormField label={cfg.zoneLabel} htmlFor="zone-provider-zone-id">
+                                            <Input id="zone-provider-zone-id" value={zoneForm.provider_zone_id} onChange={e => setZoneForm({...zoneForm, provider_zone_id: e.target.value})} placeholder={cfg.zonePlaceholder} />
+                                        </FormField>
+                                        <FormField label={cfg.tokenLabel} htmlFor="zone-api-token">
+                                            <Input id="zone-api-token" type="password" value={zoneForm.api_token} onChange={e => setZoneForm({...zoneForm, api_token: e.target.value})} placeholder={cfg.tokenPlaceholder} />
+                                        </FormField>
                                         {cfg.extraFields?.map(field => (
-                                            <div className="form-group" key={field.key}>
-                                                <Label>{field.label}</Label>
-                                                <Input type={field.type} value={zoneForm[field.key] || ''} onChange={e => setZoneForm({...zoneForm, [field.key]: e.target.value})} placeholder={field.placeholder} />
-                                            </div>
+                                            <FormField key={field.key} label={field.label} htmlFor={`zone-${field.key}`}>
+                                                <Input id={`zone-${field.key}`} type={field.type} value={zoneForm[field.key] || ''} onChange={e => setZoneForm({...zoneForm, [field.key]: e.target.value})} placeholder={field.placeholder} />
+                                            </FormField>
                                         ))}
                                     </>
                                 );
@@ -321,37 +310,32 @@ const DNSZones = () => {
                             <button className="modal-close" onClick={() => setShowCreateRecord(false)}>&times;</button>
                         </div>
                         <div className="modal-body">
-                            <div className="form-group">
-                                <Label>Type</Label>
+                            <FormField label="Type">
                                 <Select value={recordForm.record_type} onValueChange={v => setRecordForm({...recordForm, record_type: v})}>
-                                    <SelectTrigger>
+                                    <SelectTrigger id="record-type">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {RECORD_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                            </div>
-                            <div className="form-group">
-                                <Label>Name</Label>
-                                <Input value={recordForm.name} onChange={e => setRecordForm({...recordForm, name: e.target.value})} placeholder="@ or subdomain" />
-                            </div>
-                            <div className="form-group">
-                                <Label>Content</Label>
-                                <Input value={recordForm.content} onChange={e => setRecordForm({...recordForm, content: e.target.value})} placeholder="IP address or hostname" />
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <Label>TTL</Label>
-                                    <Input type="number" value={recordForm.ttl} onChange={e => setRecordForm({...recordForm, ttl: parseInt(e.target.value) || 3600})} />
-                                </div>
+                            </FormField>
+                            <FormField label="Name" htmlFor="record-name">
+                                <Input id="record-name" value={recordForm.name} onChange={e => setRecordForm({...recordForm, name: e.target.value})} placeholder="@ or subdomain" />
+                            </FormField>
+                            <FormField label="Content" htmlFor="record-content">
+                                <Input id="record-content" value={recordForm.content} onChange={e => setRecordForm({...recordForm, content: e.target.value})} placeholder="IP address or hostname" />
+                            </FormField>
+                            <FormRow>
+                                <FormField label="TTL" htmlFor="record-ttl">
+                                    <Input id="record-ttl" type="number" value={recordForm.ttl} onChange={e => setRecordForm({...recordForm, ttl: parseInt(e.target.value) || 3600})} />
+                                </FormField>
                                 {(recordForm.record_type === 'MX' || recordForm.record_type === 'SRV') && (
-                                    <div className="form-group">
-                                        <Label>Priority</Label>
-                                        <Input type="number" value={recordForm.priority || ''} onChange={e => setRecordForm({...recordForm, priority: parseInt(e.target.value) || null})} />
-                                    </div>
+                                    <FormField label="Priority" htmlFor="record-priority">
+                                        <Input id="record-priority" type="number" value={recordForm.priority || ''} onChange={e => setRecordForm({...recordForm, priority: parseInt(e.target.value) || null})} />
+                                    </FormField>
                                 )}
-                            </div>
+                            </FormRow>
                         </div>
                         <div className="modal-footer">
                             <Button variant="outline" onClick={() => setShowCreateRecord(false)}>Cancel</Button>

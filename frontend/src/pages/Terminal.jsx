@@ -12,87 +12,44 @@ import LogContent from '../components/log-viewer/LogContent';
 import { formatBytes, logKindFromPath } from '../components/log-viewer/logHelpers';
 import { Pill, PageTopbar } from '../components/ds';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     FileText, Clock, AlertCircle, Search, X, RefreshCw, AlertTriangle, Activity,
     Play, Square, RotateCw, Terminal as TerminalIcon, Server as ServerIcon,
+    ScrollText, Cpu, Settings,
 } from 'lucide-react';
 
 // 'logs' stays first so the default landing keeps working on installs with no
 // paired agents (the interactive shell needs a connected agent).
-const VALID_TABS = ['logs', 'journal', 'processes', 'services', 'terminal'];
+const VALID_TABS = ['logs', 'journal', 'processes', 'services', 'shell'];
+
+// Section tabs rendered inline in the PageTopbar (Servers-style), routed via
+// /terminal/<tab>. Logs is the default landing (/terminal).
+const TERMINAL_TABS = [
+    { to: '/terminal/shell', label: 'Terminal', icon: <TerminalIcon size={15} /> },
+    { to: '/terminal', label: 'Log Files', end: true, icon: <FileText size={15} /> },
+    { to: '/terminal/journal', label: 'System Journal', icon: <ScrollText size={15} /> },
+    { to: '/terminal/processes', label: 'Processes', icon: <Cpu size={15} /> },
+    { to: '/terminal/services', label: 'Services', icon: <Settings size={15} /> },
+];
 
 const Terminal = () => {
-    const [activeTab, setActiveTab] = useTabParam('/terminal', VALID_TABS);
+    const [activeTab] = useTabParam('/terminal', VALID_TABS);
 
     return (
-        <div className="page-container terminal-page">
+        <div className="page-container page-container--full-bleed terminal-page">
             <PageTopbar
                 icon={<TerminalIcon size={18} />}
-                title="Terminal / Logs"
-                meta="shells · logs · processes · services"
+                title="Logs"
+                tabs={TERMINAL_TABS}
             />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="terminal">
-                        <TerminalIcon size={16} />
-                        Terminal
-                    </TabsTrigger>
-                    <TabsTrigger value="logs">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                        </svg>
-                        Log Files
-                    </TabsTrigger>
-                    <TabsTrigger value="journal">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <line x1="9" y1="9" x2="15" y2="9"/>
-                            <line x1="9" y1="13" x2="15" y2="13"/>
-                            <line x1="9" y1="17" x2="11" y2="17"/>
-                        </svg>
-                        System Journal
-                    </TabsTrigger>
-                    <TabsTrigger value="processes">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                            <line x1="8" y1="21" x2="16" y2="21"/>
-                            <line x1="12" y1="17" x2="12" y2="21"/>
-                        </svg>
-                        Processes
-                    </TabsTrigger>
-                    <TabsTrigger value="services">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                        Services
-                    </TabsTrigger>
-                </TabsList>
-
-                <div className="tab-content">
-                    <TabsContent value="terminal">
-                        <TerminalShellTab />
-                    </TabsContent>
-                    <TabsContent value="logs">
-                        <LogFilesTab />
-                    </TabsContent>
-                    <TabsContent value="journal">
-                        <JournalTab />
-                    </TabsContent>
-                    <TabsContent value="processes">
-                        <ProcessesTab />
-                    </TabsContent>
-                    <TabsContent value="services">
-                        <ServicesTab />
-                    </TabsContent>
-                </div>
-            </Tabs>
+            <div className="tab-content">
+                {activeTab === 'shell' && <TerminalShellTab />}
+                {activeTab === 'logs' && <LogFilesTab />}
+                {activeTab === 'journal' && <JournalTab />}
+                {activeTab === 'processes' && <ProcessesTab />}
+                {activeTab === 'services' && <ServicesTab />}
+            </div>
         </div>
     );
 };
@@ -108,10 +65,12 @@ const TerminalShellTab = () => {
     useEffect(() => {
         (async () => {
             try {
-                const data = await api.getServers();
-                const list = Array.isArray(data) ? data : (data.servers || []);
-                setServers(list);
-                const firstOnline = list.find(s => s.status === 'online');
+                const list = await api.getAvailableServers();
+                const eligible = Array.isArray(list)
+                    ? list.filter(s => s.capabilities && s.capabilities.terminal)
+                    : [];
+                setServers(eligible);
+                const firstOnline = eligible.find(s => s.status === 'online');
                 if (firstOnline) setSelectedId(firstOnline.id);
             } catch (err) {
                 console.error('Failed to load servers:', err);
@@ -130,7 +89,7 @@ const TerminalShellTab = () => {
                 <div className="term-shell__grp">Agent servers</div>
                 {loading && <div className="term-shell__hint">Loading servers…</div>}
                 {!loading && servers.length === 0 && (
-                    <div className="term-shell__hint">No servers paired yet.</div>
+                    <div className="term-shell__hint">No agent servers with shell access are paired yet.</div>
                 )}
                 {servers.map(s => {
                     const online = s.status === 'online';
@@ -160,7 +119,7 @@ const TerminalShellTab = () => {
                         <p>
                             {anyOnline
                                 ? 'Pick a server on the left to open a shell.'
-                                : 'Interactive shells run over the ServerKit agent. Pair a server (Servers → Add Server) and it will show up here.'}
+                                : 'Interactive shells run over the ServerKit agent. Pair a server (Servers → Add Server) with shell access and it will show up here.'}
                         </p>
                     </div>
                 )}
@@ -452,6 +411,8 @@ const LogFilesTab = () => {
 
                     <LogContent
                         ref={contentRef}
+                        live={autoRefresh}
+                        scrollKey={selectedLog}
                         content={selectedLog ? logContent : ''}
                         loading={loadingContent}
                         emptyMessage={
@@ -639,9 +600,9 @@ const JournalTab = () => {
     if (unavailable) {
         return (
             <div className="lv-page">
-                <div className="lv-empty-hint" style={{ minHeight: 400 }}>
+                <div className="lv-empty-hint is-tall">
                     <AlertCircle size={48} />
-                    <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>System Logs Unavailable</h3>
+                    <h3 className="lv-empty-hint__title">System Logs Unavailable</h3>
                     <p>
                         No system log source was found. Neither <code>journalctl</code>,
                         <code> /var/log/syslog</code>, nor the Windows Event Log are available.
@@ -694,14 +655,13 @@ const JournalTab = () => {
             <div className="lv-layout">
                 <div className="lv-sidebar">
                     <div className="lv-sidebar-header">
-                        <div className="lv-search">
+                        <div className="lv-search has-no-icon">
                             <input
                                 type="text"
                                 value={unitInput}
                                 onChange={(e) => setUnitInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && applyUnitInput()}
                                 placeholder="Type unit name…"
-                                style={{ paddingLeft: 8 }}
                             />
                         </div>
                         <button className="lv-icon-btn" onClick={applyUnitInput} title="Apply unit filter">
@@ -712,18 +672,17 @@ const JournalTab = () => {
                     <div className="lv-sidebar-body">
                         <div className="lv-group">
                             <button
-                                className={`lv-file ${!unit ? 'active' : ''}`}
-                                onClick={clearUnit}
-                                style={{ gridTemplateColumns: '8px 1fr', gridTemplateAreas: '"dot name" "dot name"' }}
-                            >
+                                    className={`lv-file lv-file--compact ${!unit ? 'active' : ''}`}
+                                    onClick={clearUnit}
+                                >
                                 <span className="lv-file-dot" />
                                 <span className="lv-file-name">All services</span>
                             </button>
                         </div>
 
                         <div className="lv-group">
-                            <div className="lv-group-header" style={{ cursor: 'default' }}>
-                                <span style={{ width: 12 }} />
+                            <div className="lv-group-header is-static">
+                                <span className="lv-group-header__spacer" />
                                 <span>Common units</span>
                                 <span className="lv-group-count">{filteredUnits.length}</span>
                             </div>
@@ -731,16 +690,15 @@ const JournalTab = () => {
                                 {filteredUnits.map(u => (
                                     <button
                                         key={u.id}
-                                        className={`lv-file ${unit === u.id ? 'active' : ''}`}
+                                        className={`lv-file lv-file--compact ${unit === u.id ? 'active' : ''}}`}
                                         onClick={() => pickUnit(u.id)}
-                                        style={{ gridTemplateColumns: '8px 1fr', gridTemplateAreas: '"dot name" "dot name"' }}
                                     >
                                         <span className={`lv-file-dot kind-${u.kind}`} />
                                         <span className="lv-file-name">{u.label}</span>
                                     </button>
                                 ))}
                                 {filteredUnits.length === 0 && (
-                                    <div className="lv-empty-hint" style={{ padding: 12 }}>
+                                    <div className="lv-empty-hint is-compact">
                                         <p>No matching units.</p>
                                     </div>
                                 )}
@@ -749,17 +707,16 @@ const JournalTab = () => {
 
                         {isJournalctl && (
                             <div className="lv-group">
-                                <div className="lv-group-header" style={{ cursor: 'default' }}>
-                                    <span style={{ width: 12 }} />
+                                <div className="lv-group-header is-static">
+                                    <span className="lv-group-header__spacer" />
                                     <span>Priority</span>
                                 </div>
                                 <div className="lv-group-files">
                                     {PRIORITY_OPTIONS.map(opt => (
                                         <button
                                             key={opt.value}
-                                            className={`lv-file ${priority === opt.value ? 'active' : ''}`}
+                                            className={`lv-file lv-file--compact ${priority === opt.value ? 'active' : ''}`}
                                             onClick={() => { setPriority(opt.value); setTimeout(loadJournalLogs, 0); }}
-                                            style={{ gridTemplateColumns: '8px 1fr', gridTemplateAreas: '"dot name" "dot name"' }}
                                         >
                                             <span className="lv-file-dot" style={{ background: priorityColor(opt.value) }} />
                                             <span className="lv-file-name">{opt.label}</span>
@@ -803,6 +760,8 @@ const JournalTab = () => {
 
                     <LogContent
                         ref={contentRef}
+                        live={autoRefresh}
+                        scrollKey={unit || source}
                         content={logContent}
                         loading={loading}
                         emptyMessage={
@@ -1050,24 +1009,23 @@ const ProcessesTab = () => {
                         <span className={`lv-pulse ${autoRefresh ? 'on' : ''}`} />
                         <span>Live</span>
                     </button>
-                    <button className="lv-icon-btn" onClick={() => loadProcesses()} title="Refresh">
+                    <Button size="icon" variant="ghost" className="lv-icon-btn" onClick={() => loadProcesses()} title="Refresh" aria-label="Refresh processes">
                         <RefreshCw size={13} className={loading ? 'spinning' : ''} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
             <div className="proc-layout">
                 <aside className="proc-sidebar">
                     <div className="lv-sidebar-header">
-                        <span className="lv-header-label" style={{ paddingLeft: 8 }}>Users</span>
+                        <span className="lv-header-label is-indented">Users</span>
                     </div>
                     <div className="lv-sidebar-body">
                         <button
                             className={`lv-file ${!userFilter ? 'active' : ''}`}
                             onClick={() => setUserFilter(null)}
-                            style={{ gridTemplateColumns: '8px 1fr auto', gridTemplateAreas: '"dot name size" "dot name size"' }}
                         >
-                            <span className="lv-file-dot" style={{ background: 'var(--accent)' }} />
+                            <span className="lv-file-dot is-accent" />
                             <span className="lv-file-name">All users</span>
                             <span className="lv-file-size">{processes.length}</span>
                         </button>
@@ -1076,7 +1034,6 @@ const ProcessesTab = () => {
                                 key={user}
                                 className={`lv-file ${userFilter === user ? 'active' : ''}`}
                                 onClick={() => setUserFilter(user)}
-                                style={{ gridTemplateColumns: '8px 1fr auto', gridTemplateAreas: '"dot name size" "dot name size"' }}
                             >
                                 <span className="lv-file-dot" style={{ background: hashColor(user) }} />
                                 <span className="lv-file-name">{user}</span>
@@ -1090,7 +1047,7 @@ const ProcessesTab = () => {
                     {loading ? (
                         <div className="lv-content-loading">Loading processes…</div>
                     ) : filtered.length === 0 ? (
-                        <div className="lv-empty-hint" style={{ minHeight: 320 }}>
+                        <div className="lv-empty-hint is-medium">
                             <p>No processes match your filters.</p>
                         </div>
                     ) : (
@@ -1181,7 +1138,7 @@ const ProcessesTab = () => {
                     <div className="preview-drawer-backdrop" onClick={() => setSelectedProcess(null)} />
                     <aside className="preview-drawer">
                         <header className="preview-drawer-header">
-                            <Activity size={20} style={{ color: 'var(--accent-primary)' }} />
+                            <Activity size={20} className="is-accent" />
                             <div className="preview-drawer-title">
                                 <h3>{selectedProcess.name}</h3>
                                 <p className="preview-drawer-path">PID {selectedProcess.pid} · {selectedProcess.user}</p>
@@ -1232,10 +1189,10 @@ const ProcessesTab = () => {
                                 <AlertTriangle size={14} /> Force kill (SIGKILL)
                             </button>
                         </div>
-                        <div className="preview-drawer-body" style={{ padding: 16 }}>
+                        <div className="preview-drawer-body is-padded">
                             {selectedProcess.command && (
                                 <>
-                                    <div className="meta-label" style={{ marginBottom: 6 }}>Command</div>
+                                    <div className="meta-label is-spaced">Command</div>
                                     <pre className="proc-command">{selectedProcess.command}</pre>
                                 </>
                             )}
@@ -1458,7 +1415,7 @@ const ServicesTab = () => {
                         </button>
                     ))}
                 </div>
-                <div className="lv-search-field" style={{ minWidth: 260 }}>
+                <div className="lv-search-field is-wide">
                     <Search size={13} className="lv-search-field-icon" />
                     <input
                         type="text"
@@ -1475,9 +1432,9 @@ const ServicesTab = () => {
             </div>
 
             {loading ? (
-                <div className="lv-content-loading" style={{ minHeight: 320 }}>Loading services…</div>
+                <div className="lv-content-loading is-medium">Loading services…</div>
             ) : filtered.length === 0 ? (
-                <div className="lv-empty-hint" style={{ minHeight: 320 }}>
+                <div className="lv-empty-hint is-medium">
                     <p>{services.length === 0 ? 'No services found.' : 'No services match the current filters.'}</p>
                 </div>
             ) : (
@@ -1559,7 +1516,7 @@ const ServicesTab = () => {
                     <div className="preview-drawer-backdrop" onClick={closeServiceDrawer} />
                     <aside className="preview-drawer">
                         <header className="preview-drawer-header">
-                            <span className={`svc-status-dot status-${statusKind(selectedService.status)}`} style={{ width: 12, height: 12 }} />
+                            <span className={`svc-status-dot status-${statusKind(selectedService.status)} is-large`} />
                             <div className="preview-drawer-title">
                                 <h3>{selectedService.name}</h3>
                                 <p className="preview-drawer-path">
@@ -1655,6 +1612,8 @@ const ServicesTab = () => {
                         <div className="preview-drawer-body">
                             <LogContent
                                 ref={logContentRef}
+                                live={logAutoRefresh}
+                                scrollKey={selectedService?.name}
                                 content={serviceLogs}
                                 loading={logsLoading}
                                 emptyMessage="No log output."

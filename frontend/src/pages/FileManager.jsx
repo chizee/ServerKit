@@ -16,8 +16,6 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PageTopbar } from '@/components/ds';
-import { FILE_TABS } from '../components/files/fileTabs';
 
 import FolderTree from '../components/file-manager/FolderTree';
 import FileCard from '../components/file-manager/FileCard';
@@ -804,7 +802,7 @@ function FileManager() {
     // ─── render ──────────────────────────────────────────
     return (
         <div
-            className={`page-container page-container--full-bleed file-manager-page file-manager fullscreen ${sidebarVisible ? 'sidebar-open' : ''} view-${viewMode} grid-${gridSize} ${selectMode ? 'select-mode' : ''}`}
+            className={`sk-tabgroup__fill file-manager-page file-manager fullscreen ${sidebarVisible ? 'sidebar-open' : ''} view-${viewMode} grid-${gridSize} ${selectMode ? 'select-mode' : ''}`}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -816,13 +814,6 @@ function FileManager() {
                 multiple
                 style={{ display: 'none' }}
                 onChange={handleUploadInput}
-            />
-
-            <PageTopbar
-                icon={<FolderOpen size={18} />}
-                title="Files"
-                meta={isRemote ? target.name : 'panel host'}
-                tabs={FILE_TABS}
             />
 
             {isRemote && (

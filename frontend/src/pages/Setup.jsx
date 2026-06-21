@@ -119,7 +119,7 @@ const Setup = () => {
                 <div className="wizard-header">
                     <ServerKitLogo className="wizard-logo" width={48} height={48} />
                     <h1>Welcome to ServerKit</h1>
-                    <p>Let's get your server ready</p>
+                    <p>Let&apos;s get your server ready</p>
                 </div>
 
                 {renderProgressBar()}

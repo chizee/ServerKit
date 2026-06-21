@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import zipfile
 import logging
@@ -7,6 +6,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 
 from app import paths
+from app.utils.slug import slugify
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +15,6 @@ logger = logging.getLogger(__name__)
 MAX_UPLOAD_SIZE = 100 * 1024 * 1024
 
 VALID_APP_TYPES = {'docker', 'flask', 'django', 'php', 'static', 'node'}
-
-
-def slugify(value):
-    return re.sub(r'[^a-z0-9-]+', '-', (value or '').strip().lower()).strip('-')
 
 
 def detect_app_type(directory):

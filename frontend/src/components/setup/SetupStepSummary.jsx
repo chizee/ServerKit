@@ -56,9 +56,9 @@ const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
 
     return (
         <div className="wizard-step">
-            <h2 className="wizard-step-title">You're all set</h2>
+            <h2 className="wizard-step-title">You&apos;re all set</h2>
             <p className="wizard-step-description">
-                Here's a summary of your setup. You can change these later in Settings.
+                Here&apos;s a summary of your setup. You can change these later in Settings.
             </p>
 
             <div className="summary-panel">

@@ -15,8 +15,7 @@ import {
 import api from '../services/api';
 import { StatStrip, Stat } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
-import { PageTopbar } from '@/components/ds';
-import { SERVICE_TABS } from '../components/services/serviceTabs';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 
 const STATUS_COLORS = {
     pending: { bg: 'var(--surface-3)', fg: 'var(--text-faint)', icon: Clock },
@@ -136,36 +135,32 @@ const Deployments = () => {
         return counts;
     }, [jobs]);
 
-    return (
-        <div className="page-container deployments-page">
-            <PageTopbar
-                icon={<Activity size={18} />}
-                title="Deployment Activity"
-                tabs={SERVICE_TABS}
-                actions={(
-                    <>
-                        <Button variant="outline" size="sm" asChild>
-                            <Link to="/services/new">
-                                <GitBranch size={16} />
-                                New Service
-                            </Link>
-                        </Button>
-                        <Button
-                            variant={autoRefresh ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setAutoRefresh((v) => !v)}
-                            title="Auto-refresh every 3s"
-                        >
-                            <RefreshCw size={16} className={autoRefresh ? 'spin' : ''} />
-                            {autoRefresh ? 'Live' : 'Paused'}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={loadJobs}>
-                            <RefreshCw size={16} /> Refresh
-                        </Button>
-                    </>
-                )}
-            />
+    useTopbarActions(() =>
+        <>
+            <Button variant="outline" size="sm" asChild>
+                <Link to="/services/new">
+                    <GitBranch size={16} />
+                    New Service
+                </Link>
+            </Button>
+            <Button
+                variant={autoRefresh ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAutoRefresh((v) => !v)}
+                title="Auto-refresh every 3s"
+            >
+                <RefreshCw size={16} className={autoRefresh ? 'spin' : ''} />
+                {autoRefresh ? 'Live' : 'Paused'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={loadJobs}>
+                <RefreshCw size={16} /> Refresh
+            </Button>
+        </>,
+        [autoRefresh]
+    );
 
+    return (
+        <div className="sk-tabgroup__inner deployments-page">
             <StatStrip ariaLabel="Deployment summary">
                 <Stat label="Running" value={summary.running} state={summary.running > 0 ? 'info' : undefined} />
                 <Stat label="Succeeded" value={summary.succeeded} state={summary.succeeded > 0 ? 'success' : undefined} />

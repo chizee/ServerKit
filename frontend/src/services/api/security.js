@@ -184,6 +184,10 @@ export async function updateVirusDefinitions() {
     return this.request('/security/clamav/update', { method: 'POST' });
 }
 
+export async function startClamAV() {
+    return this.request('/security/clamav/start', { method: 'POST' });
+}
+
 export async function scanFile(path) {
     return this.request('/security/scan/file', {
         method: 'POST',

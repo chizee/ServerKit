@@ -49,17 +49,13 @@ const UsersTab = () => {
     }
 
     async function handleSaveUser(userData) {
-        try {
-            if (editingUser) {
-                await api.updateUser(editingUser.id, userData);
-            } else {
-                await api.createUser(userData);
-            }
-            await loadUsers();
-            handleCloseModal();
-        } catch (err) {
-            throw err;
+        if (editingUser) {
+            await api.updateUser(editingUser.id, userData);
+        } else {
+            await api.createUser(userData);
         }
+        await loadUsers();
+        handleCloseModal();
     }
 
     async function handleDeleteUser(user) {

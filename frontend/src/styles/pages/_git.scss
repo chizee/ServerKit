@@ -335,6 +335,75 @@
         }
     }
 
+    // ── quick-action button row used inside spec cards ──────
+    .git-quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-2;
+    }
+
+    // ── repository drawer: branch selector + mini tabs ──────
+    .git-repo-detail-tabs {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: $space-3;
+        margin-bottom: $space-4;
+        flex-wrap: wrap;
+
+        .branch-selector {
+            display: flex;
+            flex-direction: column;
+            gap: $space-1;
+
+            label {
+                font-size: 11px;
+                color: var(--text-faint);
+            }
+
+            select {
+                padding: 6px 10px;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: $radius-md;
+                font-family: var(--mono);
+                font-size: 12px;
+                color: var(--text);
+                cursor: pointer;
+
+                &:focus {
+                    outline: none;
+                    border-color: var(--accent);
+                }
+            }
+        }
+    }
+
+    .git-mini-tabs {
+        display: flex;
+        gap: $space-1;
+        background: var(--surface-2);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        padding: 4px;
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: $radius-md;
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 13px;
+            cursor: pointer;
+
+            &.active {
+                background: var(--surface);
+                color: var(--text);
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            }
+        }
+    }
+
     // ── info cards (overview / access / settings) ───────────
     .info-card {
         background: var(--surface);
@@ -489,266 +558,200 @@
     }
 
     // ── Repositories tab ─────────────────────────────────────
-    .repositories-tab {
-        .repos-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: $space-3;
-            margin-bottom: $space-3;
+    .git-repos-table {
+        th:nth-child(2) { width: 170px; }
+        th:nth-child(3),
+        th:nth-child(4) { width: 70px; }
+        th:nth-child(5) { width: 120px; }
+        th:last-child { width: 1%; }
+    }
 
-            h3 {
-                margin: 0;
-                font-family: var(--mono);
-                font-size: 10.5px;
-                font-weight: $font-weight-semibold;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-                color: var(--text-faint);
-            }
-        }
+    // ── repository drawer contents ──
+    .files-browser,
+    .commits-list,
+    .branches-list {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
 
-        .git-repos-table {
-            th:nth-child(2) { width: 170px; }
-            th:nth-child(3),
-            th:nth-child(4) { width: 70px; }
-            th:nth-child(5) { width: 120px; }
-            th:last-child { width: 1%; }
-        }
-
-        // ── repository detail view ──
-        .repo-detail-header {
+    // files browser (mono tree)
+    .files-browser {
+        .breadcrumb {
             display: flex;
             align-items: center;
-            gap: $space-3;
-            margin-bottom: $space-4;
-            padding-bottom: $space-4;
+            flex-wrap: wrap;
+            padding: 9px $space-4;
+            background: var(--surface-2);
             border-bottom: 1px solid var(--border-soft);
+            font-family: var(--mono);
+            font-size: 12px;
 
-            .repo-title {
-                flex: 1;
-                min-width: 0;
-
-                h3 {
-                    margin: 0;
-                    font-size: 15px;
-                    font-weight: $font-weight-semibold;
-                    overflow-wrap: anywhere;
-
-                    .own {
-                        color: var(--text-faint);
-                        font-weight: $font-weight-normal;
-                    }
-                }
-
-                p {
-                    margin: 2px 0 0;
-                    font-size: 12.5px;
-                    color: var(--text-faint);
-                }
-            }
-
-            .branch-selector select {
-                padding: 6px 10px;
-                background: var(--surface-2);
-                border: 1px solid var(--border);
-                border-radius: $radius-md;
-                font-family: var(--mono);
-                font-size: 12px;
-                color: var(--text);
+            button {
+                background: none;
+                border: none;
+                padding: 0;
+                font: inherit;
+                color: var(--accent-bright);
                 cursor: pointer;
 
-                &:focus {
-                    outline: none;
-                    border-color: var(--accent);
+                &:hover {
+                    text-decoration: underline;
                 }
+            }
+
+            .separator {
+                margin: 0 6px;
+                color: var(--text-ghost);
             }
         }
 
-        .repo-detail-content {
-            background: var(--surface);
-            border: 1px solid var(--border-soft);
-            border-radius: var(--radius);
-            overflow: hidden;
-        }
-
-        // ── files browser (mono tree, re-tinted only) ──
-        .files-browser {
-            .breadcrumb {
+        .files-list {
+            .file-item {
                 display: flex;
                 align-items: center;
-                flex-wrap: wrap;
+                gap: $space-3;
                 padding: 9px $space-4;
-                background: var(--surface-2);
                 border-bottom: 1px solid var(--border-soft);
-                font-family: var(--mono);
-                font-size: 12px;
+                transition: background 0.12s;
 
-                button {
-                    background: none;
-                    border: none;
-                    padding: 0;
-                    font: inherit;
-                    color: var(--accent-bright);
+                &:last-child {
+                    border-bottom: none;
+                }
+
+                &.dir {
                     cursor: pointer;
 
                     &:hover {
-                        text-decoration: underline;
+                        background: var(--surface-2);
                     }
                 }
 
-                .separator {
-                    margin: 0 6px;
-                    color: var(--text-ghost);
+                .file-icon {
+                    display: inline-flex;
+                    color: var(--text-faint);
+                }
+
+                &.dir .file-icon {
+                    color: var(--accent-bright);
+                }
+
+                .file-name {
+                    flex: 1;
+                    min-width: 0;
+                    font-family: var(--mono);
+                    font-size: 12.5px;
+                    overflow-wrap: anywhere;
+                }
+
+                .file-size {
+                    font-family: var(--mono);
+                    font-size: 11px;
+                    color: var(--text-faint);
+                }
+            }
+        }
+    }
+
+    // commits (feed-style rows + hash chips)
+    .commits-list {
+        .commit-item {
+            display: flex;
+            align-items: flex-start;
+            gap: $space-3;
+            padding: 12px $space-4;
+            border-bottom: 1px solid var(--border-soft);
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            .commit-info {
+                flex: 1;
+                min-width: 0;
+
+                .commit-message {
+                    font-size: 13px;
+                    font-weight: $font-weight-medium;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .commit-meta {
+                    margin-top: 3px;
+                    font-family: var(--mono);
+                    font-size: 11px;
+                    color: var(--text-faint);
+
+                    .author {
+                        color: var(--text-dim);
+                        margin-right: $space-2;
+                    }
                 }
             }
 
-            .files-list {
-                .file-item {
+            .commit-sha {
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+        }
+
+        .btn-block {
+            width: calc(100% - #{$space-8});
+            margin: $space-4;
+        }
+    }
+
+    // branches
+    .branches-list {
+        .branch-item {
+            display: flex;
+            align-items: center;
+            gap: $space-4;
+            padding: 11px $space-4;
+            border-bottom: 1px solid var(--border-soft);
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            &.active {
+                background: var(--accent-bg-soft);
+            }
+
+            .branch-info {
+                flex: 1;
+                min-width: 0;
+
+                .branch-name {
                     display: flex;
                     align-items: center;
-                    gap: $space-3;
-                    padding: 9px $space-4;
-                    border-bottom: 1px solid var(--border-soft);
-                    transition: background 0.12s;
+                    gap: $space-2;
+                    font-family: var(--mono);
+                    font-size: 12.5px;
+                    font-weight: $font-weight-medium;
 
-                    &:last-child {
-                        border-bottom: none;
-                    }
-
-                    &.dir {
-                        cursor: pointer;
-
-                        &:hover {
-                            background: var(--surface-2);
-                        }
-                    }
-
-                    .file-icon {
-                        display: inline-flex;
+                    svg {
                         color: var(--text-faint);
+                        flex-shrink: 0;
                     }
 
-                    &.dir .file-icon {
+                    .git-chip {
+                        margin-left: 0;
+                    }
+                }
+
+                .branch-commit {
+                    margin-top: 3px;
+                    font-family: var(--mono);
+                    font-size: 11px;
+                    color: var(--text-faint);
+
+                    code {
                         color: var(--accent-bright);
-                    }
-
-                    .file-name {
-                        flex: 1;
-                        min-width: 0;
-                        font-family: var(--mono);
-                        font-size: 12.5px;
-                        overflow-wrap: anywhere;
-                    }
-
-                    .file-size {
-                        font-family: var(--mono);
-                        font-size: 11px;
-                        color: var(--text-faint);
-                    }
-                }
-            }
-        }
-
-        // ── commits (feed-style rows + hash chips) ──
-        .commits-list {
-            .commit-item {
-                display: flex;
-                align-items: flex-start;
-                gap: $space-3;
-                padding: 12px $space-4;
-                border-bottom: 1px solid var(--border-soft);
-
-                &:last-child {
-                    border-bottom: none;
-                }
-
-                .commit-info {
-                    flex: 1;
-                    min-width: 0;
-
-                    .commit-message {
-                        font-size: 13px;
-                        font-weight: $font-weight-medium;
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                    }
-
-                    .commit-meta {
-                        margin-top: 3px;
-                        font-family: var(--mono);
-                        font-size: 11px;
-                        color: var(--text-faint);
-
-                        .author {
-                            color: var(--text-dim);
-                            margin-right: $space-2;
-                        }
-                    }
-                }
-
-                .commit-sha {
-                    flex-shrink: 0;
-                    margin-top: 1px;
-                }
-            }
-
-            .btn-block {
-                width: calc(100% - #{$space-8});
-                margin: $space-4;
-            }
-        }
-
-        // ── branches ──
-        .branches-list {
-            .branch-item {
-                display: flex;
-                align-items: center;
-                gap: $space-4;
-                padding: 11px $space-4;
-                border-bottom: 1px solid var(--border-soft);
-
-                &:last-child {
-                    border-bottom: none;
-                }
-
-                &.active {
-                    background: var(--accent-bg-soft);
-                }
-
-                .branch-info {
-                    flex: 1;
-                    min-width: 0;
-
-                    .branch-name {
-                        display: flex;
-                        align-items: center;
-                        gap: $space-2;
-                        font-family: var(--mono);
-                        font-size: 12.5px;
-                        font-weight: $font-weight-medium;
-
-                        svg {
-                            color: var(--text-faint);
-                            flex-shrink: 0;
-                        }
-
-                        .git-chip {
-                            margin-left: 0;
-                        }
-                    }
-
-                    .branch-commit {
-                        margin-top: 3px;
-                        font-family: var(--mono);
-                        font-size: 11px;
-                        color: var(--text-faint);
-
-                        code {
-                            color: var(--accent-bright);
-                            margin-right: $space-2;
-                        }
+                        margin-right: $space-2;
                     }
                 }
             }
@@ -756,75 +759,24 @@
     }
 
     // ── Webhooks tab ─────────────────────────────────────────
-    .webhooks-tab {
-        .webhooks-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: $space-4;
-            margin-bottom: $space-4;
+    .git-webhooks-table {
+        th:last-child { width: 1%; }
+        td:last-child { white-space: nowrap; }
 
-            h3 {
-                margin: 0;
-                font-family: var(--mono);
-                font-size: 10.5px;
-                font-weight: $font-weight-semibold;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-                color: var(--text-faint);
-            }
-
-            .text-muted {
-                color: var(--text-dim);
-                font-size: 12.5px;
-                margin: $space-2 0 0;
-            }
+        .git-url {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .git-webhooks-table {
-            th:last-child { width: 1%; }
-            td:last-child { white-space: nowrap; }
-
-            .git-url {
-                max-width: 280px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            // disabled hooks dim, but their action buttons stay legible
-            tbody tr.is-disabled td:not(:last-child) {
-                opacity: 0.55;
-            }
+        // disabled hooks dim, but their action buttons stay legible
+        tbody tr.is-disabled td:not(:last-child) {
+            opacity: 0.55;
         }
     }
 
     // ── Deployments tab (feed-style history rows) ────────────
-    .deployments-tab {
-        .deployments-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: $space-4;
-            margin-bottom: $space-4;
-
-            h3 {
-                margin: 0;
-                font-family: var(--mono);
-                font-size: 10.5px;
-                font-weight: $font-weight-semibold;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-                color: var(--text-faint);
-            }
-
-            .text-muted {
-                color: var(--text-dim);
-                font-size: 12.5px;
-                margin: $space-2 0 0;
-            }
-        }
-    }
 
     .git-deploys-card {
         background: var(--surface);

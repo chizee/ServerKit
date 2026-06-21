@@ -2,21 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PageTopbar, Pill } from '@/components/ds';
-import { MONITOR_TABS } from '../components/monitoring/monitorTabs';
+import { Pill } from '@/components/ds';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity,
     CheckCircle2,
     Copy,
     ExternalLink,
-    Globe,
     Globe2,
     PlayCircle,
     Plus,
@@ -300,30 +299,28 @@ const StatusPages = () => {
         }
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    useTopbarActions(() =>
+        (
+            <>
+                <Button size="sm" variant="outline" onClick={loadPages}>
+                    <RefreshCw size={16} />
+                    Refresh
+                </Button>
+                {isAdmin && (
+                    <Button size="sm" onClick={() => setShowCreatePage(true)}>
+                        <Plus size={16} />
+                        Create Page
+                    </Button>
+                )}
+            </>
+        ),
+        [isAdmin]
+    );
+
+    if (loading) return <PageLoader />;
 
     return (
-        <div className="page-container status-pages-page">
-            <PageTopbar
-                icon={<Globe size={18} />}
-                title="Status Pages"
-                tabs={MONITOR_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" variant="outline" onClick={loadPages}>
-                            <RefreshCw size={16} />
-                            Refresh
-                        </Button>
-                        {isAdmin && (
-                            <Button size="sm" onClick={() => setShowCreatePage(true)}>
-                                <Plus size={16} />
-                                Create Page
-                            </Button>
-                        )}
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner status-pages-page">
             <div className="status-layout">
                 <aside className="status-pages-list" aria-label="Status pages">
                     {pages.map((page) => (

@@ -1,26 +1,13 @@
 import os
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import User, Application
+from flask_jwt_extended import jwt_required
+from app.middleware.rbac import admin_required
+from app.models import Application
 from app.services.backup_service import BackupService
 from app.services.storage_provider_service import StorageProviderService
 from app import paths
 
 backups_bp = Blueprint('backups', __name__)
-
-
-def admin_required(fn):
-    """Decorator to require admin role."""
-    from functools import wraps
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return fn(*args, **kwargs)
-    return wrapper
 
 
 @backups_bp.route('', methods=['GET'])

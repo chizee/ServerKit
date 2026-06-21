@@ -31,6 +31,7 @@ from app.models.promotion_job import PromotionJob
 from app.services.environment_docker_service import EnvironmentDockerService
 from app.services.environment_domain_service import EnvironmentDomainService
 from app.services.db_sync_service import DatabaseSyncService
+from app.utils.slug import slugify
 
 
 class EnvironmentPipelineService:
@@ -1810,11 +1811,7 @@ class EnvironmentPipelineService:
     @staticmethod
     def _slugify(text: str) -> str:
         """Convert text to a URL/filesystem-safe slug."""
-        import re
-        text = text.lower()
-        text = re.sub(r'[^a-z0-9]+', '-', text)
-        text = text.strip('-')
-        return text or 'site'
+        return slugify(text) or 'site'
 
     @staticmethod
     def _generate_password(length: int = 32) -> str:

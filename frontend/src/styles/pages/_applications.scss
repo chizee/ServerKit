@@ -618,6 +618,14 @@
     }
 }
 
+// Many tabs (PHP, Updates, Security, Vulnerabilities, Analytics, Uptime, …) reuse
+// this grid with ONLY an .app-overview-left and no right rail, which otherwise
+// reserves an empty 1fr column → a big wasted gap on the right. Collapse to a
+// single column whenever there's no .app-overview-right.
+.app-overview-grid:not(:has(.app-overview-right)) {
+    grid-template-columns: 1fr;
+}
+
 .app-overview-left,
 .app-overview-right {
     display: flex;

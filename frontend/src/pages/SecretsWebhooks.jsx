@@ -23,7 +23,7 @@ const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 export default function SecretsWebhooks() {
     const { tab } = useParams();
     const navigate = useNavigate();
-    const { toast } = useToast();
+    const toast = useToast();
     const activeTab = VALID_TABS.includes(tab) ? tab : 'vaults';
 
     const [vaults, setVaults] = useState([]);
@@ -211,7 +211,7 @@ export default function SecretsWebhooks() {
         <div className="page-container secrets-page">
             <PageTopbar icon={<KeyRound size={18} />} title="Secrets & Webhooks" />
 
-            <Tabs value={activeTab} onValueChange={(v) => navigate(`/secrets/${v}`)} className="tabs">
+            <Tabs value={activeTab} onValueChange={(v) => navigate(`/secrets/${v}`)}>
                 <TabsList>
                     <TabsTrigger value="vaults"><KeyRound size={14} /> Vaults</TabsTrigger>
                     <TabsTrigger value="webhooks"><Webhook size={14} /> Webhooks</TabsTrigger>

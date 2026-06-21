@@ -943,7 +943,7 @@ const CreatePipelineEnvModal = ({ onClose, onCreate, productionDomain, existingT
                                                 ))}
                                                 {filteredBranches.length === 0 && (
                                                     <div className="branch-picker-empty">
-                                                        No branches match "{branchSearch}"
+                                                        No branches match &quot;{branchSearch}&quot;
                                                     </div>
                                                 )}
                                             </div>

@@ -112,6 +112,10 @@ SECURITY_AND_CODE_AUDIT.md
 *.png
 *.jpeg
 *.jpg
+# …except the README screenshots, generated from mock data by the local
+# `screenshots` skill — these are real committed assets.
+!/docs/screenshots/
+!/docs/screenshots/*.png
 
 # MSI / build artifacts that should not be committed.
 /agent/packaging/msi/output/

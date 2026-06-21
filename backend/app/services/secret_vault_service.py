@@ -9,38 +9,36 @@ from typing import Dict, List, Optional
 from app import db
 from app.models import Secret, SecretVault
 from app.utils.crypto import encrypt_secret, decrypt_secret_safe
+from app.utils.slug import unique_slug
 
 logger = logging.getLogger(__name__)
 
 
-def _slugify(name: str) -> str:
-    base = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-    return base or 'vault'
-
-
 def _unique_slug(name: str) -> str:
-    base = _slugify(name)
-    slug = base
-    counter = 1
-    while SecretVault.query.filter_by(slug=slug).first():
-        slug = f'{base}-{counter}'
-        counter += 1
-    return slug
+    return unique_slug(
+        name,
+        lambda s: SecretVault.query.filter_by(slug=s).first() is not None,
+        default='vault',
+    )
 
 
 class SecretVaultService:
     """Manage encrypted secret vaults."""
 
     @classmethod
-    def list_vaults(cls) -> List[Dict]:
-        return [v.to_dict() for v in SecretVault.query.order_by(SecretVault.name).all()]
+    def list_vaults(cls, workspace_id: int = None) -> List[Dict]:
+        query = SecretVault.query
+        if workspace_id is not None:
+            query = query.filter(SecretVault.workspace_id == workspace_id)
+        return [v.to_dict() for v in query.order_by(SecretVault.name).all()]
 
     @classmethod
     def get_vault(cls, vault_id: int) -> Optional[SecretVault]:
         return SecretVault.query.get(vault_id)
 
     @classmethod
-    def create_vault(cls, name: str, description: str = None, user_id: int = None) -> Dict:
+    def create_vault(cls, name: str, description: str = None, user_id: int = None,
+                     workspace_id: int = None) -> Dict:
         if SecretVault.query.filter_by(name=name).first():
             return {'success': False, 'error': 'Vault name already exists'}
         vault = SecretVault(
@@ -48,6 +46,7 @@ class SecretVaultService:
             slug=_unique_slug(name),
             description=description,
             created_by=user_id,
+            workspace_id=workspace_id,
         )
         db.session.add(vault)
         db.session.commit()

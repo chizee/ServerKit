@@ -16,6 +16,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
     const [wpInstalled, setWpInstalled] = useState(false);
+    const [gpuAvailable, setGpuAvailable] = useState(false);
     const menuRef = useRef(null);
     const sidebarRef = useRef(null);
 
@@ -101,7 +102,14 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             .catch(() => setWpInstalled(false));
     }, []);
 
-    const conditions = { wpInstalled };
+    // Hide GPU Monitor when the host has no GPU (mirrors the wpInstalled gate).
+    useEffect(() => {
+        api.getGpuInfo()
+            .then(data => setGpuAvailable(!!data?.available))
+            .catch(() => setGpuAvailable(false));
+    }, []);
+
+    const conditions = { wpInstalled, gpuAvailable };
     const currentPreset = user?.sidebar_config?.preset || 'full';
     const [manualExpanded, setManualExpanded] = useState({});
     const [autoExpanded, setAutoExpanded] = useState(null);
@@ -139,8 +147,13 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 ...item,
                 category: item.category || 'system',
             }));
-        return [...core, ...fromPlugins];
-    }, [user?.sidebar_config, pluginNav]);
+        // Top-level items can gate on a runtime condition (e.g. GPU Monitor
+        // only when a GPU is present), mirroring sub-item requiresCondition.
+        const conds = { wpInstalled, gpuAvailable };
+        return [...core, ...fromPlugins].filter(
+            (item) => !item.requiresCondition || conds[item.requiresCondition]
+        );
+    }, [user?.sidebar_config, pluginNav, wpInstalled, gpuAvailable]);
 
     // Group visible items by category
     const groupedItems = useMemo(() => {
@@ -178,13 +191,19 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         const visibleSubs = hasChildren
             ? item.subItems.filter(sub => !sub.requiresCondition || conditions[sub.requiresCondition])
             : [];
+        // Items can claim extra active paths (e.g. Servers stays lit across its
+        // Agent Fleet / Fleet Monitor / Cloud / Config Templates tabs) so the
+        // highlight doesn't drop when a sub-tab lives on its own route.
+        const groupActive = item.matchPrefixes?.some(
+            (p) => location.pathname === p || location.pathname.startsWith(p + '/')
+        );
 
         return (
             <React.Fragment key={item.id}>
                 <div className={`nav-item-row ${hasChildren ? 'has-children' : ''}`}>
                     <NavLink
                         to={item.route}
-                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                        className={({ isActive }) => `nav-item ${isActive || groupActive ? 'active' : ''}`}
                         end={item.end || hasChildren}
                     >
                         <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"

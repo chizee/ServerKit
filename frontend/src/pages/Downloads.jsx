@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Download } from 'lucide-react';
 import api from '../services/api';
 import { Button } from '@/components/ui/button';
-import { PageTopbar } from '@/components/ds';
-import { MARKET_TABS } from '../components/marketplace/marketTabs';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 
 // Platform icons as SVG components
 const LinuxIcon = () => (
@@ -140,10 +138,19 @@ function Downloads() {
         }
     };
 
+    useTopbarActions(() =>
+        <>
+            <Button size="sm" variant="outline" onClick={fetchVersionInfo}>
+                <RefreshIcon />
+                Refresh
+            </Button>
+        </>,
+        [],
+    );
+
     if (loading) {
         return (
-            <div className="page-container downloads-page">
-                <PageTopbar icon={<Download size={18} />} title="Downloads" tabs={MARKET_TABS} />
+            <div className="sk-tabgroup__inner downloads-page">
                 <div className="loading-container">
                     <div className="loading-spinner"></div>
                     <p>Loading version information...</p>
@@ -153,21 +160,7 @@ function Downloads() {
     }
 
     return (
-        <div className="page-container downloads-page">
-            <PageTopbar
-                icon={<Download size={18} />}
-                title="Downloads"
-                tabs={MARKET_TABS}
-                actions={(
-                    <>
-                        <Button size="sm" variant="outline" onClick={fetchVersionInfo}>
-                            <RefreshIcon />
-                            Refresh
-                        </Button>
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner downloads-page">
             {error && (
                 <div className="alert alert-error">
                     <p>{error}</p>

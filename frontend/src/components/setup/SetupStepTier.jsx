@@ -67,7 +67,7 @@ const SetupStepTier = ({ useCases, onComplete }) => {
         <div className="wizard-step">
             <h2 className="wizard-step-title">Server Resources</h2>
             <p className="wizard-step-description">
-                We detected your server's hardware. Here's what each tier unlocks.
+                We detected your server&apos;s hardware. Here&apos;s what each tier unlocks.
             </p>
 
             {showWarning && (

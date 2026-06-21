@@ -10,26 +10,13 @@ Provides REST endpoints for:
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.middleware.rbac import admin_required
 from app.models import User, Application, Deployment
 from app.services.build_service import BuildService
 from app.services.deployment_service import DeploymentService
 from app.services.resource_grant_service import ResourceGrantService
 
 builds_bp = Blueprint('builds', __name__)
-
-
-def admin_required(fn):
-    """Decorator to require admin role."""
-    from functools import wraps
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return fn(*args, **kwargs)
-    return wrapper
 
 
 # ==================== BUILD CONFIGURATION ====================

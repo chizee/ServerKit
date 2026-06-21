@@ -24,6 +24,7 @@ else:
     grp = None 
 
 from app import paths
+from app.utils.formatting import format_bytes
 
 
 class FileService:
@@ -485,11 +486,7 @@ class FileService:
     @staticmethod
     def _format_size(size: int) -> str:
         """Format size in human-readable format."""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if size < 1024:
-                return f"{size:.1f} {unit}"
-            size /= 1024
-        return f"{size:.1f} PB"
+        return format_bytes(size, suffix_sep=' ')
 
     # Virtual/pseudo filesystem types to hide from disk usage
     _VIRTUAL_FSTYPES = {

@@ -32,6 +32,23 @@ export default [
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'react/prop-types': 'off',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+
+      // Discourage inline styles — prefer SCSS classes and shared components.
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: 'JSXAttribute[name.name="style"]',
+          message: 'Inline styles are discouraged. Use SCSS classes or a shared primitive instead.',
+        },
+        {
+          selector: 'JSXOpeningElement[name.name="button"]',
+          message: 'Use the shared Button component (or IconButton for icon-only actions).',
+        },
+        {
+          selector: 'JSXOpeningElement[name.name="div"] > JSXAttribute[name.name="className"] > Literal[value=/\\bcard\\b/]',
+          message: 'Use the shared Card component instead of the legacy .card class.',
+        },
+      ],
     },
     settings: {
       react: { version: 'detect' },

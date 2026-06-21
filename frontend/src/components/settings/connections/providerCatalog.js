@@ -30,6 +30,11 @@ export const CONNECTION_PROVIDERS = [
         blurb: 'Cloud GitLab repositories, imported the same way as GitHub.',
         docUrl: 'https://gitlab.com/-/profile/applications', manageHref: '/services/new',
     },
+    {
+        id: 'bitbucket', category: 'source', name: 'Bitbucket', kind: 'source', provider: 'bitbucket',
+        blurb: 'Bitbucket Cloud repositories, imported the same way as GitHub.',
+        docUrl: 'https://bitbucket.org/[workspace]/workspace/settings/oauth-consumers/new', manageHref: '/services/new',
+    },
 
     // ── Infrastructure (cloud servers) ──
     {

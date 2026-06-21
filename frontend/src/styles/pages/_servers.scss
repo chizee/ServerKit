@@ -2833,11 +2833,8 @@
     margin: 0;
     padding: $space-3;
     display: flex;
-    flex-direction: column; // top bar stacks above the ops workspace (redesign)
+    flex-direction: column; // fills the shared tab-group content region
     background: transparent;
-
-    // PageTopbar sits flush at the top of the full-bleed ops layout.
-    > .sk-topbar { padding-left: $space-2; padding-right: $space-2; margin-bottom: $space-3; }
 
     .servers-ops-workspace {
         flex: 1;

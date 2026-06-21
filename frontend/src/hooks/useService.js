@@ -53,14 +53,10 @@ export function useService(id) {
 
     const performAction = useCallback(async (action) => {
         if (!id) return;
-        try {
-            if (action === 'start') await api.startApp(id);
-            else if (action === 'stop') await api.stopApp(id);
-            else if (action === 'restart') await api.restartApp(id);
-            await load();
-        } catch (err) {
-            throw err;
-        }
+        if (action === 'start') await api.startApp(id);
+        else if (action === 'stop') await api.stopApp(id);
+        else if (action === 'restart') await api.restartApp(id);
+        await load();
     }, [id, load]);
 
     const deleteService = useCallback(async () => {

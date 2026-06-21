@@ -15,6 +15,7 @@ import schedule
 
 from app import paths
 from app.utils import backup_crypto
+from app.utils.formatting import format_bytes
 from app.utils.system import is_command_available
 
 
@@ -886,8 +887,4 @@ class BackupService:
     @staticmethod
     def _format_size(size: int) -> str:
         """Format size in human readable format."""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if size < 1024:
-                return f"{size:.1f} {unit}"
-            size /= 1024
-        return f"{size:.1f} PB"
+        return format_bytes(size, suffix_sep=' ')

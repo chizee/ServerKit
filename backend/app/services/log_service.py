@@ -7,6 +7,7 @@ import threading
 import queue
 
 from app import paths
+from app.utils.formatting import format_bytes
 from app.utils.system import run_privileged, privileged_cmd, is_command_available, sourced_result
 
 
@@ -435,11 +436,7 @@ class LogService:
     @staticmethod
     def _format_size(size: int) -> str:
         """Format size in bytes to human readable."""
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size < 1024:
-                return f"{size:.1f}{unit}"
-            size /= 1024
-        return f"{size:.1f}TB"
+        return format_bytes(size, suffix_sep='')
 
 
 class LogStreamer:

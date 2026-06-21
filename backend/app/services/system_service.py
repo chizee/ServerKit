@@ -4,6 +4,7 @@ import subprocess
 import os
 from datetime import datetime
 
+from app.utils.formatting import format_bytes
 from app.utils.system import run_privileged
 
 
@@ -13,11 +14,7 @@ class SystemService:
     @staticmethod
     def get_size(bytes_val):
         """Convert bytes to human readable format."""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if bytes_val < 1024:
-                return f"{bytes_val:.1f}{unit}"
-            bytes_val /= 1024
-        return f"{bytes_val:.1f}PB"
+        return format_bytes(bytes_val, suffix_sep='')
 
     @classmethod
     def get_cpu_metrics(cls):

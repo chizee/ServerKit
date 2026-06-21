@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Application, User
+from app.utils.slug import slugify
 from app.services.build_service import BuildService
 from app.services.docker_service import DockerService
 from app.services.git_service import GitService
@@ -79,7 +80,7 @@ def _agent_result_error(result, fallback):
 
 
 def _service_slug(value):
-    return re.sub(r'[^a-z0-9-]+', '-', (value or '').strip().lower()).strip('-')
+    return slugify(value)
 
 
 def _derive_repo_app_type(detection):

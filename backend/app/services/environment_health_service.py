@@ -14,6 +14,7 @@ from app import db
 from app.models.wordpress_site import WordPressSite
 from app.services.environment_docker_service import EnvironmentDockerService
 from app.services.environment_pipeline_service import EnvironmentPipelineService
+from app.utils.formatting import format_bytes
 
 
 class EnvironmentHealthService:
@@ -382,10 +383,4 @@ class EnvironmentHealthService:
     @staticmethod
     def _format_size(size_bytes: int) -> str:
         """Format bytes to human-readable string."""
-        if not size_bytes:
-            return '0 B'
-        for unit in ['B', 'KB', 'MB', 'GB']:
-            if size_bytes < 1024:
-                return f'{size_bytes:.1f} {unit}'
-            size_bytes /= 1024
-        return f'{size_bytes:.1f} TB'
+        return format_bytes(size_bytes, suffix_sep=' ')

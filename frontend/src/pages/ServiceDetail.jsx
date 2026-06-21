@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useService } from '../hooks/useService';
+import useTabParam from '../hooks/useTabParam';
 import { getTabsForType } from '../utils/serviceTypes';
 import EnvironmentVariables from '../components/EnvironmentVariables';
 import EventsTab from '../components/service-detail/EventsTab';
@@ -15,12 +16,11 @@ import MetricsTab from '../components/service-detail/MetricsTab';
 import PackagesTab from '../components/service-detail/PackagesTab';
 import GunicornTab from '../components/service-detail/GunicornTab';
 import CommandsTab from '../components/service-detail/CommandsTab';
-import GitConnectModal from '../components/service-detail/GitConnectModal';
 import OverviewTab from '../components/service-detail/OverviewTab';
 import EmptyState from '../components/EmptyState';
-import { Layers, FileArchive, RotateCcw } from 'lucide-react';
+import { Layers, FileArchive, RotateCcw, LayoutDashboard, History, ScrollText, Variable, Terminal, Activity, Package, Server, SquareTerminal, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Pill, ServiceTile } from '@/components/ds';
+import { Pill, ServiceTile, PageTopbar } from '@/components/ds';
 
 // statusInfo.dotClass → ds Pill kind
 const STATUS_PILL = {
@@ -44,16 +44,31 @@ const TAB_LABELS = {
     settings: 'Settings',
 };
 
+// Per-tab glyph for the detail tab strip (matches the WordPress detail page).
+const TAB_ICONS = {
+    overview: LayoutDashboard,
+    events: History,
+    logs: ScrollText,
+    environment: Variable,
+    shell: Terminal,
+    metrics: Activity,
+    packages: Package,
+    gunicorn: Server,
+    commands: SquareTerminal,
+    settings: Settings,
+};
+
 const ServiceDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
     const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
     const { service, deployConfig, loading, error, reload, performAction, deleteService } = useService(id);
-    const [activeTab, setActiveTab] = useState('overview');
+    // Active tab lives in the URL (/services/:id/:tab) so it's shareable and
+    // survives a refresh — same pattern as the WordPress detail page.
+    const [activeTab, setActiveTab] = useTabParam(`/services/${id}`, Object.keys(TAB_LABELS));
     const [showDeployMenu, setShowDeployMenu] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
-    const [showGitModal, setShowGitModal] = useState(false);
     const [actionLoading, setActionLoading] = useState(null);
     const [versions, setVersions] = useState([]);
     const [currentVersion, setCurrentVersion] = useState(null);
@@ -70,6 +85,10 @@ const ServiceDetail = () => {
 
     // Load upload versions
     useEffect(() => {
+        // Derive locally — the `isUpload` const below is declared after the
+        // early-return guard, so referencing it here would hit its temporal
+        // dead zone and crash the page on every render.
+        const isUpload = service?.source === 'upload';
         if (!isUpload || !id) return;
         setVersionsLoading(true);
         api.getAppVersions(id)
@@ -79,7 +98,7 @@ const ServiceDetail = () => {
             })
             .catch(() => toast.error('Failed to load versions'))
             .finally(() => setVersionsLoading(false));
-    }, [isUpload, id, toast]);
+    }, [service?.source, id, toast]);
 
     // Close menus on outside click
     useEffect(() => {
@@ -211,52 +230,23 @@ const ServiceDetail = () => {
     const isManual = service.source === 'manual';
 
     return (
-        <div className="page-container svc-detail">
-            {/* Breadcrumb */}
-            <div className="svc-detail__breadcrumb">
-                <Link to="/services">Services</Link>
-                <span className="svc-detail__breadcrumb-sep">/</span>
-                <span className="svc-detail__breadcrumb-current">{service.name}</span>
-            </div>
-
-            {/* Header */}
-            <div className="svc-detail__header">
-                <div className="svc-detail__header-left">
-                    <ServiceTile name={service.name} size={52} className="svc-detail__tile" />
-                    <div className="svc-detail__title-block">
-                        <div className="svc-detail__title-row">
-                            <h1>{service.name}</h1>
-                            <Pill kind={STATUS_PILL[service.statusInfo.dotClass] || 'gray'}>
-                                {service.statusInfo.label}
-                            </Pill>
-                            <span
-                                className="svc-detail__type-badge"
-                                style={{ backgroundColor: service.typeInfo.bgColor, color: service.typeInfo.color, borderColor: service.typeInfo.borderColor }}
-                            >
-                                {service.typeInfo.label}
-                            </span>
-                        </div>
-                        <div className="svc-detail__subtitle">
-                            {service.port && <span>Port {service.port}</span>}
-                            {service.port && <span className="svc-detail__sep">&middot;</span>}
-                            <span>Created {new Date(service.created_at).toLocaleDateString()}</span>
-                            {service.domain && (
-                                <>
-                                    <span className="svc-detail__sep">&middot;</span>
-                                    <a
-                                        href={`https://${service.domain}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        {service.domain}
-                                    </a>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="svc-detail__header-actions">
+        <div className="app-detail-page app-detail-page--wide svc-detail">
+            {/* Full-bleed top bar — the canonical PageTopbar (.sk-topbar): the SAME
+                chrome as the Services LIST page and the WordPress detail page, so the
+                top menu stays consistent. Breadcrumb in the title slot, all service
+                actions on the right. */}
+            <PageTopbar
+                className="svc-detail-topbar"
+                icon={<Layers size={18} />}
+                title={(
+                    <span className="svc-crumbs">
+                        <Link to="/services">Services</Link>
+                        <span className="svc-crumbs__sep">/</span>
+                        <span className="svc-crumbs__cur">{service.name}</span>
+                    </span>
+                )}
+                actions={(
+                    <>
                     {/* Deploy dropdown */}
                     <div className="svc-detail__dropdown" ref={deployMenuRef}>
                         <Button onClick={() => setShowDeployMenu(!showDeployMenu)}>
@@ -363,6 +353,46 @@ const ServiceDetail = () => {
                             </div>
                         )}
                     </div>
+                    </>
+                )}
+            />
+
+            {/* Everything below the full-bleed top bar lives in a centered, padded
+                column (.app-detail-body), matching the WordPress detail page. */}
+            <div className="app-detail-body">
+            {/* Identity — tile + name + status + type (no actions). */}
+            <div className="app-detail-header">
+                <ServiceTile name={service.name} size={52} className="svc-detail__tile" />
+                <div className="app-detail-title-block">
+                    <h1>
+                        {service.name}
+                        <Pill kind={STATUS_PILL[service.statusInfo.dotClass] || 'gray'}>
+                            {service.statusInfo.label}
+                        </Pill>
+                        <span
+                            className="svc-detail__type-badge"
+                            style={{ backgroundColor: service.typeInfo.bgColor, color: service.typeInfo.color, borderColor: service.typeInfo.borderColor }}
+                        >
+                            {service.typeInfo.label}
+                        </span>
+                    </h1>
+                    <div className="app-detail-subtitle">
+                        {service.port && <span>Port {service.port}</span>}
+                        {service.port && <span className="separator">&middot;</span>}
+                        <span>Created {new Date(service.created_at).toLocaleDateString()}</span>
+                        {service.domain && (
+                            <>
+                                <span className="separator">&middot;</span>
+                                <a
+                                    href={`https://${service.domain}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {service.domain}
+                                </a>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -393,7 +423,7 @@ const ServiceDetail = () => {
                         )}
                     </span>
                 ) : deployConfig ? (
-                    <div className="svc-detail__repo-pill" onClick={() => setShowGitModal(true)}>
+                    <div className="svc-detail__repo-pill" onClick={() => navigate(`/services/${id}/settings/repository`)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="18" cy="18" r="3"/>
                             <circle cx="6" cy="6" r="3"/>
@@ -407,7 +437,7 @@ const ServiceDetail = () => {
                         )}
                     </div>
                 ) : (
-                    <button className="svc-detail__connect-repo" onClick={() => setShowGitModal(true)}>
+                    <button className="svc-detail__connect-repo" onClick={() => navigate(`/services/${id}/settings/repository`)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="18" cy="18" r="3"/>
                             <circle cx="6" cy="6" r="3"/>
@@ -462,21 +492,27 @@ const ServiceDetail = () => {
                 </div>
             )}
 
-            {/* Tab Bar */}
-            <div className="svc-detail__tabs">
-                {availableTabs.map(tab => (
-                    <button
-                        key={tab}
-                        className={`svc-detail__tab ${activeTab === tab ? 'svc-detail__tab--active' : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {TAB_LABELS[tab] || tab}
-                    </button>
-                ))}
+            {/* Tab Bar — shared underline-style strip (app-detail-tabs) with a
+                glyph per tab; Settings is pinned to the far right (--end), exactly
+                like the WordPress detail page. */}
+            <div className="app-detail-tabs">
+                {availableTabs.map(tab => {
+                    const Icon = TAB_ICONS[tab];
+                    return (
+                        <button
+                            key={tab}
+                            className={`app-detail-tab ${activeTab === tab ? 'active' : ''} ${tab === 'settings' ? 'app-detail-tab--end' : ''}`}
+                            onClick={() => setActiveTab(tab)}
+                        >
+                            {Icon && <Icon size={14} />}
+                            {TAB_LABELS[tab] || tab}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Tab Content */}
-            <div className="svc-detail__content">
+            <div className="app-detail-content">
                 {activeTab === 'overview' && <OverviewTab app={service} deployConfig={deployConfig} />}
                 {activeTab === 'events' && <EventsTab appId={service.id} />}
                 {activeTab === 'logs' && <LogsTab app={service} />}
@@ -491,23 +527,11 @@ const ServiceDetail = () => {
                         app={service}
                         deployConfig={deployConfig}
                         onUpdate={reload}
-                        onOpenGitModal={() => setShowGitModal(true)}
                     />
                 )}
             </div>
+            </div>
 
-            {/* Git Connect Modal */}
-            {showGitModal && isGitBased && (
-                <GitConnectModal
-                    appId={service.id}
-                    deployConfig={deployConfig}
-                    onClose={() => setShowGitModal(false)}
-                    onSaved={() => {
-                        setShowGitModal(false);
-                        reload();
-                    }}
-                />
-            )}
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 title={confirmState.title}

@@ -211,6 +211,30 @@ class SecurityService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
+    def start_clamav(cls) -> Dict:
+        """Start and enable the ClamAV daemon.
+
+        Debian ships the daemon as ``clamav-daemon``; RHEL and others call it
+        ``clamd`` — try both, mirroring :meth:`get_clamav_status`. ``install``
+        does not start the daemon, so this backs the "Start service" posture fix.
+        """
+        for service in ('clamav-daemon', 'clamd'):
+            try:
+                ServiceControl.enable(service, timeout=15)
+                result = ServiceControl.start(service, timeout=30)
+            except FileNotFoundError:
+                return {'success': False, 'error': 'systemctl not found (not a Linux host?)'}
+            except subprocess.TimeoutExpired:
+                return {'success': False, 'error': 'Starting ClamAV timed out'}
+            except Exception as e:
+                return {'success': False, 'error': str(e)}
+
+            if getattr(result, 'returncode', 1) == 0 and ServiceControl.is_active(service):
+                return {'success': True, 'message': f'{service} started'}
+
+        return {'success': False, 'error': 'Could not start the ClamAV service. Is ClamAV installed?'}
+
+    @classmethod
     def scan_file(cls, file_path: str) -> Dict:
         """Scan a single file for malware."""
         if not os.path.exists(file_path):

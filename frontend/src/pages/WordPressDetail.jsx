@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ExternalLink, Settings, RefreshCw, Plus, Database, GitBranch, Package, Palette, Archive, Trash2, Replace, ShieldCheck, FolderOpen, FileText, Lock, Copy, Zap, Activity, Globe, Layers, BarChart3, FileBarChart, Printer, Download, ChevronDown, Check, AlertTriangle, HardDrive } from 'lucide-react';
+import { ExternalLink, Settings, RefreshCw, Plus, Database, GitBranch, Package, Palette, Archive, Trash2, Replace, ShieldCheck, FolderOpen, FileText, Lock, Copy, Zap, Activity, Globe, BarChart3, FileBarChart, Printer, Download, ChevronDown, Check, AlertTriangle, HardDrive } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import useTabParam from '../hooks/useTabParam';
 import wordpressApi from '../services/wordpress';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useLogsDrawer } from '../contexts/LogsDrawerContext';
-import { EnvironmentCard, SnapshotTable, GitConnectForm, CommitList, DiskUsageBar } from '../components/wordpress';
+import { EnvironmentCard, SnapshotTable, GitConnectForm, CommitList } from '../components/wordpress';
+import ActivityFeed from '../components/wordpress/ActivityFeed';
 import ChangeUrlModal from '../components/wordpress/ChangeUrlModal';
 import AttachDomainModal from '../components/wordpress/AttachDomainModal';
 import { HealthDot } from '../components/wordpress/HealthStatusPanel';
-import { Pill, EnvTag, MetricCard, SegControl, ScoreGauge, ServiceTile } from '../components/ds';
+import { Pill, EnvTag, MetricCard, SegControl, ScoreGauge, ServiceTile, PageTopbar } from '../components/ds';
 import { ErrorBoundary, ErrorState } from '../components/ErrorBoundary';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -26,13 +27,6 @@ import { Textarea } from '@/components/ui/textarea';
 // Detail Page Skeleton for initial loading
 const DetailPageSkeleton = () => (
     <div className="app-detail-page app-detail-page--wide wp-detail-page">
-        <div className="app-detail-topbar">
-            <div className="app-detail-breadcrumbs">
-                <span className="skeleton" style={{ width: 80, height: 16 }} />
-                <span>/</span>
-                <span className="skeleton" style={{ width: 120, height: 16 }} />
-            </div>
-        </div>
         <div className="app-detail-header">
             <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 8 }} />
             <div className="app-detail-title-block">
@@ -76,7 +70,9 @@ const DetailPageSkeleton = () => (
     </div>
 );
 
-const VALID_TABS = ['overview', 'environments', 'database', 'plugins', 'themes', 'git', 'backups', 'uptime', 'analytics', 'vulnerabilities', 'security', 'updates', 'php', 'reports'];
+// 'php' and 'updates' no longer have their own top-level tab — they live inside
+// the Settings tab's left nav — but stay valid so existing deep links still work.
+const VALID_TABS = ['overview', 'environments', 'database', 'plugins', 'themes', 'git', 'backups', 'uptime', 'analytics', 'vulnerabilities', 'security', 'updates', 'php', 'reports', 'settings'];
 
 // Environment-type → dot tint for the header environment switcher.
 const ENV_DOT_COLORS = {
@@ -279,14 +275,21 @@ const WordPressDetail = () => {
                 </div>
             )}
 
-            {/* Top Bar */}
-            <div className="app-detail-topbar">
-                <div className="app-detail-breadcrumbs">
-                    <Link to="/wordpress">WordPress</Link>
-                    <span>/</span>
-                    <span className="current">{site.name}</span>
-                </div>
-                <div className="app-detail-actions">
+            {/* Top bar — the canonical PageTopbar (.sk-topbar): the SAME chrome as
+                the WordPress LIST page and every other page, so the top menu is
+                consistent. Breadcrumb in the title slot, actions on the right. */}
+            <PageTopbar
+                className="wp-detail-topbar"
+                icon={<Globe size={18} />}
+                title={(
+                    <span className="wp-crumbs">
+                        <Link to="/wordpress">WordPress</Link>
+                        <span className="wp-crumbs__sep">/</span>
+                        <span className="wp-crumbs__cur">{site.name}</span>
+                    </span>
+                )}
+                actions={(
+                    <>
                     <Button
                         variant="ghost"
                         onClick={() => navigate(`/files?path=${encodeURIComponent(site.application?.root_path || '/')}`)}
@@ -315,53 +318,17 @@ const WordPressDetail = () => {
                         View Logs
                     </Button>
                     {site.url && (
-                        <>
-                            <Button variant="ghost" asChild>
-                                <a
-                                    href={site.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <ExternalLink size={16} />
-                                    Visit Site
-                                </a>
-                            </Button>
-                            <Button variant="ghost" asChild>
-                                <a
-                                    href={`${site.url}/wp-admin`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <Settings size={16} />
-                                    Dashboard
-                                </a>
-                            </Button>
-                        </>
+                        <Button variant="ghost" asChild>
+                            <a
+                                href={`${site.url}/wp-admin`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <Settings size={16} />
+                                Dashboard
+                            </a>
+                        </Button>
                     )}
-                    <Button
-                        variant="ghost"
-                        onClick={() => setShowAddDomain(true)}
-                        title="Point a custom domain you own at this site (auto-DNS + migrate)"
-                    >
-                        <Plus size={16} />
-                        Add Domain
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        onClick={() => setShowChangeUrl(true)}
-                        title="Change this site's URL (serialization-safe database rewrite + re-point routing)"
-                    >
-                        <Globe size={16} />
-                        Change URL
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        onClick={() => setShowCloneModal(true)}
-                        title="Duplicate this site as a new independent site with fresh admin credentials"
-                    >
-                        <Copy size={16} />
-                        Clone
-                    </Button>
                     <Button
                         variant="default"
                         onClick={handleAutoLogin}
@@ -371,14 +338,18 @@ const WordPressDetail = () => {
                         <Lock size={16} />
                         {autoLoggingIn ? 'Signing in...' : 'Auto Login'}
                     </Button>
-                </div>
-            </div>
+                    </>
+                )}
+            />
 
-            {/* Header */}
+            {/* Everything below the full-bleed top bar is padded by .app-detail-body
+                (the top bar itself spans edge-to-edge like the list page). */}
+            <div className="app-detail-body">
+            {/* Identity — icon + name + status + environment + version (no actions). */}
             <div className="app-detail-header">
                 <div className="app-detail-icon wp-icon">
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-                        <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 19.542c-5.261 0-9.542-4.281-9.542-9.542S6.739 2.458 12 2.458 21.542 6.739 21.542 12 17.261 21.542 12 21.542z"/>
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="8" />
                     </svg>
                     <span className={`wp-head-dot ${isRunning ? 'running' : 'stopped'}`} />
                 </div>
@@ -452,12 +423,6 @@ const WordPressDetail = () => {
                     <Palette size={14} /> Themes
                 </div>
                 <div
-                    className={`app-detail-tab ${activeTab === 'git' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('git')}
-                >
-                    <GitBranch size={14} /> Git
-                </div>
-                <div
                     className={`app-detail-tab ${activeTab === 'backups' ? 'active' : ''}`}
                     onClick={() => setActiveTab('backups')}
                 >
@@ -476,34 +441,10 @@ const WordPressDetail = () => {
                     <BarChart3 size={14} /> Analytics
                 </div>
                 <div
-                    className={`app-detail-tab ${activeTab === 'vulnerabilities' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('vulnerabilities')}
+                    className={`app-detail-tab app-detail-tab--end ${activeTab === 'settings' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('settings')}
                 >
-                    <ShieldCheck size={14} /> Vulnerabilities
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'security' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('security')}
-                >
-                    <Lock size={14} /> Security
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'updates' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('updates')}
-                >
-                    <RefreshCw size={14} /> Updates
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'php' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('php')}
-                >
-                    <Settings size={14} /> PHP
-                </div>
-                <div
-                    className={`app-detail-tab ${activeTab === 'reports' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('reports')}
-                >
-                    <FileBarChart size={14} /> Reports
+                    <Settings size={14} /> Settings
                 </div>
             </div>
 
@@ -570,7 +511,18 @@ const WordPressDetail = () => {
                     {activeTab === 'updates' && <UpdatesTab siteId={site.id} />}
                     {activeTab === 'php' && <PhpTab siteId={site.id} />}
                     {activeTab === 'reports' && <ReportsTab siteId={site.id} />}
+                    {activeTab === 'settings' && (
+                        <SettingsTab
+                            siteId={site.id}
+                            site={site}
+                            onUpdate={loadSite}
+                            onAddDomain={() => setShowAddDomain(true)}
+                            onChangeUrl={() => setShowChangeUrl(true)}
+                            onClone={() => setShowCloneModal(true)}
+                        />
+                    )}
                 </ErrorBoundary>
+            </div>
             </div>
         </div>
     );
@@ -1821,10 +1773,8 @@ const OverviewTab = ({ site, onUpdate }) => {
     const [objectCache, setObjectCache] = useState(null);
     const [togglingCache, setTogglingCache] = useState(false);
     const [showSearchReplace, setShowSearchReplace] = useState(false);
-    const [health, setHealth] = useState(null);
-    const [diskUsage, setDiskUsage] = useState(null);
-    const [healthLoading, setHealthLoading] = useState(true);
-    const [healthError, setHealthError] = useState(false);
+    const [analytics, setAnalytics] = useState(null);
+    const [uptime, setUptime] = useState(null);
 
     // Live WP-CLI info (core version + update availability) — best-effort.
     useEffect(() => {
@@ -1835,32 +1785,18 @@ const OverviewTab = ({ site, onUpdate }) => {
         return () => { active = false; };
     }, [site.id]);
 
-    // Site health + disk usage (both can be slow / unavailable; non-fatal).
+    // Overview KPI + traffic data: uptime (status page) + analytics (access log).
+    // Both can be slow or unconfigured, so treat as best-effort (null → "—").
     useEffect(() => {
         let cancelled = false;
-        setHealthLoading(true);
-        setHealthError(false);
         (async () => {
-            try {
-                const [healthRes, diskRes] = await Promise.all([
-                    wordpressApi.getProjectHealth(site.id).catch(() => null),
-                    wordpressApi.getProjectDiskUsage(site.id).catch(() => null),
-                ]);
-                if (cancelled) return;
-                const ownHealth = healthRes?.success
-                    ? (healthRes.environments?.[site.id] || healthRes.environments?.[String(site.id)] || null)
-                    : null;
-                setHealth(ownHealth);
-                const ownDisk = diskRes?.success
-                    ? (diskRes.environments?.[site.id] || diskRes.environments?.[String(site.id)] || null)
-                    : null;
-                setDiskUsage(ownDisk?.usage || null);
-                if (!healthRes && !diskRes) setHealthError(true);
-            } catch {
-                if (!cancelled) setHealthError(true);
-            } finally {
-                if (!cancelled) setHealthLoading(false);
-            }
+            const [analyticsRes, statusRes] = await Promise.all([
+                wordpressApi.getSiteAnalytics(site.id, 168).catch(() => null),
+                wordpressApi.getSiteStatusPage(site.id).catch(() => null),
+            ]);
+            if (cancelled) return;
+            setAnalytics(analyticsRes);
+            setUptime(statusRes?.component || null);
         })();
         return () => { cancelled = true; };
     }, [site.id]);
@@ -2079,27 +2015,67 @@ const OverviewTab = ({ site, onUpdate }) => {
         }
     }
 
-    const statusTone = site.status === 'running' ? 'green' : site.status === 'archived' ? 'violet' : 'amber';
-    const statusLabel = (site.status || 'unknown').replace(/^./, c => c.toUpperCase());
+    // ---- Overview KPI + Site-info derivations (real data, honest fallbacks) ----
+    const compactNum = (n) => {
+        if (n == null) return '—';
+        if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+        if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+        return `${n}`;
+    };
+    const [diskVal, diskUnit] = (site.disk_usage_human || '').split(' ');
+    const primaryDomain =
+        (site.application?.domains?.find((d) => d.is_primary) || site.application?.domains?.[0])?.name
+        || (site.url ? site.url.replace(/^https?:\/\//, '').replace(/\/$/, '') : '—');
+    const isHttps = (site.url || '').startsWith('https://');
+    const trafficSeries = analytics?.series || [];
+    const fmtTrafficTick = (iso) => new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
     return (
         <div className="wp-overview">
+            {/* KPI row — deliberately NON-redundant: status + version already live
+                in the page header, so the tiles surface uptime, traffic, error
+                rate, and storage instead. */}
             <div className="wp-kpis">
-                <MetricCard icon={<Activity size={16} />} tone={statusTone} value={statusLabel} label="Status" />
-                <MetricCard icon={<Globe size={16} />} tone="accent" value={wpInfo?.version || site.wp_version || '—'} label="WordPress core" />
-                <MetricCard icon={<HardDrive size={16} />} tone="cyan" value={site.disk_usage_human || '—'} label="Disk usage" />
-                {site.is_production && (
-                    <MetricCard icon={<Layers size={16} />} tone="violet" value={1 + (site.environments || []).length} label="Environments" />
-                )}
+                <MetricCard
+                    tone="green"
+                    icon={<Activity size={16} />}
+                    value={uptime?.uptime_30d != null ? uptime.uptime_30d.toFixed(2) : '—'}
+                    unit={uptime?.uptime_30d != null ? '%' : undefined}
+                    label="Uptime (30d)"
+                />
+                <MetricCard
+                    tone="accent"
+                    icon={<BarChart3 size={16} />}
+                    value={analytics ? compactNum(analytics.unique_visitors ?? 0) : '—'}
+                    label="Visitors (7d)"
+                />
+                <MetricCard
+                    tone={(analytics?.error_rate ?? 0) > 5 ? 'red' : 'amber'}
+                    icon={<AlertTriangle size={16} />}
+                    value={analytics ? `${analytics.error_rate ?? 0}` : '—'}
+                    unit={analytics ? '%' : undefined}
+                    label="Error rate (7d)"
+                />
+                <MetricCard
+                    tone="cyan"
+                    icon={<HardDrive size={16} />}
+                    value={diskVal || '—'}
+                    unit={diskUnit || undefined}
+                    label="Disk used"
+                />
             </div>
-            <div className="app-overview-grid">
-            <div className="app-overview-left">
+
+            <div className="wp-overview-main">
                 <div className="app-panel">
-                    <div className="app-panel-header">Site Information</div>
+                    <div className="app-panel-header">Site information</div>
                     <div className="app-panel-body">
                         <div className="app-info-grid">
                             <div className="app-info-item">
-                                <span className="app-info-label">WordPress Version</span>
+                                <span className="app-info-label">Primary domain</span>
+                                <span className="app-info-value mono">{primaryDomain}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">WordPress</span>
                                 <span className="app-info-value">
                                     {wpInfo?.version || site.wp_version || 'Unknown'}
                                     {wpInfo?.update_available && (
@@ -2107,12 +2083,7 @@ const OverviewTab = ({ site, onUpdate }) => {
                                             <span className="wp-update-badge">
                                                 Update available{wpInfo.latest_version ? `: ${wpInfo.latest_version}` : ''}
                                             </span>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleUpdateCore}
-                                                disabled={updatingCore}
-                                            >
+                                            <Button variant="outline" size="sm" onClick={handleUpdateCore} disabled={updatingCore}>
                                                 {updatingCore ? 'Updating...' : 'Update'}
                                             </Button>
                                         </>
@@ -2120,147 +2091,78 @@ const OverviewTab = ({ site, onUpdate }) => {
                                 </span>
                             </div>
                             <div className="app-info-item">
+                                <span className="app-info-label">PHP</span>
+                                <span className="app-info-value">{site.application?.php_version || '—'}</span>
+                            </div>
+                            <div className="app-info-item">
+                                <span className="app-info-label">SSL</span>
+                                <span className="app-info-value">{isHttps ? 'Enabled' : 'Not configured'}</span>
+                            </div>
+                            <div className="app-info-item">
                                 <span className="app-info-label">Multisite</span>
                                 <span className="app-info-value">{site.multisite ? 'Yes' : 'No'}</span>
                             </div>
                             <div className="app-info-item">
-                                <span className="app-info-label">Admin User</span>
+                                <span className="app-info-label">Admin user</span>
                                 <span className="app-info-value">{site.admin_user || '-'}</span>
                             </div>
-                            <div className="app-info-item">
-                                <span className="app-info-label">Admin Email</span>
+                            <div className="app-info-item full-width">
+                                <span className="app-info-label">Admin email</span>
                                 <span className="app-info-value">{site.admin_email || '-'}</span>
                             </div>
-                            <div className="app-info-item full-width">
-                                <span className="app-info-label">Site URL</span>
-                                <span className="app-info-value">
-                                    {site.url ? (
-                                        <a href={site.url} target="_blank" rel="noopener noreferrer">
-                                            {site.url}
-                                        </a>
-                                    ) : '-'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="app-panel">
-                    <div className="app-panel-header">Database Configuration</div>
-                    <div className="app-panel-body">
-                        <div className="app-info-grid">
-                            <div className="app-info-item">
-                                <span className="app-info-label">Database Name</span>
-                                <span className="app-info-value mono">{site.db_name || '-'}</span>
-                            </div>
-                            <div className="app-info-item">
-                                <span className="app-info-label">Database User</span>
-                                <span className="app-info-value mono">{site.db_user || '-'}</span>
-                            </div>
-                            <div className="app-info-item">
-                                <span className="app-info-label">Database Host</span>
-                                <span className="app-info-value mono">{site.db_host || 'localhost'}</span>
-                            </div>
-                            <div className="app-info-item">
-                                <span className="app-info-label">Table Prefix</span>
-                                <span className="app-info-value mono">{site.db_prefix || 'wp_'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="app-panel">
-                    <div className="app-panel-header">Site Health</div>
-                    <div className="app-panel-body">
-                        {healthLoading ? (
-                            <p className="hint">Checking site health...</p>
-                        ) : (
-                            <>
-                                <div className="app-info-grid">
-                                    <div className="app-info-item">
-                                        <span className="app-info-label">Status</span>
-                                        <span className="app-info-value app-health-stat">
-                                            <HealthDot status={health?.overall_status || site.health_status || 'unknown'} size={10} />
-                                            {(health?.overall_status || site.health_status || 'unknown').replace(/^./, c => c.toUpperCase())}
-                                        </span>
-                                    </div>
-                                    <div className="app-info-item">
-                                        <span className="app-info-label">WordPress Version</span>
-                                        <span className="app-info-value">{wpInfo?.version || site.wp_version || 'Unknown'}</span>
-                                    </div>
-                                    {site.application?.php_version && (
-                                        <div className="app-info-item">
-                                            <span className="app-info-label">PHP Version</span>
-                                            <span className="app-info-value">{site.application.php_version}</span>
-                                        </div>
-                                    )}
-                                    <div className="app-info-item">
-                                        <span className="app-info-label">Container</span>
-                                        <span className="app-info-value app-health-stat">
-                                            <HealthDot status={health?.checks?.container?.status || 'unknown'} size={8} />
-                                            {health?.checks?.container?.message || (site.status === 'running' ? 'Running' : 'Stopped')}
-                                        </span>
-                                    </div>
-                                    <div className="app-info-item">
-                                        <span className="app-info-label">Database</span>
-                                        <span className="app-info-value app-health-stat">
-                                            <HealthDot status={health?.checks?.mysql?.status || 'unknown'} size={8} />
-                                            {health?.checks?.mysql?.message || '-'}
-                                        </span>
-                                    </div>
-                                    <div className="app-info-item">
-                                        <span className="app-info-label">HTTP</span>
-                                        <span className="app-info-value app-health-stat">
-                                            <HealthDot status={health?.checks?.wordpress?.status || 'unknown'} size={8} />
-                                            {health?.checks?.wordpress?.message || '-'}
-                                        </span>
-                                    </div>
+                            {site.created_at && (
+                                <div className="app-info-item">
+                                    <span className="app-info-label">Created</span>
+                                    <span className="app-info-value">{new Date(site.created_at).toLocaleDateString()}</span>
                                 </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
-                                {diskUsage ? (
-                                    <div className="app-health-disk">
-                                        <span className="app-info-label">Disk Usage</span>
-                                        <DiskUsageBar usage={diskUsage} />
-                                    </div>
-                                ) : (
-                                    <p className="hint">Disk usage unavailable.</p>
-                                )}
-
-                                {healthError && !health && (
-                                    <p className="hint">Live health checks unavailable for this site.</p>
-                                )}
-                            </>
+                <div className="app-panel wp-traffic-panel">
+                    <div className="app-panel-header">
+                        Traffic
+                        <span className="wp-panel-sub">Last 7 days · unique visits</span>
+                    </div>
+                    <div className="app-panel-body">
+                        {trafficSeries.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={250}>
+                                <AreaChart data={trafficSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="wpOvVisits" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#6d7cff" stopOpacity={0.35} />
+                                            <stop offset="95%" stopColor="#6d7cff" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#888" strokeOpacity={0.15} />
+                                    <XAxis dataKey="hour" tickFormatter={fmtTrafficTick} tick={{ fontSize: 11, fill: '#888' }} minTickGap={28} axisLine={false} tickLine={false} />
+                                    <YAxis allowDecimals={false} tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`)} tick={{ fontSize: 11, fill: '#888' }} width={34} axisLine={false} tickLine={false} />
+                                    <Tooltip labelFormatter={fmtTrafficTick} />
+                                    <Area type="monotone" dataKey="requests" name="Visits" stroke="#8b93ff" fill="url(#wpOvVisits)" strokeWidth={2} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <p className="hint">No traffic recorded for this period yet — it&apos;s parsed from the site&apos;s access log.</p>
                         )}
                     </div>
                 </div>
+            </div>
 
-                {site.git_repo_url && (
-                    <div className="app-panel">
-                        <div className="app-panel-header">Git Integration</div>
-                        <div className="app-panel-body">
-                            <div className="app-info-grid">
-                                <div className="app-info-item full-width">
-                                    <span className="app-info-label">Repository</span>
-                                    <span className="app-info-value mono">{site.git_repo_url}</span>
-                                </div>
-                                <div className="app-info-item">
-                                    <span className="app-info-label">Branch</span>
-                                    <span className="app-info-value">{site.git_branch || 'main'}</span>
-                                </div>
-                                <div className="app-info-item">
-                                    <span className="app-info-label">Auto Deploy</span>
-                                    <span className="app-info-value">{site.auto_deploy ? 'Enabled' : 'Disabled'}</span>
-                                </div>
-                                {site.last_deploy_commit && (
-                                    <div className="app-info-item">
-                                        <span className="app-info-label">Last Deploy</span>
-                                        <span className="app-info-value mono">{site.last_deploy_commit.substring(0, 7)}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <div className="app-panel wp-activity-panel">
+                <div className="app-panel-header">Recent activity</div>
+                <div className="app-panel-body">
+                    <ActivityFeed projectId={site.id} limit={6} />
+                </div>
+            </div>
+
+            <div className="app-overview-grid">
+            <div className="app-overview-left">
+
+                {/* Database Configuration, Site Health & Git Integration moved off the
+                    Overview — that data lives in the Database / Uptime / Git tabs, and the
+                    Overview now leads with KPIs + Site info + Traffic + Recent activity. */}
+
                 <SiteSSLPanel site={site} />
 
                 <div className="app-panel">
@@ -3718,6 +3620,7 @@ const GitTab = ({ siteId, site, onUpdate }) => {
                         currentCommit={site.last_deploy_commit}
                         onDeploy={handleDeploy}
                         onCreateDev={handleCreateDev}
+                        repoUrl={gitStatus?.repo_url}
                     />
                 </div>
             )}
@@ -3803,6 +3706,107 @@ const BackupsTab = ({ siteId }) => {
                     onDelete={handleDelete}
                 />
             )}
+        </div>
+    );
+};
+
+// Settings tab — a left sub-nav that consolidates per-site configuration which
+// used to be its own top-level tabs (PHP, safe Updates, …). Each section just
+// reuses the existing tab component, so behavior is unchanged — only the home
+// moves. Defined last so the section components above are already in scope.
+// General settings — site-level actions that don't warrant an everyday top-bar
+// button (point a domain, change the URL, clone the site). They open the modals
+// that already live in WordPressDetail, via handlers passed down through ctx.
+const GeneralSettings = ({ onAddDomain, onChangeUrl, onClone }) => (
+    <div className="app-overview-grid">
+        <div className="app-overview-left">
+            <div className="app-panel">
+                <div className="app-panel-header">Domains &amp; URL</div>
+                <div className="app-panel-body">
+                    <p className="hint">Point a custom domain you own at this site (auto-DNS + migrate), or change its primary URL with a serialization-safe database rewrite.</p>
+                    <div className="app-detail-actions">
+                        <Button variant="outline" size="sm" onClick={onAddDomain}>
+                            <Plus size={15} /> Add Domain
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={onChangeUrl}>
+                            <Globe size={15} /> Change URL
+                        </Button>
+                    </div>
+                </div>
+            </div>
+            <div className="app-panel">
+                <div className="app-panel-header">Duplicate site</div>
+                <div className="app-panel-body">
+                    <p className="hint">Clone this site as a brand-new independent site (its own Docker stack and database) with fresh admin credentials.</p>
+                    <div className="app-detail-actions">
+                        <Button variant="outline" size="sm" onClick={onClone}>
+                            <Copy size={15} /> Clone site
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+// Grouped left nav for the Settings tab. Each item just re-renders the existing
+// per-feature component (passed a single `ctx`), so behavior is unchanged — only
+// the home moves here to keep the top tab strip short. Groups give the nav
+// structure (the user's "group section" idea) and room to grow.
+const WP_SETTINGS_GROUPS = [
+    { label: 'General', items: [
+        { id: 'general', label: 'General', icon: Globe, render: (ctx) => <GeneralSettings {...ctx} /> },
+    ] },
+    { label: 'Configuration', items: [
+        { id: 'php', label: 'PHP', icon: Settings, render: (ctx) => <PhpTab siteId={ctx.siteId} /> },
+        { id: 'updates', label: 'Updates', icon: RefreshCw, render: (ctx) => <UpdatesTab siteId={ctx.siteId} /> },
+    ] },
+    { label: 'Connections', items: [
+        { id: 'git', label: 'Git', icon: GitBranch, render: (ctx) => <GitTab siteId={ctx.siteId} site={ctx.site} onUpdate={ctx.onUpdate} /> },
+    ] },
+    { label: 'Security', items: [
+        { id: 'security', label: 'Security', icon: Lock, render: (ctx) => <SecurityTab siteId={ctx.siteId} /> },
+        { id: 'vulnerabilities', label: 'Vulnerabilities', icon: ShieldCheck, render: (ctx) => <VulnerabilitiesTab siteId={ctx.siteId} /> },
+    ] },
+    { label: 'Reports', items: [
+        { id: 'reports', label: 'Reports', icon: FileBarChart, render: (ctx) => <ReportsTab siteId={ctx.siteId} /> },
+    ] },
+];
+
+const WP_SETTINGS_ITEMS = WP_SETTINGS_GROUPS.flatMap((g) => g.items);
+
+const SettingsTab = ({ siteId, site, onUpdate, onAddDomain, onChangeUrl, onClone }) => {
+    // Section lives in the URL (/wordpress/:id/settings/:section) so it's
+    // shareable and survives a refresh, instead of resetting to General.
+    const { id, section: sectionParam } = useParams();
+    const navigate = useNavigate();
+    const section = WP_SETTINGS_ITEMS.some((s) => s.id === sectionParam) ? sectionParam : 'general';
+    const setSection = (s) => navigate(`/wordpress/${id}/settings/${s}`, { replace: true });
+    const active = WP_SETTINGS_ITEMS.find((s) => s.id === section) || WP_SETTINGS_ITEMS[0];
+    const ctx = { siteId, site, onUpdate, onAddDomain, onChangeUrl, onClone };
+    return (
+        <div className="wp-settings">
+            <nav className="wp-settings__nav" aria-label="WordPress settings sections">
+                {WP_SETTINGS_GROUPS.map((g) => (
+                    <div className="wp-settings__group" key={g.label}>
+                        <div className="wp-settings__grouplabel">{g.label}</div>
+                        {g.items.map((s) => (
+                            <button
+                                type="button"
+                                key={s.id}
+                                className={`wp-settings__navitem ${section === s.id ? 'is-active' : ''}`}
+                                onClick={() => setSection(s.id)}
+                            >
+                                <s.icon size={15} />
+                                {s.label}
+                            </button>
+                        ))}
+                    </div>
+                ))}
+            </nav>
+            <div className="wp-settings__content">
+                {active.render(ctx)}
+            </div>
         </div>
     );
 };

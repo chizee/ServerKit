@@ -393,6 +393,19 @@ export async function getGiteaVersion() {
     return this.request('/git/version');
 }
 
+// Self-documenting aliases for the local Gitea endpoints used by repo pickers.
+export async function getGiteaStatus() {
+    return this.request('/git/status');
+}
+
+export async function getGiteaRepositories(limit = 50) {
+    return this.request(`/git/repos?limit=${limit}`);
+}
+
+export async function getGiteaBranches(owner, repo) {
+    return this.request(`/git/repos/${owner}/${repo}/branches`);
+}
+
 // Git Deployments
 export async function getAppDeployments(appId, limit = 20) {
     return this.request(`/git/deployments/app/${appId}?limit=${limit}`);

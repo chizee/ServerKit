@@ -1,23 +1,9 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models import User
+from flask_jwt_extended import jwt_required
+from app.middleware.rbac import admin_required
 from app.services.security_service import SecurityService
 
 security_bp = Blueprint('security', __name__)
-
-
-def admin_required(fn):
-    """Decorator to require admin role."""
-    from functools import wraps
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return fn(*args, **kwargs)
-    return wrapper
 
 
 # ==========================================
@@ -86,6 +72,15 @@ def install_clamav():
 def update_definitions():
     """Update ClamAV virus definitions."""
     result = SecurityService.update_definitions()
+    return jsonify(result), 200 if result['success'] else 400
+
+
+@security_bp.route('/clamav/start', methods=['POST'])
+@jwt_required()
+@admin_required
+def start_clamav():
+    """Start the ClamAV daemon (one-click posture fix)."""
+    result = SecurityService.start_clamav()
     return jsonify(result), 200 if result['success'] else 400
 
 

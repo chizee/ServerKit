@@ -228,6 +228,8 @@ $lk-default:  #646b7a;
     letter-spacing: 0.08em;
     font-weight: $font-weight-semibold;
     color: var(--text-ghost);
+
+    &.is-indented { padding-left: 8px; }
 }
 
 .lv-header-hint {
@@ -387,6 +389,8 @@ $lk-default:  #646b7a;
             background: var(--surface);
         }
     }
+
+    &.has-no-icon input { padding-left: 8px; }
 }
 
 .lv-sidebar-body {
@@ -411,6 +415,17 @@ $lk-default:  #646b7a;
 
     svg { opacity: 0.6; }
     p { margin: 0; font-size: $font-size-sm; }
+
+    &.is-compact { padding: 12px; }
+    &.is-medium { min-height: 320px; }
+    &.is-tall { min-height: 400px; }
+
+    &__title {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: $font-size-lg;
+        font-weight: $font-weight-semibold;
+    }
 }
 
 // ─── Rail group (mono eyebrow header) ─────────────────
@@ -435,6 +450,9 @@ $lk-default:  #646b7a;
     letter-spacing: 0.1em;
     cursor: pointer;
     border-radius: $radius-sm;
+
+    &.is-static { cursor: default; }
+    &__spacer { width: 12px; }
     @include transition(color);
 
     &:hover { background: transparent; color: var(--text-faint); }
@@ -490,6 +508,13 @@ $lk-default:  #646b7a;
 
         .lv-file-name { color: var(--text); font-weight: $font-weight-medium; }
     }
+
+    &--compact {
+        grid-template-columns: 8px 1fr;
+        grid-template-areas:
+            'dot name'
+            'dot name';
+    }
 }
 
 .lv-file-dot {
@@ -499,6 +524,7 @@ $lk-default:  #646b7a;
     border-radius: 50%;
     background: $lk-default;
 
+    &.is-accent     { background: var(--accent); }
     &.kind-error    { background: $lk-error; }
     &.kind-access   { background: $lk-access; }
     &.kind-nginx    { background: $lk-nginx; }
@@ -607,6 +633,8 @@ $lk-default:  #646b7a;
     border-radius: 8px;
     min-width: 220px;
     @include transition(all);
+
+    &.is-wide { min-width: 260px; }
 
     &:focus-within {
         border-color: var(--accent-dim);
@@ -758,6 +786,80 @@ $lk-default:  #646b7a;
     }
 }
 
+// Wrapper around the scroll area so the floating LIVE badge can pin to the
+// corner while the log content scrolls underneath.
+.lv-content-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+// "Pulling live" indicator shown while a log auto-follows its tail.
+.lv-live-badge {
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #fff;
+    background: var(--red, #dc2626);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+.lv-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #fff;
+    animation: lv-live-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes lv-live-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.65); }
+}
+
+// Full-bleed terminal/logs: fill the content region like the Servers ops view
+// instead of a fixed `calc(100vh - …)`. The page is a flex column; the Radix
+// Tabs panel and the inner panes stretch to fill the available height.
+.terminal-page.page-container--full-bleed {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: $space-3 $space-4;
+    overflow: hidden;
+
+    > .sk-topbar { flex-shrink: 0; }
+
+    // The routed sections now render straight into .tab-content (no shadcn
+    // Tabs wrapper); it fills the height and the active pane flexes to fit.
+    > .tab-content {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .term-shell,
+    .lv-page:not(.fullscreen),
+    .proc-page,
+    .svc-page {
+        flex: 1;
+        height: auto;
+        min-height: 0;
+    }
+}
+
 .lv-content-loading,
 .lv-content-empty {
     display: flex;
@@ -768,6 +870,8 @@ $lk-default:  #646b7a;
     padding: $space-8;
 
     p { margin: 0; max-width: 360px; line-height: 1.5; }
+
+    &.is-medium { min-height: 320px; }
 }
 
 .lv-lines {
@@ -1174,6 +1278,7 @@ $lk-default:  #646b7a;
     background: var(--text-ghost);
     flex-shrink: 0;
 
+    &.is-large { width: 12px; height: 12px; }
     &.status-running { background: var(--green); box-shadow: 0 0 0 3px fade($success, 18%); }
     &.status-failed  { background: var(--red);   box-shadow: 0 0 0 3px fade($danger, 18%); }
     &.status-stopped { background: var(--text-ghost); }

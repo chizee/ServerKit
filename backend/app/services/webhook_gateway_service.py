@@ -3,7 +3,6 @@ import hashlib
 import hmac
 import json
 import logging
-import re
 import secrets
 import uuid
 from datetime import datetime
@@ -13,6 +12,7 @@ import requests
 
 from app import db
 from app.models import WebhookEndpoint, WebhookDelivery
+from app.utils.slug import unique_slug
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +21,11 @@ class WebhookGatewayService:
     """Receive, inspect, route, and replay inbound webhooks."""
 
     @classmethod
-    def list_endpoints(cls) -> List[Dict]:
-        return [e.to_dict() for e in WebhookEndpoint.query.order_by(WebhookEndpoint.name).all()]
+    def list_endpoints(cls, workspace_id: int = None) -> List[Dict]:
+        query = WebhookEndpoint.query
+        if workspace_id is not None:
+            query = query.filter(WebhookEndpoint.workspace_id == workspace_id)
+        return [e.to_dict() for e in query.order_by(WebhookEndpoint.name).all()]
 
     @classmethod
     def get_endpoint(cls, endpoint_id: int) -> Optional[WebhookEndpoint]:
@@ -33,24 +36,17 @@ class WebhookGatewayService:
         return WebhookEndpoint.query.filter_by(slug=slug, is_active=True).first()
 
     @classmethod
-    def _slugify(cls, name: str) -> str:
-        base = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-        return base or 'endpoint'
-
-    @classmethod
     def _unique_slug(cls, name: str) -> str:
-        base = cls._slugify(name)
-        slug = base
-        counter = 1
-        while WebhookEndpoint.query.filter_by(slug=slug).first():
-            slug = f'{base}-{counter}'
-            counter += 1
-        return slug
+        return unique_slug(
+            name,
+            lambda s: WebhookEndpoint.query.filter_by(slug=s).first() is not None,
+            default='endpoint',
+        )
 
     @classmethod
     def create_endpoint(cls, name: str, secret: str = None, forward_url: str = None,
                         filter_paths: List[str] = None, retry_count: int = 3,
-                        user_id: int = None) -> Dict:
+                        user_id: int = None, workspace_id: int = None) -> Dict:
         if WebhookEndpoint.query.filter_by(name=name).first():
             return {'success': False, 'error': 'Endpoint name already exists'}
         endpoint = WebhookEndpoint(
@@ -60,6 +56,7 @@ class WebhookGatewayService:
             forward_url=forward_url,
             retry_count=retry_count,
             created_by=user_id,
+            workspace_id=workspace_id,
         )
         if filter_paths:
             endpoint.set_filter_paths(filter_paths)

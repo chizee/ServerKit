@@ -1,11 +1,11 @@
 import hashlib
 import logging
 import secrets
-import re
 from datetime import datetime
 from app import db
 from app.models.workspace import Workspace, WorkspaceMember, WorkspaceApiKey
 from app.models.user import User
+from app.utils.slug import unique_slug
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +14,6 @@ class WorkspaceService:
     """Service for multi-tenancy workspace management."""
 
     DEFAULT_WORKSPACE_SLUG = 'default'
-
-    @staticmethod
-    def _slugify(name):
-        slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-        return slug or 'workspace'
 
     # --- Scoping (#33 foundation) ---
     #
@@ -161,13 +156,11 @@ class WorkspaceService:
         if not name:
             raise ValueError('Workspace name required')
 
-        slug = WorkspaceService._slugify(name)
-        # Ensure unique slug
-        base_slug = slug
-        counter = 1
-        while Workspace.query.filter_by(slug=slug).first():
-            slug = f'{base_slug}-{counter}'
-            counter += 1
+        slug = unique_slug(
+            name,
+            lambda s: Workspace.query.filter_by(slug=s).first() is not None,
+            default='workspace',
+        )
 
         workspace = Workspace(
             name=name,

@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
-import { LayoutTemplate, FileCog } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
-import { SERVER_TABS } from '../components/servers/serverTabs';
+import { LayoutTemplate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -127,25 +126,18 @@ const ServerTemplates = () => {
         general: 'General', web: 'Web Server', database: 'Database', mail: 'Mail Server', custom: 'Custom'
     };
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    // Publish the admin "Create Template" action to the shared tab-group top bar.
+    useTopbarActions(() =>
+        user?.is_admin ? (
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>Create Template</Button>
+        ) : null,
+        [user?.is_admin]
+    );
+
+    if (loading) return <PageLoader />;
 
     return (
-        <div className="page-container server-templates-page">
-            <PageTopbar
-                icon={<FileCog size={18} />}
-                title="Server Templates"
-                tabs={SERVER_TABS}
-                actions={(
-                    <>
-                        {user?.is_admin && (
-                            <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                                Create Template
-                            </Button>
-                        )}
-                    </>
-                )}
-            />
-
+        <div className="sk-tabgroup__inner server-templates-page">
             {compliance && (
                 <div className="compliance-bar">
                     <div className="compliance-bar__stats">

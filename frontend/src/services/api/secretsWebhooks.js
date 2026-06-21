@@ -1,82 +1,84 @@
-// Secrets manager + inbound webhook gateway API methods
+// Secrets manager + inbound webhook gateway API methods.
+// NOTE: the ApiService exposes a single `request(path, { method, body })`
+// helper (not get/post/patch/delete) — use it like every other api module.
 
 export async function listVaults() {
-    return this.get('/vaults');
+    return this.request('/vaults');
 }
 
 export async function createVault(data) {
-    return this.post('/vaults', data);
+    return this.request('/vaults', { method: 'POST', body: data });
 }
 
 export async function getVault(id) {
-    return this.get(`/vaults/${id}`);
+    return this.request(`/vaults/${id}`);
 }
 
 export async function updateVault(id, data) {
-    return this.patch(`/vaults/${id}`, data);
+    return this.request(`/vaults/${id}`, { method: 'PATCH', body: data });
 }
 
 export async function deleteVault(id) {
-    return this.delete(`/vaults/${id}`);
+    return this.request(`/vaults/${id}`, { method: 'DELETE' });
 }
 
 export async function listSecrets(vaultId) {
-    return this.get(`/vaults/${vaultId}/secrets`);
+    return this.request(`/vaults/${vaultId}/secrets`);
 }
 
 export async function createSecret(vaultId, data) {
-    return this.post(`/vaults/${vaultId}/secrets`, data);
+    return this.request(`/vaults/${vaultId}/secrets`, { method: 'POST', body: data });
 }
 
 export async function bulkCreateSecrets(vaultId, secrets) {
-    return this.post(`/vaults/${vaultId}/secrets/bulk`, { secrets });
+    return this.request(`/vaults/${vaultId}/secrets/bulk`, { method: 'POST', body: { secrets } });
 }
 
 export async function getSecret(id) {
-    return this.get(`/secrets/${id}`);
+    return this.request(`/secrets/${id}`);
 }
 
 export async function updateSecret(id, data) {
-    return this.patch(`/secrets/${id}`, data);
+    return this.request(`/secrets/${id}`, { method: 'PATCH', body: data });
 }
 
 export async function revealSecret(id) {
-    return this.post(`/secrets/${id}/reveal`);
+    return this.request(`/secrets/${id}/reveal`, { method: 'POST' });
 }
 
 export async function deleteSecret(id) {
-    return this.delete(`/secrets/${id}`);
+    return this.request(`/secrets/${id}`, { method: 'DELETE' });
 }
 
 export async function listWebhookEndpoints() {
-    return this.get('/webhooks/endpoints');
+    return this.request('/webhooks/endpoints');
 }
 
 export async function createWebhookEndpoint(data) {
-    return this.post('/webhooks/endpoints', data);
+    return this.request('/webhooks/endpoints', { method: 'POST', body: data });
 }
 
 export async function getWebhookEndpoint(id) {
-    return this.get(`/webhooks/endpoints/${id}`);
+    return this.request(`/webhooks/endpoints/${id}`);
 }
 
 export async function updateWebhookEndpoint(id, data) {
-    return this.patch(`/webhooks/endpoints/${id}`, data);
+    return this.request(`/webhooks/endpoints/${id}`, { method: 'PATCH', body: data });
 }
 
 export async function regenerateWebhookSecret(id) {
-    return this.post(`/webhooks/endpoints/${id}/regenerate-secret`);
+    return this.request(`/webhooks/endpoints/${id}/regenerate-secret`, { method: 'POST' });
 }
 
 export async function deleteWebhookEndpoint(id) {
-    return this.delete(`/webhooks/endpoints/${id}`);
+    return this.request(`/webhooks/endpoints/${id}`, { method: 'DELETE' });
 }
 
 export async function listWebhookDeliveries(endpointId, params = {}) {
     const query = new URLSearchParams(params).toString();
-    return this.get(`/webhooks/endpoints/${endpointId}/deliveries${query ? `?${query}` : ''}`);
+    return this.request(`/webhooks/endpoints/${endpointId}/deliveries${query ? `?${query}` : ''}`);
 }
 
 export async function replayWebhookDelivery(deliveryId) {
-    return this.post(`/webhooks/deliveries/${deliveryId}/replay`);
+    return this.request(`/webhooks/deliveries/${deliveryId}/replay`, { method: 'POST' });
 }

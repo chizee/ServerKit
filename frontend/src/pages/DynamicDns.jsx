@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Network, Radio, Copy, Check, AlertTriangle } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
+import { Network, AlertTriangle } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { FormField } from '../components/FormField';
+import CopyButton from '../components/CopyButton';
+import { DataTable } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectTrigger,
@@ -19,21 +20,7 @@ import {
 
 // One-time token callout — the token is only returned once on create/regenerate.
 const TokenCallout = ({ host, onDismiss }) => {
-    const toast = useToast();
-    const [copied, setCopied] = useState(null);
-
     const updateUrl = `${window.location.origin}/api/v1/ddns/update?token=${host.token}`;
-
-    async function copy(text, key) {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopied(key);
-            toast.success('Copied to clipboard');
-            setTimeout(() => setCopied(null), 1500);
-        } catch {
-            toast.error('Copy failed — copy it manually');
-        }
-    }
 
     return (
         <div className="ddns-token-callout">
@@ -50,17 +37,13 @@ const TokenCallout = ({ host, onDismiss }) => {
             <div className="ddns-token-callout__row">
                 <span className="ddns-token-callout__label">Token</span>
                 <code className="ddns-token-callout__value">{host.token}</code>
-                <Button variant="outline" size="sm" onClick={() => copy(host.token, 'token')}>
-                    {copied === 'token' ? <Check size={14} /> : <Copy size={14} />}
-                </Button>
+                <CopyButton value={host.token} label="Copy token" size="sm" variant="outline" />
             </div>
 
             <div className="ddns-token-callout__row">
                 <span className="ddns-token-callout__label">Update URL</span>
                 <code className="ddns-token-callout__value">{updateUrl}</code>
-                <Button variant="outline" size="sm" onClick={() => copy(updateUrl, 'url')}>
-                    {copied === 'url' ? <Check size={14} /> : <Copy size={14} />}
-                </Button>
+                <CopyButton value={updateUrl} label="Copy URL" size="sm" variant="outline" />
             </div>
         </div>
     );
@@ -149,16 +132,10 @@ const DynamicDns = () => {
         }
     }
 
-    if (loading) return <div className="page-container"><Spinner /></div>;
+    if (loading) return <PageLoader />;
 
     return (
-        <div className="page-container ddns-page">
-            <PageTopbar
-                icon={<Radio size={18} />}
-                title="Dynamic DNS"
-                meta={`${hosts.length} host${hosts.length !== 1 ? 's' : ''}`}
-            />
-
+        <div className="sk-tabgroup__inner ddns-page">
             {revealedToken && (
                 <TokenCallout host={revealedToken} onDismiss={() => setRevealedToken(null)} />
             )}
@@ -172,10 +149,9 @@ const DynamicDns = () => {
                         update URL. The token is shown once after creation.
                     </p>
 
-                    <div className="form-group">
-                        <Label>Zone</Label>
+                    <FormField label="Zone">
                         <Select value={form.zone_id} onValueChange={(v) => setForm({ ...form, zone_id: v })}>
-                            <SelectTrigger>
+                            <SelectTrigger id="ddns-zone">
                                 <SelectValue placeholder={zones.length ? 'Select a zone' : 'No zones available'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -184,25 +160,25 @@ const DynamicDns = () => {
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </FormField>
 
-                    <div className="form-group">
-                        <Label>Record name</Label>
+                    <FormField label="Record name" htmlFor="ddns-record">
                         <Input
+                            id="ddns-record"
                             value={form.record_name}
                             onChange={(e) => setForm({ ...form, record_name: e.target.value })}
                             placeholder="home (or @ for the apex)"
                         />
-                    </div>
+                    </FormField>
 
-                    <div className="form-group">
-                        <Label>Label (optional)</Label>
+                    <FormField label="Label (optional)" htmlFor="ddns-label" hint="e.g. Home office router">
                         <Input
+                            id="ddns-label"
                             value={form.label}
                             onChange={(e) => setForm({ ...form, label: e.target.value })}
                             placeholder="e.g. Home office router"
                         />
-                    </div>
+                    </FormField>
 
                     <Button onClick={handleCreate} disabled={creating || zones.length === 0}>
                         {creating ? 'Creating…' : 'Create host'}
@@ -214,56 +190,55 @@ const DynamicDns = () => {
 
                 {/* Hosts table */}
                 <div className="ddns-hosts">
-                    <table className="sk-dtable ddns-hosts__table">
-                        <thead>
-                            <tr>
-                                <th>Hostname</th>
-                                <th>Last IP</th>
-                                <th>Last update</th>
-                                <th>Status</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {hosts.map((host) => (
-                                <tr key={host.id}>
-                                    <td>
-                                        <div className="ddns-hosts__name">
-                                            <strong>{host.hostname || host.record_name}</strong>
-                                            {host.label && <span className="text-muted">{host.label}</span>}
-                                        </div>
-                                    </td>
-                                    <td className="sk-cell-mono">{host.last_ip || '—'}</td>
-                                    <td>
-                                        {host.last_update_at
-                                            ? new Date(host.last_update_at).toLocaleString()
-                                            : 'Never'}
-                                    </td>
-                                    <td>
+                    <DataTable
+                        tableClassName="sk-dtable ddns-hosts__table"
+                        sortable={false}
+                        data={hosts}
+                        keyField="id"
+                        emptyState={<EmptyState icon={Network} title="No dynamic DNS hosts yet" />}
+                        columns={[
+                            {
+                                key: 'hostname',
+                                header: 'Hostname',
+                                render: (host) => (
+                                    <div className="ddns-hosts__name">
+                                        <strong>{host.hostname || host.record_name}</strong>
+                                        {host.label && <span className="text-muted">{host.label}</span>}
+                                    </div>
+                                ),
+                            },
+                            { key: 'lastIp', header: 'Last IP', render: (host) => <span className="sk-cell-mono">{host.last_ip || '—'}</span> },
+                            {
+                                key: 'lastUpdate',
+                                header: 'Last update',
+                                render: (host) => (host.last_update_at ? new Date(host.last_update_at).toLocaleString() : 'Never'),
+                            },
+                            {
+                                key: 'status',
+                                header: 'Status',
+                                render: (host) => (
+                                    <>
                                         <span className={`status-dot status-dot--${host.enabled ? 'success' : 'danger'}`} />
                                         {host.enabled ? 'Enabled' : 'Disabled'}
-                                    </td>
-                                    <td>
-                                        <div className="ddns-hosts__actions">
-                                            <Button variant="outline" size="sm" onClick={() => handleRegenerate(host)}>
-                                                Regenerate token
-                                            </Button>
-                                            <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(host)}>
-                                                Delete
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {hosts.length === 0 && (
-                                <tr>
-                                    <td colSpan={5}>
-                                        <EmptyState icon={Network} title="No dynamic DNS hosts yet" />
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    </>
+                                ),
+                            },
+                            {
+                                key: 'actions',
+                                header: '',
+                                render: (host) => (
+                                    <div className="ddns-hosts__actions">
+                                        <Button variant="outline" size="sm" onClick={() => handleRegenerate(host)}>
+                                            Regenerate token
+                                        </Button>
+                                        <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(host)}>
+                                            Delete
+                                        </Button>
+                                    </div>
+                                ),
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 

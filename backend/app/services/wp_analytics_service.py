@@ -23,6 +23,8 @@ import subprocess
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
+from app.utils.formatting import format_bytes
+
 
 # Apache "combined" CustomLog (the official wordpress:*-apache default to stdout):
 #   %h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i"
@@ -257,8 +259,4 @@ class WpAnalyticsService:
 
     @staticmethod
     def _human_bytes(n):
-        size = float(n)
-        for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
-            if size < 1024 or unit == 'TB':
-                return f'{size:.0f} {unit}' if unit == 'B' else f'{size:.1f} {unit}'
-            size /= 1024
+        return format_bytes(n, suffix_sep=' ')

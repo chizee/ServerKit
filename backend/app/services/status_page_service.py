@@ -1,5 +1,4 @@
 import logging
-import re
 import socket
 import time
 from datetime import datetime, timedelta
@@ -7,6 +6,7 @@ from app import db
 from app.models.status_page import (
     StatusPage, StatusComponent, HealthCheck, StatusIncident, StatusIncidentUpdate
 )
+from app.utils.slug import validate_slug
 
 logger = logging.getLogger(__name__)
 
@@ -14,19 +14,9 @@ logger = logging.getLogger(__name__)
 class StatusPageService:
     """Service for public status pages and automated health checks."""
 
-    SLUG_PATTERN = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
-
     @staticmethod
     def normalize_slug(value):
-        slug = (value or '').strip().lower()
-        slug = re.sub(r'[\s_]+', '-', slug)
-        slug = re.sub(r'[^a-z0-9-]', '', slug)
-        slug = re.sub(r'-{2,}', '-', slug).strip('-')
-        if not slug:
-            raise ValueError('Slug is required')
-        if not StatusPageService.SLUG_PATTERN.match(slug):
-            raise ValueError('Slug can only contain lowercase letters, numbers, and hyphens')
-        return slug
+        return validate_slug(value)
 
     # --- Pages ---
 
