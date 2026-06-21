@@ -3620,6 +3620,7 @@ const GitTab = ({ siteId, site, onUpdate }) => {
                         currentCommit={site.last_deploy_commit}
                         onDeploy={handleDeploy}
                         onCreateDev={handleCreateDev}
+                        repoUrl={gitStatus?.repo_url}
                     />
                 </div>
             )}

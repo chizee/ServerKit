@@ -115,10 +115,19 @@
         line-height: 1.45;
     }
 
+    // Icon tiles: grid + place-items is the most reliable centering (no inline
+    // baseline/descender offset that inline-flex leaves behind), and a block SVG
+    // drops the phantom inline gap — that's what left the glyphs off-center.
     &__method-icon,
-    &__provider-title svg,
     &__connect-icon,
     &__deploy-icon {
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+
+        svg { display: block; }
+    }
+    &__provider-title svg {
         display: inline-flex;
         align-items: center;
         justify-content: center;

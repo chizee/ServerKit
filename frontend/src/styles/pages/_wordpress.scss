@@ -1310,6 +1310,17 @@
         padding: 2px 7px;
         border-radius: 5px;
     }
+    // Clickable SHA → the commit on the remote host.
+    a.commit-sha--link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-decoration: none;
+        transition: background 0.14s;
+
+        svg { opacity: 0.6; }
+        &:hover { background: var(--accent-bg-soft); text-decoration: underline; svg { opacity: 1; } }
+    }
 
     .current-badge {
         font-family: var(--mono);
