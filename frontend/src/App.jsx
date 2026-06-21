@@ -5,6 +5,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LayoutProvider } from './contexts/LayoutContext';
 import { ResourceTierProvider } from './contexts/ResourceTierContext';
+import { NotificationsProvider } from './contexts/NotificationsContext';
 import { Toaster } from './components/ui/sonner';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
@@ -70,6 +71,8 @@ import Deployments from './pages/Deployments';
 import GpuMonitor from './pages/GpuMonitor';
 import DynamicDns from './pages/DynamicDns';
 import QueueOperations from './pages/QueueOperations';
+import Notifications from './pages/Notifications';
+import DeliveryLog from './pages/DeliveryLog';
 import useExtensionRoutes from './plugins/ExtensionRoutes';
 import { useContributions } from './plugins/contributions';
 
@@ -121,6 +124,8 @@ const PAGE_TITLES = {
     '/gpu': 'GPU Monitor',
     '/dynamic-dns': 'Dynamic DNS',
     '/queue': 'Queue Bus',
+    '/notifications': 'Notifications',
+    '/admin/notifications': 'Notification Delivery Log',
 };
 
 function PageTitleUpdater() {
@@ -357,6 +362,8 @@ function AppRoutes() {
                 <Route path="secrets" element={<SecretsWebhooks />} />
                 <Route path="secrets/:tab" element={<SecretsWebhooks />} />
                 <Route path="queue" element={<QueueOperations />} />
+                <Route path="notifications" element={<Notifications />} />
+                <Route path="admin/notifications" element={<DeliveryLog />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="settings/:tab" element={<Settings />} />
                 {dashboardRoutes}
@@ -374,7 +381,9 @@ function App() {
                     <AuthProvider>
                         <ResourceTierProvider>
                             <ToastProvider>
-                                <AppRoutes />
+                                <NotificationsProvider>
+                                    <AppRoutes />
+                                </NotificationsProvider>
                                 <Toaster />
                             </ToastProvider>
                         </ResourceTierProvider>

@@ -6,6 +6,7 @@ import { useLayout } from '../contexts/LayoutContext';
 import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, ChevronUp, Layers, Palette, PanelLeft, PanelLeftClose, PanelTop, Check, X, Server } from 'lucide-react';
 import { api } from '../services/api';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import NotificationBell from './NotificationBell';
 import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
 import { useContributions } from '../plugins/contributions';
 
@@ -493,6 +494,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         </button>
                     </div>
                 )}
+                <div className="sidebar-footer__row">
+                    <NotificationBell />
+                </div>
                 <button
                     type="button"
                     className="user-mini"
