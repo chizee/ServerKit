@@ -18,8 +18,8 @@ import { GitBranch } from 'lucide-react';
 export const GIT_PROVIDERS = [
     { key: 'github', label: 'GitHub', Icon: SiGithub, hint: 'One-click or URL', match: /github\.com/i, oauth: true, placeholder: 'https://github.com/user/repo.git' },
     { key: 'gitlab', label: 'GitLab', Icon: SiGitlab, hint: 'Cloud or self-managed', match: /gitlab\./i, oauth: true, placeholder: 'https://gitlab.com/group/project.git' },
-    { key: 'bitbucket', label: 'Bitbucket', Icon: SiBitbucket, hint: 'Paste a URL', match: /bitbucket\.org/i, placeholder: 'https://bitbucket.org/user/repo.git' },
-    { key: 'gitea', label: 'Gitea', Icon: SiGitea, hint: 'Self-hosted', match: /gitea/i, placeholder: 'https://gitea.example.com/user/repo.git' },
+    { key: 'bitbucket', label: 'Bitbucket', Icon: SiBitbucket, hint: 'One-click or URL', match: /bitbucket\.org/i, oauth: true, placeholder: 'https://bitbucket.org/user/repo.git' },
+    { key: 'gitea', label: 'Gitea', Icon: SiGitea, hint: 'Self-hosted', match: /gitea/i, local: true, placeholder: 'https://gitea.example.com/user/repo.git' },
     { key: 'other', label: 'SSH / Other', Icon: GitBranch, hint: 'Any Git remote', match: null, placeholder: 'git@host:user/repo.git' },
 ];
 
@@ -37,25 +37,29 @@ export function detectProvider(url) {
 // The provider strip: every supported host as a chip with its brand mark, label,
 // and one-liner. Static by default (just "explains the others"); pass `onSelect`
 // to make the chips REAL radio buttons that pick the connection method.
-export function RepoProviderStrip({ detected, selected, onSelect }) {
+export function RepoProviderStrip({ detected, selected, onSelect, giteaStatus }) {
     const interactive = typeof onSelect === 'function';
     const activeKey = selected ?? detected;
+    const giteaRunning = giteaStatus?.installed && giteaStatus?.running;
     return (
         <div
             className="git-connect__providers"
             role={interactive ? 'radiogroup' : 'list'}
             aria-label="Git providers"
         >
-            {GIT_PROVIDERS.map(({ key, label, Icon, hint }) => {
+            {GIT_PROVIDERS.map(({ key, label, Icon, hint, local }) => {
                 const active = activeKey === key;
-                const className = `git-connect__provider${active ? ' git-connect__provider--active' : ''}${interactive ? ' git-connect__provider--btn' : ''}`;
+                const className = `git-connect__provider${active ? ' git-connect__provider--active' : ''}${interactive ? ' git-connect__provider--btn' : ''}${local && giteaRunning ? ' git-connect__provider--live' : ''}`;
+                const displayHint = key === 'gitea' && giteaRunning
+                    ? 'Local server running'
+                    : hint;
                 const inner = (
                     <>
                         <span className="git-connect__provider-icon">
                             <Icon size={18} aria-hidden="true" />
                         </span>
                         <span className="git-connect__provider-label">{label}</span>
-                        <span className="git-connect__provider-hint">{hint}</span>
+                        <span className="git-connect__provider-hint">{displayHint}</span>
                     </>
                 );
                 return interactive ? (

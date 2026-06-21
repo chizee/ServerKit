@@ -13,9 +13,8 @@ const GitConnectForm = (props) => (
         }}
         showPaths
         defaultPaths={['wp-content/themes', 'wp-content/plugins']}
-        pathsLabel="Tracked paths (one per line)"
+        pathsLabel="Tracked paths"
         pathsHint="Paths relative to the WordPress root that should be tracked."
-        pathsPlaceholder={'wp-content/themes\nwp-content/plugins'}
     />
 );
 

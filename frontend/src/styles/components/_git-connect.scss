@@ -481,3 +481,128 @@
         }
     }
 }
+
+// Provider card with a detected local service running.
+.git-connect__provider--live {
+    border-color: var(--green-dim, rgba(74, 222, 128, 0.35));
+    background: var(--green-bg);
+
+    .git-connect__provider-icon {
+        background: var(--green-bg);
+        color: var(--green);
+    }
+
+    .git-connect__provider-hint {
+        color: var(--green);
+    }
+}
+
+// Tracked-path selector (replaces the raw textarea).
+.git-path-selector {
+    display: grid;
+    gap: $space-3;
+
+    &__label {
+        color: $text-secondary;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+    }
+
+    &__quick {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-2;
+    }
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: $radius-full;
+        background: var(--surface);
+        color: $text-secondary;
+        font-size: 12px;
+        cursor: pointer;
+        transition: border-color $transition-fast, background $transition-fast, color $transition-fast;
+
+        &:hover {
+            border-color: var(--border-strong);
+            background: var(--surface-2);
+        }
+
+        &--quick.is-active {
+            border-color: var(--accent-dim);
+            background: var(--accent-bg);
+            color: var(--accent-bright);
+        }
+    }
+
+    &__add {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+
+        .ui-input {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    &__add-icon {
+        display: inline-flex;
+        color: var(--text-faint);
+        flex-shrink: 0;
+    }
+
+    &__list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-2;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    &__item {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-1;
+        padding: 4px 8px 4px 10px;
+        background: var(--bg-code);
+        border: 1px solid var(--border-soft);
+        border-radius: $radius-md;
+        font-size: 12.5px;
+
+        code {
+            font-family: var(--mono);
+            color: var(--text-code);
+        }
+    }
+
+    &__remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: none;
+        border-radius: $radius-sm;
+        background: transparent;
+        color: var(--text-faint);
+        cursor: pointer;
+
+        &:hover {
+            background: var(--red-bg);
+            color: var(--red);
+        }
+    }
+
+    &__empty {
+        margin: 0;
+        color: var(--text-faint);
+        font-size: $font-size-xs;
+    }
+}

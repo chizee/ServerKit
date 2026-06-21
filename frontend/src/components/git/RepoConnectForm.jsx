@@ -3,25 +3,32 @@ import { GitBranch, Unlink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import api from '../../services/api';
 import { RepoProviderStrip, ProviderBadge, detectProvider, GIT_PROVIDERS } from './GitProviders';
 import GithubRepoPicker from './GithubRepoPicker';
+import GitlabRepoPicker from './GitlabRepoPicker';
+import BitbucketRepoPicker from './BitbucketRepoPicker';
+import GiteaRepoPicker from './GiteaRepoPicker';
+import PathSelector from './PathSelector';
 
 // Canonical "connect a repository" form, shared across ServerKit's surfaces
 // (WordPress Git settings, the New Service page, the service connect modal).
 // It owns the form state and submits via the `onConnect` callback; when a repo
-// is already connected it shows the connected summary + Disconnect. Everything
-// host-specific (intro copy, whether tracked paths are shown, defaults) is a
-// prop so each caller can dress it without forking the markup.
+// is already connected it shows the connected summary + Disconnect.
+//
+// Provider-specific fast paths:
+//   - GitHub / GitLab: OAuth repo picker (URL fallback below it).
+//   - Gitea: detect the local ServerKit Gitea instance and list its repos.
+//   - Bitbucket / SSH / Other: paste-a-URL flow.
 //
 // props:
 //   gitStatus   { connected, repo_url, branch, auto_deploy, last_deploy_* }
 //   onConnect   async ({ repo_url, branch, paths, auto_deploy }) => void
 //   onDisconnect async () => void
 //   intro       { title, subtitle }
-//   showPaths   render the "tracked paths" textarea (WordPress)
-//   defaultPaths / pathsLabel / pathsHint / pathsPlaceholder
+//   showPaths   render the tracked-path selector (WordPress)
+//   defaultPaths / pathsLabel / pathsHint
 //   urlPlaceholder / submitLabel
 //   idPrefix    unique id prefix (so two forms can coexist on one page)
 const RepoConnectForm = ({
@@ -34,9 +41,8 @@ const RepoConnectForm = ({
     },
     showPaths = false,
     defaultPaths = [],
-    pathsLabel = 'Tracked paths (one per line)',
+    pathsLabel = 'Tracked paths',
     pathsHint = '',
-    pathsPlaceholder = '',
     urlPlaceholder = 'https://github.com/user/repo.git',
     submitLabel = 'Connect Repository',
     idPrefix = 'repo',
@@ -50,12 +56,12 @@ const RepoConnectForm = ({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [giteaStatus, setGiteaStatus] = useState(null);
 
     const isConnected = gitStatus?.connected;
     const provider = detectProvider(formData.repoUrl);
 
-    // Which provider chip is chosen — drives the connect method (GitHub shows the
-    // one-click picker; everyone else gets a paste-a-URL field). A recognized URL
+    // Which provider chip is chosen — drives the connect method. A recognized URL
     // wins over a manual click.
     const [selectedKey, setSelectedKey] = useState(enableGithub ? 'github' : 'other');
     useEffect(() => {
@@ -63,14 +69,30 @@ const RepoConnectForm = ({
     }, [provider?.key]);
     const selectedProvider = GIT_PROVIDERS.find((p) => p.key === selectedKey) || GIT_PROVIDERS[0];
 
+    // Detect local Gitea so we can badge the provider card and offer the local repo picker.
+    useEffect(() => {
+        let cancelled = false;
+        api.getGiteaStatus()
+            .then((data) => { if (!cancelled) setGiteaStatus(data); })
+            .catch(() => { if (!cancelled) setGiteaStatus(null); });
+        return () => { cancelled = true; };
+    }, []);
+
     function handleChange(e) {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
     }
 
-    function handlePathsChange(e) {
-        const paths = e.target.value.split('\n').filter((p) => p.trim());
+    function handlePathsChange(paths) {
         setFormData((prev) => ({ ...prev, paths }));
+    }
+
+    function handleRepoPick({ repoUrl, branch }) {
+        setFormData((prev) => ({
+            ...prev,
+            repoUrl: repoUrl || prev.repoUrl,
+            branch: branch || prev.branch,
+        }));
     }
 
     async function handleConnect(e) {
@@ -156,6 +178,8 @@ const RepoConnectForm = ({
         );
     }
 
+    const giteaRunning = giteaStatus?.installed && giteaStatus?.running;
+
     return (
         <form className="git-connect git-connect--card" onSubmit={handleConnect}>
             <div className="git-connect__intro">
@@ -168,16 +192,40 @@ const RepoConnectForm = ({
                 </div>
             </div>
 
-            <RepoProviderStrip detected={provider?.key} selected={selectedKey} onSelect={setSelectedKey} />
+            <RepoProviderStrip
+                detected={provider?.key}
+                selected={selectedKey}
+                onSelect={setSelectedKey}
+                giteaStatus={giteaStatus}
+            />
 
-            {enableGithub && selectedKey === 'github' && (
+            {selectedKey === 'github' && enableGithub && (
                 <>
-                    <GithubRepoPicker
-                        onPick={({ repoUrl, branch }) =>
-                            setFormData((p) => ({ ...p, repoUrl, branch: branch || p.branch }))
-                        }
-                    />
+                    <GithubRepoPicker onPick={handleRepoPick} />
                     <div className="git-connect__or"><span>or paste a URL</span></div>
+                </>
+            )}
+
+            {selectedKey === 'gitlab' && (
+                <>
+                    <GitlabRepoPicker onPick={handleRepoPick} />
+                    <div className="git-connect__or"><span>or paste a URL</span></div>
+                </>
+            )}
+
+            {selectedKey === 'bitbucket' && (
+                <>
+                    <BitbucketRepoPicker onPick={handleRepoPick} />
+                    <div className="git-connect__or"><span>or paste a URL</span></div>
+                </>
+            )}
+
+            {selectedKey === 'gitea' && (
+                <>
+                    <GiteaRepoPicker onPick={handleRepoPick} />
+                    {!giteaRunning && (
+                        <div className="git-connect__or"><span>or paste a URL</span></div>
+                    )}
                 </>
             )}
 
@@ -210,17 +258,13 @@ const RepoConnectForm = ({
             </div>
 
             {showPaths && (
-                <div className="git-connect__field">
-                    <Label htmlFor={`${idPrefix}-paths`}>{pathsLabel}</Label>
-                    <Textarea
-                        id={`${idPrefix}-paths`}
-                        value={formData.paths.join('\n')}
-                        onChange={handlePathsChange}
-                        placeholder={pathsPlaceholder}
-                        rows={3}
-                    />
-                    {pathsHint && <span className="git-connect__field-hint">{pathsHint}</span>}
-                </div>
+                <PathSelector
+                    id={`${idPrefix}-paths`}
+                    paths={formData.paths}
+                    onChange={handlePathsChange}
+                    label={pathsLabel}
+                    hint={pathsHint}
+                />
             )}
 
             <div className="git-connect__toggle">

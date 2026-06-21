@@ -7,7 +7,7 @@
 // Simple Icons render with `fill="currentColor"`, so the surrounding SCSS controls
 // the color with no inline styles.
 import {
-    SiGithub, SiGitlab, SiCloudflare, SiDigitalocean,
+    SiGithub, SiGitlab, SiBitbucket, SiCloudflare, SiDigitalocean,
     SiHetzner, SiVultr, SiAkamai, SiGodaddy, SiNamecheap, SiBackblaze,
 } from 'react-icons/si';
 import { FaAws } from 'react-icons/fa';
@@ -19,6 +19,7 @@ import { Mail, HardDrive, Plug } from 'lucide-react';
 const PROVIDER_ICONS = {
     github: SiGithub,
     gitlab: SiGitlab,
+    bitbucket: SiBitbucket,
     cloudflare: SiCloudflare,
     route53: FaAws,
     digitalocean: SiDigitalocean,

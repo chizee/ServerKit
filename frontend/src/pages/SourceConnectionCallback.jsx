@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Github, Loader2 } from 'lucide-react';
+import { Github, Gitlab, GitBranch, Loader2 } from 'lucide-react';
+import { SiBitbucket } from 'react-icons/si';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+
+const PROVIDER_LABELS = {
+    github: 'GitHub',
+    gitlab: 'GitLab',
+    bitbucket: 'Bitbucket',
+};
+
+const PROVIDER_ICONS = {
+    github: Github,
+    gitlab: Gitlab,
+    bitbucket: SiBitbucket,
+};
 
 const SourceConnectionCallback = () => {
     const { provider } = useParams();
@@ -11,6 +24,9 @@ const SourceConnectionCallback = () => {
     const toast = useToast();
     const [error, setError] = useState('');
     const didComplete = useRef(false);
+
+    const label = PROVIDER_LABELS[provider] || provider;
+    const Icon = PROVIDER_ICONS[provider] || GitBranch;
 
     useEffect(() => {
         if (didComplete.current) return;
@@ -23,30 +39,30 @@ const SourceConnectionCallback = () => {
             const returnTo = sessionStorage.getItem('sourceConnectionReturnTo') || '/settings/connections';
 
             if (!code || !state) {
-                setError('GitHub did not return a valid authorization response.');
+                setError(`${label} did not return a valid authorization response.`);
                 return;
             }
 
             try {
                 await api.completeSourceConnection(provider, code, state, redirectUri);
                 sessionStorage.removeItem('sourceConnectionReturnTo');
-                toast.success('GitHub connected');
+                toast.success(`${label} connected`);
                 navigate(returnTo, { replace: true });
             } catch (err) {
-                setError(err.message || 'Failed to connect GitHub');
+                setError(err.message || `Failed to connect ${label}`);
             }
         }
 
         completeConnection();
-    }, [navigate, provider, searchParams, toast]);
+    }, [navigate, provider, searchParams, toast, label]);
 
     return (
         <div className="auth-page">
             <div className="auth-card">
                 <div className="auth-logo">
-                    <Github size={32} />
+                    <Icon size={32} />
                 </div>
-                <h1>Connecting GitHub</h1>
+                <h1>Connecting {label}</h1>
                 {error ? (
                     <>
                         <p className="auth-error">{error}</p>

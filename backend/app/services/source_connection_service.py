@@ -219,7 +219,7 @@ class SourceConnectionService:
             id=connection_id,
             user_id=user_id,
         ).first()
-        if not connection or connection.provider not in ('github', 'gitlab'):
+        if not connection or connection.provider not in ('github', 'gitlab', 'bitbucket'):
             raise ValueError('Source connection not found')
 
         token = cls._decrypt_connection_token(connection)
@@ -227,6 +227,10 @@ class SourceConnectionService:
             repo_path = cls._gitlab_repo_path(full_name)
             public_url = f'https://gitlab.com/{repo_path}.git'
             auth_url = f'https://oauth2:{quote(token, safe="")}@gitlab.com/{repo_path}.git'
+        elif connection.provider == 'bitbucket':
+            workspace, repo_slug = cls._split_full_name(full_name)
+            public_url = f'https://bitbucket.org/{workspace}/{repo_slug}.git'
+            auth_url = f'https://x-token-auth:{quote(token, safe="")}@bitbucket.org/{workspace}/{repo_slug}.git'
         else:
             owner, repo = cls._split_full_name(full_name)
             public_url = f'https://github.com/{owner}/{repo}.git'
@@ -404,6 +408,269 @@ class SourceConnectionService:
             connection.last_used_at = datetime.utcnow()
             db.session.commit()
         return manifest
+
+    # ------------------------------------------------------------------
+    # Bitbucket
+    # ------------------------------------------------------------------
+
+    BITBUCKET_AUTHORIZE_URL = 'https://bitbucket.org/site/oauth2/authorize'
+    BITBUCKET_TOKEN_URL = 'https://bitbucket.org/site/oauth2/access_token'
+    BITBUCKET_API_URL = 'https://api.bitbucket.org/2.0'
+    BITBUCKET_SCOPES = ['repository:read', 'account:read']
+
+    @classmethod
+    def get_bitbucket_config(cls, redacted=False):
+        client_id = (
+            SettingsService.get('source_bitbucket_client_id', '')
+            or os.environ.get('SOURCE_BITBUCKET_CLIENT_ID', '')
+            or os.environ.get('SERVERKIT_BITBUCKET_CLIENT_ID', '')
+        )
+        client_secret = (
+            SettingsService.get('source_bitbucket_client_secret', '')
+            or os.environ.get('SOURCE_BITBUCKET_CLIENT_SECRET', '')
+            or os.environ.get('SERVERKIT_BITBUCKET_CLIENT_SECRET', '')
+        )
+
+        if redacted and client_secret:
+            client_secret = f'****{client_secret[-4:]}'
+
+        return {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'configured': bool(client_id and client_secret),
+            'scopes': cls.BITBUCKET_SCOPES,
+        }
+
+    @classmethod
+    def update_bitbucket_config(cls, data, user_id=None):
+        updated = []
+        if 'client_id' in data:
+            SettingsService.set('source_bitbucket_client_id', data.get('client_id') or '', user_id=user_id)
+            updated.append('client_id')
+        if 'client_secret' in data:
+            value = data.get('client_secret') or ''
+            if not (isinstance(value, str) and value.startswith('****')):
+                SettingsService.set('source_bitbucket_client_secret', value, user_id=user_id)
+                updated.append('client_secret')
+        return {'updated': updated, 'config': cls.get_bitbucket_config(redacted=True)}
+
+    @classmethod
+    def generate_bitbucket_authorize_url(cls, redirect_uri):
+        config = cls.get_bitbucket_config()
+        if not config['configured']:
+            raise ValueError('Bitbucket source connection is not configured')
+
+        state = secrets.token_urlsafe(32)
+        session['source_bitbucket_state'] = state
+
+        params = {
+            'client_id': config['client_id'],
+            'response_type': 'code',
+            'state': state,
+        }
+        return f'{cls.BITBUCKET_AUTHORIZE_URL}?{urlencode(params)}', state
+
+    @classmethod
+    def complete_bitbucket_callback(cls, user_id, code, state, redirect_uri):
+        expected_state = session.pop('source_bitbucket_state', None)
+        if not expected_state or state != expected_state:
+            raise ValueError('Invalid Bitbucket OAuth state')
+
+        config = cls.get_bitbucket_config()
+        if not config['configured']:
+            raise ValueError('Bitbucket source connection is not configured')
+
+        token_response = requests.post(
+            cls.BITBUCKET_TOKEN_URL,
+            auth=(config['client_id'], config['client_secret']),
+            headers={'Accept': 'application/json'},
+            data={
+                'grant_type': 'authorization_code',
+                'code': code,
+                'redirect_uri': redirect_uri,
+            },
+            timeout=15,
+        )
+        token_response.raise_for_status()
+        token_data = token_response.json()
+        if token_data.get('error'):
+            raise ValueError(token_data.get('error_description') or token_data['error'])
+
+        access_token = token_data.get('access_token')
+        if not access_token:
+            raise ValueError('Bitbucket did not return an access token')
+
+        profile = cls._bitbucket_get(access_token, '/user')
+        connection = SourceConnection.query.filter_by(user_id=user_id, provider='bitbucket').first()
+        if not connection:
+            connection = SourceConnection(user_id=user_id, provider='bitbucket')
+            db.session.add(connection)
+
+        connection.provider_account_id = str(profile.get('uuid') or '').strip('{}')
+        connection.provider_username = profile.get('username') or ''
+        connection.display_name = profile.get('display_name') or profile.get('username') or ''
+        connection.avatar_url = (profile.get('links', {}).get('avatar', {}) or {}).get('href', '')
+        connection.access_token_encrypted = encrypt_secret(access_token)
+        connection.scope = ' '.join(token_data.get('scopes', [])) or ' '.join(cls.BITBUCKET_SCOPES)
+        connection.updated_at = datetime.utcnow()
+        connection.last_used_at = datetime.utcnow()
+
+        db.session.commit()
+        return connection
+
+    @classmethod
+    def get_bitbucket_status(cls, user_id):
+        connection = cls.get_connection(user_id, 'bitbucket')
+        return {
+            'configured': cls.get_bitbucket_config()['configured'],
+            'connection': connection.to_dict() if connection else None,
+        }
+
+    @classmethod
+    def list_bitbucket_repositories(cls, user_id, search='', page=1, per_page=50):
+        token = cls._get_bitbucket_token(user_id)
+        params = {
+            'role': 'member',
+            'sort': '-updated_on',
+            'pagelen': min(max(int(per_page or 50), 1), 100),
+            'page': max(int(page or 1), 1),
+        }
+        data = cls._bitbucket_get(token, f'/repositories?{urlencode(params)}')
+        repos = data.get('values', [])
+
+        search_text = (search or '').strip().lower()
+        if search_text:
+            repos = [
+                repo for repo in repos
+                if search_text in repo.get('full_name', '').lower()
+                or search_text in (repo.get('description') or '').lower()
+            ]
+
+        connection = cls.get_connection(user_id, 'bitbucket')
+        if connection:
+            connection.last_used_at = datetime.utcnow()
+            db.session.commit()
+
+        return [cls._bitbucket_repo_payload(repo) for repo in repos]
+
+    @classmethod
+    def list_bitbucket_branches(cls, user_id, full_name):
+        token = cls._get_bitbucket_token(user_id)
+        workspace, repo_slug = cls._split_full_name(full_name)
+        path = f'/repositories/{quote(workspace)}/{quote(repo_slug)}/refs/branches?pagelen=100'
+        data = cls._bitbucket_get(token, path)
+        return [
+            {
+                'name': branch.get('name'),
+                'protected': False,
+            }
+            for branch in data.get('values', [])
+        ]
+
+    @classmethod
+    def get_bitbucket_repository_manifest(cls, user_id, full_name, ref=None):
+        token = cls._get_bitbucket_token(user_id)
+        workspace, repo_slug = cls._split_full_name(full_name)
+        root_files = cls._bitbucket_list_root_files(token, workspace, repo_slug, ref)
+        file_map = {}
+
+        for file_name in RepositoryManifestService.supported_files():
+            if root_files and file_name not in root_files:
+                continue
+            content = cls._bitbucket_get_file_content(token, workspace, repo_slug, file_name, ref)
+            if content is not None:
+                file_map[file_name] = content
+
+        manifest = RepositoryManifestService.analyze_files(file_map, root_files=root_files)
+        connection = cls.get_connection(user_id, 'bitbucket')
+        if connection:
+            connection.last_used_at = datetime.utcnow()
+            db.session.commit()
+        return manifest
+
+    @classmethod
+    def _get_bitbucket_token(cls, user_id):
+        connection = cls.get_connection(user_id, 'bitbucket')
+        if not connection:
+            raise ValueError('Bitbucket is not connected')
+        return cls._decrypt_connection_token(connection)
+
+    @classmethod
+    def _bitbucket_get(cls, token, path):
+        response = requests.get(
+            f'{cls.BITBUCKET_API_URL}{path}',
+            headers=cls._bitbucket_headers(token),
+            timeout=20,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    @staticmethod
+    def _bitbucket_headers(token):
+        return {
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {token}',
+        }
+
+    @classmethod
+    def _bitbucket_list_root_files(cls, token, workspace, repo_slug, ref=None):
+        params = {}
+        if ref:
+            params['at'] = ref
+        response = requests.get(
+            f'{cls.BITBUCKET_API_URL}/repositories/{quote(workspace)}/{quote(repo_slug)}/src/{ref or "master"}/',
+            headers=cls._bitbucket_headers(token),
+            params=params,
+            timeout=20,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data.get('values'), list):
+            return []
+        return [
+            item.get('path') for item in data['values']
+            if item.get('type') == 'commit_file' and item.get('path')
+        ]
+
+    @classmethod
+    def _bitbucket_get_file_content(cls, token, workspace, repo_slug, file_name, ref=None):
+        params = {}
+        if ref:
+            params['at'] = ref
+        response = requests.get(
+            f'{cls.BITBUCKET_API_URL}/repositories/{quote(workspace)}/{quote(repo_slug)}/src/{ref or "master"}/{quote(file_name, safe="")}',
+            headers=cls._bitbucket_headers(token),
+            params=params,
+            timeout=20,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.text
+
+    @staticmethod
+    def _bitbucket_repo_payload(repo):
+        clone_links = repo.get('links', {}).get('clone', []) or []
+        https_clone = next((link.get('href') for link in clone_links if link.get('name') == 'https'), None)
+        html_url = (repo.get('links', {}).get('html', {}) or {}).get('href', '')
+        mainbranch = repo.get('mainbranch', {}) or {}
+        owner = repo.get('owner', {}) or {}
+        return {
+            'id': str(repo.get('uuid', '')).strip('{}'),
+            'name': repo.get('name'),
+            'full_name': repo.get('full_name'),
+            'description': repo.get('description'),
+            'private': repo.get('is_private', False),
+            'fork': False,
+            'archived': False,
+            'default_branch': mainbranch.get('name') or 'master',
+            'html_url': html_url,
+            'clone_url': https_clone or f"https://bitbucket.org/{repo.get('full_name')}.git",
+            'owner': {
+                'login': owner.get('username'),
+                'avatar_url': (owner.get('links', {}).get('avatar', {}) or {}).get('href', ''),
+            },
+        }
 
     @classmethod
     def _get_github_token(cls, user_id):

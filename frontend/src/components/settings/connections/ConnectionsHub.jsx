@@ -24,8 +24,8 @@ export default function ConnectionsHub() {
     const { isAdmin } = useAuth();
     const toast = useToast();
 
-    const [sourceStatus, setSourceStatus] = useState({ github: null, gitlab: null });
-    const [sourceConfig, setSourceConfig] = useState({ github: null, gitlab: null });
+    const [sourceStatus, setSourceStatus] = useState({ github: null, gitlab: null, bitbucket: null });
+    const [sourceConfig, setSourceConfig] = useState({ github: null, gitlab: null, bitbucket: null });
     const [dnsProviders, setDnsProviders] = useState([]);
     const [cloudProviders, setCloudProviders] = useState([]);
     const [storageConfig, setStorageConfig] = useState(null);
@@ -39,9 +39,10 @@ export default function ConnectionsHub() {
 
     const loadData = useCallback(async () => {
         try {
-            const [ghStatus, glStatus, dns, cloudP, storage, relay, regConns, regDomains, allConns] = await Promise.all([
+            const [ghStatus, glStatus, bbStatus, dns, cloudP, storage, relay, regConns, regDomains, allConns] = await Promise.all([
                 api.getGithubSourceStatus().catch(() => null),
                 api.getGitlabSourceStatus().catch(() => null),
+                api.getBitbucketSourceStatus().catch(() => null),
                 api.getEmailDNSProviders().then((d) => d.providers || []).catch(() => []),
                 api.getCloudProviders().then((d) => d.providers || []).catch(() => []),
                 api.getStorageConfig().catch(() => null),
@@ -50,7 +51,7 @@ export default function ConnectionsHub() {
                 api.getRegistrarDomains().then((d) => d.domains || []).catch(() => []),
                 api.getAllConnections().then((d) => d.connections || []).catch(() => []),
             ]);
-            setSourceStatus({ github: ghStatus, gitlab: glStatus });
+            setSourceStatus({ github: ghStatus, gitlab: glStatus, bitbucket: bbStatus });
             setDnsProviders(dns);
             setCloudProviders(cloudP);
             setStorageConfig(storage);
@@ -59,13 +60,15 @@ export default function ConnectionsHub() {
             setRegistrarDomains(regDomains);
             setAllConnections(allConns);
             if (isAdmin) {
-                const [ghCfg, glCfg] = await Promise.all([
+                const [ghCfg, glCfg, bbCfg] = await Promise.all([
                     api.getGithubSourceConfig().catch(() => null),
                     api.getGitlabSourceConfig().catch(() => null),
+                    api.getBitbucketSourceConfig().catch(() => null),
                 ]);
                 setSourceConfig({
                     github: ghCfg?.config || { client_id: '', client_secret: '' },
                     gitlab: glCfg?.config || { client_id: '', client_secret: '' },
+                    bitbucket: bbCfg?.config || { client_id: '', client_secret: '' },
                 });
             }
         } finally {
@@ -101,6 +104,7 @@ export default function ConnectionsHub() {
     const onSaveSourceConfig = useCallback(async (provider, config) => {
         try {
             if (provider.provider === 'gitlab') await api.updateGitlabSourceConfig(config);
+            else if (provider.provider === 'bitbucket') await api.updateBitbucketSourceConfig(config);
             else await api.updateGithubSourceConfig(config);
             toast.success(`${provider.name} OAuth app saved`);
             await loadData();
