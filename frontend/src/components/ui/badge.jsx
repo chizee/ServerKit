@@ -15,10 +15,4 @@ function Badge({ className, variant, ...props }) {
   );
 }
 
-// Backwards-compat shim: a few callers still import { badgeVariants }.
-// It now just returns a className string (no cva).
-function badgeVariants() {
-  return '';
-}
-
-export { Badge, badgeVariants };
+export { Badge };
