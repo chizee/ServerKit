@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { RepoProviderStrip, ProviderBadge, detectProvider } from './GitProviders';
+import GithubRepoPicker from './GithubRepoPicker';
 
 // Canonical "connect a repository" form, shared across ServerKit's surfaces
 // (WordPress Git settings, the New Service page, the service connect modal).
@@ -39,6 +40,7 @@ const RepoConnectForm = ({
     urlPlaceholder = 'https://github.com/user/repo.git',
     submitLabel = 'Connect Repository',
     idPrefix = 'repo',
+    enableGithub = true,
 }) => {
     const [formData, setFormData] = useState({
         repoUrl: '',
@@ -158,6 +160,17 @@ const RepoConnectForm = ({
             </div>
 
             <RepoProviderStrip detected={provider?.key} />
+
+            {enableGithub && (
+                <>
+                    <GithubRepoPicker
+                        onPick={({ repoUrl, branch }) =>
+                            setFormData((p) => ({ ...p, repoUrl, branch: branch || p.branch }))
+                        }
+                    />
+                    <div className="git-connect__or"><span>or connect by URL</span></div>
+                </>
+            )}
 
             {error && <div className="error-message">{error}</div>}
 

@@ -315,3 +315,157 @@
         justify-content: flex-end;
     }
 }
+
+// ---- GitHub one-click picker (GithubRepoPicker) ----------------------------
+// The "connect with GitHub" fast path that sits above the paste-a-URL field in
+// RepoConnectForm. Reuses the same OAuth as /services/new.
+.git-connect__or {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    color: var(--text-faint);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+
+    &::before,
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border-soft);
+    }
+}
+
+.git-connect__gh {
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+
+    &--hint {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 11px 13px;
+        font-size: 12.5px;
+        color: var(--text-dim);
+
+        a { color: var(--accent-bright); }
+        svg { color: var(--text-faint); flex-shrink: 0; }
+    }
+
+    &--connect {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 15px;
+
+        > svg { color: var(--text); flex-shrink: 0; }
+    }
+
+    &-text {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+
+        strong { font-size: 13.5px; }
+        span { font-size: 12px; color: var(--text-faint); }
+    }
+
+    &--picker { padding: 12px; display: grid; gap: 10px; }
+
+    &-account {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+
+        img { width: 26px; height: 26px; border-radius: 50%; }
+        .git-connect__gh-account-name {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.25;
+            strong { font-size: 13px; }
+            small { font-size: 11px; color: var(--text-faint); }
+        }
+        > .ui-button { margin-left: auto; }
+    }
+
+    &-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+
+        svg { color: var(--text-faint); flex-shrink: 0; }
+        .ui-input { border: none; background: none; padding-left: 0; height: 34px; }
+    }
+
+    &-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    &-state { padding: 12px; font-size: 12.5px; color: var(--text-faint); text-align: center; }
+
+    &-repo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 11px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 0.14s, background 0.14s;
+
+        &:hover { border-color: var(--border-strong); }
+        &.is-active {
+            border-color: var(--accent-bright);
+            background: var(--accent-bg);
+            svg { color: var(--accent-bright); margin-left: auto; flex-shrink: 0; }
+        }
+    }
+
+    &-repo-main {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+
+        strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        small { font-size: 11.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+
+    &-repo-vis {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-faint);
+        flex-shrink: 0;
+    }
+
+    &-branch {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12.5px;
+
+        label { color: var(--text-dim); }
+        select {
+            flex: 1;
+            height: 34px;
+            padding: 0 10px;
+            background: var(--surface);
+            border: 1px solid var(--border-soft);
+            border-radius: 8px;
+            color: var(--text);
+        }
+    }
+}
