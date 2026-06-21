@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -317,7 +317,7 @@ const StatusPages = () => {
         [isAdmin]
     );
 
-    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
+    if (loading) return <PageLoader />;
 
     return (
         <div className="sk-tabgroup__inner status-pages-page">

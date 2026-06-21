@@ -878,18 +878,21 @@ const ContainersTab = ({ onStatsChange }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                         {searchTerm && (
-                            <button className="lv-search-field-clear" onClick={() => setSearchTerm('')} title="Clear search">
+                            <Button size="icon" variant="ghost" className="lv-search-field-clear" onClick={() => setSearchTerm('')} title="Clear search" aria-label="Clear search">
                                 <X size={11} />
-                            </button>
+                            </Button>
                         )}
                     </div>
-                    <button
+                    <Button
+                        size="icon"
+                        variant="ghost"
                         className="lv-icon-btn"
                         onClick={loadContainers}
                         title="Refresh"
+                        aria-label="Refresh containers"
                     >
                         <RefreshCw size={13} className={loading ? 'spinning' : ''} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 

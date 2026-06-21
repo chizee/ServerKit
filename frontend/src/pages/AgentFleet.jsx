@@ -47,7 +47,7 @@ const AgentFleet = () => {
     const [rolloutStrategy, setRolloutStrategy] = useState('all');
     const [rolloutBatchSize, setRolloutBatchSize] = useState(5);
     const [rolloutDelay, setRolloutDelay] = useState(10);
-    const { addToast } = useToast();
+    const toast = useToast();
     const { user } = useAuth();
 
     useEffect(() => {
@@ -95,7 +95,7 @@ const AgentFleet = () => {
             }
         } catch (error) {
             console.error('Error fetching fleet data:', error);
-            addToast('Error', 'Failed to fetch fleet data', 'error');
+            toast.error('Failed to fetch fleet data');
         } finally {
             setLoading(false);
         }
@@ -104,13 +104,13 @@ const AgentFleet = () => {
     const startDiscovery = async () => {
         setIsScanning(true);
         try {
-            addToast('Discovery', 'Scanning network for agents...', 'info');
+            toast.info('Scanning network for agents...');
             await api.startDiscovery(10);
             const data = await api.getDiscoveredAgents();
             setDiscoveredAgents(data);
-            addToast('Success', `Discovered ${data.length} agents`, 'success');
+            toast.success(`Discovered ${data.length} agents`);
         } catch (error) {
-            addToast('Error', 'Discovery scan failed', 'error');
+            toast.error('Discovery scan failed');
         } finally {
             setIsScanning(false);
         }
@@ -119,33 +119,33 @@ const AgentFleet = () => {
     const approveAgent = async (serverId) => {
         try {
             await api.approveRegistration(serverId);
-            addToast('Success', 'Agent registration approved', 'success');
+            toast.success('Agent registration approved');
             fetchData();
         } catch (error) {
-            addToast('Error', 'Failed to approve agent', 'error');
+            toast.error('Failed to approve agent');
         }
     };
 
     const rejectAgent = async (serverId) => {
         try {
             await api.rejectRegistration(serverId);
-            addToast('Success', 'Agent registration rejected', 'success');
+            toast.success('Agent registration rejected');
             fetchData();
         } catch (error) {
-            addToast('Error', 'Failed to reject agent', 'error');
+            toast.error('Failed to reject agent');
         }
     };
 
     const triggerUpgrade = async () => {
         if (!selectedVersion) {
-            addToast('Error', 'Select a target version', 'error');
+            toast.error('Select a target version');
             return;
         }
 
         try {
             if (rolloutStrategy === 'all') {
                 await api.upgradeFleet([], selectedVersion);
-                addToast('Success', 'Upgrade triggered for all online agents', 'success');
+                toast.success('Upgrade triggered for all online agents');
             } else {
                 const data = {
                     version_id: selectedVersion,
@@ -154,31 +154,31 @@ const AgentFleet = () => {
                     delay_minutes: rolloutDelay
                 };
                 await api.startRollout(data);
-                addToast('Success', 'Staged rollout started', 'success');
+                toast.success('Staged rollout started');
             }
             fetchData();
         } catch (error) {
-            addToast('Error', 'Failed to trigger upgrade', 'error');
+            toast.error('Failed to trigger upgrade');
         }
     };
 
     const cancelRollout = async (rolloutId) => {
         try {
             await api.cancelRollout(rolloutId);
-            addToast('Success', 'Rollout cancelled', 'success');
+            toast.success('Rollout cancelled');
             fetchData();
         } catch (error) {
-            addToast('Error', 'Failed to cancel rollout', 'error');
+            toast.error('Failed to cancel rollout');
         }
     };
 
     const retryCommand = async (commandId) => {
         try {
             await api.retryCommand(commandId);
-            addToast('Success', 'Command retry triggered', 'success');
+            toast.success('Command retry triggered');
             fetchData();
         } catch (error) {
-            addToast('Error', 'Failed to retry command', 'error');
+            toast.error('Failed to retry command');
         }
     };
 
@@ -188,7 +188,7 @@ const AgentFleet = () => {
             setDiagnostics(data);
             setDiagnosticsServerId(serverId);
         } catch (error) {
-            addToast('Error', 'Failed to load diagnostics', 'error');
+            toast.error('Failed to load diagnostics');
         }
     };
 

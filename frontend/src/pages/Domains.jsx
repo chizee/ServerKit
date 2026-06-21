@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { MetricCard, SegControl, Pill, Drawer } from '@/components/ds';
+import { MetricCard, SegControl, Pill, Drawer, DataTable } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 
@@ -244,7 +244,7 @@ const Domains = () => {
             {error && (
                 <div className="error-banner">
                     {error}
-                    <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+                    <button type="button" className="error-banner__close" onClick={() => setError('')} aria-label="Dismiss error">×</button>
                 </div>
             )}
 
@@ -283,46 +283,58 @@ const Domains = () => {
                         <div className="dom-empty">No domains match this filter.</div>
                     ) : (
                         <div className="dom-card">
-                            <table className="sk-dtable">
-                                <thead>
-                                    <tr>
-                                        <th>Domain</th>
-                                        <th>Linked site</th>
-                                        <th>SSL</th>
-                                        <th>Auto-renew</th>
-                                        <th>Status</th>
-                                        <th style={{ width: 30 }} />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {shown.map(d => (
-                                        <tr key={d.id} className="is-clickable" onClick={() => setDrawerDomain(d)}>
-                                            <td>
-                                                <div className="sk-cell-name">
-                                                    <span className="dom-fav"><Globe size={15} /></span>
-                                                    <span>
-                                                        {d.name}
-                                                        {d.is_primary && <span className="dom-primary">Primary</span>}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                {d.application_id
-                                                    ? <span className="sk-tag">{getAppName(d.application_id)}</span>
-                                                    : <span className="dom-dash">—</span>}
-                                            </td>
-                                            <td>{sslPill(d)}</td>
-                                            <td>
-                                                {d.ssl_enabled
-                                                    ? (d.ssl_auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>)
-                                                    : <span className="dom-dash">—</span>}
-                                            </td>
-                                            <td><Pill kind={d.ssl_enabled ? 'green' : 'amber'}>{d.ssl_enabled ? 'active' : 'unconfigured'}</Pill></td>
-                                            <td><ChevronRight size={16} className="dom-chev" /></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <DataTable
+                                tableClassName="sk-dtable"
+                                sortable={false}
+                                data={shown}
+                                keyField="id"
+                                onRowClick={setDrawerDomain}
+                                columns={[
+                                    {
+                                        key: 'name',
+                                        header: 'Domain',
+                                        render: (d) => (
+                                            <div className="sk-cell-name">
+                                                <span className="dom-fav"><Globe size={15} /></span>
+                                                <span>
+                                                    {d.name}
+                                                    {d.is_primary && <span className="dom-primary">Primary</span>}
+                                                </span>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: 'site',
+                                        header: 'Linked site',
+                                        render: (d) => (
+                                            d.application_id
+                                                ? <span className="sk-tag">{getAppName(d.application_id)}</span>
+                                                : <span className="dom-dash">—</span>
+                                        ),
+                                    },
+                                    { key: 'ssl', header: 'SSL', render: sslPill },
+                                    {
+                                        key: 'autoRenew',
+                                        header: 'Auto-renew',
+                                        render: (d) => (
+                                            d.ssl_enabled
+                                                ? (d.ssl_auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>)
+                                                : <span className="dom-dash">—</span>
+                                        ),
+                                    },
+                                    {
+                                        key: 'status',
+                                        header: 'Status',
+                                        render: (d) => <Pill kind={d.ssl_enabled ? 'green' : 'amber'}>{d.ssl_enabled ? 'active' : 'unconfigured'}</Pill>,
+                                    },
+                                    {
+                                        key: 'chevron',
+                                        header: '',
+                                        width: 30,
+                                        render: () => <ChevronRight size={16} className="dom-chev" />,
+                                    },
+                                ]}
+                            />
                         </div>
                     )}
                 </div>

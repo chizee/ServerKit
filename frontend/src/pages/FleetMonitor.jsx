@@ -52,7 +52,7 @@ const heatColor = (value) => {
 const FleetMonitor = () => {
     const [activeTab, setActiveTab] = useState('overview');
     const [loading, setLoading] = useState(true);
-    const { addToast } = useToast();
+    const toast = useToast();
 
     // Publish the Refresh button to the shared tab-group top bar; re-registers
     // on `loading` so the spinner/disabled state stays in sync.
@@ -142,7 +142,7 @@ const FleetMonitor = () => {
             const data = await api.getFleetComparison(selectedServers, compMetric, compPeriod);
             setCompData(data);
         } catch (e) {
-            addToast('Error', 'Failed to load comparison data', 'error');
+            toast.error('Failed to load comparison data');
         } finally {
             setLoading(false);
         }
@@ -153,7 +153,7 @@ const FleetMonitor = () => {
             const data = await api.getCapacityForecast(serverId || forecastServer, forecastMetric);
             setForecast(data);
         } catch (e) {
-            addToast('Error', 'Failed to load forecast', 'error');
+            toast.error('Failed to load forecast');
         }
     };
 
@@ -164,7 +164,7 @@ const FleetMonitor = () => {
             const data = await api.searchFleet(searchQuery, searchType);
             setSearchResults(data);
         } catch (e) {
-            addToast('Error', 'Search failed', 'error');
+            toast.error('Search failed');
         } finally {
             setLoading(false);
         }
@@ -175,7 +175,7 @@ const FleetMonitor = () => {
             await api.acknowledgeFleetAlert(id);
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to acknowledge alert', 'error');
+            toast.error('Failed to acknowledge alert');
         }
     };
 
@@ -184,17 +184,17 @@ const FleetMonitor = () => {
             await api.resolveFleetAlert(id);
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to resolve alert', 'error');
+            toast.error('Failed to resolve alert');
         }
     };
 
     const saveThreshold = async () => {
         try {
             await api.createFleetThreshold(newThreshold);
-            addToast('Success', 'Threshold saved', 'success');
+            toast.success('Threshold saved');
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to save threshold', 'error');
+            toast.error('Failed to save threshold');
         }
     };
 
@@ -203,7 +203,7 @@ const FleetMonitor = () => {
             await api.deleteFleetThreshold(id);
             fetchTabData();
         } catch (e) {
-            addToast('Error', 'Failed to delete threshold', 'error');
+            toast.error('Failed to delete threshold');
         }
     };
 
@@ -239,7 +239,7 @@ const FleetMonitor = () => {
             a.click();
             URL.revokeObjectURL(url);
         } catch (e) {
-            addToast('Error', 'Export failed', 'error');
+            toast.error('Export failed');
         }
     };
 

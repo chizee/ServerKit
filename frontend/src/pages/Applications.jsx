@@ -11,8 +11,8 @@ import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getServiceType, getStatusConfig } from '../utils/serviceTypes';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { PageTopbar, MetricCard, Pill, SegControl, Gauge } from '@/components/ds';
+import { PageTopbar, MetricCard, Pill, Gauge } from '@/components/ds';
+import SearchFilterBar from '../components/SearchFilterBar';
 
 // statusInfo.dotClass → ds Pill kind
 const STATUS_PILL = {
@@ -174,27 +174,18 @@ const Applications = () => {
 
             <div className="apps-list-card">
                 <div className="apps-list-head">
-                    <SegControl
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        options={[
-                            { value: 'all', label: 'All', count: stats.total },
-                            { value: 'running', label: 'Running', count: stats.running },
-                            { value: 'stopped', label: 'Stopped', count: stats.stopped },
+                    <SearchFilterBar
+                        search={searchTerm}
+                        onSearch={setSearchTerm}
+                        placeholder="Search apps..."
+                        filters={[
+                            { key: 'all', label: 'All', count: stats.total },
+                            { key: 'running', label: 'Running', count: stats.running },
+                            { key: 'stopped', label: 'Stopped', count: stats.stopped },
                         ]}
+                        activeFilter={statusFilter}
+                        onFilterChange={setStatusFilter}
                     />
-                    <div className="apps-search">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                        <Input
-                            type="text"
-                            placeholder="Search apps..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
                 </div>
 
                 {filteredApps.length === 0 ? (

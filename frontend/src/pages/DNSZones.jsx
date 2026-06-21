@@ -4,7 +4,7 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
@@ -179,7 +179,7 @@ const DNSZones = () => {
         [user?.is_admin],
     );
 
-    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
+    if (loading) return <PageLoader />;
 
     return (
         <div className="sk-tabgroup__inner dns-zones-page">

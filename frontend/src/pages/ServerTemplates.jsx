@@ -3,7 +3,7 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { LayoutTemplate } from 'lucide-react';
@@ -134,7 +134,7 @@ const ServerTemplates = () => {
         [user?.is_admin]
     );
 
-    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
+    if (loading) return <PageLoader />;
 
     return (
         <div className="sk-tabgroup__inner server-templates-page">

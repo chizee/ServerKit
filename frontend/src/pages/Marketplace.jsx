@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import Spinner from '../components/Spinner';
+import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import { StatStrip, Stat } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
@@ -269,7 +269,7 @@ const Marketplace = () => {
         [],
     );
 
-    if (loading) return <div className="sk-tabgroup__inner"><Spinner /></div>;
+    if (loading) return <PageLoader />;
 
     const installedIds = new Set(myExtensions.map((extension) => String(extension.extension_id)));
     const localCatalogEntries = builtins.map(getLocalCatalogEntry);

@@ -12,7 +12,6 @@ import LogContent from '../components/log-viewer/LogContent';
 import { formatBytes, logKindFromPath } from '../components/log-viewer/logHelpers';
 import { Pill, PageTopbar } from '../components/ds';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     FileText, Clock, AlertCircle, Search, X, RefreshCw, AlertTriangle, Activity,
     Play, Square, RotateCw, Terminal as TerminalIcon, Server as ServerIcon,
@@ -1012,9 +1011,9 @@ const ProcessesTab = () => {
                         <span className={`lv-pulse ${autoRefresh ? 'on' : ''}`} />
                         <span>Live</span>
                     </button>
-                    <button className="lv-icon-btn" onClick={() => loadProcesses()} title="Refresh">
+                    <Button size="icon" variant="ghost" className="lv-icon-btn" onClick={() => loadProcesses()} title="Refresh" aria-label="Refresh processes">
                         <RefreshCw size={13} className={loading ? 'spinning' : ''} />
-                    </button>
+                    </Button>
                 </div>
             </div>
 
