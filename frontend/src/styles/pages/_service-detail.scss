@@ -557,13 +557,19 @@ h3.svc-eyebrow {
     }
 
     &__empty {
+        // Flex-center so the icon centers too — svgs are display:block (Tailwind
+        // preflight), so text-align:center alone left-aligns the glyph.
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         text-align: center;
+        gap: $space-2;
         padding: $space-12 $space-8;
         color: $text-tertiary;
 
         h3 {
             color: $text-secondary;
-            margin-bottom: $space-2;
+            margin: 0;
         }
     }
 }
