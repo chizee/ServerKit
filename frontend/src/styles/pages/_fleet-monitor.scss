@@ -124,10 +124,29 @@
         font-weight: 500;
         font-variant-numeric: tabular-nums;
         transition: background-color 0.3s;
+        background: var(--card-bg);
+
+        &.is-empty { background: var(--card-bg); color: inherit; }
+        &.is-low { background: var(--green); color: inherit; }
+        &.is-medium { background: var(--amber); color: inherit; }
+        &.is-high { background: #f97316; color: #fff; }
+        &.is-critical { background: var(--red); color: #fff; }
     }
 
     &__label {
         text-align: center;
+    }
+
+    &__legend-dot {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: $radius-sm;
+
+        &.is-low { background: var(--green); }
+        &.is-medium { background: var(--amber); }
+        &.is-high { background: #f97316; }
+        &.is-critical { background: var(--red); }
     }
 }
 

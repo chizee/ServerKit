@@ -41,11 +41,20 @@ const METRIC_LABELS = {
     network_tx: 'Network TX'
 };
 
+const heatLevel = (value) => {
+    if (value == null) return 'empty';
+    if (value >= 90) return 'critical';
+    if (value >= 75) return 'high';
+    if (value >= 50) return 'medium';
+    return 'low';
+};
+
 const heatColor = (value) => {
-    if (value == null) return 'var(--card-bg)';
-    if (value >= 90) return 'var(--red)';
-    if (value >= 75) return '#f97316';
-    if (value >= 50) return 'var(--amber)';
+    const level = heatLevel(value);
+    if (level === 'empty') return 'var(--card-bg)';
+    if (level === 'critical') return 'var(--red)';
+    if (level === 'high') return '#f97316';
+    if (level === 'medium') return 'var(--amber)';
     return 'var(--green)';
 };
 
@@ -291,22 +300,19 @@ const FleetMonitor = () => {
                                                     )}
                                                 </div>
                                                 <div
-                                                    className="fleet-heatmap__cell"
-                                                    style={{ backgroundColor: heatColor(server.cpu), color: server.cpu >= 75 ? '#fff' : 'inherit' }}
+                                                    className={`fleet-heatmap__cell is-${heatLevel(server.cpu)}`}
                                                     title={`CPU: ${server.cpu ?? 'N/A'}%`}
                                                 >
                                                     {server.cpu != null ? `${server.cpu}%` : '-'}
                                                 </div>
                                                 <div
-                                                    className="fleet-heatmap__cell"
-                                                    style={{ backgroundColor: heatColor(server.memory), color: server.memory >= 75 ? '#fff' : 'inherit' }}
+                                                    className={`fleet-heatmap__cell is-${heatLevel(server.memory)}`}
                                                     title={`Memory: ${server.memory ?? 'N/A'}%`}
                                                 >
                                                     {server.memory != null ? `${server.memory}%` : '-'}
                                                 </div>
                                                 <div
-                                                    className="fleet-heatmap__cell"
-                                                    style={{ backgroundColor: heatColor(server.disk), color: server.disk >= 75 ? '#fff' : 'inherit' }}
+                                                    className={`fleet-heatmap__cell is-${heatLevel(server.disk)}`}
                                                     title={`Disk: ${server.disk ?? 'N/A'}%`}
                                                 >
                                                     {server.disk != null ? `${server.disk}%` : '-'}
@@ -330,10 +336,10 @@ const FleetMonitor = () => {
                         </div>
                         <div className="flex gap-3 items-center text-sm text-gray-500">
                             <span>Legend:</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'var(--green)' }}></span> 0-50%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'var(--amber)' }}></span> 50-75%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: '#f97316' }}></span> 75-90%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'var(--red)' }}></span> 90-100%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-low"></span> 0-50%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-medium"></span> 50-75%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-high"></span> 75-90%</span>
+                            <span className="flex items-center gap-1"><span className="fleet-heatmap__legend-dot is-critical"></span> 90-100%</span>
                         </div>
                     </div>
                 )}

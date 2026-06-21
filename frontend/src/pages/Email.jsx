@@ -9,7 +9,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Pill, MetricCard, PageTopbar } from '@/components/ds';
+import { Pill, MetricCard, PageTopbar, DataTable } from '@/components/ds';
 
 const VALID_TABS = ['status', 'domains', 'accounts', 'aliases', 'forwarding', 'dns-providers', 'spam', 'webmail', 'queue'];
 
@@ -598,45 +598,45 @@ function Email() {
                                     <EmptyState icon={Globe} title="No domains configured" />
                                 ) : (
                                     <div className="email-table-card">
-                                        <table className="sk-dtable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Domain</th>
-                                                    <th>Mailboxes</th>
-                                                    <th>Aliases</th>
-                                                    <th>DKIM</th>
-                                                    <th>SPF</th>
-                                                    <th>DMARC</th>
-                                                    <th>Status</th>
-                                                    <th />
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {domains.map(d => (
-                                                    <tr key={d.id}>
-                                                        <td>
-                                                            <div className="sk-cell-name">
-                                                                <span className="email-fav"><Globe size={15} /></span>
-                                                                {d.name}
-                                                            </div>
-                                                        </td>
-                                                        <td className="sk-cell-mono">{d.accounts_count}</td>
-                                                        <td className="sk-cell-mono">{d.aliases_count}</td>
-                                                        <td>{dnsPill(d.dkim_public_key)}</td>
-                                                        <td>{dnsPill(d.spf_record)}</td>
-                                                        <td>{dnsPill(d.dmarc_record)}</td>
-                                                        <td><Pill kind={d.is_active ? 'green' : 'gray'}>{d.is_active ? 'active' : 'inactive'}</Pill></td>
-                                                        <td>
-                                                            <div className="email-row-actions">
-                                                                <Button size="sm" variant="outline" onClick={() => handleVerifyDNS(d.id)} disabled={actionLoading}>Verify DNS</Button>
-                                                                {d.dns_provider_id && <Button size="sm" onClick={() => handleDeployDNS(d.id)} disabled={actionLoading}>Deploy DNS</Button>}
-                                                                <Button size="sm" variant="destructive" onClick={() => handleDeleteDomain(d.id, d.name)}>Delete</Button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                        <DataTable
+                                            tableClassName="sk-dtable"
+                                            sortable={false}
+                                            data={domains}
+                                            keyField="id"
+                                            columns={[
+                                                {
+                                                    key: 'domain',
+                                                    header: 'Domain',
+                                                    render: (d) => (
+                                                        <div className="sk-cell-name">
+                                                            <span className="email-fav"><Globe size={15} /></span>
+                                                            {d.name}
+                                                        </div>
+                                                    ),
+                                                },
+                                                { key: 'accounts', header: 'Mailboxes', render: (d) => <span className="sk-cell-mono">{d.accounts_count}</span> },
+                                                { key: 'aliases', header: 'Aliases', render: (d) => <span className="sk-cell-mono">{d.aliases_count}</span> },
+                                                { key: 'dkim', header: 'DKIM', render: (d) => dnsPill(d.dkim_public_key) },
+                                                { key: 'spf', header: 'SPF', render: (d) => dnsPill(d.spf_record) },
+                                                { key: 'dmarc', header: 'DMARC', render: (d) => dnsPill(d.dmarc_record) },
+                                                {
+                                                    key: 'status',
+                                                    header: 'Status',
+                                                    render: (d) => <Pill kind={d.is_active ? 'green' : 'gray'}>{d.is_active ? 'active' : 'inactive'}</Pill>,
+                                                },
+                                                {
+                                                    key: 'actions',
+                                                    header: '',
+                                                    render: (d) => (
+                                                        <div className="email-row-actions">
+                                                            <Button size="sm" variant="outline" onClick={() => handleVerifyDNS(d.id)} disabled={actionLoading}>Verify DNS</Button>
+                                                            {d.dns_provider_id && <Button size="sm" onClick={() => handleDeployDNS(d.id)} disabled={actionLoading}>Deploy DNS</Button>}
+                                                            <Button size="sm" variant="destructive" onClick={() => handleDeleteDomain(d.id, d.name)}>Delete</Button>
+                                                        </div>
+                                                    ),
+                                                },
+                                            ]}
+                                        />
                                     </div>
                                 )}
                             </div>

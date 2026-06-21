@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
+import { FormField, FormRow } from '../components/FormField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -649,8 +650,7 @@ const Backups = () => {
                         </div>
                         <div className="card-body">
                             <form onSubmit={handleSaveStorageConfig}>
-                                <div className="form-group">
-                                    <label>Storage Provider</label>
+                                <FormField label="Storage Provider" hint="S3-Compatible works with AWS S3, MinIO and Wasabi.">
                                     <SegControl
                                         value={storageForm.provider}
                                         onChange={(provider) => setStorageForm({...storageForm, provider})}
@@ -660,137 +660,136 @@ const Backups = () => {
                                             { value: 'b2', label: 'Backblaze B2' },
                                         ]}
                                     />
-                                    <span className="form-help">S3-Compatible works with AWS S3, MinIO and Wasabi.</span>
-                                </div>
+                                </FormField>
 
                                 {storageForm.provider === 's3' && (
                                     <div className="storage-provider-config">
                                         <h4>S3-Compatible Storage</h4>
-                                        <div className="form-row">
-                                            <div className="form-group">
-                                                <label>Bucket Name</label>
+                                        <FormRow>
+                                            <FormField label="Bucket Name" htmlFor="s3-bucket">
                                                 <Input
+                                                    id="s3-bucket"
                                                     type="text"
                                                     value={storageForm.s3.bucket}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, bucket: e.target.value}})}
                                                     placeholder="my-backup-bucket"
                                                     required
                                                 />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Region</label>
+                                            </FormField>
+                                            <FormField label="Region" htmlFor="s3-region">
                                                 <Input
+                                                    id="s3-region"
                                                     type="text"
                                                     value={storageForm.s3.region}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, region: e.target.value}})}
                                                     placeholder="us-east-1"
                                                 />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <div className="form-group">
-                                                <label>Access Key</label>
+                                            </FormField>
+                                        </FormRow>
+                                        <FormRow>
+                                            <FormField label="Access Key" htmlFor="s3-access-key">
                                                 <Input
+                                                    id="s3-access-key"
                                                     type="text"
                                                     value={storageForm.s3.access_key}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, access_key: e.target.value}})}
                                                     placeholder="AKIA..."
                                                     required
                                                 />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Secret Key</label>
+                                            </FormField>
+                                            <FormField label="Secret Key" htmlFor="s3-secret-key">
                                                 <Input
+                                                    id="s3-secret-key"
                                                     type="password"
                                                     value={storageForm.s3.secret_key}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, secret_key: e.target.value}})}
                                                     required
                                                 />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <div className="form-group">
-                                                <label>Custom Endpoint URL <span className="form-help-inline">(optional, for MinIO/Wasabi)</span></label>
+                                            </FormField>
+                                        </FormRow>
+                                        <FormRow>
+                                            <FormField label="Custom Endpoint URL" htmlFor="s3-endpoint" hint="Optional, for MinIO/Wasabi">
                                                 <Input
+                                                    id="s3-endpoint"
                                                     type="text"
                                                     value={storageForm.s3.endpoint_url}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, endpoint_url: e.target.value}})}
                                                     placeholder="https://s3.example.com"
                                                 />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Path Prefix</label>
+                                            </FormField>
+                                            <FormField label="Path Prefix" htmlFor="s3-path-prefix">
                                                 <Input
+                                                    id="s3-path-prefix"
                                                     type="text"
                                                     value={storageForm.s3.path_prefix}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, path_prefix: e.target.value}})}
                                                     placeholder="serverkit-backups"
                                                 />
-                                            </div>
-                                        </div>
+                                            </FormField>
+                                        </FormRow>
                                     </div>
                                 )}
 
                                 {storageForm.provider === 'b2' && (
                                     <div className="storage-provider-config">
                                         <h4>Backblaze B2</h4>
-                                        <div className="form-row">
-                                            <div className="form-group">
-                                                <label>Bucket Name</label>
+                                        <FormRow>
+                                            <FormField label="Bucket Name" htmlFor="b2-bucket">
                                                 <Input
+                                                    id="b2-bucket"
                                                     type="text"
                                                     value={storageForm.b2.bucket}
                                                     onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, bucket: e.target.value}})}
                                                     placeholder="my-backup-bucket"
                                                     required
                                                 />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>S3-Compatible Endpoint URL</label>
+                                            </FormField>
+                                            <FormField label="S3-Compatible Endpoint URL" htmlFor="b2-endpoint">
                                                 <Input
+                                                    id="b2-endpoint"
                                                     type="text"
                                                     value={storageForm.b2.endpoint_url}
                                                     onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, endpoint_url: e.target.value}})}
                                                     placeholder="https://s3.us-west-004.backblazeb2.com"
                                                     required
                                                 />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <div className="form-group">
-                                                <label>Application Key ID</label>
+                                            </FormField>
+                                        </FormRow>
+                                        <FormRow>
+                                            <FormField label="Application Key ID" htmlFor="b2-key-id">
                                                 <Input
+                                                    id="b2-key-id"
                                                     type="text"
                                                     value={storageForm.b2.key_id}
                                                     onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, key_id: e.target.value}})}
                                                     required
                                                 />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Application Key</label>
+                                            </FormField>
+                                            <FormField label="Application Key" htmlFor="b2-app-key">
                                                 <Input
+                                                    id="b2-app-key"
                                                     type="password"
                                                     value={storageForm.b2.application_key}
                                                     onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, application_key: e.target.value}})}
                                                     required
                                                 />
-                                            </div>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Path Prefix</label>
+                                            </FormField>
+                                        </FormRow>
+                                        <FormField label="Path Prefix" htmlFor="b2-path-prefix">
                                             <Input
+                                                id="b2-path-prefix"
                                                 type="text"
                                                 value={storageForm.b2.path_prefix}
                                                 onChange={(e) => setStorageForm({...storageForm, b2: {...storageForm.b2, path_prefix: e.target.value}})}
                                                 placeholder="serverkit-backups"
                                             />
-                                        </div>
+                                        </FormField>
                                     </div>
                                 )}
 
                                 {storageForm.provider !== 'local' && (
                                     <>
-                                        <div className="form-group">
+                                        <FormField>
                                             <label className="checkbox-label">
                                                 <input
                                                     type="checkbox"
@@ -799,9 +798,9 @@ const Backups = () => {
                                                 />
                                                 <span>Auto-upload new backups to remote storage</span>
                                             </label>
-                                        </div>
+                                        </FormField>
 
-                                        <div className="form-group">
+                                        <FormField>
                                             <label className="checkbox-label">
                                                 <input
                                                     type="checkbox"
@@ -810,7 +809,7 @@ const Backups = () => {
                                                 />
                                                 <span>Keep local copy after uploading</span>
                                             </label>
-                                        </div>
+                                        </FormField>
                                     </>
                                 )}
 
@@ -845,7 +844,7 @@ const Backups = () => {
                         </div>
                         <div className="card-body">
                             <form onSubmit={handleSaveConfig}>
-                                <div className="form-group">
+                                <FormField>
                                     <label className="checkbox-label">
                                         <input
                                             type="checkbox"
@@ -854,19 +853,18 @@ const Backups = () => {
                                         />
                                         <span>Enable Scheduled Backups</span>
                                     </label>
-                                </div>
+                                </FormField>
 
-                                <div className="form-group">
-                                    <label>Retention Period (days)</label>
+                                <FormField label="Retention Period (days)" htmlFor="retention-days" hint="Backups older than this will be deleted during cleanup">
                                     <Input
+                                        id="retention-days"
                                         type="number"
                                         value={configForm.retention_days}
                                         onChange={(e) => setConfigForm({...configForm, retention_days: parseInt(e.target.value)})}
                                         min="1"
                                         max="365"
                                     />
-                                    <span className="form-help">Backups older than this will be deleted during cleanup</span>
-                                </div>
+                                </FormField>
 
                                 <div className="form-actions">
                                     <Button type="submit">Save Settings</Button>

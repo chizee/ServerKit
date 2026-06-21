@@ -598,9 +598,9 @@ const JournalTab = () => {
     if (unavailable) {
         return (
             <div className="lv-page">
-                <div className="lv-empty-hint" style={{ minHeight: 400 }}>
+                <div className="lv-empty-hint is-tall">
                     <AlertCircle size={48} />
-                    <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>System Logs Unavailable</h3>
+                    <h3 className="lv-empty-hint__title">System Logs Unavailable</h3>
                     <p>
                         No system log source was found. Neither <code>journalctl</code>,
                         <code> /var/log/syslog</code>, nor the Windows Event Log are available.
@@ -653,14 +653,13 @@ const JournalTab = () => {
             <div className="lv-layout">
                 <div className="lv-sidebar">
                     <div className="lv-sidebar-header">
-                        <div className="lv-search">
+                        <div className="lv-search has-no-icon">
                             <input
                                 type="text"
                                 value={unitInput}
                                 onChange={(e) => setUnitInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && applyUnitInput()}
                                 placeholder="Type unit name…"
-                                style={{ paddingLeft: 8 }}
                             />
                         </div>
                         <button className="lv-icon-btn" onClick={applyUnitInput} title="Apply unit filter">
@@ -671,18 +670,17 @@ const JournalTab = () => {
                     <div className="lv-sidebar-body">
                         <div className="lv-group">
                             <button
-                                className={`lv-file ${!unit ? 'active' : ''}`}
-                                onClick={clearUnit}
-                                style={{ gridTemplateColumns: '8px 1fr', gridTemplateAreas: '"dot name" "dot name"' }}
-                            >
+                                    className={`lv-file lv-file--compact ${!unit ? 'active' : ''}`}
+                                    onClick={clearUnit}
+                                >
                                 <span className="lv-file-dot" />
                                 <span className="lv-file-name">All services</span>
                             </button>
                         </div>
 
                         <div className="lv-group">
-                            <div className="lv-group-header" style={{ cursor: 'default' }}>
-                                <span style={{ width: 12 }} />
+                            <div className="lv-group-header is-static">
+                                <span className="lv-group-header__spacer" />
                                 <span>Common units</span>
                                 <span className="lv-group-count">{filteredUnits.length}</span>
                             </div>
@@ -690,16 +688,15 @@ const JournalTab = () => {
                                 {filteredUnits.map(u => (
                                     <button
                                         key={u.id}
-                                        className={`lv-file ${unit === u.id ? 'active' : ''}`}
+                                        className={`lv-file lv-file--compact ${unit === u.id ? 'active' : ''}}`}
                                         onClick={() => pickUnit(u.id)}
-                                        style={{ gridTemplateColumns: '8px 1fr', gridTemplateAreas: '"dot name" "dot name"' }}
                                     >
                                         <span className={`lv-file-dot kind-${u.kind}`} />
                                         <span className="lv-file-name">{u.label}</span>
                                     </button>
                                 ))}
                                 {filteredUnits.length === 0 && (
-                                    <div className="lv-empty-hint" style={{ padding: 12 }}>
+                                    <div className="lv-empty-hint is-compact">
                                         <p>No matching units.</p>
                                     </div>
                                 )}
@@ -708,17 +705,16 @@ const JournalTab = () => {
 
                         {isJournalctl && (
                             <div className="lv-group">
-                                <div className="lv-group-header" style={{ cursor: 'default' }}>
-                                    <span style={{ width: 12 }} />
+                                <div className="lv-group-header is-static">
+                                    <span className="lv-group-header__spacer" />
                                     <span>Priority</span>
                                 </div>
                                 <div className="lv-group-files">
                                     {PRIORITY_OPTIONS.map(opt => (
                                         <button
                                             key={opt.value}
-                                            className={`lv-file ${priority === opt.value ? 'active' : ''}`}
+                                            className={`lv-file lv-file--compact ${priority === opt.value ? 'active' : ''}`}
                                             onClick={() => { setPriority(opt.value); setTimeout(loadJournalLogs, 0); }}
-                                            style={{ gridTemplateColumns: '8px 1fr', gridTemplateAreas: '"dot name" "dot name"' }}
                                         >
                                             <span className="lv-file-dot" style={{ background: priorityColor(opt.value) }} />
                                             <span className="lv-file-name">{opt.label}</span>
@@ -1020,15 +1016,14 @@ const ProcessesTab = () => {
             <div className="proc-layout">
                 <aside className="proc-sidebar">
                     <div className="lv-sidebar-header">
-                        <span className="lv-header-label" style={{ paddingLeft: 8 }}>Users</span>
+                        <span className="lv-header-label is-indented">Users</span>
                     </div>
                     <div className="lv-sidebar-body">
                         <button
                             className={`lv-file ${!userFilter ? 'active' : ''}`}
                             onClick={() => setUserFilter(null)}
-                            style={{ gridTemplateColumns: '8px 1fr auto', gridTemplateAreas: '"dot name size" "dot name size"' }}
                         >
-                            <span className="lv-file-dot" style={{ background: 'var(--accent)' }} />
+                            <span className="lv-file-dot is-accent" />
                             <span className="lv-file-name">All users</span>
                             <span className="lv-file-size">{processes.length}</span>
                         </button>
@@ -1037,7 +1032,6 @@ const ProcessesTab = () => {
                                 key={user}
                                 className={`lv-file ${userFilter === user ? 'active' : ''}`}
                                 onClick={() => setUserFilter(user)}
-                                style={{ gridTemplateColumns: '8px 1fr auto', gridTemplateAreas: '"dot name size" "dot name size"' }}
                             >
                                 <span className="lv-file-dot" style={{ background: hashColor(user) }} />
                                 <span className="lv-file-name">{user}</span>
@@ -1051,7 +1045,7 @@ const ProcessesTab = () => {
                     {loading ? (
                         <div className="lv-content-loading">Loading processes…</div>
                     ) : filtered.length === 0 ? (
-                        <div className="lv-empty-hint" style={{ minHeight: 320 }}>
+                        <div className="lv-empty-hint is-medium">
                             <p>No processes match your filters.</p>
                         </div>
                     ) : (
@@ -1142,7 +1136,7 @@ const ProcessesTab = () => {
                     <div className="preview-drawer-backdrop" onClick={() => setSelectedProcess(null)} />
                     <aside className="preview-drawer">
                         <header className="preview-drawer-header">
-                            <Activity size={20} style={{ color: 'var(--accent-primary)' }} />
+                            <Activity size={20} className="is-accent" />
                             <div className="preview-drawer-title">
                                 <h3>{selectedProcess.name}</h3>
                                 <p className="preview-drawer-path">PID {selectedProcess.pid} · {selectedProcess.user}</p>
@@ -1193,10 +1187,10 @@ const ProcessesTab = () => {
                                 <AlertTriangle size={14} /> Force kill (SIGKILL)
                             </button>
                         </div>
-                        <div className="preview-drawer-body" style={{ padding: 16 }}>
+                        <div className="preview-drawer-body is-padded">
                             {selectedProcess.command && (
                                 <>
-                                    <div className="meta-label" style={{ marginBottom: 6 }}>Command</div>
+                                    <div className="meta-label is-spaced">Command</div>
                                     <pre className="proc-command">{selectedProcess.command}</pre>
                                 </>
                             )}
@@ -1419,7 +1413,7 @@ const ServicesTab = () => {
                         </button>
                     ))}
                 </div>
-                <div className="lv-search-field" style={{ minWidth: 260 }}>
+                <div className="lv-search-field is-wide">
                     <Search size={13} className="lv-search-field-icon" />
                     <input
                         type="text"
@@ -1436,9 +1430,9 @@ const ServicesTab = () => {
             </div>
 
             {loading ? (
-                <div className="lv-content-loading" style={{ minHeight: 320 }}>Loading services…</div>
+                <div className="lv-content-loading is-medium">Loading services…</div>
             ) : filtered.length === 0 ? (
-                <div className="lv-empty-hint" style={{ minHeight: 320 }}>
+                <div className="lv-empty-hint is-medium">
                     <p>{services.length === 0 ? 'No services found.' : 'No services match the current filters.'}</p>
                 </div>
             ) : (
@@ -1520,7 +1514,7 @@ const ServicesTab = () => {
                     <div className="preview-drawer-backdrop" onClick={closeServiceDrawer} />
                     <aside className="preview-drawer">
                         <header className="preview-drawer-header">
-                            <span className={`svc-status-dot status-${statusKind(selectedService.status)}`} style={{ width: 12, height: 12 }} />
+                            <span className={`svc-status-dot status-${statusKind(selectedService.status)} is-large`} />
                             <div className="preview-drawer-title">
                                 <h3>{selectedService.name}</h3>
                                 <p className="preview-drawer-path">

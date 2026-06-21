@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { FormField } from '../components/FormField';
 import CopyButton from '../components/CopyButton';
+import { DataTable } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -189,56 +190,55 @@ const DynamicDns = () => {
 
                 {/* Hosts table */}
                 <div className="ddns-hosts">
-                    <table className="sk-dtable ddns-hosts__table">
-                        <thead>
-                            <tr>
-                                <th>Hostname</th>
-                                <th>Last IP</th>
-                                <th>Last update</th>
-                                <th>Status</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {hosts.map((host) => (
-                                <tr key={host.id}>
-                                    <td>
-                                        <div className="ddns-hosts__name">
-                                            <strong>{host.hostname || host.record_name}</strong>
-                                            {host.label && <span className="text-muted">{host.label}</span>}
-                                        </div>
-                                    </td>
-                                    <td className="sk-cell-mono">{host.last_ip || '—'}</td>
-                                    <td>
-                                        {host.last_update_at
-                                            ? new Date(host.last_update_at).toLocaleString()
-                                            : 'Never'}
-                                    </td>
-                                    <td>
+                    <DataTable
+                        tableClassName="sk-dtable ddns-hosts__table"
+                        sortable={false}
+                        data={hosts}
+                        keyField="id"
+                        emptyState={<EmptyState icon={Network} title="No dynamic DNS hosts yet" />}
+                        columns={[
+                            {
+                                key: 'hostname',
+                                header: 'Hostname',
+                                render: (host) => (
+                                    <div className="ddns-hosts__name">
+                                        <strong>{host.hostname || host.record_name}</strong>
+                                        {host.label && <span className="text-muted">{host.label}</span>}
+                                    </div>
+                                ),
+                            },
+                            { key: 'lastIp', header: 'Last IP', render: (host) => <span className="sk-cell-mono">{host.last_ip || '—'}</span> },
+                            {
+                                key: 'lastUpdate',
+                                header: 'Last update',
+                                render: (host) => (host.last_update_at ? new Date(host.last_update_at).toLocaleString() : 'Never'),
+                            },
+                            {
+                                key: 'status',
+                                header: 'Status',
+                                render: (host) => (
+                                    <>
                                         <span className={`status-dot status-dot--${host.enabled ? 'success' : 'danger'}`} />
                                         {host.enabled ? 'Enabled' : 'Disabled'}
-                                    </td>
-                                    <td>
-                                        <div className="ddns-hosts__actions">
-                                            <Button variant="outline" size="sm" onClick={() => handleRegenerate(host)}>
-                                                Regenerate token
-                                            </Button>
-                                            <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(host)}>
-                                                Delete
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {hosts.length === 0 && (
-                                <tr>
-                                    <td colSpan={5}>
-                                        <EmptyState icon={Network} title="No dynamic DNS hosts yet" />
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    </>
+                                ),
+                            },
+                            {
+                                key: 'actions',
+                                header: '',
+                                render: (host) => (
+                                    <div className="ddns-hosts__actions">
+                                        <Button variant="outline" size="sm" onClick={() => handleRegenerate(host)}>
+                                            Regenerate token
+                                        </Button>
+                                        <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(host)}>
+                                            Delete
+                                        </Button>
+                                    </div>
+                                ),
+                            },
+                        ]}
+                    />
                 </div>
             </div>
 

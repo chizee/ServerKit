@@ -228,6 +228,8 @@ $lk-default:  #646b7a;
     letter-spacing: 0.08em;
     font-weight: $font-weight-semibold;
     color: var(--text-ghost);
+
+    &.is-indented { padding-left: 8px; }
 }
 
 .lv-header-hint {
@@ -387,6 +389,8 @@ $lk-default:  #646b7a;
             background: var(--surface);
         }
     }
+
+    &.has-no-icon input { padding-left: 8px; }
 }
 
 .lv-sidebar-body {
@@ -411,6 +415,17 @@ $lk-default:  #646b7a;
 
     svg { opacity: 0.6; }
     p { margin: 0; font-size: $font-size-sm; }
+
+    &.is-compact { padding: 12px; }
+    &.is-medium { min-height: 320px; }
+    &.is-tall { min-height: 400px; }
+
+    &__title {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: $font-size-lg;
+        font-weight: $font-weight-semibold;
+    }
 }
 
 // ─── Rail group (mono eyebrow header) ─────────────────
@@ -435,6 +450,9 @@ $lk-default:  #646b7a;
     letter-spacing: 0.1em;
     cursor: pointer;
     border-radius: $radius-sm;
+
+    &.is-static { cursor: default; }
+    &__spacer { width: 12px; }
     @include transition(color);
 
     &:hover { background: transparent; color: var(--text-faint); }
@@ -490,6 +508,13 @@ $lk-default:  #646b7a;
 
         .lv-file-name { color: var(--text); font-weight: $font-weight-medium; }
     }
+
+    &--compact {
+        grid-template-columns: 8px 1fr;
+        grid-template-areas:
+            'dot name'
+            'dot name';
+    }
 }
 
 .lv-file-dot {
@@ -499,6 +524,7 @@ $lk-default:  #646b7a;
     border-radius: 50%;
     background: $lk-default;
 
+    &.is-accent     { background: var(--accent); }
     &.kind-error    { background: $lk-error; }
     &.kind-access   { background: $lk-access; }
     &.kind-nginx    { background: $lk-nginx; }
@@ -607,6 +633,8 @@ $lk-default:  #646b7a;
     border-radius: 8px;
     min-width: 220px;
     @include transition(all);
+
+    &.is-wide { min-width: 260px; }
 
     &:focus-within {
         border-color: var(--accent-dim);
@@ -842,6 +870,8 @@ $lk-default:  #646b7a;
     padding: $space-8;
 
     p { margin: 0; max-width: 360px; line-height: 1.5; }
+
+    &.is-medium { min-height: 320px; }
 }
 
 .lv-lines {
@@ -1248,6 +1278,7 @@ $lk-default:  #646b7a;
     background: var(--text-ghost);
     flex-shrink: 0;
 
+    &.is-large { width: 12px; height: 12px; }
     &.status-running { background: var(--green); box-shadow: 0 0 0 3px fade($success, 18%); }
     &.status-failed  { background: var(--red);   box-shadow: 0 0 0 3px fade($danger, 18%); }
     &.status-stopped { background: var(--text-ghost); }
