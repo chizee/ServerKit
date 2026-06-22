@@ -2,10 +2,15 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import api from '../services/api';
 import socketService from '../services/socket';
 import { useAuth } from './AuthContext';
+import { getDismissedNotices, addDismissedNotice, noticeToItem } from '../utils/dismissedNotices';
 
 // Global in-app notification state: the bell's unread badge + recent list, kept
 // live via the Socket.IO 'notification' push (see services/socket.js). The full
 // history page paginates independently; this context holds only the recent slice.
+//
+// It also folds in live "system notices" (admin misconfiguration hints from
+// /system/notices) so they surface in the notification center instead of stacking
+// as banners at the top of the dashboard — only genuinely urgent ones get a banner.
 const NotificationsContext = createContext(null);
 
 const RECENT_LIMIT = 12;
@@ -16,37 +21,47 @@ export function useNotifications() {
 }
 
 export function NotificationsProvider({ children }) {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, isAdmin } = useAuth();
     const [items, setItems] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
+    const [busUnread, setBusUnread] = useState(0);
     const [loading, setLoading] = useState(false);
 
     const refresh = useCallback(async () => {
         if (!isAuthenticated) return;
         setLoading(true);
         try {
-            const data = await api.getInbox({ limit: RECENT_LIMIT });
-            setItems(data.items || []);
-            setUnreadCount(data.unread_count || 0);
+            const [inbox, noticesRes] = await Promise.all([
+                api.getInbox({ limit: RECENT_LIMIT }),
+                isAdmin
+                    ? api.getSystemNotices().catch(() => ({ notices: [] }))
+                    : Promise.resolve({ notices: [] }),
+            ]);
+            const dismissed = getDismissedNotices();
+            const noticeItems = (noticesRes?.notices || [])
+                .filter((n) => !dismissed.includes(n.id))
+                .map(noticeToItem);
+            // Standing config notices sit above the recent bus deliveries.
+            setItems([...noticeItems, ...(inbox.items || [])]);
+            setBusUnread(inbox.unread_count || 0);
         } catch {
             // Non-fatal: the bell just stays at its last known state.
         } finally {
             setLoading(false);
         }
-    }, [isAuthenticated]);
+    }, [isAuthenticated, isAdmin]);
 
     useEffect(() => {
         if (!isAuthenticated) {
             socketService.disconnect();
             setItems([]);
-            setUnreadCount(0);
+            setBusUnread(0);
             return undefined;
         }
         refresh();
         socketService.connect();
         const off = socketService.on('notification', (n) => {
             setItems((prev) => [{ ...n, read: false }, ...prev].slice(0, MAX_BUFFERED));
-            setUnreadCount((count) => count + 1);
+            setBusUnread((count) => count + 1);
         });
         return off;
     }, [isAuthenticated, refresh]);
@@ -57,15 +72,16 @@ export function NotificationsProvider({ children }) {
         )));
         try {
             const res = await api.markNotificationRead(deliveryId);
-            if (res && typeof res.unread_count === 'number') setUnreadCount(res.unread_count);
+            if (res && typeof res.unread_count === 'number') setBusUnread(res.unread_count);
         } catch {
             // ignore — the next refresh reconciles
         }
     }, []);
 
     const markAllRead = useCallback(async () => {
-        setItems((prev) => prev.map((it) => ({ ...it, read: true })));
-        setUnreadCount(0);
+        // Notices aren't "read" — they clear when fixed or dismissed, so leave them.
+        setItems((prev) => prev.map((it) => (it.kind === 'notice' ? it : { ...it, read: true })));
+        setBusUnread(0);
         try {
             await api.markAllNotificationsRead();
         } catch {
@@ -73,7 +89,15 @@ export function NotificationsProvider({ children }) {
         }
     }, []);
 
-    const value = { items, unreadCount, loading, refresh, markRead, markAllRead };
+    const dismissNotice = useCallback((noticeId) => {
+        addDismissedNotice(noticeId);
+        setItems((prev) => prev.filter((it) => it.notice_id !== noticeId));
+    }, []);
+
+    const noticeCount = items.reduce((n, it) => (it.kind === 'notice' ? n + 1 : n), 0);
+    const unreadCount = busUnread + noticeCount;
+
+    const value = { items, unreadCount, loading, refresh, markRead, markAllRead, dismissNotice };
     return (
         <NotificationsContext.Provider value={value}>
             {children}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, ScrollText } from 'lucide-react';
+import { Bell, CheckCheck, ScrollText, X } from 'lucide-react';
 import api from '../services/api';
 import { PageTopbar } from '@/components/ds';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const PAGE_SIZE = 25;
 export default function Notifications() {
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
-    const { refresh: refreshBell } = useNotifications() || {};
+    const { refresh: refreshBell, items: ctxItems = [], dismissNotice } = useNotifications() || {};
     const [items, setItems] = useState([]);
     const [unreadOnly, setUnreadOnly] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -61,6 +61,10 @@ export default function Notifications() {
         try { await api.markAllNotificationsRead(); } catch { /* reconciled on reload */ }
         if (refreshBell) refreshBell();
     };
+
+    // Live system notices (admin config hints) come from the shared context so they
+    // surface here too, above the bus history.
+    const noticeItems = (ctxItems || []).filter((it) => it.kind === 'notice');
 
     return (
         <>
@@ -104,15 +108,43 @@ export default function Notifications() {
                     </button>
                 </div>
 
-                {loading && items.length === 0 ? (
+                {loading && items.length === 0 && noticeItems.length === 0 ? (
                     <div className="sk-notif-page__state">Loading…</div>
-                ) : items.length === 0 ? (
+                ) : items.length === 0 && noticeItems.length === 0 ? (
                     <div className="sk-notif-page__state">
                         <Bell size={26} aria-hidden="true" />
                         <p>{unreadOnly ? 'No unread notifications.' : 'No notifications yet.'}</p>
                     </div>
                 ) : (
                     <ul className="sk-notif-page__list">
+                        {noticeItems.map((item) => (
+                            <li
+                                key={item.delivery_id}
+                                className="sk-notif-row is-unread is-notice"
+                                onClick={() => item.action_path && navigate(item.action_path)}
+                            >
+                                <span
+                                    className="sk-notif-row__dot"
+                                    style={{ background: SEVERITY_DOT[item.severity] || SEVERITY_DOT.info }}
+                                    aria-hidden="true"
+                                />
+                                <div className="sk-notif-row__body">
+                                    <div className="sk-notif-row__title">{item.title}</div>
+                                    {item.body && <div className="sk-notif-row__text">{item.body}</div>}
+                                    {item.action_label && (
+                                        <div className="sk-notif-row__action">{item.action_label} →</div>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    className="sk-notif-row__dismiss"
+                                    onClick={(e) => { e.stopPropagation(); if (dismissNotice) dismissNotice(item.notice_id); }}
+                                    aria-label={`Dismiss ${item.title}`}
+                                >
+                                    <X size={15} aria-hidden="true" />
+                                </button>
+                            </li>
+                        ))}
                         {items.map((item) => (
                             <li
                                 key={item.delivery_id}

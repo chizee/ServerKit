@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, X } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { timeAgo } from '../utils/timeAgo';
 
@@ -20,7 +20,7 @@ export default function NotificationBell() {
     const navigate = useNavigate();
 
     // The provider is only mounted for authenticated users; render nothing otherwise.
-    const { items = [], unreadCount = 0, markRead, markAllRead, refresh } = ctx || {};
+    const { items = [], unreadCount = 0, markRead, markAllRead, refresh, dismissNotice } = ctx || {};
 
     useEffect(() => {
         if (!open) return undefined;
@@ -45,6 +45,12 @@ export default function NotificationBell() {
     };
 
     const onItemClick = (item) => {
+        // System notices route to their fix; bus notifications just mark read.
+        if (item.kind === 'notice') {
+            setOpen(false);
+            if (item.action_path) navigate(item.action_path);
+            return;
+        }
         if (!item.read && markRead) markRead(item.delivery_id);
     };
 
@@ -80,23 +86,54 @@ export default function NotificationBell() {
                             <div className="sk-notif__empty">You&rsquo;re all caught up.</div>
                         ) : (
                             items.map((item) => (
-                                <button
-                                    key={item.delivery_id}
-                                    type="button"
-                                    className={`sk-notif__item${item.read ? '' : ' is-unread'}`}
-                                    onClick={() => onItemClick(item)}
-                                >
-                                    <span
-                                        className="sk-notif__dot"
-                                        style={{ background: SEVERITY_DOT[item.severity] || SEVERITY_DOT.info }}
-                                        aria-hidden="true"
-                                    />
-                                    <span className="sk-notif__content">
-                                        <span className="sk-notif__title">{item.title}</span>
-                                        {item.body && <span className="sk-notif__text">{item.body}</span>}
-                                        <span className="sk-notif__time">{timeAgo(item.created_at)}</span>
-                                    </span>
-                                </button>
+                                item.kind === 'notice' ? (
+                                    <div key={item.delivery_id} className="sk-notif__item is-notice">
+                                        <button
+                                            type="button"
+                                            className="sk-notif__hit"
+                                            onClick={() => onItemClick(item)}
+                                        >
+                                            <span
+                                                className="sk-notif__dot"
+                                                style={{ background: SEVERITY_DOT[item.severity] || SEVERITY_DOT.info }}
+                                                aria-hidden="true"
+                                            />
+                                            <span className="sk-notif__content">
+                                                <span className="sk-notif__title">{item.title}</span>
+                                                {item.body && <span className="sk-notif__text">{item.body}</span>}
+                                                {item.action_label && (
+                                                    <span className="sk-notif__time">{item.action_label} →</span>
+                                                )}
+                                            </span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="sk-notif__dismiss"
+                                            onClick={() => dismissNotice && dismissNotice(item.notice_id)}
+                                            aria-label={`Dismiss ${item.title}`}
+                                        >
+                                            <X size={14} aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        key={item.delivery_id}
+                                        type="button"
+                                        className={`sk-notif__item${item.read ? '' : ' is-unread'}`}
+                                        onClick={() => onItemClick(item)}
+                                    >
+                                        <span
+                                            className="sk-notif__dot"
+                                            style={{ background: SEVERITY_DOT[item.severity] || SEVERITY_DOT.info }}
+                                            aria-hidden="true"
+                                        />
+                                        <span className="sk-notif__content">
+                                            <span className="sk-notif__title">{item.title}</span>
+                                            {item.body && <span className="sk-notif__text">{item.body}</span>}
+                                            <span className="sk-notif__time">{timeAgo(item.created_at)}</span>
+                                        </span>
+                                    </button>
+                                )
                             ))
                         )}
                     </div>

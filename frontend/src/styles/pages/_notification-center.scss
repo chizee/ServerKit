@@ -105,6 +105,27 @@
         opacity: 0.8;
         white-space: nowrap;
     }
+
+    &__action {
+        margin-top: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: $accent-primary;
+    }
+
+    &__dismiss {
+        flex: 0 0 auto;
+        align-self: flex-start;
+        padding: 2px;
+        border: none;
+        background: none;
+        border-radius: 6px;
+        cursor: pointer;
+        color: $text-secondary;
+        line-height: 0;
+
+        &:hover { background: $bg-hover; color: $text-primary; }
+    }
 }
 
 // Admin delivery log (sk-dlog).
