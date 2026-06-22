@@ -95,7 +95,7 @@ def check_workflow_schedules():
                     if seconds_since_last_run < 110:
                         continue
                 logger.info(f'Scheduled workflow triggered: {workflow.name} (ID: {workflow.id})')
-                WorkflowEngine.execute_workflow(
+                WorkflowEngine.enqueue_execution(
                     workflow_id=workflow.id,
                     trigger_type='cron',
                     context={'scheduled_at': prev_run.isoformat()},

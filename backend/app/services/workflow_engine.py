@@ -34,6 +34,10 @@ MAX_RETRY_COUNT = 5
 DEFAULT_RETRY_DELAY = 5  # seconds
 MAX_OUTPUT_SIZE = 1024 * 512  # 512 KB
 
+# Unified job kind for asynchronous workflow executions
+# (see WorkflowEngine.enqueue_execution / register_jobs).
+WORKFLOW_JOB_KIND = 'workflow.execute'
+
 
 def _parse_version(s: str) -> tuple:
     """Turn '3.11.4' / 'v20.10.0' / '8.2' into a comparable tuple of ints.
@@ -144,11 +148,37 @@ class WorkflowEngine:
     @staticmethod
     def execute_workflow(workflow_id: int, trigger_type: str = 'manual',
                          context: Dict[str, Any] = None) -> int:
-        """
-        Execute a workflow by ID.
+        """Create and SYNCHRONOUSLY run a workflow. Returns the execution id.
 
-        Returns the ID of the created WorkflowExecution.
+        Kept for callers that want to block on the result (and tests). Async
+        callers (API/webhook/cron/event) use enqueue_execution instead.
         """
+        execution = WorkflowEngine._create_execution(workflow_id, trigger_type, context)
+        WorkflowEngine.run_execution(execution.id)
+        return execution.id
+
+    @staticmethod
+    def enqueue_execution(workflow_id: int, trigger_type: str = 'manual',
+                          context: Dict[str, Any] = None) -> int:
+        """Create the execution row and run it asynchronously via the unified job
+        system (kind ``workflow.execute``). Returns the execution id immediately,
+        so triggers don't block on the DAG. Graph validation still happens here,
+        so an invalid workflow raises synchronously (callers can 400)."""
+        execution = WorkflowEngine._create_execution(workflow_id, trigger_type, context)
+        from app.jobs.service import JobService
+        JobService.enqueue(
+            WORKFLOW_JOB_KIND,
+            payload={'execution_id': execution.id},
+            max_attempts=1,  # workflows aren't idempotent (deploy/script/notify)
+            owner_type='workflow',
+            owner_id=workflow_id,
+        )
+        return execution.id
+
+    @staticmethod
+    def _create_execution(workflow_id: int, trigger_type: str = 'manual',
+                          context: Dict[str, Any] = None) -> WorkflowExecution:
+        """Validate the workflow graph and persist a new (running) execution row."""
         workflow = Workflow.query.get(workflow_id)
         if not workflow:
             raise ValueError(f"Workflow {workflow_id} not found")
@@ -156,7 +186,7 @@ class WorkflowEngine:
         nodes = json.loads(workflow.nodes) if workflow.nodes else []
         edges = json.loads(workflow.edges) if workflow.edges else []
 
-        # Validate graph before executing
+        # Validate graph before creating the execution
         cycle_err = WorkflowEngine.validate_graph(nodes, edges)
         if cycle_err:
             raise CycleDetectedError(cycle_err)
@@ -173,6 +203,18 @@ class WorkflowEngine:
 
         workflow.last_run_at = execution.started_at
         db.session.commit()
+        return execution
+
+    @staticmethod
+    def run_execution(execution_id: int) -> int:
+        """Run an already-created execution to completion. The synchronous core
+        shared by execute_workflow and the workflow.execute job handler."""
+        execution = WorkflowExecution.query.get(execution_id)
+        if not execution:
+            raise ValueError(f"WorkflowExecution {execution_id} not found")
+        workflow = execution.workflow
+        nodes = json.loads(workflow.nodes) if workflow.nodes else []
+        edges = json.loads(workflow.edges) if workflow.edges else []
 
         try:
             WorkflowEngine._run_execution(execution.id, nodes, edges)
@@ -184,6 +226,28 @@ class WorkflowEngine:
             db.session.commit()
 
         return execution.id
+
+    @staticmethod
+    def _run_workflow_job(job):
+        """Unified-job handler for ``workflow.execute``. Runs the queued execution;
+        a failed run is raised so the unified job is marked failed too (the
+        WorkflowExecution row carries the detailed per-node status/logs)."""
+        execution_id = (job.get_payload() or {}).get('execution_id')
+        if not execution_id:
+            raise ValueError('workflow.execute job missing execution_id')
+        WorkflowEngine.run_execution(execution_id)
+        execution = WorkflowExecution.query.get(execution_id)
+        if execution and execution.status == 'failed':
+            raise RuntimeError(f'Workflow execution {execution_id} failed')
+        return {'execution_id': execution_id,
+                'status': execution.status if execution else None}
+
+    @staticmethod
+    def register_jobs():
+        """Register the workflow.execute handler with the unified job registry.
+        Called once at app startup (see app/__init__.py)."""
+        from app.jobs import registry
+        registry.register(WORKFLOW_JOB_KIND, WorkflowEngine._run_workflow_job, replace=True)
 
     # ------------------------------------------------------------------
     # DAG Execution
@@ -925,7 +989,7 @@ class WorkflowEventBus:
                             'event_data': data,
                             'triggered_at': datetime.utcnow().isoformat()
                         }
-                        WorkflowEngine.execute_workflow(
+                        WorkflowEngine.enqueue_execution(
                             workflow_id=workflow.id,
                             trigger_type='event',
                             context=context

@@ -299,3 +299,68 @@ class TestDeploymentInstallHandler:
         assert unified.get_payload() == {'deployment_job_id': dep_id}
         assert unified.max_attempts == 1
         assert unified.correlation_id == dep.correlation_id
+
+
+class TestWorkflowExecutionHandler:
+    """Phase 6 — workflow executions run as a 'workflow.execute' unified job
+    instead of inline/threaded. Empty-node workflows run for real to success;
+    the failure path patches _run_execution to blow up."""
+
+    def _make_workflow(self, nodes='[]', edges='[]'):
+        from app.models.workflow import Workflow
+        wf = Workflow(name='wf-test', user_id=1, nodes=nodes, edges=edges,
+                      is_active=True, trigger_type='manual')
+        db.session.add(wf)
+        db.session.commit()
+        return wf
+
+    def test_register_jobs_adds_handler(self, app):
+        from app.services.workflow_engine import WorkflowEngine, WORKFLOW_JOB_KIND
+        WorkflowEngine.register_jobs()
+        assert WORKFLOW_JOB_KIND == 'workflow.execute'
+        assert registry.is_registered('workflow.execute')
+
+    def test_enqueue_creates_running_row_and_job(self, app):
+        from app.services.workflow_engine import WorkflowEngine
+        from app.models.workflow import WorkflowExecution
+        wf = self._make_workflow()
+
+        execution_id = WorkflowEngine.enqueue_execution(wf.id, trigger_type='manual')
+
+        ex = WorkflowExecution.query.get(execution_id)
+        assert ex is not None and ex.status == 'running'
+        unified = Job.query.filter_by(kind='workflow.execute', owner_id=str(wf.id)).first()
+        assert unified is not None
+        assert unified.get_payload() == {'execution_id': execution_id}
+        assert unified.max_attempts == 1
+
+    def test_handler_runs_empty_workflow_to_success(self, app):
+        from app.services.workflow_engine import WorkflowEngine
+        from app.models.workflow import WorkflowExecution
+        WorkflowEngine.register_jobs()
+        wf = self._make_workflow(nodes='[]', edges='[]')
+
+        execution_id = WorkflowEngine.enqueue_execution(wf.id)
+        _drain_once()
+
+        assert WorkflowExecution.query.get(execution_id).status == 'success'
+        unified = Job.query.filter_by(kind='workflow.execute').first()
+        assert unified.status == Job.STATUS_SUCCEEDED
+
+    def test_handler_failure_marks_job_failed(self, app, monkeypatch):
+        from app.services.workflow_engine import WorkflowEngine
+        from app.models.workflow import WorkflowExecution
+
+        def boom(execution_id, nodes, edges):
+            raise RuntimeError('node blew up')
+
+        monkeypatch.setattr(WorkflowEngine, '_run_execution', staticmethod(boom))
+        WorkflowEngine.register_jobs()
+        wf = self._make_workflow(nodes='[{"id":"a","type":"trigger","data":{}}]', edges='[]')
+
+        execution_id = WorkflowEngine.enqueue_execution(wf.id)
+        _drain_once()
+
+        assert WorkflowExecution.query.get(execution_id).status == 'failed'
+        unified = Job.query.filter_by(kind='workflow.execute').first()
+        assert unified.status == Job.STATUS_FAILED
