@@ -108,3 +108,33 @@ class SiteDomainService:
         managed subdomains to HTTPS."""
         scheme = 'https' if ssl else 'http'
         return f'{scheme}://{host}'
+
+    @classmethod
+    def dns_mode(cls):
+        """How managed-site subdomains get their DNS:
+
+        * ``wildcard`` (default) — one ``*.<base_domain>`` record covers every site,
+          so a new site needs no per-site DNS work, and
+        * ``per-site`` — each site gets its own A record, auto-created via a
+          connected provider, so every site is an explicit, visible record.
+        """
+        val = (SystemSettings.get('sites_dns_mode') or '').strip().lower()
+        return val if val in ('wildcard', 'per-site') else 'wildcard'
+
+    @classmethod
+    def ensure_site_dns(cls, host):
+        """Auto-create a managed site's A record when in ``per-site`` mode (via a
+        connected provider, ownership-guarded + logged). In ``wildcard`` mode this is
+        a no-op — the single ``*.<base>`` record already covers ``host``. Never raises;
+        returns the provider result (or a ``skipped``/``no_server_ip`` descriptor)."""
+        if not host or cls.dns_mode() != 'per-site':
+            return {'created': False, 'skipped': True, 'reason': 'wildcard'}
+        ip = cls.server_ip()
+        if not ip:
+            return {'created': False, 'reason': 'no_server_ip',
+                    'message': f'Set the server public IP to auto-create the {host} A record.'}
+        try:
+            from app.services.dns_provider_service import DNSProviderService
+            return DNSProviderService.ensure_a_record(host, ip)
+        except Exception as e:
+            return {'created': False, 'reason': 'error', 'error': str(e)}

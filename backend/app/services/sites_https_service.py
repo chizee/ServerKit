@@ -22,6 +22,7 @@ class SitesHttpsService:
             'base_domain': SiteDomainService.base_domain(),
             'server_ip': SiteDomainService.server_ip(),
             'https_enabled': SiteDomainService.https_enabled(),
+            'dns_mode': SiteDomainService.dns_mode(),
             'providers': DNSProviderService.list_providers(),
         }
 
@@ -63,6 +64,8 @@ class SitesHttpsService:
                     'dns': dns, 'ssl': cert, 'warning': '; '.join(warnings) if warnings else None}
 
         SettingsService.set('sites_https_enabled', True)
+        # The wildcard record now covers every subdomain, so wildcard is the mode.
+        SettingsService.set('sites_dns_mode', 'wildcard')
 
         return {'success': True, 'base_domain': base, 'https_enabled': True,
                 'dns': dns, 'ssl': cert, 'cert_path': cert.get('certificate_path'),

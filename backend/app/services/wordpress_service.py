@@ -2104,6 +2104,7 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
         """
         from app import db
         from app.models.domain import Domain
+        from app.services.site_domain_service import SiteDomainService
 
         if not site_host:
             return {'domain': None, 'nginx': None, 'warning': None}
@@ -2117,6 +2118,12 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
         except Exception as e:
             db.session.rollback()
             warning = f'could not record domain {site_host}: {e}'
+
+        # Per-site DNS mode: auto-create this site's A record via a connected
+        # provider (wildcard mode relies on the single *.<base> record instead).
+        dns = SiteDomainService.ensure_site_dns(site_host)
+        if dns and not dns.get('skipped') and not dns.get('created') and dns.get('message'):
+            warning = (warning + '; ' + dns['message']) if warning else dns['message']
 
         v = cls._write_app_vhost(app)
         if v.get('warning'):
