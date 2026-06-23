@@ -16,12 +16,22 @@ import EmptyState from '../components/EmptyState';
 
 // Featured templates (curated list)
 const FEATURED_TEMPLATES = [
-    'wordpress', 'nextcloud', 'grafana', 'portainer', 'uptime-kuma',
-    'gitea', 'vaultwarden', 'jellyfin', 'ghost', 'n8n'
+    'prompture-hub', 'wordpress', 'nextcloud', 'grafana', 'portainer',
+    'uptime-kuma', 'gitea', 'vaultwarden', 'jellyfin', 'ghost', 'n8n'
 ];
 
 // Icon mapping for templates
 const TEMPLATE_ICONS = {
+    // AI / LLM
+    'prompture-hub': Cpu,
+    'ollama-webui': Cpu,
+    'qdrant': Database,
+    'chroma': Database,
+    'litellm': Cpu,
+    'flowise': Workflow,
+    'langflow': Workflow,
+    'anythingllm': Cpu,
+    'librechat': MessageSquare,
     // Monitoring
     'uptime-kuma': BarChart3,
     'grafana': BarChart3,
@@ -70,6 +80,8 @@ const TEMPLATE_ICONS = {
     'outline': FileText,
     'excalidraw': FileText,
     'n8n': Workflow,
+    // Notifications
+    'gotify': MessageSquare,
     // Security
     'vaultwarden': Lock,
     'authelia': Shield,
