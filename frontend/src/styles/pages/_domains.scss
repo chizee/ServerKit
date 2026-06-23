@@ -92,7 +92,197 @@
 
 .dom-chev { color: var(--text-ghost); }
 
+// "Managed" chip — a provider zone ServerKit has adopted for record/ops management.
+.dom-managed {
+    margin-left: $space-2;
+    padding: 1px 6px;
+    border-radius: $radius-sm;
+    background: $success-bg;
+    color: $success;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+}
+
+// Registration expiry, coloured by urgency.
+.dom-expiry {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+
+    &--green { color: $success; }
+    &--amber { color: $warning; }
+    &--red { color: $danger; }
+}
+
+// Inline per-row actions (DNS records / Cloudflare) for provider domains.
+.dom-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: $space-2;
+}
+
+// Notice when a connected token couldn't enumerate its zones (e.g. scoped token).
+.dom-portfolio-note {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    margin-bottom: $space-3;
+    padding: $space-2 $space-3;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-md;
+    background: fade($warning, 8%);
+    font-size: $font-size-xs;
+    color: $text-secondary;
+
+    svg { color: $warning; flex-shrink: 0; }
+    strong { color: $text-primary; }
+}
+
+// DNS records panel inside the Domains drawer (DomainDnsPanel) — the unified
+// inline DNS experience for both app domains and provider zones.
+.ddp {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+
+    &__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+    }
+
+    &__title {
+        margin: 0;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-semibold;
+        color: $text-primary;
+    }
+
+    &__count { color: $text-tertiary; }
+
+    &__head-actions { display: flex; align-items: center; gap: $space-2; }
+
+    &__hint {
+        margin: 0;
+        font-size: $font-size-xs;
+        color: $text-tertiary;
+    }
+
+    &__msg {
+        margin: 0;
+        padding: $space-4;
+        text-align: center;
+        font-size: $font-size-sm;
+        color: $text-tertiary;
+        background: var(--surface-2);
+        border-radius: $radius-md;
+
+        &--error { color: $danger; }
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+        padding: $space-3;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-md;
+        background: var(--surface-2);
+    }
+
+    &__form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $space-2;
+    }
+
+    &__proxy-toggle {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        cursor: pointer;
+    }
+
+    &__table-wrap { width: 100%; }
+
+    // Fixed layout so the table never overflows the drawer — narrow columns get a
+    // set width, Name + Content share the rest and ellipsis-truncate (full value
+    // on hover via title), so there's no horizontal scroll.
+    &__table {
+        width: 100%;
+        table-layout: fixed;
+
+        td, th { white-space: nowrap; }
+    }
+
+    &__c-type { width: 58px; }
+    &__c-ttl { width: 76px; }
+    &__c-proxy { width: 116px; }
+    &__c-src { width: 100px; }
+
+    &__c-name,
+    &__content {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__ssl {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: $font-size-xs;
+        color: $success;
+
+        svg { flex-shrink: 0; }
+    }
+
+    &__proxy {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: $font-size-xs;
+        color: $text-tertiary;
+
+        &--on { color: #f6821f; font-weight: $font-weight-medium; }
+    }
+
+    &__src {
+        font-size: 11px;
+        font-weight: $font-weight-medium;
+        color: $text-tertiary;
+        padding: 1px 6px;
+        border-radius: $radius-full;
+        background: var(--surface-2);
+
+        &--sk { color: $success; background: $success-bg; }
+    }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        flex-wrap: wrap;
+        padding-top: $space-2;
+        border-top: 1px solid $border-subtle;
+    }
+}
+
 // ── Detail drawer body ──────────────────────────────────────
+// Header actions live in the drawer head (top-right); pad past the close "×".
+.dom-drawer__headeractions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: $space-2;
+    padding-right: 32px;
+}
+
 .dom-drawer {
     padding: $space-5 $space-5 $space-8;
     display: flex;

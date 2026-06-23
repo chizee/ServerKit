@@ -318,6 +318,7 @@ export default function ConnectionsHub() {
                         connected: true, statusLabel: list.length === 1 ? 'Connected' : `${list.length} connected`, statusTone: 'ok',
                         subtitle: list.map((p) => p.name).join(', '),
                         scopes: dedupeScopes(list.map(deriveScope).filter(Boolean)),
+                        manageHref: '/domains', manageLabel: 'Domains',
                     }
                     : { connected: false, statusLabel: 'Not connected', statusTone: 'neutral', scopes: [] };
             } else if (provider.kind === 'registrar') {
@@ -364,6 +365,19 @@ export default function ConnectionsHub() {
     }
 
     const unencryptedCount = allConnections.filter((c) => c && c.encrypted === false).length;
+
+    // Defense in depth: Settings only mounts this for admins and the registry API is
+    // admin-gated, but guard here too so the hub never half-renders for a non-admin.
+    if (!isAdmin) {
+        return (
+            <div className="connections-hub">
+                <div className="connections-hub__warning">
+                    <ShieldAlert size={16} />
+                    <span>Connections are managed by administrators.</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="connections-hub">

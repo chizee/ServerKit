@@ -12,6 +12,34 @@ export async function createDNSZone(data) {
     return this.request('/dns/', { method: 'POST', body: data });
 }
 
+// Domains-page portfolio: every domain across connected DNS providers, merged with
+// adopted zones (read-only; viewing is open to any authenticated user).
+export async function getDnsPortfolio() {
+    return this.request('/dns/portfolio');
+}
+
+// Idempotently adopt a provider domain into a managed zone so it can be edited /
+// reached in the Cloudflare ops surface. Returns the (existing-or-new) zone.
+export async function adoptDnsZone(domain, dnsProviderConfigId) {
+    return this.request('/dns/adopt', {
+        method: 'POST',
+        body: { domain, dns_provider_config_id: dnsProviderConfigId },
+    });
+}
+
+// Live records for a provider zone addressed by connection + provider zone id —
+// lets the Domains drawer show a domain's real DNS without adopting it first.
+export async function getProviderRecords(configId, providerZoneId) {
+    const params = new URLSearchParams({ config_id: configId, zone: providerZoneId });
+    return this.request(`/dns/provider-records?${params.toString()}`);
+}
+
+// Registration expiry / registrar via RDAP (WHOIS successor) — lazy fallback when
+// no connected provider has the data. One domain per call.
+export async function getDomainRegistration(domain) {
+    return this.request(`/dns/registration?domain=${encodeURIComponent(domain)}`);
+}
+
 export async function deleteDNSZone(zoneId) {
     return this.request(`/dns/${zoneId}`, { method: 'DELETE' });
 }
