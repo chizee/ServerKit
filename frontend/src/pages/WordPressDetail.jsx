@@ -26,43 +26,100 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 // Detail Page Skeleton for initial loading
+// Mirrors the real page chrome (top bar, identity, repo pill, tabs) and the
+// Overview tab layout (KPIs, quick-actions + traffic grid, activity feed).
 const DetailPageSkeleton = () => (
-    <div className="app-detail-page app-detail-page--wide wp-detail-page">
-        <div className="app-detail-header">
-            <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 8 }} />
-            <div className="app-detail-title-block">
-                <div className="skeleton" style={{ width: 200, height: 28, marginBottom: 8 }} />
-                <div className="skeleton" style={{ width: 300, height: 16 }} />
+    <div className="wp-detail-page wp-detail-page--skeleton">
+        {/* Top bar chrome */}
+        <div className="sk-topbar-skeleton">
+            <div className="sk-topbar-skeleton__icon" />
+            <div className="sk-topbar-skeleton__title" />
+            <div className="sk-topbar-skeleton__spacer" />
+            <div className="sk-topbar-skeleton__actions">
+                <div className="sk-topbar-skeleton__btn" />
+                <div className="sk-topbar-skeleton__btn" />
+                <div className="sk-topbar-skeleton__btn sk-topbar-skeleton__btn--primary" />
             </div>
         </div>
-        <div className="app-detail-tabs flex gap-2">
-            {[1, 2, 3, 4, 5, 6, 7].map(i => (
-                <div key={i} className="skeleton" style={{ width: 80, height: 32, borderRadius: 4 }} />
-            ))}
-        </div>
-        <div className="app-detail-content">
-            <div className="tab-loading">
-                <div className="tab-loading-header">
-                    <div className="tab-loading-title" />
-                    <div className="tab-loading-btn" />
+
+        <div className="app-detail-body">
+            {/* Identity header */}
+            <div className="app-detail-header">
+                <div className="app-detail-icon wp-icon skeleton" style={{ width: 52, height: 52, borderRadius: 13 }} />
+                <div className="app-detail-title-block">
+                    <div className="skeleton" style={{ width: 260, height: 24, marginBottom: 10 }} />
+                    <div className="skeleton" style={{ width: 340, height: 14 }} />
                 </div>
-                <div className="environments-grid">
-                    <div className="wp-env-card-skeleton">
-                        <div className="wp-env-card-skeleton-header">
-                            <div className="wp-env-card-skeleton-badge" />
-                            <div className="wp-env-card-skeleton-status" />
+            </div>
+
+            {/* Repo pill placeholder */}
+            <div className="wp-detail__repo-bar">
+                <div className="wp-detail-skeleton-repo" />
+            </div>
+
+            {/* Tab strip */}
+            <div className="app-detail-tabs">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(i => (
+                    <div key={i} className="skeleton app-detail-tab-skeleton" />
+                ))}
+            </div>
+
+            {/* Overview tab content placeholder */}
+            <div className="app-detail-content">
+                <div className="wp-overview wp-overview--skeleton">
+                    {/* KPI row */}
+                    <div className="wp-kpis wp-kpis--skeleton">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="wp-detail-skeleton-kpi">
+                                <div className="wp-detail-skeleton-kpi__label" />
+                                <div className="wp-detail-skeleton-kpi__value" />
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Quick actions + traffic grid */}
+                    <div className="wp-overview-main">
+                        <div className="app-panel wp-detail-skeleton-panel">
+                            <div className="app-panel-header">
+                                <div className="skeleton" style={{ width: 100, height: 12 }} />
+                            </div>
+                            <div className="app-panel-body">
+                                <div className="quick-actions-grid">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                        <div key={i} className="skeleton" style={{ height: 38, borderRadius: 8 }} />
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                        <div className="wp-env-card-skeleton-body">
-                            <div className="wp-env-card-skeleton-url" />
+
+                        <div className="app-panel wp-detail-skeleton-panel wp-traffic-panel">
+                            <div className="app-panel-header">
+                                <div className="skeleton" style={{ width: 80, height: 12, marginBottom: 4 }} />
+                                <div className="skeleton" style={{ width: 140, height: 10 }} />
+                            </div>
+                            <div className="app-panel-body">
+                                <div className="wp-detail-skeleton-chart" />
+                            </div>
                         </div>
                     </div>
-                    <div className="wp-env-card-skeleton">
-                        <div className="wp-env-card-skeleton-header">
-                            <div className="wp-env-card-skeleton-badge" />
-                            <div className="wp-env-card-skeleton-status" />
+
+                    {/* Recent activity panel */}
+                    <div className="app-panel wp-detail-skeleton-panel wp-activity-panel">
+                        <div className="app-panel-header">
+                            <div className="skeleton" style={{ width: 110, height: 12 }} />
                         </div>
-                        <div className="wp-env-card-skeleton-body">
-                            <div className="wp-env-card-skeleton-url" />
+                        <div className="app-panel-body">
+                            <div className="wp-detail-skeleton-activity">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="wp-detail-skeleton-activity__row">
+                                        <div className="skeleton" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                                        <div className="wp-detail-skeleton-activity__lines">
+                                            <div className="skeleton" style={{ width: '40%', height: 12, marginBottom: 6 }} />
+                                            <div className="skeleton" style={{ width: '65%', height: 10 }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -660,7 +717,7 @@ const PhpTab = ({ siteId }) => {
         }
     }
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading PHP info...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={2} />;
 
     const limits = php?.limits || {};
     const current = php?.php_version || 'Unknown';
@@ -792,7 +849,7 @@ const UptimeTab = ({ siteId }) => {
         } finally { setBusy(false); }
     }
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading uptime info...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={2} />;
 
     const comp = data?.component;
     const pages = data?.pages || [];
@@ -926,7 +983,7 @@ const UpdatesTab = ({ siteId }) => {
         finally { setBusy(false); }
     }
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading updates...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={2} />;
 
     const runs = data?.runs || [];
     const running = data?.running;
@@ -1066,7 +1123,7 @@ const SecurityTab = ({ siteId }) => {
         finally { setBusy(false); }
     }
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading security tools...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={2} />;
 
     const intRunning = integrity?.status === 'running';
     const issues = integrity?.issues || [];
@@ -1217,7 +1274,7 @@ const VulnerabilitiesTab = ({ siteId }) => {
         }
     }
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading vulnerabilities...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={2} />;
 
     const running = data?.scan_status === 'running';
     const summary = data?.summary || {};
@@ -1331,7 +1388,7 @@ const AnalyticsTab = ({ siteId }) => {
 
     useEffect(() => { load(); }, [load]);
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading analytics...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={3} />;
 
     const fmtHour = (iso) => {
         const d = new Date(iso);
@@ -1566,7 +1623,7 @@ const ReportsTab = ({ siteId }) => {
         window.print();
     }
 
-    if (loading) return <div className="tab-loading"><p className="hint">Loading reports...</p></div>;
+    if (loading) return <OverviewGridSkeleton panels={2} />;
 
     const selected = reports.find(r => r.id === selectedId) || null;
 
@@ -2619,18 +2676,40 @@ const EnvironmentCardSkeleton = () => (
     </div>
 );
 
-const TableRowSkeleton = () => (
-    <div className="skeleton-table-row">
-        <div className="skeleton-cell cell-name" />
-        <div className="skeleton-cell cell-tag" />
-        <div className="skeleton-cell cell-size" />
-        <div className="skeleton-cell cell-date" />
-        <div className="skeleton-cell cell-actions" />
+const ListItemSkeleton = () => (
+    <div className="skeleton" style={{ height: 48, borderRadius: 6, marginBottom: 8 }} />
+);
+
+// Generic panel skeleton — matches .app-panel + .app-panel-header + .app-panel-body
+const PanelSkeleton = ({ headerWidth = 100, rows = 3, children }) => (
+    <div className="app-panel wp-detail-skeleton-panel">
+        <div className="app-panel-header">
+            <div className="skeleton" style={{ width: headerWidth, height: 12 }} />
+        </div>
+        <div className="app-panel-body">
+            {children || (
+                <div className="wp-detail-skeleton-rows">
+                    {Array.from({ length: rows }).map((_, i) => (
+                        <div key={i} className="wp-detail-skeleton-row">
+                            <div className="skeleton" style={{ width: '35%', height: 10 }} />
+                            <div className="skeleton" style={{ width: '55%', height: 14 }} />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     </div>
 );
 
-const ListItemSkeleton = () => (
-    <div className="skeleton" style={{ height: 48, borderRadius: 6, marginBottom: 8 }} />
+// Skeleton used by tabs that render inside .app-overview-grid > .app-overview-left
+const OverviewGridSkeleton = ({ panels = 2 }) => (
+    <div className="app-overview-grid">
+        <div className="app-overview-left">
+            {Array.from({ length: panels }).map((_, i) => (
+                <PanelSkeleton key={i} headerWidth={i === 0 ? 120 : 160} />
+            ))}
+        </div>
+    </div>
 );
 
 // Environments Tab

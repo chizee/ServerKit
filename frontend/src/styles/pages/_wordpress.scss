@@ -2556,6 +2556,154 @@
 }
 
 // ============================================
+// WORDPRESS DETAIL PAGE SKELETON
+// Mirrors the real page chrome + Overview tab layout.
+// ============================================
+.wp-detail-page--skeleton {
+    .sk-topbar-skeleton {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-height: 60px;
+        padding: 10px $space-4;
+        border-bottom: 1px solid var(--border-soft);
+
+        &__icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            @include skeleton();
+        }
+
+        &__title {
+            width: 160px;
+            height: 16px;
+            border-radius: 4px;
+            @include skeleton();
+        }
+
+        &__spacer { flex: 1; }
+
+        &__actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        &__btn {
+            width: 90px;
+            height: 32px;
+            border-radius: $radius-md;
+            @include skeleton();
+
+            &--primary { width: 110px; }
+        }
+    }
+
+    .wp-detail-skeleton-repo {
+        width: 220px;
+        height: 30px;
+        border-radius: $radius-full;
+        @include skeleton();
+    }
+
+    .app-detail-tab-skeleton {
+        width: 80px;
+        height: 38px;
+        border-radius: 0;
+        background: transparent;
+        border-bottom: 2px solid transparent;
+        @include skeleton();
+    }
+
+    .wp-kpis--skeleton {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: $space-4;
+    }
+
+    .wp-detail-skeleton-kpi {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        padding: $space-4 $space-5;
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+
+        &__label {
+            width: 70%;
+            height: 11px;
+            border-radius: 3px;
+            @include skeleton();
+        }
+
+        &__value {
+            width: 45%;
+            height: 26px;
+            border-radius: 4px;
+            @include skeleton();
+        }
+    }
+
+    .wp-detail-skeleton-panel {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+
+        .app-panel-header {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            padding: 12px 17px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .app-panel-body {
+            padding: $space-4 17px;
+        }
+    }
+
+    .wp-detail-skeleton-chart {
+        height: 250px;
+        border-radius: $radius-md;
+        @include skeleton();
+    }
+
+    .wp-detail-skeleton-activity {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+
+        &__row {
+            display: flex;
+            align-items: center;
+            gap: $space-3;
+        }
+
+        &__lines {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    .wp-detail-skeleton-rows {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+    }
+
+    .wp-detail-skeleton-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: $space-4;
+    }
+}
+
+// ============================================
 // ERROR STATES
 // ============================================
 

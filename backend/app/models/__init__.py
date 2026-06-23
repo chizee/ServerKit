@@ -52,6 +52,7 @@ from app.queue_bus.models import QueueGroup, Queue, QueueMessage
 from app.notifications.models import Notification, NotificationDelivery
 from app.models.email_provider import EmailProviderConnection
 from app.models.system_event import SystemEvent
+from app.models.domain_registration import DomainRegistration
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -86,4 +87,5 @@ __all__ = [
     'Notification', 'NotificationDelivery',
     'EmailProviderConnection',
     'SystemEvent',
+    'DomainRegistration',
 ]

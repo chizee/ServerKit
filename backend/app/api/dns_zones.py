@@ -18,6 +18,51 @@ def list_zones():
     return jsonify({'zones': [z.to_dict() for z in zones]})
 
 
+@dns_zones_bp.route('/portfolio', methods=['GET'])
+@jwt_required()
+def dns_portfolio():
+    """Every domain visible across connected DNS providers, merged with adopted
+    zones — powers the Domains-page portfolio. Read-only: viewing the inventory is
+    open to any authenticated user; adopting/managing a zone is admin-gated."""
+    return jsonify(DNSZoneService.list_portfolio())
+
+
+@dns_zones_bp.route('/adopt', methods=['POST'])
+@jwt_required()
+def adopt_zone():
+    """Materialize a local zone row for a provider domain so it can be managed.
+    Idempotent — returns the existing zone if already adopted."""
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json() or {}
+    try:
+        zone = DNSZoneService.adopt_zone(
+            data.get('domain'), data.get('dns_provider_config_id'))
+        return jsonify(zone.to_dict())
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@dns_zones_bp.route('/registration', methods=['GET'])
+@jwt_required()
+def domain_registration():
+    """Registration expiry / registrar for a domain via RDAP — the lazy fallback
+    when a connected provider has no registration data."""
+    domain = request.args.get('domain', '')
+    return jsonify(DNSZoneService.lookup_domain_registration(domain))
+
+
+@dns_zones_bp.route('/provider-records', methods=['GET'])
+@jwt_required()
+def provider_records():
+    """Live DNS records for a provider zone addressed by ?config_id= and ?zone=
+    (the provider's zone id) — powers the Domains drawer without adopting first."""
+    config_id = request.args.get('config_id', type=int)
+    zone = request.args.get('zone')
+    return jsonify(DNSZoneService.list_provider_records_by_ref(config_id, zone))
+
+
 @dns_zones_bp.route('/<int:zone_id>', methods=['GET'])
 @jwt_required()
 def get_zone(zone_id):

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
     Globe, Plus, ShieldCheck, RefreshCw, Trash2, ExternalLink,
-    AlertTriangle, Clock, Lock, Search, ChevronRight, Network as NetworkIcon,
+    AlertTriangle, Clock, Lock, Search, ChevronRight,
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,22 +18,23 @@ import {
 import { MetricCard, SegControl, Pill, Drawer, DataTable } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
+import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
+import DomainDnsPanel from '../components/domains/DomainDnsPanel';
+import { formatExpiry } from '../utils/expiry';
 
 const Domains = () => {
     const toast = useToast();
-    const navigate = useNavigate();
+    const { isAdmin } = useAuth();
     const [domains, setDomains] = useState([]);
     const [apps, setApps] = useState([]);
+    const [portfolio, setPortfolio] = useState([]);          // zones across connected DNS providers
+    const [portfolioErrors, setPortfolioErrors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
     const [drawerDomain, setDrawerDomain] = useState(null);
-
-    // Inline DNS records for the open drawer domain
-    const [dnsRecords, setDnsRecords] = useState([]);
-    const [dnsLoading, setDnsLoading] = useState(false);
-    const [dnsError, setDnsError] = useState('');
-    const [dnsHasZone, setDnsHasZone] = useState(true);
+    const [regInfo, setRegInfo] = useState(null);            // lazy registration lookup for the open drawer
+    const [searchParams, setSearchParams] = useSearchParams();
 
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
@@ -50,38 +52,29 @@ const Domains = () => {
         loadData();
     }, []);
 
-    // Load DNS records for the domain shown in the drawer. A domain has no zone
-    // reference, so we match it to a DNS zone by name; unmanaged domains have no
-    // zone and fall back to the empty/hint state rather than erroring.
+    // Lazily resolve registration (expiry/registrar) for the open provider domain:
+    // use the provider value if present, else fall back to a one-off RDAP lookup.
     useEffect(() => {
-        if (!drawerDomain) return;
-        let cancelled = false;
-        const domainName = drawerDomain.name;
-
-        async function loadDnsRecords() {
-            setDnsLoading(true);
-            setDnsError('');
-            setDnsRecords([]);
-            setDnsHasZone(true);
-            try {
-                const zonesData = await api.getDNSZones();
-                const zone = (zonesData.zones || []).find(z => z.domain === domainName);
-                if (cancelled) return;
-                if (!zone) {
-                    setDnsHasZone(false);
-                    return;
-                }
-                const recordsData = await api.getDNSRecords(zone.id);
-                if (cancelled) return;
-                setDnsRecords(recordsData.records || []);
-            } catch {
-                if (!cancelled) setDnsError('Failed to load DNS records');
-            } finally {
-                if (!cancelled) setDnsLoading(false);
-            }
+        if (!drawerDomain || drawerDomain.source === 'app') { setRegInfo(null); return; }
+        if (drawerDomain.expires_at) {
+            setRegInfo({
+                expires_at: drawerDomain.expires_at,
+                auto_renew: drawerDomain.auto_renew,
+                registrar: drawerDomain.registrar,
+                source: drawerDomain.registrar ? 'cache' : 'provider',
+            });
+            return;
         }
-
-        loadDnsRecords();
+        let cancelled = false;
+        setRegInfo({ loading: true });
+        api.getDomainRegistration(drawerDomain.name)
+            .then((r) => {
+                if (cancelled) return;
+                setRegInfo(r && r.success
+                    ? { expires_at: r.expires_at, registrar: r.registrar, source: 'rdap' }
+                    : { error: (r && r.error) || 'not found' });
+            })
+            .catch(() => { if (!cancelled) setRegInfo({ error: 'lookup failed' }); });
         return () => { cancelled = true; };
     }, [drawerDomain]);
 
@@ -92,12 +85,15 @@ const Domains = () => {
                 promise,
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), ms)),
             ]);
-            const [domainsData, appsData] = await Promise.all([
+            const [domainsData, appsData, portfolioData] = await Promise.all([
                 timeout(api.getDomains(), 10000).catch(() => ({ domains: [] })),
                 timeout(api.getApps(), 10000).catch(() => ({ apps: [] })),
+                timeout(api.getDnsPortfolio(), 15000).catch(() => ({ domains: [], errors: [] })),
             ]);
             setDomains(domainsData.domains || []);
             setApps(appsData.apps || []);
+            setPortfolio(portfolioData.domains || []);
+            setPortfolioErrors(portfolioData.errors || []);
         } catch (err) {
             setError('Failed to load data');
             console.error(err);
@@ -215,15 +211,75 @@ const Domains = () => {
         return <Pill kind="gray">No SSL</Pill>;
     }
 
+    // One unified list: ServerKit's app-linked domains + every zone in a connected
+    // DNS provider. A domain that is both keeps its app row and gains the provider
+    // badge, expiry, and quick actions; provider-only zones become their own rows.
+    const norm = (s) => (s || '').toLowerCase().replace(/\.$/, '');
+    const providerByDomain = new Map(portfolio.map((z) => [norm(z.domain), z]));
+    const appNames = new Set(domains.map((d) => norm(d.name)));
+    const mergedRows = [
+        ...domains.map((d) => {
+            const p = providerByDomain.get(norm(d.name));
+            return {
+                ...d,
+                key: `app:${d.id}`,
+                source: 'app',
+                provider: p?.provider || null,
+                config_id: p?.config_id ?? null,
+                config_name: p?.config_name ?? null,
+                provider_zone_id: p?.provider_zone_id ?? null,
+                adopted: p?.adopted ?? false,
+                zone_id: p?.zone_id ?? null,
+                expires_at: p?.expires_at ?? null,
+                auto_renew: p?.auto_renew ?? null,
+                registrar: p?.registrar ?? null,
+            };
+        }),
+        ...portfolio
+            .filter((z) => !appNames.has(norm(z.domain)))
+            .map((z) => ({
+                key: `prov:${z.provider}:${z.domain}`,
+                source: 'provider',
+                name: z.domain,
+                provider: z.provider,
+                config_id: z.config_id,
+                config_name: z.config_name,
+                provider_zone_id: z.provider_zone_id,
+                adopted: z.adopted,
+                zone_id: z.zone_id,
+                cfStatus: z.status,
+                expires_at: z.expires_at,
+                auto_renew: z.auto_renew,
+                registrar: z.registrar,
+                application_id: null,
+                ssl_enabled: false,
+                is_primary: false,
+            })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
     const sslActiveCount = domains.filter(d => d.ssl_enabled).length;
     const expiringCount = domains.filter(d => sslState(d) === 'expiring').length;
     const attentionCount = domains.filter(d => !d.ssl_enabled).length;
 
-    const shown = domains.filter(d => (
+    const shown = mergedRows.filter(d => (
         filter === 'all' ? true
             : filter === 'ssl' ? sslState(d) === 'expiring'
-                : filter === 'issues' ? !d.ssl_enabled : true
+                : filter === 'issues' ? (d.source !== 'provider' && !d.ssl_enabled) : true
     ));
+
+    // Deep-link: /domains?open=<domain> opens that domain's drawer once data has
+    // loaded — keeps links sensible now that this is the single DNS surface.
+    useEffect(() => {
+        const want = searchParams.get('open');
+        if (!want || loading || drawerDomain) return;
+        const row = mergedRows.find((d) => norm(d.name) === norm(want));
+        if (row) {
+            setDrawerDomain(row);
+            const next = new URLSearchParams(searchParams);
+            next.delete('open');
+            setSearchParams(next, { replace: true });
+        }
+    }, [loading, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useTopbarActions(() =>
         <>
@@ -250,17 +306,17 @@ const Domains = () => {
 
             {loading ? (
                 <EmptyState loading title="Loading domains..." />
-            ) : domains.length === 0 ? (
+            ) : mergedRows.length === 0 ? (
                 <EmptyState
                     icon={Globe}
-                    title="No domains configured"
-                    description="Add a domain to your application to get started."
+                    title="No domains yet"
+                    description="Attach a domain to an application, or connect a DNS provider to see its zones here."
                     action={<Button onClick={() => setShowAddModal(true)}><Plus size={16} /> Add Domain</Button>}
                 />
             ) : (
                 <div className="domains-body">
                     <div className="dom-kpis">
-                        <MetricCard tone="accent" icon={<Globe size={16} />} value={domains.length} label="Domains" />
+                        <MetricCard tone="accent" icon={<Globe size={16} />} value={mergedRows.length} label="Domains" />
                         <MetricCard tone="green" icon={<Lock size={16} />} value={sslActiveCount} label="SSL active" />
                         <MetricCard tone="amber" icon={<Clock size={16} />} value={expiringCount} label="Expiring ≤30d" />
                         <MetricCard tone="red" icon={<AlertTriangle size={16} />} value={attentionCount} label="Needs attention" />
@@ -279,6 +335,18 @@ const Domains = () => {
                         />
                     </div>
 
+                    {portfolioErrors.length > 0 && (
+                        <div className="dom-portfolio-note">
+                            <AlertTriangle size={14} />
+                            <span>
+                                {portfolioErrors.length === 1
+                                    ? `${portfolioErrors[0].config_name}: ${portfolioErrors[0].error}`
+                                    : `${portfolioErrors.length} DNS connections couldn't list their zones`}
+                                {' — '}a Cloudflare token needs <strong>Zone:Read</strong> on all zones to list the whole account.
+                            </span>
+                        </div>
+                    )}
+
                     {shown.length === 0 ? (
                         <div className="dom-empty">No domains match this filter.</div>
                     ) : (
@@ -287,7 +355,7 @@ const Domains = () => {
                                 tableClassName="sk-dtable"
                                 sortable={false}
                                 data={shown}
-                                keyField="id"
+                                keyField="key"
                                 onRowClick={setDrawerDomain}
                                 columns={[
                                     {
@@ -295,10 +363,15 @@ const Domains = () => {
                                         header: 'Domain',
                                         render: (d) => (
                                             <div className="sk-cell-name">
-                                                <span className="dom-fav"><Globe size={15} /></span>
+                                                <span className="dom-fav">
+                                                    {d.provider
+                                                        ? <ProviderBrandIcon provider={d.provider} size={15} />
+                                                        : <Globe size={15} />}
+                                                </span>
                                                 <span>
                                                     {d.name}
                                                     {d.is_primary && <span className="dom-primary">Primary</span>}
+                                                    {d.source === 'provider' && d.adopted && <span className="dom-managed">Managed</span>}
                                                 </span>
                                             </div>
                                         ),
@@ -312,20 +385,32 @@ const Domains = () => {
                                                 : <span className="dom-dash">—</span>
                                         ),
                                     },
-                                    { key: 'ssl', header: 'SSL', render: sslPill },
+                                    {
+                                        key: 'expiry',
+                                        header: 'Expires',
+                                        render: (d) => {
+                                            const exp = formatExpiry(d.expires_at);
+                                            if (!exp) return <span className="dom-dash">—</span>;
+                                            return (
+                                                <span className={`dom-expiry dom-expiry--${exp.tone}`} title={exp.relative}>
+                                                    {exp.absolute}
+                                                </span>
+                                            );
+                                        },
+                                    },
+                                    {
+                                        key: 'ssl',
+                                        header: 'SSL',
+                                        render: (d) => d.source === 'provider' ? <span className="dom-dash">—</span> : sslPill(d),
+                                    },
                                     {
                                         key: 'autoRenew',
                                         header: 'Auto-renew',
                                         render: (d) => (
-                                            d.ssl_enabled
-                                                ? (d.ssl_auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>)
-                                                : <span className="dom-dash">—</span>
+                                            d.auto_renew == null
+                                                ? <span className="dom-dash">—</span>
+                                                : d.auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>
                                         ),
-                                    },
-                                    {
-                                        key: 'status',
-                                        header: 'Status',
-                                        render: (d) => <Pill kind={d.ssl_enabled ? 'green' : 'amber'}>{d.ssl_enabled ? 'active' : 'unconfigured'}</Pill>,
                                     },
                                     {
                                         key: 'chevron',
@@ -344,122 +429,115 @@ const Domains = () => {
             <Drawer
                 open={!!drawerDomain}
                 onOpenChange={(open) => { if (!open) setDrawerDomain(null); }}
-                icon={<Globe size={18} />}
+                icon={drawerDomain?.provider ? <ProviderBrandIcon provider={drawerDomain.provider} size={18} /> : <Globe size={18} />}
                 iconColor="var(--accent-bright)"
                 title={drawerDomain?.name || ''}
                 subtitle={drawerDomain
-                    ? `${drawerDomain.application_id ? getAppName(drawerDomain.application_id) : 'unlinked'} · ${sslState(drawerDomain)}`
+                    ? (drawerDomain.source === 'app'
+                        ? `${drawerDomain.application_id ? getAppName(drawerDomain.application_id) : 'unlinked'} · ${sslState(drawerDomain)}`
+                        : `${drawerDomain.config_name || drawerDomain.provider || 'DNS'} zone${drawerDomain.cfStatus ? ` · ${drawerDomain.cfStatus}` : ''}`)
                     : ''}
-                width={640}
+                width={1100}
+                headerExtra={drawerDomain && (
+                    <div className="dom-drawer__headeractions">
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={`${drawerDomain.ssl_enabled ? 'https' : 'http'}://${drawerDomain.name}`} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink size={14} /> Visit
+                            </a>
+                        </Button>
+                        {drawerDomain.source === 'app' && (
+                            <>
+                                <Button variant="outline" size="sm" onClick={() => handleVerifyDomain(drawerDomain)}>
+                                    <Search size={14} /> Verify DNS
+                                </Button>
+                                {drawerDomain.ssl_enabled ? (
+                                    <>
+                                        <Button variant="outline" size="sm" disabled={actionLoading} onClick={() => handleRenewSsl(drawerDomain)}>
+                                            <RefreshCw size={14} /> Renew SSL
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleDisableSsl(drawerDomain)}>
+                                            <Lock size={14} /> Disable SSL
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button size="sm" onClick={() => { setSelectedDomain(drawerDomain); setShowSslModal(true); setDrawerDomain(null); }}>
+                                        <Lock size={14} /> Enable SSL
+                                    </Button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
             >
                 {drawerDomain && (
                     <div className="dom-drawer">
-                        <div className="dom-drawer__actions">
-                            <Button variant="outline" size="sm" asChild>
-                                <a href={`${drawerDomain.ssl_enabled ? 'https' : 'http'}://${drawerDomain.name}`} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink size={14} /> Visit
-                                </a>
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleVerifyDomain(drawerDomain)}>
-                                <Search size={14} /> Verify DNS
-                            </Button>
-                            {drawerDomain.ssl_enabled ? (
+                        <div className="dom-specs">
+                            {drawerDomain.source === 'app' ? (
                                 <>
-                                    <Button variant="outline" size="sm" disabled={actionLoading} onClick={() => handleRenewSsl(drawerDomain)}>
-                                        <RefreshCw size={14} /> Renew SSL
-                                    </Button>
-                                    <Button variant="outline" size="sm" onClick={() => handleDisableSsl(drawerDomain)}>
-                                        <Lock size={14} /> Disable SSL
-                                    </Button>
+                                    <div className="sk-spec-card">
+                                        <div className="sk-spec-card__label">SSL certificate</div>
+                                        <div style={{ marginTop: 8 }}>{sslPill(drawerDomain)}</div>
+                                        <div className="sk-spec-card__sub">
+                                            {drawerDomain.ssl_enabled
+                                                ? (drawerDomain.ssl_expires_at ? `Expires ${new Date(drawerDomain.ssl_expires_at).toLocaleDateString()}` : "Let's Encrypt")
+                                                : 'Not issued'}
+                                        </div>
+                                    </div>
+                                    <div className="sk-spec-card">
+                                        <div className="sk-spec-card__label">Linked site</div>
+                                        <div className="sk-spec-card__value">{drawerDomain.application_id ? getAppName(drawerDomain.application_id) : 'Unlinked'}</div>
+                                        <div className="sk-spec-card__sub">{drawerDomain.is_primary ? 'Primary domain' : 'Alias'}</div>
+                                    </div>
+                                    <div className="sk-spec-card">
+                                        <div className="sk-spec-card__label">Status</div>
+                                        <div style={{ marginTop: 8 }}>
+                                            <Pill kind={drawerDomain.ssl_enabled ? 'green' : 'amber'}>{drawerDomain.ssl_enabled ? 'active' : 'unconfigured'}</Pill>
+                                        </div>
+                                        <div className="sk-spec-card__sub">Auto-renew {drawerDomain.ssl_auto_renew ? 'on' : 'off'}</div>
+                                    </div>
                                 </>
                             ) : (
-                                <Button size="sm" onClick={() => { setSelectedDomain(drawerDomain); setShowSslModal(true); setDrawerDomain(null); }}>
-                                    <Lock size={14} /> Enable SSL
+                                <>
+                                    <div className="sk-spec-card">
+                                        <div className="sk-spec-card__label">DNS provider</div>
+                                        <div className="sk-spec-card__value">{drawerDomain.config_name || drawerDomain.provider}</div>
+                                        <div className="sk-spec-card__sub">{drawerDomain.adopted ? 'Managed in ServerKit' : 'Read-only'}</div>
+                                    </div>
+                                    <div className="sk-spec-card">
+                                        <div className="sk-spec-card__label">Zone status</div>
+                                        <div style={{ marginTop: 8 }}>
+                                            <Pill kind={drawerDomain.cfStatus === 'active' ? 'green' : 'amber'}>{drawerDomain.cfStatus || 'active'}</Pill>
+                                        </div>
+                                        <div className="sk-spec-card__sub">{drawerDomain.provider}</div>
+                                    </div>
+                                    <div className="sk-spec-card">
+                                        <div className="sk-spec-card__label">Registration</div>
+                                        <div className="sk-spec-card__value">
+                                            {regInfo?.loading ? 'Looking up…' : (formatExpiry(regInfo?.expires_at)?.relative || '—')}
+                                        </div>
+                                        <div className="sk-spec-card__sub">
+                                            {regInfo?.loading ? 'WHOIS / RDAP lookup' : (() => {
+                                                const exp = formatExpiry(regInfo?.expires_at);
+                                                if (!exp) return regInfo?.error ? 'Lookup unavailable' : '—';
+                                                return [exp.absolute, regInfo?.registrar].filter(Boolean).join(' · ');
+                                            })()}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="dom-drawer__section">
+                            <DomainDnsPanel domain={drawerDomain} isAdmin={isAdmin} />
+                        </div>
+
+                        {drawerDomain.source === 'app' && (
+                            <div className="dom-drawer__danger">
+                                <Button variant="outline" size="sm" className="dom-delete-btn" onClick={() => { handleDeleteDomain(drawerDomain); setDrawerDomain(null); }}>
+                                    <Trash2 size={14} /> Delete domain
                                 </Button>
-                            )}
-                        </div>
-
-                        <div className="dom-specs">
-                            <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">SSL certificate</div>
-                                <div style={{ marginTop: 8 }}>{sslPill(drawerDomain)}</div>
-                                <div className="sk-spec-card__sub">
-                                    {drawerDomain.ssl_enabled
-                                        ? (drawerDomain.ssl_expires_at ? `Expires ${new Date(drawerDomain.ssl_expires_at).toLocaleDateString()}` : "Let's Encrypt")
-                                        : 'Not issued'}
-                                </div>
                             </div>
-                            <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">Linked site</div>
-                                <div className="sk-spec-card__value">{drawerDomain.application_id ? getAppName(drawerDomain.application_id) : 'Unlinked'}</div>
-                                <div className="sk-spec-card__sub">{drawerDomain.is_primary ? 'Primary domain' : 'Alias'}</div>
-                            </div>
-                            <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">Status</div>
-                                <div style={{ marginTop: 8 }}>
-                                    <Pill kind={drawerDomain.ssl_enabled ? 'green' : 'amber'}>{drawerDomain.ssl_enabled ? 'active' : 'unconfigured'}</Pill>
-                                </div>
-                                <div className="sk-spec-card__sub">Auto-renew {drawerDomain.ssl_auto_renew ? 'on' : 'off'}</div>
-                            </div>
-                        </div>
-
-                        <div className="dom-drawer__section dom-dns">
-                            <h3 className="dom-drawer__sectiontitle">
-                                DNS records
-                                {dnsHasZone && !dnsLoading && !dnsError && (
-                                    <span className="dom-dns__count">· {dnsRecords.length}</span>
-                                )}
-                            </h3>
-
-                            {dnsLoading ? (
-                                <p className="dom-drawer__hint">Loading DNS records…</p>
-                            ) : dnsError ? (
-                                <p className="dom-drawer__hint dom-dns__error">{dnsError}</p>
-                            ) : !dnsHasZone ? (
-                                <p className="dom-drawer__hint">No DNS records — this domain isn&apos;t managed in DNS Zones.</p>
-                            ) : dnsRecords.length === 0 ? (
-                                <p className="dom-drawer__hint">No DNS records.</p>
-                            ) : (
-                                <div className="dom-dns__table">
-                                    <table className="sk-dtable">
-                                        <thead>
-                                            <tr>
-                                                <th className="dom-dns__col-type">Type</th>
-                                                <th>Name</th>
-                                                <th>Value</th>
-                                                <th className="dom-dns__col-ttl">TTL</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {dnsRecords.map(rec => (
-                                                <tr key={rec.id}>
-                                                    <td>
-                                                        <span className={`dns-rtype dns-rtype--${(rec.record_type || '').toLowerCase()}`}>
-                                                            {rec.record_type}
-                                                        </span>
-                                                    </td>
-                                                    <td className="sk-cell-mono">{rec.name}</td>
-                                                    <td className="sk-cell-mono dom-dns__value">
-                                                        {rec.priority ? `${rec.priority} ` : ''}{rec.content}
-                                                    </td>
-                                                    <td className="sk-cell-mono">{rec.ttl}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-
-                            <Button variant="outline" size="sm" onClick={() => navigate('/dns')}>
-                                <NetworkIcon size={14} /> Manage DNS records
-                            </Button>
-                        </div>
-
-                        <div className="dom-drawer__danger">
-                            <Button variant="outline" size="sm" className="dom-delete-btn" onClick={() => { handleDeleteDomain(drawerDomain); setDrawerDomain(null); }}>
-                                <Trash2 size={14} /> Delete domain
-                            </Button>
-                        </div>
+                        )}
                     </div>
                 )}
             </Drawer>

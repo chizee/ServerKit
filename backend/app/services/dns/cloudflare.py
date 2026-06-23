@@ -76,16 +76,46 @@ class CloudflareClient:
             return {'success': False, 'error': str(e)}
 
     def list_zones(self) -> dict:
-        """List the zones this credential can manage."""
+        """List the zones this credential can manage. Each zone carries its
+        ``account_id`` so account-scoped lookups (e.g. registrar expiry) need no
+        second discovery call."""
         try:
-            resp = requests.get(f'{API_BASE}/zones?per_page=50',
+            resp = requests.get(f'{API_BASE}/zones?per_page=100',
                                 headers=self._headers(), timeout=15)
             data = resp.json()
             if not data.get('success'):
                 return {'success': False, 'error': _first_error(data) or 'Failed to list zones'}
-            zones = [{'id': z['id'], 'name': z['name'], 'status': z['status']}
+            zones = [{'id': z['id'], 'name': z['name'], 'status': z['status'],
+                      'account_id': (z.get('account') or {}).get('id')}
                      for z in data.get('result', [])]
             return {'success': True, 'zones': zones}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def list_registrar_domains(self, account_id: str) -> dict:
+        """Domains registered through Cloudflare Registrar for ``account_id``, with
+        their registration expiry and auto-renew flag.
+
+        Best-effort by design: a DNS-scoped token without *Domain (Registrar): Read*
+        returns an error the caller is expected to ignore (the domain simply shows no
+        expiry), and only domains actually registered at Cloudflare appear — a zone
+        whose domain is registered elsewhere won't be listed here."""
+        if not account_id:
+            return {'success': False, 'error': 'No account id'}
+        try:
+            resp = requests.get(
+                f'{API_BASE}/accounts/{account_id}/registrar/domains?per_page=100',
+                headers=self._headers(), timeout=15)
+            data = resp.json()
+            if not data.get('success'):
+                return {'success': False, 'error': _first_error(data)}
+            domains = [{
+                'name': (d.get('name') or '').lower().rstrip('.'),
+                'expires_at': d.get('expires_at'),
+                'auto_renew': d.get('auto_renew'),
+                'registrar': d.get('current_registrar') or 'Cloudflare',
+            } for d in (data.get('result') or [])]
+            return {'success': True, 'domains': domains}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

@@ -29,7 +29,7 @@ const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar
 // Tabs that belong to the server-wide "Administration" group (admin-only); the
 // rest are personal "My Account" settings. Drives the two-way section switch so
 // personal prefs aren't interleaved with destructive system controls.
-const ADMIN_TABS = ['users', 'activity', 'site', 'sso', 'api', 'ai', 'migrations', 'system', 'developer'];
+const ADMIN_TABS = ['users', 'activity', 'site', 'connections', 'sso', 'api', 'ai', 'migrations', 'system', 'developer'];
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useTabParam('/settings', VALID_TABS);
@@ -112,14 +112,6 @@ const Settings = () => {
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                         Notifications
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className={`settings-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('connections')}
-                    >
-                        <Link2 size={18} />
-                        Connections
                     </Button>
                     <div className="settings-nav-divider">Preferences</div>
                     <Button
@@ -223,6 +215,14 @@ const Settings = () => {
                             </Button>
                             <Button
                                 variant="ghost"
+                                className={`settings-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('connections')}
+                            >
+                                <Link2 size={18} />
+                                Connections
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'sso' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('sso')}
                             >
@@ -299,7 +299,7 @@ const Settings = () => {
                 <div className="settings-content">
                     {activeTab === 'profile' && <ProfileTab />}
                     {activeTab === 'security' && <SecuritySettingsTab />}
-                    {activeTab === 'connections' && <ConnectionsHub />}
+                    {activeTab === 'connections' && isAdmin && <ConnectionsHub />}
                     {activeTab === 'appearance' && <AppearanceTab />}
                     {activeTab === 'sidebar' && <SidebarSettings />}
                     {activeTab === 'whitelabel' && <WhiteLabelTab />}

@@ -8,6 +8,7 @@ import { ResourceTierProvider } from './contexts/ResourceTierContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import { Toaster } from './components/ui/sonner';
 import DashboardLayout from './layouts/DashboardLayout';
+import AppLoader from './components/AppLoader';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -58,7 +59,6 @@ import ServerTemplates from './pages/ServerTemplates';
 import RemoteAccess from './pages/RemoteAccess';
 import Workspaces from './pages/Workspaces';
 import WorkspaceDetail from './pages/WorkspaceDetail';
-import DNSZones from './pages/DNSZones';
 import CloudflareZoneSettings from './pages/CloudflareZoneSettings';
 import StatusPages from './pages/StatusPages';
 import PublicStatusPage from './pages/PublicStatusPage';
@@ -70,7 +70,6 @@ import AppMap from './pages/AppMap';
 import Documentation from './pages/Documentation';
 import Deployments from './pages/Deployments';
 import GpuMonitor from './pages/GpuMonitor';
-import DynamicDns from './pages/DynamicDns';
 import QueueOperations from './pages/QueueOperations';
 import QueueDetail from './pages/QueueDetail';
 import Notifications from './pages/Notifications';
@@ -191,7 +190,7 @@ function PrivateRoute({ children }) {
     const { isAuthenticated, loading, needsSetup, needsMigration } = useAuth();
 
     if (loading) {
-        return <div className="loading">Loading...</div>;
+        return <AppLoader />;
     }
 
     // Priority: migrations > setup > auth
@@ -210,7 +209,7 @@ function PublicRoute({ children }) {
     const { isAuthenticated, loading, needsSetup, needsMigration } = useAuth();
 
     if (loading) {
-        return <div className="loading">Loading...</div>;
+        return <AppLoader />;
     }
 
     // Priority: migrations > setup > auth
@@ -229,7 +228,7 @@ function SetupRoute({ children }) {
     const { loading, needsSetup, isAuthenticated } = useAuth();
 
     if (loading) {
-        return <div className="loading">Loading...</div>;
+        return <AppLoader />;
     }
 
     // If setup is not needed, redirect appropriately
@@ -330,10 +329,13 @@ function AppRoutes() {
                 <Route path="workflow" element={<WorkflowBuilder />} />
                 <Route element={<TabGroupLayout tabs={DOMAIN_TABS} />}>
                     <Route path="domains" element={<Domains />} />
-                    <Route path="dns" element={<DNSZones />} />
                     <Route path="ssl" element={<SSLCertificates />} />
-                    <Route path="dynamic-dns" element={<DynamicDns />} />
                 </Route>
+                {/* DNS Zones + Dynamic DNS were merged into the Domains surface
+                    (records + per-record Dynamic DNS live in the domain drawer) —
+                    keep the old paths working by redirecting. */}
+                <Route path="dns" element={<Navigate to="/domains" replace />} />
+                <Route path="dynamic-dns" element={<Navigate to="/domains" replace />} />
                 {/* Cloudflare zone settings — a detail page reached from a
                     Cloudflare-managed DNS zone (full-bleed, own top bar). */}
                 <Route path="cloudflare/zones/:zoneId" element={<CloudflareZoneSettings />} />

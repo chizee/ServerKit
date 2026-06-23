@@ -186,3 +186,75 @@
 .loading-state {
     min-height: 40vh;
 }
+
+// ============================================================
+// APP-LEVEL INITIAL LOADER
+// Full-screen splash shown while auth/setup state resolves.
+// ============================================================
+.app-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $space-5;
+    background: var(--surface);
+
+    &__stage {
+        position: relative;
+        width: 96px;
+        height: 96px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    &__logo {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: var(--surface-2);
+        box-shadow: var(--shadow-md), 0 0 0 1px var(--border-soft);
+        animation: app-loader-pulse 2s ease-in-out infinite;
+
+        svg {
+            width: 38px;
+            height: 38px;
+        }
+    }
+
+    &__ring {
+        position: absolute;
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        border-top-color: var(--accent-bright);
+        border-right-color: fade($accent-primary-raw, 30%);
+        animation: app-loader-spin 1.2s linear infinite;
+    }
+
+    &__label {
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+        color: var(--text-dim);
+        letter-spacing: 0.02em;
+    }
+}
+
+@keyframes app-loader-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.03); opacity: 0.85; }
+}
+
+@keyframes app-loader-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
