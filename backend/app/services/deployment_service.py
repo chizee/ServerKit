@@ -104,6 +104,14 @@ class DeploymentService:
         build_config = BuildService.get_app_build_config(app_id)
 
         try:
+            # Capture an immutable config snapshot at deploy start. Best-effort:
+            # a snapshot failure must never block a deployment.
+            try:
+                from app.services.configuration_service import ConfigurationService
+                ConfigurationService.create_snapshot(app, deployment)
+            except Exception as snap_err:
+                logger.warning('Config snapshot capture failed (deploy): %s', snap_err)
+
             # Update app status
             app.status = 'deploying'
             db.session.commit()
@@ -366,6 +374,14 @@ class DeploymentService:
         try:
             app.status = 'deploying'
             db.session.commit()
+
+            # Capture an immutable config snapshot before rolling back, so the
+            # timeline records the pre-rollback config. Best-effort.
+            try:
+                from app.services.configuration_service import ConfigurationService
+                ConfigurationService.create_snapshot(app, current)
+            except Exception as snap_err:
+                logger.warning('Config snapshot capture failed (rollback): %s', snap_err)
 
             # Create new deployment record for the rollback
             version = Deployment.get_next_version(app_id)

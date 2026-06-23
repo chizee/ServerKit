@@ -20,6 +20,13 @@ class Application(db.Model):
     docker_image = db.Column(db.String(200), nullable=True)
     container_id = db.Column(db.String(100), nullable=True)
 
+    # Build packs (zero-Dockerfile deploys). When the build method routes through
+    # the build-pack layer, the detected plan and any user overrides are persisted
+    # here so the generated Dockerfile is reproducible and the UI can show it.
+    buildpack_type = db.Column(db.String(20), nullable=True)   # 'nixpacks' | 'static' | 'dockerfile-present' | 'unknown'
+    buildpack_plan = db.Column(db.Text, nullable=True)         # JSON: the detected build plan
+    buildpack_overrides = db.Column(db.Text, nullable=True)    # JSON: user overrides applied to the plan
+
     # Source / lifecycle: github (repo clone), template (built-in template),
     # manual (local path already on server), upload (zip upload managed by ServerKit)
     source = db.Column(db.String(20), default='github', nullable=False)
@@ -73,6 +80,9 @@ class Application(db.Model):
             'root_path': self.root_path,
             'docker_image': self.docker_image,
             'container_id': self.container_id,
+            'buildpack_type': self.buildpack_type,
+            'buildpack_plan': json.loads(self.buildpack_plan) if self.buildpack_plan else None,
+            'buildpack_overrides': json.loads(self.buildpack_overrides) if self.buildpack_overrides else None,
             'source': self.source,
             'compose_file': self.compose_file,
             'systemd_unit': self.systemd_unit,

@@ -163,6 +163,14 @@ def create_app(config_name=None):
     from app.api.container_status import container_status_bp
     app.register_blueprint(container_status_bp, url_prefix='/api/v1/status')
 
+    # Register blueprints - Build packs (zero-Dockerfile detection)
+    from app.api.buildpacks import buildpacks_bp
+    app.register_blueprint(buildpacks_bp, url_prefix='/api/v1/buildpacks')
+
+    # Register blueprints - Deployment config snapshots + diff
+    from app.api.snapshots import snapshots_bp
+    app.register_blueprint(snapshots_bp, url_prefix='/api/v1/apps')
+
     # Register blueprints - Notifications
     from app.api.notifications import notifications_bp
     app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')

@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import BuildpackPreview from '@/components/buildpack/BuildpackPreview';
 
 const APP_TYPE_OPTIONS = [
     { value: 'auto', label: 'Auto-detect' },
@@ -137,6 +138,12 @@ const NewService = () => {
     const [autoDeploy, setAutoDeploy] = useState(true);
     const [advancedOpen, setAdvancedOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Build-pack detection (zero-Dockerfile). Runs when a repo is selected and
+    // the build method routes through the build pack (auto / nixpacks).
+    const [buildpack, setBuildpack] = useState(null);
+    const [buildpackLoading, setBuildpackLoading] = useState(false);
+    const [buildpackOverrides, setBuildpackOverrides] = useState({});
 
     // Manual / local service fields
     const [localPath, setLocalPath] = useState('');
@@ -265,6 +272,52 @@ const NewService = () => {
         }
     }, [selectedRepo, nameTouched]);
 
+    // Build-pack detection. Only repo-based sources (github/manual/template) and
+    // only when the build method routes through the build pack. Resets overrides
+    // whenever the underlying repository changes.
+    const buildpackEligible = (buildMethod === 'auto' || buildMethod === 'nixpacks')
+        && (sourceMode === 'github' || sourceMode === 'manual' || sourceMode === 'template');
+
+    useEffect(() => {
+        if (!buildpackEligible) {
+            setBuildpack(null);
+            setBuildpackLoading(false);
+            return undefined;
+        }
+
+        const body = { branch: branch || 'main', name: detectedServiceName || 'app' };
+        if (sourceMode === 'github' && selectedRepo && githubConnection) {
+            body.source_connection_id = githubConnection.id;
+            body.repository_full_name = selectedRepo.full_name;
+            body.repo_url = `https://github.com/${selectedRepo.full_name}.git`;
+        } else if (sourceMode === 'template' && selectedTemplate) {
+            body.repo_url = selectedTemplate.repoUrl;
+        } else if (sourceMode === 'manual' && normalizedManualRepo) {
+            body.repo_url = normalizedManualRepo;
+        } else {
+            setBuildpack(null);
+            return undefined;
+        }
+
+        let cancelled = false;
+        setBuildpackLoading(true);
+        setBuildpackOverrides({});
+        api.detectBuildpack(body)
+            .then((data) => {
+                if (!cancelled) setBuildpack(data);
+            })
+            .catch(() => {
+                // Detection is best-effort; the user can still pick a method.
+                if (!cancelled) setBuildpack(null);
+            })
+            .finally(() => {
+                if (!cancelled) setBuildpackLoading(false);
+            });
+
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [buildpackEligible, sourceMode, selectedRepo, selectedTemplate, normalizedManualRepo, branch, githubConnection]);
+
     async function handleConnectGithub() {
         try {
             const redirectUri = `${window.location.origin}/connections/callback/github`;
@@ -361,6 +414,12 @@ const NewService = () => {
                 if (recommended.dockerfile_path) payload.dockerfile_path = recommended.dockerfile_path;
                 if (recommended.custom_build_cmd) payload.custom_build_cmd = recommended.custom_build_cmd;
                 if (recommended.custom_start_cmd) payload.custom_start_cmd = recommended.custom_start_cmd;
+                if (buildpackEligible && buildpack?.plan) {
+                    payload.buildpack_plan = buildpack.plan;
+                    if (Object.keys(buildpackOverrides).length > 0) {
+                        payload.buildpack_overrides = buildpackOverrides;
+                    }
+                }
 
                 if (sourceMode === 'github') {
                     payload.source_connection_id = githubConnection.id;
@@ -834,6 +893,16 @@ const NewService = () => {
                                 </>
                             )}
                         </div>
+                    )}
+
+                    {buildpackEligible && (buildpackLoading || buildpack?.plan) && (
+                        <BuildpackPreview
+                            plan={buildpack?.plan}
+                            dockerfile={buildpack?.dockerfile}
+                            overrides={buildpackOverrides}
+                            onChange={setBuildpackOverrides}
+                            loading={buildpackLoading}
+                        />
                     )}
 
                     <div className="new-service-page__summary">

@@ -15,6 +15,8 @@ import LinkedAppsSection from '../components/LinkedAppsSection';
 import LinkAppModal from '../components/LinkAppModal';
 import ContainerOpsPanel from '../components/apps/ContainerOpsPanel';
 import WafPanel from '../components/apps/WafPanel';
+import DeploymentTimeline from '../components/deployments/DeploymentTimeline';
+import BuildpackPreview from '../components/buildpack/BuildpackPreview';
 import { getServiceType, getStatusConfig } from '../utils/serviceTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -258,7 +260,7 @@ const ApplicationDetail = () => {
                         </TabsContent>
                     )}
                     <TabsContent value="build">
-                        <BuildTab appId={app.id} appPath={app.path} />
+                        <BuildTab appId={app.id} appPath={app.path} app={app} />
                     </TabsContent>
                     <TabsContent value="deploy">
                         <DeployTab appId={app.id} appPath={app.path} />
@@ -868,7 +870,7 @@ const CommandsTab = ({ appId, appType }) => {
     );
 };
 
-const BuildTab = ({ appId, appPath }) => {
+const BuildTab = ({ appId, appPath, app }) => {
     const toast = useToast();
     const { confirm: confirmBuild, confirmState: confirmBuildState, handleConfirm: handleBuildConfirm, handleCancel: handleBuildCancel } = useConfirm();
     const [buildConfig, setBuildConfig] = useState(null);
@@ -883,6 +885,19 @@ const BuildTab = ({ appId, appPath }) => {
     const [selectedLog, setSelectedLog] = useState(null);
     const [buildLogs, setBuildLogs] = useState([]);
     const [error, setError] = useState(null);
+    const [bpDockerfile, setBpDockerfile] = useState(null);
+
+    // When the app was created from a detected build pack, fetch a read-only
+    // preview of the generated Dockerfile for transparency.
+    useEffect(() => {
+        let active = true;
+        if (app?.buildpack_plan) {
+            api.generateBuildpack(app.buildpack_plan, app.buildpack_overrides || {}, app.name)
+                .then((res) => { if (active) setBpDockerfile(res?.dockerfile || null); })
+                .catch(() => {});
+        }
+        return () => { active = false; };
+    }, [app?.buildpack_plan, app?.buildpack_overrides, app?.name]);
 
     const [configForm, setConfigForm] = useState({
         buildMethod: 'auto',
@@ -1064,6 +1079,17 @@ const BuildTab = ({ appId, appPath }) => {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {app?.buildpack_plan && (
+                <div className="card">
+                    <h3>Build Pack</h3>
+                    <BuildpackPreview
+                        plan={app.buildpack_plan}
+                        dockerfile={bpDockerfile}
+                        overrides={app.buildpack_overrides || {}}
+                    />
                 </div>
             )}
 
@@ -1646,6 +1672,18 @@ const DeployTab = ({ appId, appPath }) => {
                     </div>
                 </>
             )}
+
+            {/* Config snapshot timeline + diff — additive, independent of git
+                config so it shows the deploy history & config changes for any app. */}
+            <div className="card deploy-timeline-card">
+                <h3>Deployment Timeline</h3>
+                <p className="deploy-timeline-card__hint">
+                    An immutable configuration snapshot (env keys, domains, image, build
+                    method, volumes) is captured before each deployment. Secret values are
+                    masked. Open a snapshot to diff it against the previous one or restore it.
+                </p>
+                <DeploymentTimeline appId={appId} />
+            </div>
 
             {showConfigModal && (
                 <div className="modal-overlay" onClick={() => setShowConfigModal(false)}>

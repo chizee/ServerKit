@@ -524,6 +524,11 @@ def create_app_from_repository():
     dockerfile_path = (data.get('dockerfile_path') or '').strip() or None
     custom_build_cmd = (data.get('custom_build_cmd') or '').strip() or None
     custom_start_cmd = (data.get('custom_start_cmd') or '').strip() or None
+    # Build-pack plan/overrides (optional). Provided by the detection step in the
+    # New Service wizard. Persisted on the Application so the generated Dockerfile
+    # is reproducible and the Build tab can render the plan.
+    buildpack_plan = data.get('buildpack_plan') if isinstance(data.get('buildpack_plan'), dict) else None
+    buildpack_overrides = data.get('buildpack_overrides') if isinstance(data.get('buildpack_overrides'), dict) else None
 
     if not name or len(name) < 2:
         return jsonify({'error': 'Service name must be at least 2 characters'}), 400
@@ -606,6 +611,18 @@ def create_app_from_repository():
     custom_build_cmd = custom_build_cmd or recommended.get('custom_build_cmd')
     custom_start_cmd = custom_start_cmd or recommended.get('custom_start_cmd')
 
+    # When the build method routes through the build-pack layer, persist the
+    # (possibly overridden) plan on the Application so the generated Dockerfile is
+    # reproducible. Detect from the freshly-cloned source if no plan was supplied.
+    buildpack_type = None
+    if resolved_build_method in ('nixpacks', 'auto'):
+        from app.services.buildpack_service import BuildpackService
+        effective_plan = buildpack_plan or BuildpackService.detect(app_path)
+        if buildpack_overrides:
+            effective_plan = BuildpackService.apply_overrides(effective_plan, buildpack_overrides)
+        buildpack_plan = effective_plan
+        buildpack_type = (effective_plan or {}).get('builder')
+
     app = Application(
         name=name,
         app_type=resolved_app_type,
@@ -613,6 +630,9 @@ def create_app_from_repository():
         root_path=app_path,
         user_id=current_user_id,
         port=port,
+        buildpack_type=buildpack_type,
+        buildpack_plan=json.dumps(buildpack_plan) if buildpack_plan else None,
+        buildpack_overrides=json.dumps(buildpack_overrides) if buildpack_overrides else None,
     )
 
     try:
@@ -636,6 +656,8 @@ def create_app_from_repository():
             dockerfile_path=dockerfile_path,
             custom_build_cmd=custom_build_cmd,
             custom_start_cmd=custom_start_cmd,
+            buildpack_plan=buildpack_plan,
+            buildpack_overrides=buildpack_overrides,
         )
         if not build_result.get('success'):
             raise RuntimeError(build_result.get('error', 'Failed to configure build'))
