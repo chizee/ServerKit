@@ -155,6 +155,12 @@ const NewService = () => {
     const [uploadFile, setUploadFile] = useState(null);
     const [uploadDragOver, setUploadDragOver] = useState(false);
 
+    // Optional Project / Environment assignment (opt-in hierarchy).
+    const [projects, setProjects] = useState([]);
+    const [selectedProjectId, setSelectedProjectId] = useState('');
+    const [selectedEnvironmentId, setSelectedEnvironmentId] = useState('');
+    const [projectEnvironments, setProjectEnvironments] = useState([]);
+
     const githubConnection = githubStatus?.connection;
     const githubConfigured = githubStatus?.configured;
     const normalizedManualRepo = useMemo(() => normalizeManualRepo(manualRepoUrl), [manualRepoUrl]);
@@ -216,6 +222,45 @@ const NewService = () => {
     useEffect(() => {
         loadGithubStatus();
     }, [loadGithubStatus]);
+
+    // Load projects for the optional Project / Environment selector. Best-effort:
+    // if it fails the selector simply stays empty and creation is unaffected.
+    useEffect(() => {
+        let cancelled = false;
+        api.getProjects()
+            .then(data => {
+                if (cancelled) return;
+                setProjects(Array.isArray(data?.projects) ? data.projects : []);
+            })
+            .catch(() => { if (!cancelled) setProjects([]); });
+        return () => { cancelled = true; };
+    }, []);
+
+    // When a project is picked, load its environments and default-select the
+    // default one. Clearing the project clears the environment.
+    useEffect(() => {
+        if (!selectedProjectId) {
+            setProjectEnvironments([]);
+            setSelectedEnvironmentId('');
+            return undefined;
+        }
+        let cancelled = false;
+        api.getProject(selectedProjectId)
+            .then(data => {
+                if (cancelled) return;
+                const envs = Array.isArray(data?.project?.environments) ? data.project.environments : [];
+                setProjectEnvironments(envs);
+                const def = envs.find(e => e.is_default) || envs[0];
+                setSelectedEnvironmentId(def ? String(def.id) : '');
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setProjectEnvironments([]);
+                    setSelectedEnvironmentId('');
+                }
+            });
+        return () => { cancelled = true; };
+    }, [selectedProjectId]);
 
     useEffect(() => {
         if (sourceMode === 'github' && githubConnection) {
@@ -380,6 +425,12 @@ const NewService = () => {
         }
 
         setSubmitting(true);
+        // Optional Project / Environment assignment, included only when picked.
+        const projectEnvPayload = {};
+        if (selectedProjectId) {
+            projectEnvPayload.project_id = Number(selectedProjectId);
+            if (selectedEnvironmentId) projectEnvPayload.environment_id = Number(selectedEnvironmentId);
+        }
         try {
             if (sourceMode === 'local') {
                 const payload = {
@@ -389,6 +440,7 @@ const NewService = () => {
                     compose_file: composeFile.trim() || undefined,
                     systemd_unit: systemdUnit.trim() || undefined,
                     managed_by: managedBy === 'auto' ? undefined : managedBy,
+                    ...projectEnvPayload,
                 };
                 const result = await api.createManualApp(payload);
                 toast.success('Manual service registered');
@@ -399,6 +451,8 @@ const NewService = () => {
                 formData.append('name', serviceName);
                 formData.append('app_type', appType);
                 formData.append('auto_deploy', autoDeploy ? 'true' : 'false');
+                if (projectEnvPayload.project_id) formData.append('project_id', projectEnvPayload.project_id);
+                if (projectEnvPayload.environment_id) formData.append('environment_id', projectEnvPayload.environment_id);
                 const result = await api.uploadAppZip(formData);
                 toast.success('Upload service created');
                 navigate(`/services/${result.app.id}`);
@@ -410,6 +464,7 @@ const NewService = () => {
                     build_method: buildMethod,
                     port: port ? Number(port) : null,
                     auto_deploy: autoDeploy,
+                    ...projectEnvPayload,
                 };
                 if (recommended.dockerfile_path) payload.dockerfile_path = recommended.dockerfile_path;
                 if (recommended.custom_build_cmd) payload.custom_build_cmd = recommended.custom_build_cmd;
@@ -1051,6 +1106,38 @@ const NewService = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {projects.length > 0 && (
+                                <div className="new-service-page__two-col">
+                                    <div className="new-service-page__field">
+                                        <Label htmlFor="project">Project <span className="new-service-page__optional">(optional)</span></Label>
+                                        <select
+                                            id="project"
+                                            value={selectedProjectId}
+                                            onChange={(e) => setSelectedProjectId(e.target.value)}
+                                        >
+                                            <option value="">No project</option>
+                                            {projects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {selectedProjectId && (
+                                        <div className="new-service-page__field">
+                                            <Label htmlFor="environment">Environment</Label>
+                                            <select
+                                                id="environment"
+                                                value={selectedEnvironmentId}
+                                                onChange={(e) => setSelectedEnvironmentId(e.target.value)}
+                                            >
+                                                {projectEnvironments.map(env => (
+                                                    <option key={env.id} value={env.id}>{env.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

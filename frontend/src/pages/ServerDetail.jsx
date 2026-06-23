@@ -31,6 +31,7 @@ import PackagesTab from '../components/serverdetail/PackagesTab';
 import ServicesTab from '../components/serverdetail/ServicesTab';
 import SystemStatusCard from '../components/serverdetail/SystemStatusCard';
 import OnboardingWizard from '../components/server/OnboardingWizard';
+import ProxyStackPanel from '../components/proxy/ProxyStackPanel';
 import RemoteAccess from '../pages/RemoteAccess';
 import EmptyState from '../components/EmptyState';
 import { BellRing, Boxes, Container, Clock3, Cloud } from 'lucide-react';
@@ -57,7 +58,7 @@ const ServerDetail = () => {
     const [securityAlerts, setSecurityAlerts] = useState([]);
     const toast = useToast();
 
-    const validTabs = ['overview', 'docker', 'cron', 'cloudflared', 'packages', 'services', 'metrics', 'alerts', 'remote-access', 'settings'];
+    const validTabs = ['overview', 'docker', 'proxy', 'cron', 'cloudflared', 'packages', 'services', 'metrics', 'alerts', 'remote-access', 'settings'];
     const activeTab = validTabs.includes(tab) ? tab : 'overview';
 
     const loadServer = useCallback(async () => {
@@ -238,6 +239,7 @@ const ServerDetail = () => {
     const tabs = [
         { id: 'overview', label: 'Overview' },
         { id: 'docker', label: 'Docker' },
+        { id: 'proxy', label: 'Proxy' },
         ...(server.capabilities?.cron ? [{ id: 'cron', label: 'Cron' }] : []),
         ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', label: 'Tunnels' }] : []),
         ...(server.capabilities?.packages ? [{ id: 'packages', label: 'Packages' }] : []),
@@ -345,6 +347,9 @@ const ServerDetail = () => {
                     </TabsContent>
                     <TabsContent value="docker">
                         <DockerTab serverId={id} serverStatus={server.status} server={server} />
+                    </TabsContent>
+                    <TabsContent value="proxy">
+                        <ProxyStackPanel serverId={id} />
                     </TabsContent>
                     {server.capabilities?.cron && (
                         <TabsContent value="cron">

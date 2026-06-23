@@ -15,6 +15,7 @@ import LinkedAppsSection from '../components/LinkedAppsSection';
 import LinkAppModal from '../components/LinkAppModal';
 import ContainerOpsPanel from '../components/apps/ContainerOpsPanel';
 import WafPanel from '../components/apps/WafPanel';
+import PreviewList from '../components/previews/PreviewList';
 import DeploymentTimeline from '../components/deployments/DeploymentTimeline';
 import BuildpackPreview from '../components/buildpack/BuildpackPreview';
 import { getServiceType, getStatusConfig } from '../utils/serviceTypes';
@@ -24,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Pill, EnvTag } from '@/components/ds';
 
-const VALID_TABS = ['overview', 'environment', 'packages', 'gunicorn', 'commands', 'ops', 'waf', 'build', 'deploy', 'logs', 'settings'];
+const VALID_TABS = ['overview', 'environment', 'packages', 'gunicorn', 'commands', 'ops', 'waf', 'build', 'deploy', 'previews', 'logs', 'settings'];
 
 // statusInfo.dotClass → ds Pill kind
 const STATUS_PILL = {
@@ -224,6 +225,7 @@ const ApplicationDetail = () => {
                     )}
                     <TabsTrigger value="build">Build</TabsTrigger>
                     <TabsTrigger value="deploy">Deploy</TabsTrigger>
+                    <TabsTrigger value="previews">Previews</TabsTrigger>
                     <TabsTrigger value="logs">Logs</TabsTrigger>
                     <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
@@ -264,6 +266,9 @@ const ApplicationDetail = () => {
                     </TabsContent>
                     <TabsContent value="deploy">
                         <DeployTab appId={app.id} appPath={app.path} />
+                    </TabsContent>
+                    <TabsContent value="previews">
+                        <PreviewList appId={app.id} />
                     </TabsContent>
                     <TabsContent value="logs">
                         <LogsTab app={app} />

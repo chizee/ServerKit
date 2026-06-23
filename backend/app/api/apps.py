@@ -414,6 +414,50 @@ def set_app_workspace(app_id):
     return jsonify({'message': 'Workspace updated', 'app': app.to_dict()}), 200
 
 
+def _resolve_project_env(data, workspace_id):
+    """Validate optional project_id/environment_id from a create payload against
+    the app's workspace. Returns (project_id, environment_id) with invalid values
+    silently ignored (set to None), so a bad/foreign id can never break a create.
+
+    - project must belong to `workspace_id`.
+    - environment must belong to that project; if an environment is supplied
+      without a project, its parent project is used (still workspace-checked).
+    """
+    from app.models.project import Project
+    from app.models.environment import Environment
+
+    def _as_int(v):
+        if v in (None, '', 'null'):
+            return None
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+    project_id = _as_int(data.get('project_id'))
+    environment_id = _as_int(data.get('environment_id'))
+    if project_id is None and environment_id is None:
+        return None, None
+
+    env = None
+    if environment_id is not None:
+        env = Environment.query.get(environment_id)
+        if env is None:
+            environment_id = None
+        elif project_id is None:
+            project_id = env.project_id
+
+    project = Project.query.get(project_id) if project_id is not None else None
+    if project is None or project.workspace_id != workspace_id:
+        # No valid project in this workspace -> drop both.
+        return None, None
+
+    # Environment must belong to the resolved project.
+    if env is not None and env.project_id != project.id:
+        environment_id = None
+    return project.id, environment_id
+
+
 def _can_access_app(user, app):
     """Read access (#33 ACL) — delegates to the shared seam."""
     from app.services.resource_grant_service import ResourceGrantService
@@ -623,6 +667,15 @@ def create_app_from_repository():
         buildpack_plan = effective_plan
         buildpack_type = (effective_plan or {}).get('builder')
 
+    # Optional Project / Environment assignment. Validated against the resolved
+    # workspace; invalid/foreign ids are silently dropped (non-breaking).
+    from app.services.workspace_service import WorkspaceService
+    _ws_id = WorkspaceService.resolve_workspace_id(
+        user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
+    if _ws_id is None:
+        _ws_id = WorkspaceService.ensure_default_workspace().id
+    project_id, environment_id = _resolve_project_env(data, _ws_id)
+
     app = Application(
         name=name,
         app_type=resolved_app_type,
@@ -633,6 +686,8 @@ def create_app_from_repository():
         buildpack_type=buildpack_type,
         buildpack_plan=json.dumps(buildpack_plan) if buildpack_plan else None,
         buildpack_overrides=json.dumps(buildpack_overrides) if buildpack_overrides else None,
+        project_id=project_id,
+        environment_id=environment_id,
     )
 
     try:
@@ -720,6 +775,8 @@ def create_app():
     if ws_id is None:
         ws_id = WorkspaceService.ensure_default_workspace().id
 
+    project_id, environment_id = _resolve_project_env(data, ws_id)
+
     app = Application(
         name=name,
         app_type=app_type,
@@ -734,7 +791,9 @@ def create_app():
         systemd_unit=data.get('systemd_unit'),
         managed_by=data.get('managed_by'),
         user_id=current_user_id,
-        workspace_id=ws_id
+        workspace_id=ws_id,
+        project_id=project_id,
+        environment_id=environment_id,
     )
 
     db.session.add(app)
@@ -803,6 +862,8 @@ def create_manual_app():
     if ws_id is None:
         ws_id = WorkspaceService.ensure_default_workspace().id
 
+    project_id, environment_id = _resolve_project_env(data, ws_id)
+
     app = Application(
         name=name,
         app_type=app_type,
@@ -814,6 +875,8 @@ def create_manual_app():
         managed_by=managed_by,
         user_id=current_user_id,
         workspace_id=ws_id,
+        project_id=project_id,
+        environment_id=environment_id,
     )
 
     db.session.add(app)
@@ -919,6 +982,7 @@ def upload_app_archive():
             app.root_path = current_dir
             app.updated_at = datetime.utcnow()
         else:
+            project_id, environment_id = _resolve_project_env(request.form, ws_id)
             app = Application(
                 name=name,
                 app_type=detected,
@@ -931,6 +995,8 @@ def upload_app_archive():
                 upload_path=upload_archive_path,
                 user_id=current_user_id,
                 workspace_id=ws_id,
+                project_id=project_id,
+                environment_id=environment_id,
             )
             db.session.add(app)
 

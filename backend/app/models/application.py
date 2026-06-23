@@ -1,6 +1,13 @@
 from datetime import datetime
 from app import db
 
+# Application carries FKs to projects.id / environments.id (opt-in Project /
+# Environment hierarchy). Import those modules here so their tables are always
+# registered on db.Model's metadata whenever Application is loaded, keeping the
+# FK targets resolvable regardless of import order.
+from app.models import project as _project  # noqa: F401
+from app.models import environment as _environment  # noqa: F401
+
 
 class Application(db.Model):
     __tablename__ = 'applications'
@@ -60,6 +67,10 @@ class Application(db.Model):
     # Workspace scoping (#33). Nullable: existing rows are backfilled to a default
     # workspace by migration 015; new rows are stamped on create.
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
+    # Project / Environment hierarchy (opt-in). Nullable: existing apps stay
+    # "unassigned" and keep working; stamped on create when provided.
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True, index=True)
+    environment_id = db.Column(db.Integer, db.ForeignKey('environments.id'), nullable=True, index=True)
 
     # Relationships
     # Use 'subquery' to eagerly load domains in a single query, avoiding N+1
@@ -101,6 +112,8 @@ class Application(db.Model):
             'user_id': self.user_id,
             'server_id': self.server_id,
             'workspace_id': self.workspace_id,
+            'project_id': self.project_id,
+            'environment_id': self.environment_id,
             'server_name': self.server.name if self.server else 'Local server',
             'domains': [d.to_dict() for d in self.domains]
         }

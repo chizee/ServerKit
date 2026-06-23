@@ -5,6 +5,11 @@ from app.models.env_variable import EnvironmentVariable, EnvironmentVariableHist
 from app.models.notification_preferences import NotificationPreferences
 from app.models.deployment import Deployment, DeploymentDiff
 from app.models.deployment_snapshot import DeploymentSnapshot
+from app.models.project import Project
+from app.models.environment import Environment
+from app.models.shared_resource import ResourceTag, SharedVariableGroup, SharedVariable, SharedVariableGroupAttachment
+from app.models.application_preview import ApplicationPreview, ApplicationPreviewSettings
+from app.models.proxy_stack import ProxyStack
 from app.models.deployment_job import DeploymentJob, DeploymentJobLog
 from app.models.system_settings import SystemSettings
 from app.models.audit_log import AuditLog
@@ -90,4 +95,8 @@ __all__ = [
     'EmailProviderConnection',
     'SystemEvent',
     'DomainRegistration',
+    'Project', 'Environment',
+    'ResourceTag', 'SharedVariableGroup', 'SharedVariable', 'SharedVariableGroupAttachment',
+    'ApplicationPreview', 'ApplicationPreviewSettings',
+    'ProxyStack',
 ]

@@ -79,6 +79,16 @@ export const SIDEBAR_ITEMS = [
         icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
     },
     {
+        // Projects group apps/services under projects + environments
+        // (production/staging/development) within a workspace.
+        id: 'projects',
+        label: 'Projects',
+        route: '/projects',
+        matchPrefixes: ['/projects'],
+        category: 'infrastructure',
+        icon: '<path d="M3 7a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.7.9H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    },
+    {
         // Redesign: WordPress uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
         // Pipeline now lives in the page's top bar (PageTopbar WORDPRESS_TABS),
         // not as a sidebar sub-item. Route /wordpress/projects is unchanged.
@@ -185,6 +195,13 @@ export const SIDEBAR_ITEMS = [
         route: '/telemetry',
         category: 'system',
         icon: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'
+    },
+    {
+        id: 'shared-variables',
+        label: 'Shared Variables',
+        route: '/shared-variables',
+        category: 'system',
+        icon: '<path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="2"/>'
     },
     {
         id: 'jobs',
