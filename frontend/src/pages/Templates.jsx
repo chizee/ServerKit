@@ -117,6 +117,14 @@ const TEMPLATE_ICONS = {
     'authentik': Shield,
     'wg-easy': Shield,
     'pihole': Shield,
+    // Business / niche
+    'chatwoot': MessageSquare,
+    'documenso': FileText,
+    'metabase': BarChart3,
+    'posthog': TrendingUp,
+    'nodebb': Users,
+    'linkding': BookOpen,
+    'karakeep': BookOpen,
     // Database tools
     'phpmyadmin': Database,
     'pgadmin': Database,
