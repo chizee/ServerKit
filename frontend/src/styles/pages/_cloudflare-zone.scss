@@ -497,3 +497,70 @@
         align-items: center;
     }
 }
+
+// Storage tab — R2 buckets, KV namespaces, D1 databases.
+.cf-storage {
+    &__loading {
+        padding: $spacing-lg;
+        color: $text-muted;
+    }
+
+    &__section {
+        padding: $spacing-md 0;
+        border-bottom: 1px solid $border-color;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    &__heading {
+        margin: 0 0 $spacing-sm;
+        font-size: 0.95rem;
+    }
+
+    &__hint {
+        margin: $spacing-xs 0;
+        color: $text-muted;
+        font-size: 0.82rem;
+    }
+
+    &__error {
+        margin: $spacing-xs 0;
+        color: $text-muted;
+        font-size: 0.82rem;
+        font-style: italic;
+    }
+
+    &__create {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+        max-width: 420px;
+        margin-bottom: $spacing-sm;
+    }
+
+    &__list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        padding: $spacing-sm $spacing-md;
+        background: $bg-elevated;
+        border: 1px solid $border-color;
+        border-radius: $radius-md;
+    }
+
+    &__name {
+        font-family: $font-mono;
+        font-size: 0.85rem;
+        color: $text-primary;
+    }
+}

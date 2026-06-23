@@ -323,3 +323,90 @@ def delete_tunnel(zone_id, tunnel_id):
     except CloudflareError as e:
         return jsonify({'error': str(e)}), 400
     return _service_response(res)
+
+
+# ── Developer platform: R2 / KV / D1 ─────────────────────────────────────────
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage', methods=['GET'])
+@jwt_required()
+def list_storage(zone_id):
+    try:
+        res = CloudflareService.list_storage(zone_id)
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)
+
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage/r2', methods=['POST'])
+@jwt_required()
+def create_r2_bucket(zone_id):
+    if not _require_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        res = CloudflareService.create_r2_bucket(zone_id, data.get('name'))
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)
+
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage/r2/<bucket>', methods=['DELETE'])
+@jwt_required()
+def delete_r2_bucket(zone_id, bucket):
+    if not _require_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    try:
+        res = CloudflareService.delete_r2_bucket(zone_id, bucket)
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)
+
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage/kv', methods=['POST'])
+@jwt_required()
+def create_kv_namespace(zone_id):
+    if not _require_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        res = CloudflareService.create_kv_namespace(zone_id, data.get('title'))
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)
+
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage/kv/<namespace_id>', methods=['DELETE'])
+@jwt_required()
+def delete_kv_namespace(zone_id, namespace_id):
+    if not _require_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    try:
+        res = CloudflareService.delete_kv_namespace(zone_id, namespace_id)
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)
+
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage/d1', methods=['POST'])
+@jwt_required()
+def create_d1_database(zone_id):
+    if not _require_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        res = CloudflareService.create_d1_database(zone_id, data.get('name'))
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)
+
+
+@cloudflare_bp.route('/zones/<int:zone_id>/storage/d1/<database_id>', methods=['DELETE'])
+@jwt_required()
+def delete_d1_database(zone_id, database_id):
+    if not _require_admin():
+        return jsonify({'error': 'Admin access required'}), 403
+    try:
+        res = CloudflareService.delete_d1_database(zone_id, database_id)
+    except CloudflareError as e:
+        return jsonify({'error': str(e)}), 400
+    return _service_response(res)

@@ -702,3 +702,107 @@ class CloudflareService:
                     'error': None if res.get('success') else res.get('error')}
         except Exception as e:
             return {'created': False, 'error': str(e)}
+
+    # ── Developer platform: R2 / KV / D1 ─────────────────────────────────────
+    # Account-scoped storage. Management only — listing the inventory and
+    # creating/deleting resources. R2 is S3-compatible, so a bucket made here can
+    # later back ServerKit backups via the existing S3 storage backend (a separate
+    # follow-up that mints scoped R2 access keys).
+
+    R2_BUCKET_RE = re.compile(r'^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$')
+
+    @classmethod
+    def list_storage(cls, zone_id):
+        """Combined developer-platform inventory. Each product is fetched
+        independently so a missing token scope degrades to a per-product error
+        rather than failing the whole tab."""
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        out = {'success': True, 'account_id': account_id,
+               'r2': [], 'kv': [], 'd1': [], 'errors': {}}
+
+        r2 = client.list_r2_buckets(account_id)
+        if r2.get('success'):
+            out['r2'] = [{'name': b.get('name'), 'creation_date': b.get('creation_date')}
+                         for b in ((r2.get('result') or {}).get('buckets') or [])]
+        else:
+            out['errors']['r2'] = r2.get('error')
+
+        kv = client.list_kv_namespaces(account_id)
+        if kv.get('success'):
+            out['kv'] = [{'id': n.get('id'), 'title': n.get('title')}
+                         for n in (kv.get('result') or [])]
+        else:
+            out['errors']['kv'] = kv.get('error')
+
+        d1 = client.list_d1_databases(account_id)
+        if d1.get('success'):
+            out['d1'] = [{'uuid': d.get('uuid'), 'name': d.get('name')}
+                         for d in (d1.get('result') or [])]
+        else:
+            out['errors']['d1'] = d1.get('error')
+        return out
+
+    @classmethod
+    def create_r2_bucket(cls, zone_id, name):
+        name = (name or '').strip().lower()
+        if not cls.R2_BUCKET_RE.match(name):
+            raise CloudflareError('Bucket name must be 3–63 chars: lowercase letters, '
+                                  'digits and hyphens, starting and ending alphanumeric')
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        res = client.create_r2_bucket(account_id, name)
+        if not res.get('success'):
+            return {'success': False, 'error': res.get('error', 'Failed to create bucket')}
+        return {'success': True, 'bucket': name}
+
+    @classmethod
+    def delete_r2_bucket(cls, zone_id, name):
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        res = client.delete_r2_bucket(account_id, name)
+        if not res.get('success'):
+            return {'success': False, 'error': res.get('error', 'Failed to delete bucket')}
+        return {'success': True}
+
+    @classmethod
+    def create_kv_namespace(cls, zone_id, title):
+        title = (title or '').strip()
+        if not title:
+            raise CloudflareError('A namespace title is required')
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        res = client.create_kv_namespace(account_id, title)
+        if not res.get('success'):
+            return {'success': False, 'error': res.get('error', 'Failed to create namespace')}
+        return {'success': True, 'namespace': res.get('result')}
+
+    @classmethod
+    def delete_kv_namespace(cls, zone_id, namespace_id):
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        res = client.delete_kv_namespace(account_id, namespace_id)
+        if not res.get('success'):
+            return {'success': False, 'error': res.get('error', 'Failed to delete namespace')}
+        return {'success': True}
+
+    @classmethod
+    def create_d1_database(cls, zone_id, name):
+        name = (name or '').strip()
+        if not name:
+            raise CloudflareError('A database name is required')
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        res = client.create_d1_database(account_id, name)
+        if not res.get('success'):
+            return {'success': False, 'error': res.get('error', 'Failed to create database')}
+        return {'success': True, 'database': res.get('result')}
+
+    @classmethod
+    def delete_d1_database(cls, zone_id, database_id):
+        zone, client = cls._zone_and_client(zone_id)
+        account_id = cls._account_id(zone, client)
+        res = client.delete_d1_database(account_id, database_id)
+        if not res.get('success'):
+            return {'success': False, 'error': res.get('error', 'Failed to delete database')}
+        return {'success': True}

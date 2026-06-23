@@ -134,3 +134,47 @@ export async function removeCloudflareTunnelHostname(zoneId, tunnelId, hostname)
         body: { hostname },
     });
 }
+
+// Developer platform — R2 buckets, KV namespaces, D1 databases (account-scoped).
+export async function getCloudflareStorage(zoneId) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage`);
+}
+
+export async function createCloudflareR2Bucket(zoneId, name) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage/r2`, {
+        method: 'POST',
+        body: { name },
+    });
+}
+
+export async function deleteCloudflareR2Bucket(zoneId, name) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage/r2/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function createCloudflareKvNamespace(zoneId, title) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage/kv`, {
+        method: 'POST',
+        body: { title },
+    });
+}
+
+export async function deleteCloudflareKvNamespace(zoneId, namespaceId) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage/kv/${namespaceId}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function createCloudflareD1Database(zoneId, name) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage/d1`, {
+        method: 'POST',
+        body: { name },
+    });
+}
+
+export async function deleteCloudflareD1Database(zoneId, databaseId) {
+    return this.request(`/cloudflare/zones/${zoneId}/storage/d1/${databaseId}`, {
+        method: 'DELETE',
+    });
+}

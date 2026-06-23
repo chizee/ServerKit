@@ -381,3 +381,36 @@ class CloudflareClient:
         return self.request('PUT',
                             f'/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations',
                             json={'config': config})
+
+    # ── Developer platform: R2 / KV / D1 ──────────────────────────────────────
+    # Account-scoped storage primitives. Management only (list/create/delete);
+    # object/key/row data planes are out of scope.
+    def list_r2_buckets(self, account_id: str) -> dict:
+        return self.request('GET', f'/accounts/{account_id}/r2/buckets')
+
+    def create_r2_bucket(self, account_id: str, name: str) -> dict:
+        return self.request('POST', f'/accounts/{account_id}/r2/buckets', json={'name': name})
+
+    def delete_r2_bucket(self, account_id: str, name: str) -> dict:
+        return self.request('DELETE', f'/accounts/{account_id}/r2/buckets/{name}')
+
+    def list_kv_namespaces(self, account_id: str) -> dict:
+        return self.request('GET', f'/accounts/{account_id}/storage/kv/namespaces',
+                            params={'per_page': 100})
+
+    def create_kv_namespace(self, account_id: str, title: str) -> dict:
+        return self.request('POST', f'/accounts/{account_id}/storage/kv/namespaces',
+                            json={'title': title})
+
+    def delete_kv_namespace(self, account_id: str, namespace_id: str) -> dict:
+        return self.request('DELETE',
+                            f'/accounts/{account_id}/storage/kv/namespaces/{namespace_id}')
+
+    def list_d1_databases(self, account_id: str) -> dict:
+        return self.request('GET', f'/accounts/{account_id}/d1/database')
+
+    def create_d1_database(self, account_id: str, name: str) -> dict:
+        return self.request('POST', f'/accounts/{account_id}/d1/database', json={'name': name})
+
+    def delete_d1_database(self, account_id: str, database_id: str) -> dict:
+        return self.request('DELETE', f'/accounts/{account_id}/d1/database/{database_id}')

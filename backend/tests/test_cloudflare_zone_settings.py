@@ -604,3 +604,92 @@ def test_add_tunnel_hostname_sets_ingress_with_catchall(app, monkeypatch):
     ingress = put_body['config']['ingress']
     assert ingress[0] == {'hostname': 'app.example.com', 'service': 'http://localhost:8080'}
     assert ingress[-1] == {'service': 'http_status:404'}   # required catch-all is last
+
+
+# ── Developer platform: R2 / KV / D1 (Phase 6) ───────────────────────────────
+
+def test_list_storage_aggregates_and_reports_errors(app, monkeypatch):
+    from app.services.dns import cloudflare as cf
+    from app.services.cloudflare_service import CloudflareService
+    zone = _make_cf_zone()
+
+    def req(method, url, headers=None, json=None, params=None, timeout=None):
+        if url.endswith('/zones/zoneABC'):
+            return _Resp({'success': True, 'result': {'account': {'id': 'acct1'}}})
+        if url.endswith('/r2/buckets'):
+            return _Resp({'success': True, 'result': {'buckets': [
+                {'name': 'assets', 'creation_date': 'x'}]}})
+        if url.endswith('/storage/kv/namespaces'):
+            return _Resp({'success': False, 'errors': [{'message': 'no kv scope'}]})
+        if url.endswith('/d1/database'):
+            return _Resp({'success': True, 'result': [{'uuid': 'db1', 'name': 'main'}]})
+        return _Resp({'success': False})
+    monkeypatch.setattr(cf.requests, 'request', req)
+
+    res = CloudflareService.list_storage(zone.id)
+    assert res['success'] is True and res['account_id'] == 'acct1'
+    assert res['r2'][0]['name'] == 'assets'
+    assert res['d1'][0]['name'] == 'main'
+    # A per-product scope error degrades that product only — not the whole tab.
+    assert res['errors']['kv'] == 'no kv scope' and res['kv'] == []
+
+
+def test_create_r2_bucket_validates_name(app):
+    from app.services.cloudflare_service import CloudflareService, CloudflareError
+    zone = _make_cf_zone()
+    with pytest.raises(CloudflareError):
+        CloudflareService.create_r2_bucket(zone.id, 'Bad_Bucket!')
+
+
+def test_create_r2_bucket_creates(app, monkeypatch):
+    from app.services.dns import cloudflare as cf
+    from app.services.cloudflare_service import CloudflareService
+    zone = _make_cf_zone()
+    seen = {}
+
+    def req(method, url, headers=None, json=None, params=None, timeout=None):
+        if url.endswith('/zones/zoneABC'):
+            return _Resp({'success': True, 'result': {'account': {'id': 'acct1'}}})
+        if method == 'POST' and url.endswith('/r2/buckets'):
+            seen.update(json=json)
+            return _Resp({'success': True, 'result': {'name': 'my-assets'}})
+        return _Resp({'success': False})
+    monkeypatch.setattr(cf.requests, 'request', req)
+
+    res = CloudflareService.create_r2_bucket(zone.id, 'my-assets')
+    assert res['success'] is True and res['bucket'] == 'my-assets'
+    assert seen['json'] == {'name': 'my-assets'}
+
+
+def test_create_kv_namespace_requires_title(app):
+    from app.services.cloudflare_service import CloudflareService, CloudflareError
+    zone = _make_cf_zone()
+    with pytest.raises(CloudflareError):
+        CloudflareService.create_kv_namespace(zone.id, '   ')
+
+
+def test_create_d1_database_requires_name(app):
+    from app.services.cloudflare_service import CloudflareService, CloudflareError
+    zone = _make_cf_zone()
+    with pytest.raises(CloudflareError):
+        CloudflareService.create_d1_database(zone.id, '')
+
+
+def test_delete_r2_bucket_calls_delete(app, monkeypatch):
+    from app.services.dns import cloudflare as cf
+    from app.services.cloudflare_service import CloudflareService
+    zone = _make_cf_zone()
+    deleted = {}
+
+    def req(method, url, headers=None, json=None, params=None, timeout=None):
+        if url.endswith('/zones/zoneABC'):
+            return _Resp({'success': True, 'result': {'account': {'id': 'acct1'}}})
+        if method == 'DELETE' and url.endswith('/r2/buckets/assets'):
+            deleted.update(url=url)
+            return _Resp({'success': True})
+        return _Resp({'success': False})
+    monkeypatch.setattr(cf.requests, 'request', req)
+
+    res = CloudflareService.delete_r2_bucket(zone.id, 'assets')
+    assert res['success'] is True
+    assert deleted['url'].endswith('/r2/buckets/assets')
