@@ -2,15 +2,51 @@
 // SSL CERTIFICATES PAGE
 // ============================================
 
-.ssl-page {
-    // Reuses .ssl-status-bar, .ssl-status-item, etc. from _domains.scss
+// Status bar — a row of stat cards (Certbot / Certificates / Expiring Soon).
+// These classes used to be borrowed from _domains.scss, but were dropped when the
+// Domains page moved to MetricCard — so they're defined here now. Without them the
+// status items collapsed into an unstyled vertical stack at the top-left.
+.ssl-status-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $space-4;
+    margin-bottom: $space-5;
+
+    @media (max-width: $breakpoint-md) { grid-template-columns: 1fr; }
 }
 
-// Warning icon color variant
+.ssl-status-item {
+    @include flex-start();
+    gap: $space-3;
+    padding: $space-4;
+    background: var(--surface);
+    border: 1px solid $border-subtle;
+    border-radius: $radius-lg;
+}
+
 .ssl-status-icon {
-    &.warning {
-        background: $warning-bg;
-        color: $warning;
+    @include icon-box();
+    background: var(--surface-2);
+    color: $text-tertiary;
+
+    &.active { background: $success-bg; color: $success; }
+    &.inactive { background: var(--surface-2); color: $text-tertiary; }
+    &.warning { background: $warning-bg; color: $warning; }
+}
+
+.ssl-status-info {
+    min-width: 0;
+
+    h4 {
+        margin: 0 0 2px;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-semibold;
+        color: $text-primary;
+    }
+
+    span {
+        font-size: $font-size-xs;
+        color: $text-tertiary;
     }
 }
 
