@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Download, RotateCcw, Trash2, GitCommit, Tag } from 'lucide-react';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { formatBytes } from '@/utils/formatBytes';

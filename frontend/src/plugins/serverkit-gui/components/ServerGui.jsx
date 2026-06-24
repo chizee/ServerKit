@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import SyntheticDesktop from './SyntheticDesktop.jsx';
 
 const FRAME_INTERVAL_MS_DEFAULT = 700;

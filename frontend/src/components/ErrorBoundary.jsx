@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 // Class-based Error Boundary for catching React errors

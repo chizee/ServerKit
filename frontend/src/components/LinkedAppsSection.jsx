@@ -1,4 +1,3 @@
-import React from 'react';
 import { GitBranch, Link2, Unlink, ExternalLink, Server } from 'lucide-react';
 
 const LinkedAppsSection = ({

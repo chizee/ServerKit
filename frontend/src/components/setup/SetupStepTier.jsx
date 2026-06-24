@@ -1,4 +1,3 @@
-import React from 'react';
 import { useResourceTier } from '../../contexts/ResourceTierContext';
 import { Check, X, AlertTriangle, Loader } from 'lucide-react';
 

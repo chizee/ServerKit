@@ -1,4 +1,3 @@
-import React from 'react';
 import ConfigPanel from '../ConfigPanel';
 import { Bell, MessageSquare, Mail, Slack, Send, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from '@xyflow/react';
 import { X } from 'lucide-react';
 import { connectionLabels, getConnectionType } from '../../utils/connectionRules';

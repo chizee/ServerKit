@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Pill } from '@/components/ds';
 import { useDeployments } from '../../hooks/useDeployments';

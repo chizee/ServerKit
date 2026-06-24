@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import ConfigPanel from '../ConfigPanel';
 import { Play, Clock, Webhook, Zap, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';

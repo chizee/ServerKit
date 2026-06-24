@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     ExternalLink, Play, Square, RefreshCw, ArrowRight,
     ArrowDownLeft, Lock, Unlock, FileText, Trash2, MoreVertical,

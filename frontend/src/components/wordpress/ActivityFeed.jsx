@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Database, GitBranch, Lock, Unlock, Trash2, Play, Square, RefreshCw, Camera, AlertCircle } from 'lucide-react';
 import wordpressApi from '../../services/wordpress';
 import { formatRelativeTime } from '@/utils/time';

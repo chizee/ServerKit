@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { GitCommit, Rocket, Copy, CheckCircle, ExternalLink } from 'lucide-react';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';

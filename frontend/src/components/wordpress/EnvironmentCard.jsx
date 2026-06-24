@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ExternalLink, RefreshCw, Trash2, GitBranch, Clock, AlertTriangle, Calendar, FileText } from 'lucide-react';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { Pill, EnvTag } from '../ds';

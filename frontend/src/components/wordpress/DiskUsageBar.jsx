@@ -1,4 +1,3 @@
-import React from 'react';
 import { HardDrive } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
 

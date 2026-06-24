@@ -1,4 +1,3 @@
-import React from 'react';
 import { useResourceTier } from '../../contexts/ResourceTierContext';
 import { Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
