@@ -5,6 +5,7 @@ import {
     Settings, Download
 } from 'lucide-react';
 import api from '../services/api';
+import Modal from '@/components/Modal';
 import { Pill } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useToast } from '../contexts/ToastContext';
@@ -370,13 +371,7 @@ const SSLCertificates = () => {
             )}
 
             {/* Obtain Certificate Modal */}
-            {showObtainModal && (
-                <div className="modal-overlay" onClick={() => setShowObtainModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Obtain SSL Certificate</h2>
-                            <button className="modal-close" onClick={() => setShowObtainModal(false)}>×</button>
-                        </div>
+            <Modal open={showObtainModal} onClose={() => setShowObtainModal(false)} title="Obtain SSL Certificate">
                         <form onSubmit={handleObtainCertificate}>
                             <div className="ssl-info-box">
                                 <ShieldCheck size={32} />
@@ -445,9 +440,7 @@ const SSLCertificates = () => {
                                 </Button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
         </div>
     );
 };

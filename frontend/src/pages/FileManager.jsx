@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
+import Modal from '@/components/Modal';
 import {
     Folder, FolderOpen, File, Upload, FolderPlus,
     ArrowLeft, ArrowRight, ArrowUp, Search, X, RefreshCw, Eye, EyeOff,
@@ -1291,14 +1292,7 @@ function FileManager() {
             />
 
             {/* Modals */}
-            {showNewFileModal && (
-                <div className="modal-overlay" onClick={() => setShowNewFileModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Create New File</h2>
-                            <Button variant="ghost" size="icon" onClick={() => setShowNewFileModal(false)}><X size={20} /></Button>
-                        </div>
-                        <div className="modal-body">
+            <Modal open={showNewFileModal} onClose={() => setShowNewFileModal(false)} title="Create New File">
                             <div className="form-group">
                                 <Label>File Name</Label>
                                 <Input
@@ -1311,23 +1305,13 @@ function FileManager() {
                                 />
                             </div>
                             <p className="text-muted">Will be created in: <code>{currentPath}</code></p>
-                        </div>
-                        <div className="modal-footer">
+                        <div className="modal-actions">
                             <Button variant="outline" onClick={() => setShowNewFileModal(false)}>Cancel</Button>
                             <Button onClick={handleCreateFile}>Create File</Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            {showNewFolderModal && (
-                <div className="modal-overlay" onClick={() => setShowNewFolderModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Create New Folder</h2>
-                            <Button variant="ghost" size="icon" onClick={() => setShowNewFolderModal(false)}><X size={20} /></Button>
-                        </div>
-                        <div className="modal-body">
+            <Modal open={showNewFolderModal} onClose={() => setShowNewFolderModal(false)} title="Create New Folder">
                             <div className="form-group">
                                 <Label>Folder Name</Label>
                                 <Input
@@ -1340,23 +1324,13 @@ function FileManager() {
                                 />
                             </div>
                             <p className="text-muted">Will be created in: <code>{currentPath}</code></p>
-                        </div>
-                        <div className="modal-footer">
+                        <div className="modal-actions">
                             <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>Cancel</Button>
                             <Button onClick={handleCreateFolder}>Create Folder</Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            {showRenameModal && (
-                <div className="modal-overlay" onClick={() => setShowRenameModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Rename {renameTarget?.is_dir ? 'Folder' : 'File'}</h2>
-                            <Button variant="ghost" size="icon" onClick={() => setShowRenameModal(false)}><X size={20} /></Button>
-                        </div>
-                        <div className="modal-body">
+            <Modal open={showRenameModal} onClose={() => setShowRenameModal(false)} title={`Rename ${renameTarget?.is_dir ? 'Folder' : 'File'}`}>
                             <div className="form-group">
                                 <Label>New Name</Label>
                                 <Input
@@ -1367,23 +1341,13 @@ function FileManager() {
                                     onKeyDown={(e) => e.key === 'Enter' && handleRename()}
                                 />
                             </div>
-                        </div>
-                        <div className="modal-footer">
+                        <div className="modal-actions">
                             <Button variant="outline" onClick={() => setShowRenameModal(false)}>Cancel</Button>
                             <Button onClick={handleRename}>Rename</Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
-            {showPermissionsModal && (
-                <div className="modal-overlay" onClick={() => setShowPermissionsModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Change Permissions</h2>
-                            <Button variant="ghost" size="icon" onClick={() => setShowPermissionsModal(false)}><X size={20} /></Button>
-                        </div>
-                        <div className="modal-body">
+            <Modal open={showPermissionsModal} onClose={() => setShowPermissionsModal(false)} title="Change Permissions">
                             <div className="form-group">
                                 <Label>Permissions (Octal)</Label>
                                 <Input
@@ -1404,14 +1368,11 @@ function FileManager() {
                                     <li><code>600</code> Owner: rw only (private files)</li>
                                 </ul>
                             </div>
-                        </div>
-                        <div className="modal-footer">
+                        <div className="modal-actions">
                             <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>Cancel</Button>
                             <Button onClick={handleChangePermissions}>Apply</Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
             {confirmDialog && (
                 <ConfirmDialog

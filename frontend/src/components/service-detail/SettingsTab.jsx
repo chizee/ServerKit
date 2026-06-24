@@ -17,6 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { DangerZone } from '../DangerZone';
 import RepoConnectForm from '../git/RepoConnectForm';
 import ProtectionPanel from '../backups/ProtectionPanel';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -583,13 +584,13 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                 </div>
             )}
 
-            {subdomainModal && (
-                <div className="modal-overlay" onClick={() => setSubdomainModal(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Give it a subdomain</h2>
-                            <button className="modal-close" onClick={() => setSubdomainModal(null)}>&times;</button>
-                        </div>
+            <Modal
+                open={!!subdomainModal}
+                onClose={() => setSubdomainModal(null)}
+                title="Give it a subdomain"
+            >
+                {subdomainModal && (
+                    <>
                         <div className="modal-body">
                             <p className="hint">
                                 Publish <strong>{app.name}</strong> at a managed subdomain of{' '}
@@ -620,9 +621,9 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                                 {publishing ? 'Publishing…' : 'Publish'}
                             </Button>
                         </div>
-                    </div>
-                </div>
-            )}
+                    </>
+                )}
+            </Modal>
         </div>
     );
 };

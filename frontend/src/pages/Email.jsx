@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -721,21 +722,16 @@ function Email() {
                                         )}
                                     </>
                                 )}
-                                {showPasswordModal && (
-                                    <div className="modal-overlay" onClick={() => setShowPasswordModal(null)}>
-                                        <div className="modal-content" onClick={e => e.stopPropagation()}>
-                                            <h3>Change Password</h3>
-                                            <div className="form-group">
-                                                <label>New Password</label>
-                                                <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-                                            </div>
-                                            <div className="form-actions">
-                                                <Button size="sm" variant="outline" onClick={() => setShowPasswordModal(null)}>Cancel</Button>
-                                                <Button size="sm" onClick={handleChangePassword} disabled={actionLoading || !newPassword}>Change</Button>
-                                            </div>
-                                        </div>
+                                <Modal open={!!showPasswordModal} onClose={() => setShowPasswordModal(null)} title="Change Password">
+                                    <div className="form-group">
+                                        <label>New Password</label>
+                                        <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
                                     </div>
-                                )}
+                                    <div className="form-actions">
+                                        <Button size="sm" variant="outline" onClick={() => setShowPasswordModal(null)}>Cancel</Button>
+                                        <Button size="sm" onClick={handleChangePassword} disabled={actionLoading || !newPassword}>Change</Button>
+                                    </div>
+                                </Modal>
                             </div>
                         </TabsContent>
 

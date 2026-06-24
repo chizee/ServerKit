@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
@@ -854,14 +855,9 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
     }
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h2>Install {template.name}</h2>
-                    <button className="modal-close" onClick={onClose}>&times;</button>
-                </div>
-                <form onSubmit={handleInstall}>
-                    <div className="modal-body">
+        <Modal open onClose={onClose} title={`Install ${template.name}`} size="lg">
+            <form onSubmit={handleInstall}>
+                <div className="modal-body">
                         {errors.length > 0 && (
                             <div className="alert alert-danger">
                                 <ul>
@@ -973,8 +969,7 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Modal>
     );
 };
 

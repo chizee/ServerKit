@@ -9,6 +9,7 @@ import EmptyState from '../components/EmptyState';
 import { Globe, ChevronRight, Search } from 'lucide-react';
 import { Pill, SegControl, ServiceTile } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -398,16 +399,13 @@ function WordPress() {
             })()}
 
             {/* Import Site Modal */}
-            {showImportModal && (
-                <div className="modal-overlay" onClick={() => !importLoading && setShowImportModal(false)}>
-                    <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>Import WordPress Site</h3>
-                            <button className="modal-close" onClick={() => !importLoading && setShowImportModal(false)}>
-                                &times;
-                            </button>
-                        </div>
-                        <div className="modal-body">
+            <Modal
+                open={showImportModal}
+                onClose={() => !importLoading && setShowImportModal(false)}
+                title="Import WordPress Site"
+                size="lg"
+            >
+                <div className="modal-body">
                             <div className="install-warning">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                                 <div>
@@ -485,21 +483,16 @@ function WordPress() {
                                 {importLoading ? <><Spinner size="sm" /> Importing...</> : 'Import Site'}
                             </Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
             {/* Create Site Modal */}
-            {showCreateModal && (
-                <div className="modal-overlay" onClick={() => !createLoading && setShowCreateModal(false)}>
-                    <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>Create WordPress Site</h3>
-                            <button className="modal-close" onClick={() => !createLoading && setShowCreateModal(false)}>
-                                &times;
-                            </button>
-                        </div>
-                        <div className="modal-body">
+            <Modal
+                open={showCreateModal}
+                onClose={() => !createLoading && setShowCreateModal(false)}
+                title="Create WordPress Site"
+                size="lg"
+            >
+                <div className="modal-body">
                             <div className="install-warning">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                                 <div>
@@ -605,9 +598,7 @@ function WordPress() {
                                 {createLoading ? <><Spinner size="sm" /> Creating...</> : 'Create Site'}
                             </Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
         </div>
     );
 }

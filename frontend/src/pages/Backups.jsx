@@ -6,6 +6,7 @@ import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import EmptyState from '../components/EmptyState';
+import Modal from '@/components/Modal';
 import { FormField, FormRow } from '../components/FormField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -973,15 +974,8 @@ const Backups = () => {
             )}
 
             {/* Create Backup Modal */}
-            {showBackupModal && (
-                <div className="modal-overlay" onClick={() => setShowBackupModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Create Backup</h2>
-                            <button className="modal-close" onClick={() => setShowBackupModal(false)}>&times;</button>
-                        </div>
+            <Modal open={showBackupModal} onClose={() => setShowBackupModal(false)} title="Create Backup">
                         <form onSubmit={handleCreateBackup}>
-                            <div className="modal-body">
                                 <div className="form-group">
                                     <label>Backup Type</label>
                                     <select
@@ -1101,28 +1095,18 @@ const Backups = () => {
                                         </div>
                                     </>
                                 )}
-                            </div>
-                            <div className="modal-footer">
+                            <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowBackupModal(false)}>
                                     Cancel
                                 </Button>
                                 <Button type="submit">Create Backup</Button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
             {/* Add Schedule Modal */}
-            {showScheduleModal && (
-                <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Add Backup Schedule</h2>
-                            <button className="modal-close" onClick={() => setShowScheduleModal(false)}>&times;</button>
-                        </div>
+            <Modal open={showScheduleModal} onClose={() => setShowScheduleModal(false)} title="Add Backup Schedule">
                         <form onSubmit={handleAddSchedule}>
-                            <div className="modal-body">
                                 <div className="form-group">
                                     <label>Schedule Name</label>
                                     <Input
@@ -1192,27 +1176,18 @@ const Backups = () => {
                                         </label>
                                     </div>
                                 )}
-                            </div>
-                            <div className="modal-footer">
+                            <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowScheduleModal(false)}>
                                     Cancel
                                 </Button>
                                 <Button type="submit">Add Schedule</Button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
             {/* Restore Modal */}
-            {showRestoreModal && selectedBackup && (
-                <div className="modal-overlay" onClick={() => setShowRestoreModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Restore Backup</h2>
-                            <button className="modal-close" onClick={() => setShowRestoreModal(false)}>&times;</button>
-                        </div>
-                        <div className="modal-body">
+            <Modal open={showRestoreModal && !!selectedBackup} onClose={() => setShowRestoreModal(false)} title="Restore Backup">
+                        {selectedBackup && (<>
                             <div className="bk-restore-warn">
                                 <AlertTriangle size={18} />
                                 <span><b>Warning:</b> restoring this backup will overwrite existing data. This action cannot be undone.</span>
@@ -1235,8 +1210,8 @@ const Backups = () => {
                                     <span className="v">{formatBytes(selectedBackup.size, { defaultValue: '0 B' })}</span>
                                 </div>
                             </div>
-                        </div>
-                        <div className="modal-footer">
+                        </>)}
+                        <div className="modal-actions">
                             <Button variant="outline" onClick={() => setShowRestoreModal(false)}>
                                 Cancel
                             </Button>
@@ -1244,9 +1219,7 @@ const Backups = () => {
                                 Restore Backup
                             </Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
         </div>
     );
 };

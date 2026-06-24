@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import EmptyState from '../components/EmptyState';
+import Modal from '@/components/Modal';
 import {
     Clock, CheckCircle, Monitor, Activity, Plus, RefreshCw,
     Play, Pause, Pencil, Trash2, Search,
@@ -396,15 +397,8 @@ const CronJobs = () => {
             )}
 
             {/* Create/Edit Job Modal */}
-            {showJobModal && (
-                <div className="modal-overlay" onClick={closeJobModal}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>{editingJob ? 'Edit Cron Job' : 'Create Cron Job'}</h2>
-                            <button className="modal-close" onClick={closeJobModal}>&times;</button>
-                        </div>
+            <Modal open={showJobModal} onClose={closeJobModal} title={editingJob ? 'Edit Cron Job' : 'Create Cron Job'}>
                         <form onSubmit={handleSubmitJob}>
-                            <div className="modal-body">
                                 <div className="form-group">
                                     <Label htmlFor="job-name">Job Name</Label>
                                     <Input
@@ -482,8 +476,7 @@ const CronJobs = () => {
                                         rows={2}
                                     />
                                 </div>
-                            </div>
-                            <div className="modal-footer">
+                            <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={closeJobModal}>
                                     Cancel
                                 </Button>
@@ -492,19 +485,11 @@ const CronJobs = () => {
                                 </Button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
 
             {/* Run Output Modal */}
-            {runOutput && (
-                <div className="modal-overlay" onClick={() => setRunOutput(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Run Output: {runOutput.jobName}</h2>
-                            <button className="modal-close" onClick={() => setRunOutput(null)}>&times;</button>
-                        </div>
-                        <div className="modal-body">
+            <Modal open={!!runOutput} onClose={() => setRunOutput(null)} title={runOutput ? `Run Output: ${runOutput.jobName}` : ''}>
+                        {runOutput && (
                             <div className="run-output">
                                 <div className="run-output-exit">
                                     <span className="run-output-label">Exit Code</span>
@@ -528,13 +513,11 @@ const CronJobs = () => {
                                     <p className="text-muted">No output produced.</p>
                                 )}
                             </div>
-                        </div>
-                        <div className="modal-footer">
+                        )}
+                        <div className="modal-actions">
                             <Button variant="outline" onClick={() => setRunOutput(null)}>Close</Button>
                         </div>
-                    </div>
-                </div>
-            )}
+            </Modal>
         </div>
     );
 };

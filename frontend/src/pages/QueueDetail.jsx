@@ -13,6 +13,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import EmptyState from '../components/EmptyState';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -314,15 +315,8 @@ const QueueDetail = () => {
                 )}
             </div>
 
-            {showSend && !viewOnly && (
-                <div className="modal-overlay" onClick={() => setShowSend(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h2>Send Message</h2>
-                            <button className="modal-close" onClick={() => setShowSend(false)}>&times;</button>
-                        </div>
+            <Modal open={showSend && !viewOnly} onClose={() => setShowSend(false)} title="Send Message">
                         <form onSubmit={handleSend}>
-                            <div className="modal-body">
                                 <div className="form-group">
                                     <Label htmlFor="payload">Payload (JSON)</Label>
                                     <Textarea id="payload" value={sendForm.payload} onChange={(e) => setSendForm({ ...sendForm, payload: e.target.value })} rows={6} required />
@@ -337,15 +331,12 @@ const QueueDetail = () => {
                                         <Input id="delay_ms" type="number" value={sendForm.delay_ms} onChange={(e) => setSendForm({ ...sendForm, delay_ms: e.target.value })} />
                                     </div>
                                 </div>
-                            </div>
-                            <div className="modal-footer">
+                            <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowSend(false)}>Cancel</Button>
                                 <Button type="submit"><Send size={14} className="mr-2" /> Send</Button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Modal>
         </div>
     );
 };
