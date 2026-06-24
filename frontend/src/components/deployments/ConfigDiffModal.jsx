@@ -132,7 +132,7 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                                         <p className="config-diff__summary">
                                             {meta.hasChanges && meta.summary
                                                 ? meta.summary
-                                                : 'No configuration changes vs the compared snapshot.'}
+                                                : 'No configuration changes vs the compared checkpoint.'}
                                         </p>
                                     </div>
                                 </div>

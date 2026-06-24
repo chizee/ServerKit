@@ -238,11 +238,11 @@ const DeployTab = ({ appId, appPath }) => {
             {/* Config snapshot timeline + diff — additive, independent of git
                 config so it shows the deploy history & config changes for any app. */}
             <div className="card deploy-timeline-card">
-                <h3>Deployment Timeline</h3>
+                <h3>Config Checkpoints</h3>
                 <p className="deploy-timeline-card__hint">
-                    An immutable configuration snapshot (env keys, domains, image, build
+                    An immutable config checkpoint (env keys, domains, image, build
                     method, volumes) is captured before each deployment. Secret values are
-                    masked. Open a snapshot to diff it against the previous one or restore it.
+                    masked. Open a checkpoint to diff it against the previous one or restore it.
                 </p>
                 <DeploymentTimeline appId={appId} />
             </div>
