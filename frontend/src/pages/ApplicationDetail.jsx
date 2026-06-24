@@ -15,7 +15,7 @@ import PrivateURLSection from '../components/PrivateURLSection';
 import LinkedAppsSection from '../components/LinkedAppsSection';
 import LinkAppModal from '../components/LinkAppModal';
 import ContainerOpsPanel from '../components/apps/ContainerOpsPanel';
-import WafPanel from '../components/apps/WafPanel';
+import AppWafPanel from '../components/apps/AppWafPanel';
 import PreviewList from '../components/previews/PreviewList';
 import DeploymentTimeline from '../components/deployments/DeploymentTimeline';
 import BuildpackPreview from '../components/buildpack/BuildpackPreview';
@@ -271,7 +271,7 @@ const ApplicationDetail = () => {
                     )}
                     {isNginxServedApp && (
                         <TabsContent value="waf">
-                            <WafPanel app={app} onChanged={loadApp} />
+                            <AppWafPanel app={app} onChanged={loadApp} />
                         </TabsContent>
                     )}
                     <TabsContent value="build">
