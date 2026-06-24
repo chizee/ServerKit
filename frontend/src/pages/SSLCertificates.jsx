@@ -10,7 +10,6 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import EmptyState from '../components/EmptyState';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const SSLCertificates = () => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -449,16 +448,6 @@ const SSLCertificates = () => {
                     </div>
                 </div>
             )}
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };

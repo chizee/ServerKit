@@ -5,7 +5,6 @@ import api from '../services/api';
 import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { FormField, FormRow } from '../components/FormField';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,7 @@ const PROVIDER_LABELS = { local: 'Local only', s3: 'S3-Compatible', b2: 'Backbla
 
 const Backups = () => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [backups, setBackups] = useState([]);
     const [stats, setStats] = useState(null);
     const [schedules, setSchedules] = useState([]);
@@ -1248,16 +1247,6 @@ const Backups = () => {
                     </div>
                 </div>
             )}
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };

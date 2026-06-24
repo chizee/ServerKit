@@ -3,7 +3,6 @@ import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import TargetPicker from '../components/TargetPicker';
 import RemoteTerminal from '../components/RemoteTerminal';
 import LogFileList from '../components/log-viewer/LogFileList';
@@ -142,7 +141,7 @@ const REMOTE_LOG_SUPPORTED = new Set(['list', 'read']);
 
 const LogFilesTab = () => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
 
     const [target, setTarget] = useState({ kind: 'local' });
     const isRemote = target.kind === 'agent';
@@ -429,17 +428,6 @@ const LogFilesTab = () => {
                     />
                 </div>
             </div>
-
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };
@@ -792,7 +780,7 @@ function priorityColor(value) {
 
 const ProcessesTab = () => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
 
     const [target, setTarget] = useState({ kind: 'local' });
     const isRemote = target.kind === 'agent';
@@ -1201,17 +1189,6 @@ const ProcessesTab = () => {
                     </aside>
                 </>
             )}
-
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };
@@ -1231,7 +1208,7 @@ const SVC_PILL_KIND = { running: 'green', failed: 'red', stopped: 'gray', other:
 
 const ServicesTab = () => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
 
     const [target, setTarget] = useState({ kind: 'local' });
     const isRemote = target.kind === 'agent';
@@ -1626,17 +1603,6 @@ const ServicesTab = () => {
                     </aside>
                 </>
             )}
-
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };

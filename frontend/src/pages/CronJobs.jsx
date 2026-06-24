@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import {
     Clock, CheckCircle, Monitor, Activity, Plus, RefreshCw,
@@ -17,7 +16,7 @@ import { MetricCard, Pill, SegControl, PageTopbar } from '@/components/ds';
 
 const CronJobs = () => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [status, setStatus] = useState(null);
     const [jobs, setJobs] = useState([]);
     const [presets, setPresets] = useState({});
@@ -536,16 +535,6 @@ const CronJobs = () => {
                     </div>
                 </div>
             )}
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };

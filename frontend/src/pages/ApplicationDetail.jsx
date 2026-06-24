@@ -7,7 +7,6 @@ import EmptyState from '../components/EmptyState';
 import useTabParam from '../hooks/useTabParam';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DangerZone } from '../components/DangerZone';
 import { InfoList, InfoItem } from '../components/InfoList';
 import EnvironmentVariables from '../components/EnvironmentVariables';
@@ -298,7 +297,7 @@ const ApplicationDetail = () => {
 // Overview Tab with new grid layout
 const OverviewTab = ({ app, onUpdate }) => {
     const navigate = useNavigate();
-    const { confirm: confirmOverview, confirmState: confirmOverviewState, handleConfirm: handleOverviewConfirm, handleCancel: handleOverviewCancel } = useConfirm();
+    const { confirm: confirmOverview } = useConfirm();
     const [status, setStatus] = useState(null);
     const [appStatus, setAppStatus] = useState(null);
     const [linkedApps, setLinkedApps] = useState([]);
@@ -578,16 +577,6 @@ const OverviewTab = ({ app, onUpdate }) => {
                     onLinked={handleLinked}
                 />
             )}
-            <ConfirmDialog
-                isOpen={confirmOverviewState.isOpen}
-                title={confirmOverviewState.title}
-                message={confirmOverviewState.message}
-                confirmText={confirmOverviewState.confirmText}
-                cancelText={confirmOverviewState.cancelText}
-                variant={confirmOverviewState.variant}
-                onConfirm={handleOverviewConfirm}
-                onCancel={handleOverviewCancel}
-            />
         </div>
     );
 };
@@ -896,7 +885,7 @@ const CommandsTab = ({ appId, appType }) => {
 
 const BuildTab = ({ appId, appPath, app }) => {
     const toast = useToast();
-    const { confirm: confirmBuild, confirmState: confirmBuildState, handleConfirm: handleBuildConfirm, handleCancel: handleBuildCancel } = useConfirm();
+    const { confirm: confirmBuild } = useConfirm();
     const [buildConfig, setBuildConfig] = useState(null);
     const [detection, setDetection] = useState(null);
     const [deployments, setDeployments] = useState([]);
@@ -1251,16 +1240,6 @@ const BuildTab = ({ appId, appPath, app }) => {
                     </div>
                 </div>
             )}
-            <ConfirmDialog
-                isOpen={confirmBuildState.isOpen}
-                title={confirmBuildState.title}
-                message={confirmBuildState.message}
-                confirmText={confirmBuildState.confirmText}
-                cancelText={confirmBuildState.cancelText}
-                variant={confirmBuildState.variant}
-                onConfirm={handleBuildConfirm}
-                onCancel={handleBuildCancel}
-            />
         </div>
     );
 };
@@ -1333,7 +1312,7 @@ const LogsTab = ({ app }) => {
 
 const SettingsTab = ({ app, onUpdate }) => {
     const navigate = useNavigate();
-    const { confirm: confirmAppSettings, confirmState: confirmAppSettingsState, handleConfirm: handleAppSettingsConfirm, handleCancel: handleAppSettingsCancel } = useConfirm();
+    const { confirm: confirmAppSettings } = useConfirm();
     const [deleting, setDeleting] = useState(false);
     const [environmentType, setEnvironmentType] = useState(app.environment_type || 'standalone');
     const [savingEnvironment, setSavingEnvironment] = useState(false);
@@ -1460,23 +1439,13 @@ const SettingsTab = ({ app, onUpdate }) => {
                     </Button>
                 }
             />
-            <ConfirmDialog
-                isOpen={confirmAppSettingsState.isOpen}
-                title={confirmAppSettingsState.title}
-                message={confirmAppSettingsState.message}
-                confirmText={confirmAppSettingsState.confirmText}
-                cancelText={confirmAppSettingsState.cancelText}
-                variant={confirmAppSettingsState.variant}
-                onConfirm={handleAppSettingsConfirm}
-                onCancel={handleAppSettingsCancel}
-            />
         </div>
     );
 };
 
 const DeployTab = ({ appId, appPath }) => {
     const toast = useToast();
-    const { confirm: confirmDeploy, confirmState: confirmDeployState, handleConfirm: handleDeployConfirm, handleCancel: handleDeployCancel } = useConfirm();
+    const { confirm: confirmDeploy } = useConfirm();
     const [config, setConfig] = useState(null);
     const [gitStatus, setGitStatus] = useState(null);
     const [history, setHistory] = useState([]);
@@ -1776,16 +1745,6 @@ const DeployTab = ({ appId, appPath }) => {
                     </div>
                 </div>
             )}
-            <ConfirmDialog
-                isOpen={confirmDeployState.isOpen}
-                title={confirmDeployState.title}
-                message={confirmDeployState.message}
-                confirmText={confirmDeployState.confirmText}
-                cancelText={confirmDeployState.cancelText}
-                variant={confirmDeployState.variant}
-                onConfirm={handleDeployConfirm}
-                onCancel={handleDeployCancel}
-            />
         </div>
     );
 };

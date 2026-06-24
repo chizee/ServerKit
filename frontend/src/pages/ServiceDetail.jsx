@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useService } from '../hooks/useService';
 import useTabParam from '../hooks/useTabParam';
 import { getTabsForType } from '../utils/serviceTypes';
@@ -64,7 +63,7 @@ const ServiceDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const { service, deployConfig, loading, error, reload, performAction, deleteService } = useService(id);
     // Active tab lives in the URL (/services/:id/:tab) so it's shareable and
     // survives a refresh — same pattern as the WordPress detail page.
@@ -537,17 +536,6 @@ const ServiceDetail = () => {
                 )}
             </div>
             </div>
-
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };

@@ -4,7 +4,6 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import MetricsGraph from '../components/MetricsGraph';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DangerZone } from '../components/DangerZone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +49,7 @@ const STATUS_PILL_KIND = {
 const ServerDetail = () => {
     const { id, tab } = useParams();
     const navigate = useNavigate();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [server, setServer] = useState(null);
     const [metrics, setMetrics] = useState(null);
     const [systemInfo, setSystemInfo] = useState(null);
@@ -405,16 +404,6 @@ const ServerDetail = () => {
                     onGenerated={handleTokenGenerated}
                 />
             )}
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };
@@ -763,7 +752,7 @@ const DockerTab = ({ serverId, serverStatus, server }) => {
     const [loadError, setLoadError] = useState(null);
     const [subTab, setSubTab] = useState('containers');
     const toast = useToast();
-    const { confirm: confirmDocker, confirmState: confirmDockerState, handleConfirm: handleDockerConfirm, handleCancel: handleDockerCancel } = useConfirm();
+    const { confirm: confirmDocker } = useConfirm();
 
     useEffect(() => {
         if (serverStatus === 'online') {
@@ -983,16 +972,6 @@ const DockerTab = ({ serverId, serverStatus, server }) => {
                     )}
                 </div>
             )}
-            <ConfirmDialog
-                isOpen={confirmDockerState.isOpen}
-                title={confirmDockerState.title}
-                message={confirmDockerState.message}
-                confirmText={confirmDockerState.confirmText}
-                cancelText={confirmDockerState.cancelText}
-                variant={confirmDockerState.variant}
-                onConfirm={handleDockerConfirm}
-                onCancel={handleDockerCancel}
-            />
         </div>
     );
 };
@@ -1011,7 +990,7 @@ const PRESET_LABELS = {
 
 const CronTab = ({ serverId, serverStatus }) => {
     const toast = useToast();
-    const { confirm: confirmCron, confirmState: confirmCronState, handleConfirm: handleCronConfirm, handleCancel: handleCronCancel } = useConfirm();
+    const { confirm: confirmCron } = useConfirm();
     const [status, setStatus] = useState(null);
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1276,17 +1255,6 @@ const CronTab = ({ serverId, serverStatus }) => {
                     </form>
                 </DialogContent>
             </Dialog>
-
-            <ConfirmDialog
-                isOpen={confirmCronState.isOpen}
-                title={confirmCronState.title}
-                message={confirmCronState.message}
-                confirmText={confirmCronState.confirmText}
-                cancelText={confirmCronState.cancelText}
-                variant={confirmCronState.variant}
-                onConfirm={handleCronConfirm}
-                onCancel={handleCronCancel}
-            />
         </div>
     );
 };
@@ -1302,7 +1270,7 @@ const CronTab = ({ serverId, serverStatus }) => {
 // CRUD actions and get confusing errors back.
 const CloudflaredTab = ({ serverId, serverStatus }) => {
     const toast = useToast();
-    const { confirm: confirmCf, confirmState: confirmCfState, handleConfirm: handleCfConfirm, handleCancel: handleCfCancel } = useConfirm();
+    const { confirm: confirmCf } = useConfirm();
     const [status, setStatus] = useState(null);
     const [tunnels, setTunnels] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1651,17 +1619,6 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                     </form>
                 </DialogContent>
             </Dialog>
-
-            <ConfirmDialog
-                isOpen={confirmCfState.isOpen}
-                title={confirmCfState.title}
-                message={confirmCfState.message}
-                confirmText={confirmCfState.confirmText}
-                cancelText={confirmCfState.cancelText}
-                variant={confirmCfState.variant}
-                onConfirm={handleCfConfirm}
-                onCancel={handleCfCancel}
-            />
         </div>
     );
 };
@@ -1802,7 +1759,7 @@ const AgentRegistrationSection = ({ server, onRegenerateToken }) => {
 };
 
 const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
-    const { confirm: confirmSettings, confirmState: confirmSettingsState, handleConfirm: handleSettingsConfirm, handleCancel: handleSettingsCancel } = useConfirm();
+    const { confirm: confirmSettings } = useConfirm();
     const [formData, setFormData] = useState({
         name: server.name || '',
         description: server.description || '',
@@ -2110,16 +2067,6 @@ const SettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) => {
                         <TrashIcon /> Remove Server
                     </Button>
                 }
-            />
-            <ConfirmDialog
-                isOpen={confirmSettingsState.isOpen}
-                title={confirmSettingsState.title}
-                message={confirmSettingsState.message}
-                confirmText={confirmSettingsState.confirmText}
-                cancelText={confirmSettingsState.cancelText}
-                variant={confirmSettingsState.variant}
-                onConfirm={handleSettingsConfirm}
-                onCancel={handleSettingsCancel}
             />
         </div>
     );

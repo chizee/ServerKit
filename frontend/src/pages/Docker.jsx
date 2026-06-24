@@ -3,7 +3,6 @@ import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import LogToolbar from '../components/log-viewer/LogToolbar';
 import LogContent from '../components/log-viewer/LogContent';
 import EmptyState from '../components/EmptyState';
@@ -527,7 +526,7 @@ const PruneButton = ({ onPruned }) => {
     const toast = useToast();
     const { isRemote } = useServer();
     const [loading, setLoading] = useState(false);
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
 
     async function handlePrune() {
         if (isRemote) {
@@ -560,16 +559,6 @@ const PruneButton = ({ onPruned }) => {
             >
                 {loading ? 'Cleaning...' : 'Prune Unused'}
             </Button>
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </>
     );
 };
@@ -594,7 +583,7 @@ const TrashIcon = () => <Trash2 size={14} />;
 const ContainersTab = ({ onStatsChange }) => {
     const toast = useToast();
     const { serverId, isRemote } = useServer();
-    const { confirm: confirmContainer, confirmState: confirmContainerState, handleConfirm: handleContainerConfirm, handleCancel: handleContainerCancel } = useConfirm();
+    const { confirm: confirmContainer } = useConfirm();
     const [containers, setContainers] = useState([]);
     const [containerStats, setContainerStats] = useState({});
     const [loading, setLoading] = useState(true);
@@ -1057,16 +1046,6 @@ const ContainersTab = ({ onStatsChange }) => {
                     onClose={() => setExecContainer(null)}
                 />
             )}
-            <ConfirmDialog
-                isOpen={confirmContainerState.isOpen}
-                title={confirmContainerState.title}
-                message={confirmContainerState.message}
-                confirmText={confirmContainerState.confirmText}
-                cancelText={confirmContainerState.cancelText}
-                variant={confirmContainerState.variant}
-                onConfirm={handleContainerConfirm}
-                onCancel={handleContainerCancel}
-            />
         </div>
     );
 };
@@ -1341,7 +1320,7 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
 const ImagesTab = ({ onStatsChange }) => {
     const toast = useToast();
     const { serverId, isRemote } = useServer();
-    const { confirm: confirmImage, confirmState: confirmImageState, handleConfirm: handleImageConfirm, handleCancel: handleImageCancel } = useConfirm();
+    const { confirm: confirmImage } = useConfirm();
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -1454,16 +1433,6 @@ const ImagesTab = ({ onStatsChange }) => {
                     </tbody>
                 </table>
             )}
-            <ConfirmDialog
-                isOpen={confirmImageState.isOpen}
-                title={confirmImageState.title}
-                message={confirmImageState.message}
-                confirmText={confirmImageState.confirmText}
-                cancelText={confirmImageState.cancelText}
-                variant={confirmImageState.variant}
-                onConfirm={handleImageConfirm}
-                onCancel={handleImageCancel}
-            />
         </div>
     );
 };
@@ -1472,7 +1441,7 @@ const ImagesTab = ({ onStatsChange }) => {
 const NetworksTab = ({ onStatsChange }) => {
     const toast = useToast();
     const { serverId, isRemote } = useServer();
-    const { confirm: confirmNetwork, confirmState: confirmNetworkState, handleConfirm: handleNetworkConfirm, handleCancel: handleNetworkCancel } = useConfirm();
+    const { confirm: confirmNetwork } = useConfirm();
     const [networks, setNetworks] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -1565,16 +1534,6 @@ const NetworksTab = ({ onStatsChange }) => {
                     </tbody>
                 </table>
             )}
-            <ConfirmDialog
-                isOpen={confirmNetworkState.isOpen}
-                title={confirmNetworkState.title}
-                message={confirmNetworkState.message}
-                confirmText={confirmNetworkState.confirmText}
-                cancelText={confirmNetworkState.cancelText}
-                variant={confirmNetworkState.variant}
-                onConfirm={handleNetworkConfirm}
-                onCancel={handleNetworkCancel}
-            />
         </div>
     );
 };
@@ -1583,7 +1542,7 @@ const NetworksTab = ({ onStatsChange }) => {
 const VolumesTab = ({ onStatsChange }) => {
     const toast = useToast();
     const { serverId, isRemote } = useServer();
-    const { confirm: confirmVolume, confirmState: confirmVolumeState, handleConfirm: handleVolumeConfirm, handleCancel: handleVolumeCancel } = useConfirm();
+    const { confirm: confirmVolume } = useConfirm();
     const [volumes, setVolumes] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -1672,16 +1631,6 @@ const VolumesTab = ({ onStatsChange }) => {
                     </tbody>
                 </table>
             )}
-            <ConfirmDialog
-                isOpen={confirmVolumeState.isOpen}
-                title={confirmVolumeState.title}
-                message={confirmVolumeState.message}
-                confirmText={confirmVolumeState.confirmText}
-                cancelText={confirmVolumeState.cancelText}
-                variant={confirmVolumeState.variant}
-                onConfirm={handleVolumeConfirm}
-                onCancel={handleVolumeCancel}
-            />
         </div>
     );
 };
@@ -1690,7 +1639,7 @@ const VolumesTab = ({ onStatsChange }) => {
 const ComposeTab = ({ onStatsChange }) => {
     const toast = useToast();
     const { serverId, isRemote } = useServer();
-    const { confirm: confirmCompose, confirmState: confirmComposeState, handleConfirm: handleComposeConfirm, handleCancel: handleComposeCancel } = useConfirm();
+    const { confirm: confirmCompose } = useConfirm();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [logsProject, setLogsProject] = useState(null);
@@ -1900,16 +1849,6 @@ const ComposeTab = ({ onStatsChange }) => {
                     onClose={() => setLogsProject(null)}
                 />
             )}
-            <ConfirmDialog
-                isOpen={confirmComposeState.isOpen}
-                title={confirmComposeState.title}
-                message={confirmComposeState.message}
-                confirmText={confirmComposeState.confirmText}
-                cancelText={confirmComposeState.cancelText}
-                variant={confirmComposeState.variant}
-                onConfirm={handleComposeConfirm}
-                onCancel={handleComposeCancel}
-            />
         </div>
     );
 };

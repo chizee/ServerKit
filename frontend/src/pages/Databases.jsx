@@ -8,7 +8,6 @@ import api from '../services/api';
 import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import SourceTree from '../components/databases/SourceTree';
 import ConsoleTab from '../components/databases/ConsoleTab';
@@ -62,7 +61,7 @@ function TabIcon({ tab }) {
 
 export default function Databases() {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
 
     const [status, setStatus] = useState(null);
     const [statusLoading, setStatusLoading] = useState(true);
@@ -617,16 +616,6 @@ export default function Databases() {
             {modal?.type === 'mysql-user' && <CreateMySQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
             {modal?.type === 'pg-user' && <CreatePostgreSQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
 
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 }

@@ -16,7 +16,6 @@ import { HealthDot } from '../components/wordpress/HealthStatusPanel';
 import { Pill, EnvTag, MetricCard, SegControl, ScoreGauge, ServiceTile, PageTopbar } from '../components/ds';
 import { ErrorBoundary, ErrorState } from '../components/ErrorBoundary';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DangerZone } from '../components/DangerZone';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -1580,7 +1579,7 @@ const AnalyticsTab = ({ siteId }) => {
 // backups, vulnerability posture #28) into a persisted, printable monthly report.
 const ReportsTab = ({ siteId }) => {
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [reports, setReports] = useState([]);
     const [selectedId, setSelectedId] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -1731,7 +1730,6 @@ const ReportsTab = ({ siteId }) => {
                     <ReportView report={selected} onPrint={handlePrint} onDownload={() => handleDownload(selected)} onDelete={() => handleDelete(selected)} />
                 )}
             </div>
-            <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
         </div>
     );
 };
@@ -3839,7 +3837,7 @@ const GeneralSettings = ({ onAddDomain, onChangeUrl, onClone }) => (
 const DangerZoneSettings = ({ site, onUpdate }) => {
     const toast = useToast();
     const navigate = useNavigate();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [archiving, setArchiving] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -3892,17 +3890,6 @@ const DangerZoneSettings = ({ site, onUpdate }) => {
 
     return (
         <>
-            {confirmState.isOpen && (
-                <ConfirmDialog
-                    isOpen={confirmState.isOpen}
-                    title={confirmState.title}
-                    message={confirmState.message}
-                    confirmText={confirmState.confirmText}
-                    variant={confirmState.variant}
-                    onConfirm={handleConfirm}
-                    onCancel={handleCancel}
-                />
-            )}
             {showDeleteModal && (
                 <DeleteSiteModal
                     siteName={site.name}

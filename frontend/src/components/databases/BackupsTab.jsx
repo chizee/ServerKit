@@ -3,7 +3,6 @@ import { Archive, Trash2, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../EmptyState';
 import { useConfirm } from '../../hooks/useConfirm';
-import { ConfirmDialog } from '../ConfirmDialog';
 import { formatBytes } from '@/utils/formatBytes';
 
 const FILTERS = [
@@ -13,7 +12,7 @@ const FILTERS = [
 ];
 
 export default function BackupsTab() {
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
     const [backups, setBackups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -97,17 +96,6 @@ export default function BackupsTab() {
                     </table>
                 )}
             </div>
-
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 }

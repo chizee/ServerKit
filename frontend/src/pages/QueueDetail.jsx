@@ -12,7 +12,6 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -44,7 +43,7 @@ const QueueDetail = () => {
     const { groupSlug, queueSlug } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
-    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+    const { confirm } = useConfirm();
 
     const [loading, setLoading] = useState(true);
     const [queue, setQueue] = useState(null);
@@ -347,17 +346,6 @@ const QueueDetail = () => {
                     </div>
                 </div>
             )}
-
-            <ConfirmDialog
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                confirmText={confirmState.confirmText}
-                cancelText={confirmState.cancelText}
-                variant={confirmState.variant}
-                onConfirm={handleConfirm}
-                onCancel={handleCancel}
-            />
         </div>
     );
 };
