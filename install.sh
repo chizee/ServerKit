@@ -57,6 +57,23 @@ SAFE_MODE=false
 SSL_MODE="insecure"
 FIRST_SLOT="$DIR_A"
 
+# Resolve where this script (and thus the bundled scripts/lib helpers) lives so
+# shared libraries load whether we run from a clone, a release tree, or piped
+# through `curl | bash`. The clone-relative path is tried first; once the source
+# is on disk under $INSTALL_DIR that path works too.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+load_serverkit_lib() {
+    local name="$1" d
+    for d in "$SELF_DIR/scripts/lib" "$INSTALL_DIR/scripts/lib"; do
+        if [ -n "$d" ] && [ -f "$d/$name" ]; then
+            # shellcheck source=/dev/null
+            source "$d/$name"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ---------------------------------------------------------------------------
 # Terminal styling
 #
@@ -161,21 +178,58 @@ preflight() {
 # ---------------------------------------------------------------------------
 # Identify the OS family and CPU architecture
 # ---------------------------------------------------------------------------
+# Pure mapping from /etc/os-release ID (+ ID_LIKE fallback) to a ServerKit
+# family. Kept as a standalone function so it is unit-testable without a real
+# /etc/os-release. Echoes: debian|fedora|rhel|suse|arch|alpine|unknown.
+os_family_from() {
+    local id="$1" id_like="$2"
+    case "$id" in
+        ubuntu|linuxmint|pop|raspbian|elementary|zorin|debian|devuan)
+            printf 'debian\n'; return ;;
+        fedora|nobara)
+            printf 'fedora\n'; return ;;
+        rocky|almalinux|rhel|centos|ol|oracle|eurolinux)
+            printf 'rhel\n'; return ;;
+        opensuse*|sles|sled|suse|sle-micro)
+            printf 'suse\n'; return ;;
+        arch|manjaro|endeavouros|cachyos)
+            printf 'arch\n'; return ;;
+        alpine)
+            printf 'alpine\n'; return ;;
+    esac
+    # Unknown ID — map via ID_LIKE to the closest supported family. Check rhel
+    # before fedora: RHEL clones advertise ID_LIKE="rhel centos fedora" and want
+    # the RHEL Docker repo, whereas a pure Fedora spin only lists "fedora".
+    case " $id_like " in
+        *debian*|*ubuntu*) printf 'debian\n' ;;
+        *rhel*|*centos*)   printf 'rhel\n' ;;
+        *fedora*)          printf 'fedora\n' ;;
+        *suse*)            printf 'suse\n' ;;
+        *arch*)            printf 'arch\n' ;;
+        *alpine*)          printf 'alpine\n' ;;
+        *)                 printf 'unknown\n' ;;
+    esac
+}
+
 identify_system() {
     phase "Detecting System"
 
-    [ -f /etc/os-release ] || halt "Cannot detect OS — /etc/os-release is missing."
-    . /etc/os-release
+    local os_release="${SERVERKIT_OS_RELEASE:-/etc/os-release}"
+    [ -f "$os_release" ] || halt "Cannot detect OS — $os_release is missing."
+    . "$os_release"
 
-    case "${ID:-}" in
-        ubuntu|debian)
-            OS_FAMILY="debian";  good "Detected: $PRETTY_NAME" ;;
-        fedora)
-            OS_FAMILY="fedora";  good "Detected: $PRETTY_NAME" ;;
-        rocky|almalinux|rhel|centos)
-            OS_FAMILY="rhel";    good "Detected: $PRETTY_NAME (RHEL family)" ;;
+    OS_FAMILY="$(os_family_from "${ID:-}" "${ID_LIKE:-}")"
+    case "$OS_FAMILY" in
+        unknown)
+            warn "Untested OS '${ID:-unknown}' (ID_LIKE='${ID_LIKE:-}') — continuing anyway." ;;
         *)
-            warn "Untested OS '${ID:-unknown}' — continuing anyway." ;;
+            if [ "${ID:-}" = "$OS_FAMILY" ] || \
+               { [ "$OS_FAMILY" = "debian" ] && [ "${ID:-}" = "ubuntu" ]; }; then
+                good "Detected: ${PRETTY_NAME:-$ID} ($OS_FAMILY family)"
+            else
+                warn "Detected: ${PRETTY_NAME:-${ID:-unknown}} — treating as '$OS_FAMILY' family."
+            fi
+            ;;
     esac
 
     ARCH=$(uname -m)
@@ -189,6 +243,9 @@ identify_system() {
 # ---------------------------------------------------------------------------
 # Package manager abstraction (apt / dnf / yum)
 # ---------------------------------------------------------------------------
+# Detection order mirrors scripts/lib/pkg.sh. These run during the early
+# dependency phase — before the repo (and thus scripts/lib) is on disk in the
+# `curl | bash` path — so the logic is inline here and kept in sync with the lib.
 choose_pkg_manager() {
     if command -v apt-get &>/dev/null; then
         PKG_MGR="apt"
@@ -202,25 +259,37 @@ APT_EOF
         PKG_MGR="dnf"
     elif command -v yum &>/dev/null; then
         PKG_MGR="yum"
+    elif command -v zypper &>/dev/null; then
+        PKG_MGR="zypper"
+    elif command -v pacman &>/dev/null; then
+        PKG_MGR="pacman"
+    elif command -v apk &>/dev/null; then
+        PKG_MGR="apk"
     else
-        halt "No supported package manager found (need apt, dnf, or yum)."
+        halt "No supported package manager found (need apt, dnf, yum, zypper, pacman, or apk)."
     fi
 }
 
 refresh_pkg_index() {
     case "$PKG_MGR" in
-        apt) apt-get update -y >/dev/null 2>&1 ;;
-        dnf) dnf makecache --refresh >/dev/null 2>&1 ;;
-        yum) yum makecache --refresh >/dev/null 2>&1 ;;
+        apt)    apt-get update -y >/dev/null 2>&1 ;;
+        dnf)    dnf makecache --refresh >/dev/null 2>&1 ;;
+        yum)    yum makecache --refresh >/dev/null 2>&1 ;;
+        zypper) zypper --non-interactive refresh >/dev/null 2>&1 ;;
+        pacman) pacman -Sy --noconfirm >/dev/null 2>&1 ;;
+        apk)    apk update >/dev/null 2>&1 ;;
     esac
 }
 
 pkg_add() {
     local out rc
     case "$PKG_MGR" in
-        apt) out=$(apt-get install -y "$@" 2>&1) ;;
-        dnf) out=$(dnf install -y "$@" 2>&1) ;;
-        yum) out=$(yum install -y "$@" 2>&1) ;;
+        apt)    out=$(apt-get install -y "$@" 2>&1) ;;
+        dnf)    out=$(dnf install -y "$@" 2>&1) ;;
+        yum)    out=$(yum install -y "$@" 2>&1) ;;
+        zypper) out=$(zypper --non-interactive install "$@" 2>&1) ;;
+        pacman) out=$(pacman -S --noconfirm "$@" 2>&1) ;;
+        apk)    out=$(apk add "$@" 2>&1) ;;
     esac
     rc=$?
     if [ $rc -ne 0 ]; then
@@ -270,16 +339,23 @@ ver_in_range() {
 }
 
 locate_python() {
-    if command -v python3 &>/dev/null; then
-        local v
-        v=$(python3 -c 'import sys;print(".".join(map(str,sys.version_info[:2])))')
-        if ver_in_range "$v"; then
-            PYTHON_BIN="python3"
-            good "Using system Python $v"
-            return
+    # Prefer an explicit minor version, newest first, then bare python3. This
+    # mirrors scripts/update.sh so a box that has python3.11 (Debian 12) but a
+    # too-new/too-old default python3 is still recognized. Sets PYTHON_BIN and
+    # returns 0 on success; returns 1 (without aborting) when nothing fits.
+    local c v
+    for c in python3.12 python3.11 python3; do
+        if command -v "$c" &>/dev/null; then
+            v=$("$c" -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)
+            if [ -n "$v" ] && ver_in_range "$v"; then
+                PYTHON_BIN="$c"
+                good "Using $c (Python $v)"
+                return 0
+            fi
         fi
-    fi
-    warn "System Python is outside the supported $PYTHON_MIN–$PYTHON_MAX range."
+    done
+    PYTHON_BIN=""
+    return 1
 }
 
 build_python_from_source() {
@@ -296,37 +372,65 @@ build_python_from_source() {
 provision_python() {
     phase "Installing Python"
 
-    locate_python
-    [ -n "$PYTHON_BIN" ] && return
-
-    step "Installing Python 3.12..."
-    if [ "$OS_FAMILY" = "debian" ]; then
-        if [ "$ID" = "ubuntu" ]; then
-            pkg_add software-properties-common
-            add-apt-repository -y ppa:deadsnakes/ppa
-            refresh_pkg_index
-            pkg_add python3.12 python3.12-venv python3.12-dev
-        else
-            step "Compiling Python 3.12 from source (a few minutes)..."
-            pkg_add wget zlib1g-dev libbz2-dev libreadline-dev \
-                libsqlite3-dev libncurses5-dev libncursesw5-dev \
-                xz-utils tk-dev liblzma-dev libffi-dev libssl-dev
-            build_python_from_source
-        fi
-        PYTHON_BIN="python3.12"
-    elif [ "$OS_FAMILY" = "fedora" ] || [ "$OS_FAMILY" = "rhel" ]; then
-        if ! pkg_add python3.12 python3.12-devel; then
-            step "Compiling Python 3.12 from source (a few minutes)..."
-            pkg_add wget zlib-devel bzip2-devel readline-devel \
-                sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel
-            build_python_from_source
-        fi
-        PYTHON_BIN="python3.12"
+    # Already have a supported interpreter? Nothing to do.
+    if locate_python; then
+        return
     fi
 
+    warn "No supported Python ($PYTHON_MIN–$PYTHON_MAX) found — installing one."
+
+    # Prefer the distro's own package over a source compile. Debian 12 ships
+    # python3.11; Ubuntu 24.04 ships python3.12 (older Ubuntu falls back to the
+    # deadsnakes PPA); Fedora/RHEL provide 3.12 or 3.11 in their repos. A slow,
+    # fragile source build is now strictly the last resort.
+    if [ "$OS_FAMILY" = "debian" ]; then
+        if [ "${ID:-}" = "ubuntu" ]; then
+            if ! pkg_add python3.12 python3.12-venv python3.12-dev; then
+                step "Adding deadsnakes PPA for Python 3.12..."
+                pkg_add software-properties-common
+                add-apt-repository -y ppa:deadsnakes/ppa
+                refresh_pkg_index
+                pkg_add python3.12 python3.12-venv python3.12-dev
+            fi
+        else
+            # Debian (and Debian-like): python3.11 lives in the main repo.
+            refresh_pkg_index
+            pkg_add python3.11 python3.11-venv python3.11-dev || \
+                pkg_add python3.12 python3.12-venv python3.12-dev || true
+        fi
+    elif [ "$OS_FAMILY" = "fedora" ] || [ "$OS_FAMILY" = "rhel" ]; then
+        pkg_add python3.12 python3.12-devel || pkg_add python3.11 python3.11-devel || true
+    elif [ "$OS_FAMILY" = "suse" ]; then
+        pkg_add python311 python311-devel || pkg_add python312 python312-devel || true
+    elif [ "$OS_FAMILY" = "arch" ]; then
+        # Rolling release — `python` is already 3.11+.
+        pkg_add python || true
+    elif [ "$OS_FAMILY" = "alpine" ]; then
+        pkg_add python3 python3-dev || true
+    fi
+
+    # Did a distro package give us something usable?
+    if locate_python; then
+        good "Python ready: $PYTHON_BIN"
+        return
+    fi
+
+    # Last resort: compile from source.
+    warn "Distro packages did not provide a supported Python — building from source."
+    if [ "$OS_FAMILY" = "debian" ]; then
+        pkg_add wget zlib1g-dev libbz2-dev libreadline-dev \
+            libsqlite3-dev libncurses5-dev libncursesw5-dev \
+            xz-utils tk-dev liblzma-dev libffi-dev libssl-dev
+    else
+        pkg_add wget zlib-devel bzip2-devel readline-devel \
+            sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel
+    fi
+    build_python_from_source
+    PYTHON_BIN="python3.12"
+
     command -v "$PYTHON_BIN" &>/dev/null || \
-        halt "Could not install Python 3.12 — install Python 3.11 or 3.12 by hand."
-    good "Python 3.12 installed."
+        halt "Could not install a supported Python — install Python 3.11 or 3.12 by hand."
+    good "Python installed ($PYTHON_BIN)."
 }
 
 # ---------------------------------------------------------------------------
@@ -352,13 +456,29 @@ provision_docker() {
             dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
             pkg_add docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin
             ;;
+        suse)
+            pkg_add docker docker-compose
+            ;;
+        arch)
+            pkg_add docker docker-compose
+            ;;
+        alpine)
+            pkg_add docker docker-cli-compose
+            ;;
         *)
             curl -fsSL https://get.docker.com | sh
             ;;
     esac
 
-    systemctl enable docker
-    systemctl start docker
+    # Enable + start across init systems (systemd on most families, OpenRC on
+    # Alpine). Guarded so a non-systemd box doesn't abort the install here.
+    if command -v systemctl &>/dev/null && [ -d /run/systemd/system ]; then
+        systemctl enable docker 2>/dev/null || true
+        systemctl start docker 2>/dev/null || true
+    elif command -v rc-update &>/dev/null; then
+        rc-update add docker default 2>/dev/null || true
+        rc-service docker start 2>/dev/null || true
+    fi
     good "Docker installed."
 }
 
@@ -375,6 +495,17 @@ ensure_compose_plugin() {
 # ---------------------------------------------------------------------------
 # Node.js 20 (only needed for source builds — releases ship a built frontend)
 # ---------------------------------------------------------------------------
+# Node 18+ is the floor for the Vite frontend build. Distro nodejs on every
+# currently-supported target (Ubuntu 24.04, Debian 12, Fedora 40+) already meets
+# it, so we install the distro package first and only pipe NodeSource into bash
+# when the distro can't deliver a new-enough Node + npm.
+node_major()  { node --version 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/'; }
+node_ready()  {
+    command -v node &>/dev/null && command -v npm &>/dev/null || return 1
+    local m; m="$(node_major)"
+    [ -n "$m" ] && [ "$m" -ge 18 ] 2>/dev/null
+}
+
 provision_node() {
     phase "Node.js"
 
@@ -383,18 +514,28 @@ provision_node() {
         return
     fi
 
-    if command -v node &>/dev/null; then
+    if node_ready; then
         good "Node.js already present: $(node --version)"
         return
     fi
 
-    step "Installing Node.js 20 LTS..."
-    if [ "$OS_FAMILY" = "debian" ]; then
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
-    else
-        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+    step "Installing Node.js (distro repo first)..."
+    # Debian/Ubuntu split npm into its own package; Fedora bundles it.
+    pkg_add nodejs npm 2>/dev/null || pkg_add nodejs 2>/dev/null || true
+    command -v npm &>/dev/null || pkg_add npm 2>/dev/null || true
+
+    if ! node_ready; then
+        warn "Distro Node.js is missing or older than 18 — falling back to NodeSource 20."
+        if [ "$OS_FAMILY" = "debian" ]; then
+            curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 || true
+        else
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - >/dev/null 2>&1 || true
+        fi
+        pkg_add nodejs || true
     fi
-    pkg_add nodejs
+
+    node_ready || \
+        halt "Node.js 18+ (with npm) is required but could not be installed. Install Node 20 LTS and re-run."
     good "Node.js $(node --version) installed."
 }
 
@@ -586,7 +727,7 @@ write_config() {
     local secret_key jwt_secret encryption_key
     secret_key=$(openssl rand -hex 32)
     jwt_secret=$(openssl rand -hex 32)
-    encryption_key=$(python3 -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')
+    encryption_key=$("${PYTHON_BIN:-python3}" -c 'import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())')
 
     # Widen CORS / advertise a public URL when a panel domain is known.
     local public_url="" cors_origins="http://localhost,https://localhost"
@@ -671,6 +812,38 @@ build_frontend() {
     step "Compiling the frontend bundle..."
     NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -5
     good "Frontend built."
+}
+
+# ---------------------------------------------------------------------------
+# Firewall: open 80/443 so the panel is reachable from the outside, and record
+# exactly what we opened in /etc/serverkit/install-state.json so uninstall can
+# undo only those rules. Fresh RHEL-family boxes run firewalld by default, which
+# is the #1 reason an otherwise-good install looks "broken" (port 80 blocked).
+# ---------------------------------------------------------------------------
+configure_firewall() {
+    phase "Firewall"
+
+    if ! load_serverkit_lib firewall.sh; then
+        warn "Firewall helper not found — open ports 80/443 manually if needed."
+        return 0
+    fi
+    load_serverkit_lib state.sh || true
+
+    local backend
+    backend="$(firewall_detect)"
+    if [ "$backend" = "none" ]; then
+        warn "No active firewall detected — assuming ports 80/443 are already open."
+        return 0
+    fi
+
+    step "Opening HTTP/HTTPS (80, 443) via $backend..."
+    firewall_open "$backend" 80/tcp 443/tcp
+    if [ "${FW_DRY_RUN:-0}" != "1" ] && command -v state_set >/dev/null 2>&1; then
+        state_set firewall_backend "$backend"
+        state_append firewall_ports 80/tcp
+        state_append firewall_ports 443/tcp
+    fi
+    good "Firewall configured ($backend): 80/tcp and 443/tcp open."
 }
 
 # ---------------------------------------------------------------------------
@@ -793,24 +966,52 @@ install_nginx_config_for_mode() {
 }
 
 # ---------------------------------------------------------------------------
-# Server-wide TLS floor. Rewrites the ssl_protocols / ssl_ciphers lines in the
-# main nginx.conf (or injects them) so every HTTPS listener is forced onto
-# TLS 1.2/1.3 with AEAD-only ciphers. Editing nginx.conf in place -- rather than
-# adding a conf.d snippet -- avoids nginx's "duplicate ssl_protocols" error on
-# distros (Debian/Ubuntu) that already set it in http{}. Idempotent.
+# Server-wide TLS floor — force every HTTPS listener onto TLS 1.2/1.3 with
+# AEAD-only ciphers, so even the default server and non-ServerKit vhosts can't
+# negotiate weak TLS.
+#
+# Preferred: drop a self-contained /etc/nginx/conf.d/serverkit-tls.conf snippet
+# — ServerKit-owned, trivially reversible on uninstall, and never touches the
+# distro's nginx.conf. BUT a snippet is `include`d into the same http{} context,
+# so if nginx.conf ALREADY declares ssl_protocols (Debian/Ubuntu do) a second
+# declaration is a "duplicate ssl_protocols" error. In that case we fall back to
+# rewriting the existing directives in place. Idempotent either way.
 # ---------------------------------------------------------------------------
 harden_global_tls() {
-    local conf=/etc/nginx/nginx.conf
+    local nginx_dir="${SERVERKIT_NGINX_DIR:-/etc/nginx}"
+    local conf="$nginx_dir/nginx.conf"
     [ -f "$conf" ] || return 0
     local ciphers='ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
 
-    if grep -qE '^[[:space:]]*ssl_protocols[[:space:]]' "$conf"; then
+    # Does the main config already declare these in http{}? (Debian/Ubuntu yes,
+    # RHEL/Fedora/SUSE typically no.)
+    local has_proto=0 has_ciphers=0
+    grep -qE '^[[:space:]]*ssl_protocols[[:space:]]' "$conf" && has_proto=1
+    grep -qE '^[[:space:]]*ssl_ciphers[[:space:]]'   "$conf" && has_ciphers=1
+
+    # The conf.d snippet is only safe when neither directive already exists AND
+    # nginx.conf includes conf.d/*.conf inside http{} (the default on every
+    # supported family).
+    if [ "$has_proto" = "0" ] && [ "$has_ciphers" = "0" ] && \
+       grep -qE 'include[[:space:]]+/etc/nginx/conf\.d/\*\.conf' "$conf"; then
+        mkdir -p "$nginx_dir/conf.d"
+        cat > "$nginx_dir/conf.d/serverkit-tls.conf" <<EOF
+# Auto-generated by ServerKit — server-wide TLS floor. Safe to remove.
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ${ciphers};
+EOF
+        return 0
+    fi
+
+    # Fall back to editing nginx.conf in place (a snippet would duplicate the
+    # existing directive). Remove any stale snippet we may have dropped before.
+    rm -f "$nginx_dir/conf.d/serverkit-tls.conf" 2>/dev/null || true
+    if [ "$has_proto" = "1" ]; then
         sed -i -E 's|^([[:space:]]*)ssl_protocols[[:space:]].*|\1ssl_protocols TLSv1.2 TLSv1.3;|' "$conf"
     else
         sed -i '/http {/a \    ssl_protocols TLSv1.2 TLSv1.3;' "$conf"
     fi
-
-    if grep -qE '^[[:space:]]*ssl_ciphers[[:space:]]' "$conf"; then
+    if [ "$has_ciphers" = "1" ]; then
         sed -i -E "s|^([[:space:]]*)ssl_ciphers[[:space:]].*|\1ssl_ciphers ${ciphers};|" "$conf"
     else
         sed -i "/http {/a \\    ssl_ciphers ${ciphers};" "$conf"
@@ -820,14 +1021,46 @@ harden_global_tls() {
 # ---------------------------------------------------------------------------
 # systemd unit + CLI symlink
 # ---------------------------------------------------------------------------
+# Render the systemd unit from the template to <out>, substituting the resolved
+# install/venv/log paths so a custom SERVERKIT_DIR is honored (the old hardcoded
+# unit baked in /opt/serverkit). The unit references the /opt/serverkit symlink,
+# so blue/green switches need no re-render. Returns 1 if no template/unit exists.
+render_service_unit() {
+    local out="$1"
+    local template="$INSTALL_DIR/templates/serverkit-backend.service.in"
+    if [ -f "$template" ]; then
+        sed -e "s|@SERVERKIT_DIR@|$INSTALL_DIR|g" \
+            -e "s|@SERVERKIT_VENV_DIR@|$VENV_DIR|g" \
+            -e "s|@PORT@|5000|g" \
+            -e "s|@USER@|root|g" \
+            -e "s|@LOG_DIR@|$LOG_DIR|g" \
+            "$template" > "$out"
+        return 0
+    elif [ -f "$INSTALL_DIR/serverkit-backend.service" ]; then
+        cp "$INSTALL_DIR/serverkit-backend.service" "$out"
+        return 0
+    fi
+    return 1
+}
+
 install_service() {
     phase "Systemd Service"
 
-    cp "$INSTALL_DIR/serverkit-backend.service" /etc/systemd/system/serverkit.service
+    render_service_unit /etc/systemd/system/serverkit.service || \
+        halt "No systemd unit template found at $INSTALL_DIR/templates/serverkit-backend.service.in"
     chmod 644 /etc/systemd/system/serverkit.service
 
     chmod +x "$INSTALL_DIR/serverkit"
     ln -sf "$INSTALL_DIR/serverkit" /usr/local/bin/serverkit
+
+    # Without systemd (LXC/WSL/containers) we can't enable the unit — say so
+    # clearly instead of failing cryptically (Goal G5).
+    load_serverkit_lib env.sh || true
+    if command -v has_systemd >/dev/null 2>&1 && ! has_systemd; then
+        warn "systemd not detected — installed the unit but cannot enable/start it here."
+        warn "Start the backend with a supervisor, or run it in the foreground; see docs/ARCHITECTURE.md."
+        return 0
+    fi
 
     systemctl daemon-reload
     systemctl enable serverkit
@@ -1045,6 +1278,7 @@ main() {
 
     sync_templates
     configure_nginx
+    configure_firewall
     write_config
     install_service
 
@@ -1057,5 +1291,10 @@ main() {
     ping_telemetry
     print_outro
 }
+
+# Sourcing this file (e.g. from scripts/test/test_install.sh) defines every
+# function above for unit testing without running an install. Only a direct
+# execution falls through to the run below.
+[ "${BASH_SOURCE[0]}" = "${0}" ] || return 0
 
 main "$@"

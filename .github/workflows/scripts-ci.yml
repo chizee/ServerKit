@@ -1,0 +1,116 @@
+name: Scripts CI
+
+# Static + unit checks for the shell scripts that install/update/uninstall
+# ServerKit on a server. These ran nowhere before — so a bug like the 1.7.0
+# updater silently dying on `set -euo pipefail` was only ever found on a real
+# box. shellcheck catches that whole class statically; the test_*.sh suites
+# exercise the install/update/uninstall + lib logic against fixtures with no
+# server, on every supported distro family.
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'scripts/**'
+      - 'templates/**'
+      - 'install.sh'
+      - 'uninstall.sh'
+      - 'serverkit'
+      - '.github/workflows/scripts-ci.yml'
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - 'scripts/**'
+      - 'templates/**'
+      - 'install.sh'
+      - 'uninstall.sh'
+      - 'serverkit'
+      - '.github/workflows/scripts-ci.yml'
+  workflow_call:
+
+jobs:
+  shell:
+    name: lint + unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check (bash -n)
+        run: |
+          status=0
+          for f in serverkit install.sh uninstall.sh scripts/*.sh scripts/lib/*.sh scripts/test/*.sh; do
+            [ -f "$f" ] || continue
+            if bash -n "$f"; then
+              echo "ok   $f"
+            else
+              echo "FAIL $f"; status=1
+            fi
+          done
+          exit $status
+
+      - name: ShellCheck (error severity — installer/updater/uninstaller surface)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          # Errors fail the job. The CLI + installer carry pre-existing advisory
+          # warnings (unused color vars, etc.), so they are gated at error level.
+          shellcheck --severity=error \
+            scripts/update.sh scripts/install.sh install.sh uninstall.sh serverkit \
+            scripts/lib/*.sh scripts/test/*.sh
+
+      - name: ShellCheck (warning severity — new libs must stay clean)
+        run: |
+          # The lib/ abstraction was written warning-clean; keep it that way so
+          # quality doesn't rot. -x follows `source`d files.
+          shellcheck --severity=warning -x scripts/lib/*.sh
+
+      - name: Unit tests (update + install + lib)
+        run: |
+          bash scripts/test/test_update.sh
+          bash scripts/test/test_install.sh
+          bash scripts/test/test_lib.sh
+
+  cross-distro:
+    name: unit (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    # ServerKit targets several Linux families; the scripts' logic (symlink
+    # resolution, locking, refresh_config, deployment/OS/pkg/init detection,
+    # the uninstall matrix) must behave the same on Debian-, RHEL-, and
+    # SUSE-derived hosts, not just the Ubuntu runner. Run the unit suites inside
+    # each distro's container so a portability regression fails here instead of
+    # on someone's server.
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - 'ubuntu:22.04'
+          - 'ubuntu:24.04'
+          - 'debian:12'
+          - 'rockylinux:9'
+          - 'almalinux:9'
+          - 'fedora:40'
+          - 'opensuse/leap:15.5'
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n + unit suites on ${{ matrix.image }}
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src "${{ matrix.image }}" sh -c '
+            set -e
+            # bash ships in every image here; the suites stub the real tools
+            # (curl/docker/systemd/flask) so nothing else is required. Best-effort
+            # bash install for any stripped-down variant — never fatal (EL9, for
+            # one, has a curl/curl-minimal conflict we deliberately do not touch).
+            command -v bash >/dev/null 2>&1 || {
+              { command -v apt-get >/dev/null 2>&1 && apt-get update -qq && apt-get install -y -qq bash; } ||
+              { command -v dnf     >/dev/null 2>&1 && dnf install -y -q bash; } ||
+              { command -v zypper  >/dev/null 2>&1 && zypper --non-interactive install bash; } || true
+            }
+            echo "bash $(bash --version | head -1)"
+            for f in serverkit install.sh uninstall.sh scripts/*.sh scripts/lib/*.sh scripts/test/*.sh; do
+              [ -f "$f" ] || continue
+              bash -n "$f" && echo "ok   $f"
+            done
+            bash scripts/test/test_update.sh
+            bash scripts/test/test_install.sh
+            bash scripts/test/test_lib.sh
+          '

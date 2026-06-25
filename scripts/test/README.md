@@ -66,7 +66,7 @@ HTML report.
 | Ubuntu 22.04 | Multipass | `22.04` |
 | Ubuntu 24.04 | Multipass | `24.04` |
 | Debian 12    | Vagrant   | `generic/debian12` |
-| Fedora       | Vagrant   | `generic/fedora39` |
+| Fedora 40    | Vagrant   | `generic/fedora40` |
 | Rocky 9      | Vagrant   | `generic/rocky9` |
 
 ### Agent pairing test (optional)
@@ -112,6 +112,38 @@ scripts/test/output/<run-id>/
     pytest-report.json
   sk-test-ubuntu24-<id>/ ...
   sk-test-debian12-<id>/ ...
+```
+
+## Update & uninstall coverage
+
+Alongside `vm-install.sh`, two more "run inside the VM" scripts exercise the
+other lifecycle stages end-to-end (same contract: log to
+`/var/log/serverkit-test-*.log`, write `OK`/`FAIL` to `/tmp/serverkit-*-status`):
+
+- **`vm-update.sh`** — installs ServerKit, runs the local `scripts/update.sh`
+  with `--force` (full blue/green deploy → migrate → switch → health), then
+  re-runs without `--force` to confirm the "Already up to date" version-gate.
+- **`vm-uninstall.sh`** — installs + seeds sample data, runs the default
+  uninstall and asserts user data is preserved (DB snapshot in
+  `/var/backups/serverkit`, `/var/lib/serverkit` survives), then reinstalls and
+  asserts `--purge` removes the data dirs.
+
+Run them by uploading to a `-Keep` VM and `sudo bash /tmp/vm-update.sh`, or wire
+them into the orchestrator the same way `vm-install.sh` is invoked.
+
+## Fast, serverless unit tests
+
+Most regressions are caught long before a VM is needed. The source-able
+`scripts/test/test_{update,install,lib}.sh` suites exercise the updater,
+installer, and the `scripts/lib/*` abstractions against fixtures and PATH stubs
+— no server, seconds to run, and gated in CI (`.github/workflows/scripts-ci.yml`)
+across Ubuntu 22.04/24.04, Debian 12, Rocky 9, AlmaLinux 9, Fedora 40, and
+openSUSE Leap 15.5 containers.
+
+```bash
+bash scripts/test/test_update.sh
+bash scripts/test/test_install.sh
+bash scripts/test/test_lib.sh
 ```
 
 ## Extending the harness

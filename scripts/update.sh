@@ -9,7 +9,9 @@
 #   bash /opt/serverkit/scripts/update.sh --release [v1.7.0]
 #   SERVERKIT_OFFLINE_TARBALL=/tmp/serverkit-v1.7.0-linux-amd64.tar.gz bash /opt/serverkit/scripts/update.sh
 #
-set -euo pipefail
+# -E (errtrace) makes the ERR trap fire for failures *inside* functions/subshells
+# too — without it a silent death deep in a helper would never be reported.
+set -Eeuo pipefail
 
 # ---------------------------------------------------------------------------
 # Configuration + argument parsing
@@ -19,6 +21,9 @@ FORCE_UPDATE=0
 TARGET_BRANCH=""
 USE_RELEASE="${INSTALL_FROM_RELEASE:-0}"
 RELEASE_VERSION="${SERVERKIT_VERSION:-}"
+
+# Captured before parsing so the self-update re-exec can forward them verbatim.
+ORIG_ARGS=("$@")
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -82,7 +87,14 @@ DIR_B="$BASE_DIR/${BASE_NAME}-b"
 VENV_DIR="${SERVERKIT_VENV_DIR:-$INSTALL_DIR/venv}"
 BACKUP_DIR="/var/backups/serverkit"
 LOG_DIR="/var/log/serverkit"
-CONFIG_DIR="/etc/serverkit"
+CONFIG_DIR="${SERVERKIT_CONFIG_DIR:-/etc/serverkit}"
+LOCK_FILE="${SERVERKIT_LOCK_FILE:-/var/lock/serverkit-update.lock}"
+
+# System integration dirs — overridable so the config-refresh logic can be
+# exercised against fixtures in tests instead of the host's real /etc.
+NGINX_DIR="${SERVERKIT_NGINX_DIR:-/etc/nginx}"
+LETSENCRYPT_DIR="${SERVERKIT_LETSENCRYPT_DIR:-/etc/letsencrypt}"
+SYSTEMD_DIR="${SERVERKIT_SYSTEMD_DIR:-/etc/systemd/system}"
 
 GITHUB_REPO="${GITHUB_REPO:-jhd3197/ServerKit}"
 SERVERKIT_OFFLINE_TARBALL="${SERVERKIT_OFFLINE_TARBALL:-}"
@@ -108,7 +120,13 @@ HUE_ERR="$(paint 248 113 113)"; HUE_LINK="$(paint 103 232 249)"
 
 good()  { printf '  %s✔%s %s\n' "$HUE_OK"   "$RST" "$1"; }
 warn()  { printf '  %s▴%s %s\n' "$HUE_WARN" "$RST" "$1"; }
-halt()  { printf '  %s✘%s %s\n' "$HUE_ERR"  "$RST" "$1" >&2; exit 1; }
+# Every hard failure points at the full log so a stuck box is debuggable from a
+# single line (UPDATE_LOG is empty until init_logging runs, hence the guard).
+halt()  {
+    printf '  %s✘%s %s\n' "$HUE_ERR"  "$RST" "$1" >&2
+    [ -n "${UPDATE_LOG:-}" ] && printf '  %sfull log: %s%s\n' "$FOG" "$UPDATE_LOG" "$RST" >&2
+    exit 1
+}
 step()  { printf '  %s❯%s %s\n' "$HUE_LINK" "$RST" "$1"; }
 info()  { printf '  %s•%s %s\n' "$FOG"      "$RST" "$1"; }
 
@@ -119,11 +137,96 @@ clock() {
     local secs=$(( $(date +%s) - STARTED_AT ))
     printf '%dm %02ds' "$((secs / 60))" "$((secs % 60))"
 }
+LAST_PHASE="startup"
 phase() {
     PHASE_N=$((PHASE_N + 1))
+    LAST_PHASE="$1"
     printf '\n  %s%s%02d%s  %s%s%s  %s%s%s\n' \
         "$BLD" "$V3" "$PHASE_N" "$RST" "$BLD" "$1" "$RST" "$FOG" "$(clock)" "$RST"
     printf '  %s%s%s\n\n' "$V4" "──────────────────────────────────────" "$RST"
+}
+
+# ---------------------------------------------------------------------------
+# L5 — Loud failures + always-on logging
+# ---------------------------------------------------------------------------
+# `set -euo pipefail` makes any unguarded command abort the script. Without this
+# layer that abort is *silent* — you just land back at the prompt with no idea
+# which phase, line, or command died (exactly the failure mode that made this
+# updater so hard to debug). init_logging mirrors everything to a timestamped
+# log; the ERR trap turns every abort into a labelled, actionable message.
+UPDATE_LOG=""
+init_logging() {
+    [ -n "${SERVERKIT_NO_LOG:-}" ] && return 0
+    mkdir -p "$LOG_DIR" 2>/dev/null || true
+    if [ -d "$LOG_DIR" ] && [ -w "$LOG_DIR" ]; then
+        UPDATE_LOG="$LOG_DIR/update-$(date +%Y%m%d-%H%M%S).log"
+        # Keep output on the terminal *and* append it to the log. Colors were
+        # already resolved above from the real TTY, so they survive the pipe.
+        exec > >(tee -a "$UPDATE_LOG") 2>&1
+        info "Logging to $UPDATE_LOG"
+    fi
+}
+
+report_failure() {
+    local rc=$1 line=$2 cmd=$3
+    printf '\n  %s✘  Update aborted%s during %s%s%s\n' \
+        "$HUE_ERR" "$RST" "$BLD" "$LAST_PHASE" "$RST" >&2
+    printf '     %sexit %s · line %s · %s%s\n' "$FOG" "$rc" "$line" "$cmd" "$RST" >&2
+    [ -n "$UPDATE_LOG" ] && \
+        printf '     %sfull log: %s%s\n' "$FOG" "$UPDATE_LOG" "$RST" >&2
+}
+
+# ---------------------------------------------------------------------------
+# Self-updating bootstrap + run lock
+# ---------------------------------------------------------------------------
+# The updater that runs is whatever is installed on the box — so a *stale*
+# update.sh (one predating a bug fix or a new deployment shape) fails in ways
+# the current code already handles, and it can't fix itself. This is the exact
+# trap that left a box stuck: an old updater died before it could install the
+# fixed one. Before doing any work, fetch the newest update.sh for the target
+# ref and re-exec into it. From this version on, "just run serverkit update"
+# is reliable no matter how old the box is.
+SELF_PATH="${BASH_SOURCE[0]}"
+maybe_reexec_latest_updater() {
+    [ -n "${SERVERKIT_UPDATER_REEXECED:-}" ] && return 0    # already the latest
+    [ "${SERVERKIT_NO_SELF_UPDATE:-0}" = "1" ] && return 0  # opt-out / tests
+    [ "$DRY_RUN" = "1" ] && return 0
+    [ -n "$SERVERKIT_OFFLINE_TARBALL" ] && return 0         # offline: nothing to fetch
+    command -v curl &>/dev/null || return 0
+
+    local ref="main"
+    [ -n "$TARGET_BRANCH" ] && ref="$TARGET_BRANCH"
+    [ "$USE_RELEASE" = "1" ] && [ -n "$RELEASE_VERSION" ] && ref="$RELEASE_VERSION"
+
+    local url tmp
+    url="https://raw.githubusercontent.com/${GITHUB_REPO}/${ref}/scripts/update.sh"
+    tmp="$(mktemp)"
+    if ! curl -fsSL --max-time 20 "$url" -o "$tmp" 2>/dev/null || [ ! -s "$tmp" ]; then
+        rm -f "$tmp"; return 0                               # fetch failed → use local
+    fi
+    # Swap only if it genuinely differs AND is valid bash (never re-exec into a
+    # truncated/corrupt download).
+    if ! cmp -s "$tmp" "$SELF_PATH" && bash -n "$tmp" 2>/dev/null; then
+        info "Refreshing the updater itself from ${ref}..."
+        chmod +x "$tmp" 2>/dev/null || true
+        SERVERKIT_UPDATER_REEXECED=1 exec bash "$tmp" "${ORIG_ARGS[@]}"
+    fi
+    rm -f "$tmp"
+}
+
+# Stop two concurrent updates clobbering each other (e.g. both cloning into the
+# same blue/green slot, or racing docker compose). The lock auto-releases when
+# the script exits, since the fd closes.
+acquire_update_lock() {
+    [ "$DRY_RUN" = "1" ] && return 0
+    command -v flock &>/dev/null || return 0
+    mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || true
+    # Brace-group so a failed open (unwritable path) is caught here instead of
+    # the redirection error aborting the whole script — then just skip locking.
+    { exec 9>"$LOCK_FILE"; } 2>/dev/null || return 0
+    if ! flock -n 9; then
+        halt "Another 'serverkit update' is already running (lock: $LOCK_FILE)."
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -134,6 +237,80 @@ run_or_dry() {
         info "[dry-run] would run: $*"
     else
         "$@"
+    fi
+}
+
+# Like run_or_dry, but runs the command inside <dir>. Under --dry-run it reports
+# the working directory it *would* run in instead of silently dropping the cd —
+# a chained `run_or_dry cd X && run_or_dry docker compose ...` used to print the
+# compose command with no hint of where it would execute.
+run_in_dir() {
+    local dir="$1"; shift
+    if [ "$DRY_RUN" = "1" ]; then
+        info "[dry-run] (cwd: $dir) would run: $*"
+    else
+        ( cd "$dir" && "$@" )
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Version comparison — skip the whole update when already current.
+# ---------------------------------------------------------------------------
+local_version() {
+    tr -d '\n\r ' < "$INSTALL_DIR/VERSION" 2>/dev/null || true
+}
+
+# True when two version strings match ignoring a leading "v" (1.7.1 == v1.7.1).
+versions_equal() {
+    [ "${1#v}" = "${2#v}" ]
+}
+
+# Resolve the release tag we would update to (pinned, or the latest on GitHub).
+remote_release_tag() {
+    if [ -n "$RELEASE_VERSION" ]; then
+        printf '%s' "$RELEASE_VERSION"
+        return 0
+    fi
+    curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null \
+        | grep '"tag_name"' | head -1 | cut -d'"' -f4
+}
+
+# Return 0 when the install is already at the target version/ref (the caller
+# should then skip). Best-effort: --force always proceeds; offline always
+# proceeds (can't compare); an indeterminate comparison proceeds with the
+# update rather than wrongly blocking it.
+is_already_current() {
+    [ "$FORCE_UPDATE" = "1" ] && return 1
+    [ -n "$SERVERKIT_OFFLINE_TARBALL" ] && return 1
+
+    if [ "$USE_RELEASE" = "1" ]; then
+        local target local_v
+        target="$(remote_release_tag)"
+        [ -n "$target" ] || return 1
+        local_v="$(local_version)"
+        [ -n "$local_v" ] || return 1
+        versions_equal "$local_v" "$target" && return 0
+        return 1
+    fi
+
+    # Branch / main mode: compare the local checkout's HEAD against the remote
+    # branch HEAD. ls-remote needs no fetch and works on shallow clones.
+    local branch local_head remote_head
+    branch="${TARGET_BRANCH:-main}"
+    git -C "$INSTALL_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+    local_head="$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)"
+    remote_head="$(git -C "$INSTALL_DIR" ls-remote "https://github.com/${GITHUB_REPO}.git" \
+        "refs/heads/$branch" 2>/dev/null | awk '{print $1}' | head -1)"
+    [ -n "$local_head" ] && [ -n "$remote_head" ] && [ "$local_head" = "$remote_head" ] && return 0
+    return 1
+}
+
+# If already current, announce it and exit cleanly (unless --force).
+version_gate() {
+    if is_already_current; then
+        local v; v="$(local_version)"
+        good "Already up to date (version ${v:-unknown}). Use --force to update anyway."
+        exit 0
     fi
 }
 
@@ -319,8 +496,23 @@ migrate_database() {
     source "$venv/bin/activate"
     cd "$work_dir/backend"
 
-    if ! FLASK_ENV=production flask db upgrade; then
-        halt "Database migration failed. The previous installation is still active."
+    # For SQLite installs, migrate the COPY we placed in the *new* slot, not the
+    # database the .env points at via the /opt/serverkit symlink (which still
+    # resolves to the live OLD slot until atomic_switch). Touching the old slot's
+    # DB here would corrupt rollback: reverting the symlink would hand the old
+    # code a database already upgraded to the new schema. Pointing the migration
+    # at the slot-absolute path keeps the old slot's DB byte-for-byte intact.
+    local slot_db="$work_dir/backend/instance/serverkit.db"
+    if grep -qE '^DATABASE_URL=sqlite' "$work_dir/.env" 2>/dev/null && [ -f "$slot_db" ]; then
+        if ! DATABASE_URL="sqlite:///$slot_db" FLASK_ENV=production flask db upgrade; then
+            halt "Database migration failed. The previous installation is still active."
+        fi
+    else
+        # Non-SQLite (e.g. PostgreSQL): the DB is shared/external, so there is no
+        # per-slot copy to isolate — migrate it directly.
+        if ! FLASK_ENV=production flask db upgrade; then
+            halt "Database migration failed. The previous installation is still active."
+        fi
     fi
     good "Database migrated"
 }
@@ -525,32 +717,54 @@ refresh_config() {
         return 0
     fi
 
-    # Recover panel domain from live nginx config.
+    mkdir -p "$NGINX_DIR/sites-available" "$NGINX_DIR/sites-enabled"
+
+    # Recover panel domain from live nginx config. The trailing `|| true` keeps a
+    # no-match/missing-file grep (exit 1/2) from tripping `set -euo pipefail` and
+    # silently killing the updater before the atomic switch — HTTP-only boxes have
+    # no serverkit.conf, so this grep finds nothing.
     local prior_panel_domain=""
-    prior_panel_domain=$(grep -oE '/etc/letsencrypt/live/[^/]+/' \
-        /etc/nginx/sites-available/serverkit.conf 2>/dev/null | head -n1 | \
-        sed -E 's|.*/live/([^/]+)/|\1|')
+    prior_panel_domain=$(grep -oE "$LETSENCRYPT_DIR/live/[^/]+/" \
+        "$NGINX_DIR/sites-available/serverkit.conf" 2>/dev/null | head -n1 | \
+        sed -E 's|.*/live/([^/]+)/|\1|' || true)
     [ "$prior_panel_domain" = "YOUR_DOMAIN" ] && prior_panel_domain=""
 
     if [ -f "$target/nginx/sites-available/serverkit.conf" ]; then
-        cp "$target/nginx/sites-available/serverkit.conf" /etc/nginx/sites-available/
+        cp "$target/nginx/sites-available/serverkit.conf" "$NGINX_DIR/sites-available/"
     fi
     if [ -f "$target/nginx/sites-available/serverkit-insecure.conf" ]; then
-        cp "$target/nginx/sites-available/serverkit-insecure.conf" /etc/nginx/sites-available/
+        cp "$target/nginx/sites-available/serverkit-insecure.conf" "$NGINX_DIR/sites-available/"
     fi
 
-    # TLS floor
-    if [ -f /etc/nginx/nginx.conf ]; then
+    # TLS floor — prefer a reversible conf.d snippet when nginx.conf doesn't
+    # already declare these (a second declaration in the same http{} context is a
+    # "duplicate ssl_protocols" error); otherwise rewrite in place. Mirrors
+    # install.sh's harden_global_tls.
+    if [ -f "$NGINX_DIR/nginx.conf" ]; then
         local ciphers='ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384'
-        if grep -qE '^[[:space:]]*ssl_protocols[[:space:]]' /etc/nginx/nginx.conf; then
-            sed -i -E 's|^([[:space:]]*)ssl_protocols[[:space:]].*|\1ssl_protocols TLSv1.2 TLSv1.3;|' /etc/nginx/nginx.conf
+        local has_proto=0 has_ciphers=0
+        grep -qE '^[[:space:]]*ssl_protocols[[:space:]]' "$NGINX_DIR/nginx.conf" && has_proto=1
+        grep -qE '^[[:space:]]*ssl_ciphers[[:space:]]'   "$NGINX_DIR/nginx.conf" && has_ciphers=1
+        if [ "$has_proto" = "0" ] && [ "$has_ciphers" = "0" ] && \
+           grep -qE 'include[[:space:]]+/etc/nginx/conf\.d/\*\.conf' "$NGINX_DIR/nginx.conf"; then
+            mkdir -p "$NGINX_DIR/conf.d"
+            cat > "$NGINX_DIR/conf.d/serverkit-tls.conf" <<EOF
+# Auto-generated by ServerKit — server-wide TLS floor. Safe to remove.
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ${ciphers};
+EOF
         else
-            sed -i '/http {/a \    ssl_protocols TLSv1.2 TLSv1.3;' /etc/nginx/nginx.conf
-        fi
-        if grep -qE '^[[:space:]]*ssl_ciphers[[:space:]]' /etc/nginx/nginx.conf; then
-            sed -i -E "s|^([[:space:]]*)ssl_ciphers[[:space:]].*|\1ssl_ciphers ${ciphers};|" /etc/nginx/nginx.conf
-        else
-            sed -i "/http {/a \\    ssl_ciphers ${ciphers};" /etc/nginx/nginx.conf
+            rm -f "$NGINX_DIR/conf.d/serverkit-tls.conf" 2>/dev/null || true
+            if [ "$has_proto" = "1" ]; then
+                sed -i -E 's|^([[:space:]]*)ssl_protocols[[:space:]].*|\1ssl_protocols TLSv1.2 TLSv1.3;|' "$NGINX_DIR/nginx.conf"
+            else
+                sed -i '/http {/a \    ssl_protocols TLSv1.2 TLSv1.3;' "$NGINX_DIR/nginx.conf"
+            fi
+            if [ "$has_ciphers" = "1" ]; then
+                sed -i -E "s|^([[:space:]]*)ssl_ciphers[[:space:]].*|\1ssl_ciphers ${ciphers};|" "$NGINX_DIR/nginx.conf"
+            else
+                sed -i "/http {/a \\    ssl_ciphers ${ciphers};" "$NGINX_DIR/nginx.conf"
+            fi
         fi
     fi
 
@@ -559,28 +773,39 @@ refresh_config() {
     if [ -f "$CONFIG_DIR/ssl-mode" ]; then
         ssl_mode="$(cat "$CONFIG_DIR/ssl-mode")"
     fi
-    if [ "$ssl_mode" = "secure" ] && [ -f /etc/nginx/sites-available/serverkit.conf ]; then
+    if [ "$ssl_mode" = "secure" ] && [ -f "$NGINX_DIR/sites-available/serverkit.conf" ]; then
         local panel_domain=""
         if [ -f "$CONFIG_DIR/panel-domain" ]; then
             panel_domain="$(cat "$CONFIG_DIR/panel-domain" 2>/dev/null || true)"
         fi
         [ -z "$panel_domain" ] && panel_domain="$prior_panel_domain"
 
-        if [ -n "$panel_domain" ] && [ -d "/etc/letsencrypt/live/$panel_domain" ]; then
-            sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$panel_domain/|g" \
-                /etc/nginx/sites-available/serverkit.conf
-            ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/serverkit.conf
+        if [ -n "$panel_domain" ] && [ -d "$LETSENCRYPT_DIR/live/$panel_domain" ]; then
+            sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|$LETSENCRYPT_DIR/live/$panel_domain/|g" \
+                "$NGINX_DIR/sites-available/serverkit.conf"
+            ln -sf "$NGINX_DIR/sites-available/serverkit.conf" "$NGINX_DIR/sites-enabled/serverkit.conf"
         else
             warn "SSL mode is 'secure' but no certificate found for '${panel_domain:-unknown}'"
-            ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
+            ln -sf "$NGINX_DIR/sites-available/serverkit-insecure.conf" "$NGINX_DIR/sites-enabled/serverkit.conf"
         fi
     else
-        ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
+        ln -sf "$NGINX_DIR/sites-available/serverkit-insecure.conf" "$NGINX_DIR/sites-enabled/serverkit.conf"
     fi
 
-    # Service unit
-    if [ -f "$target/serverkit-backend.service" ]; then
-        cp "$target/serverkit-backend.service" /etc/systemd/system/serverkit.service
+    # Service unit — render from the template so a custom SERVERKIT_DIR / venv /
+    # log path survives upgrades (the unit references the /opt/serverkit symlink,
+    # so blue/green switches need no re-render). Fall back to a plain unit if an
+    # older tree still ships one.
+    local svc_template="$target/templates/serverkit-backend.service.in"
+    if [ -f "$svc_template" ]; then
+        sed -e "s|@SERVERKIT_DIR@|$INSTALL_DIR|g" \
+            -e "s|@SERVERKIT_VENV_DIR@|$VENV_DIR|g" \
+            -e "s|@PORT@|5000|g" \
+            -e "s|@USER@|root|g" \
+            -e "s|@LOG_DIR@|$LOG_DIR|g" \
+            "$svc_template" > "$SYSTEMD_DIR/serverkit.service"
+    elif [ -f "$target/serverkit-backend.service" ]; then
+        cp "$target/serverkit-backend.service" "$SYSTEMD_DIR/serverkit.service"
     fi
     systemctl daemon-reload
     good "Configuration refreshed"
@@ -589,6 +814,19 @@ refresh_config() {
 # ---------------------------------------------------------------------------
 # Rollback
 # ---------------------------------------------------------------------------
+# Probe the backend health endpoint; returns 0 if healthy within <timeout>s.
+# Side-effect free (unlike health_check, which triggers a rollback) so it is
+# safe to call *after* a rollback to confirm the restored version came back.
+quick_health() {
+    local timeout="${1:-30}" waited=0
+    while [ "$waited" -lt "$timeout" ]; do
+        curl -sf --max-time 5 http://127.0.0.1:5000/api/v1/system/health >/dev/null 2>&1 && return 0
+        sleep 2
+        waited=$((waited + 2))
+    done
+    return 1
+}
+
 rollback() {
     warn "Update failed — rolling back to previous slot..."
 
@@ -611,7 +849,13 @@ rollback() {
     systemctl start nginx 2>/dev/null || true
     wait_for_service nginx active 15 || true
 
-    halt "Rolled back to $(active_real_dir). Inspect logs: journalctl -u serverkit -n 50"
+    # Confirm the restored version actually answers — a rollback that itself
+    # comes up unhealthy is a far worse state to leave the operator guessing in.
+    if quick_health 30; then
+        halt "Rolled back to $(active_real_dir) and it is healthy. Inspect logs: journalctl -u serverkit -n 50"
+    else
+        halt "Rolled back to $(active_real_dir) but it is STILL UNHEALTHY — manual intervention needed. Logs: journalctl -u serverkit -n 50"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -674,6 +918,43 @@ cleanup() {
 }
 
 # ---------------------------------------------------------------------------
+# Firewall — keep 80/443 open across updates.
+# ---------------------------------------------------------------------------
+# Idempotent and best-effort: a box installed before firewall automation existed
+# gets its ports opened on the next update; an already-configured box is a no-op.
+# Records what we opened in install-state.json so uninstall can undo it. Sources
+# the helpers from the (now-current) install tree, which carries scripts/lib.
+ensure_firewall() {
+    local lib="$INSTALL_DIR/scripts/lib"
+    [ -f "$lib/firewall.sh" ] || return 0
+    # shellcheck source=/dev/null
+    source "$lib/firewall.sh"
+    if [ -f "$lib/state.sh" ]; then
+        # shellcheck source=/dev/null
+        source "$lib/state.sh"
+    fi
+
+    local backend
+    backend="$(firewall_detect)"
+    if [ "$backend" = "none" ]; then
+        return 0
+    fi
+
+    if [ "$DRY_RUN" = "1" ]; then
+        info "[dry-run] would ensure firewall ($backend) allows 80/tcp and 443/tcp"
+        return 0
+    fi
+
+    firewall_open "$backend" 80/tcp 443/tcp || true
+    if command -v state_set >/dev/null 2>&1; then
+        state_set firewall_backend "$backend" || true
+        state_append firewall_ports 80/tcp || true
+        state_append firewall_ports 443/tcp || true
+    fi
+    good "Firewall ensured ($backend): 80/tcp and 443/tcp open"
+}
+
+# ---------------------------------------------------------------------------
 # All-Docker deployment (compose) detection + update path
 # ---------------------------------------------------------------------------
 # A ServerKit box runs in one of two shapes:
@@ -720,6 +1001,101 @@ backup_docker_db() {
     fi
 }
 
+# L6 — Heal layout left by an interrupted or legacy (hybrid) run before the
+# docker update touches anything.
+heal_layout_for_docker() {
+    # Pin the compose project name. A blue/green symlink otherwise makes compose
+    # derive the project name from the link target and warn — worse, a changed
+    # name would orphan the running containers.
+    export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$BASE_NAME}"
+
+    [ "$DRY_RUN" = "1" ] && return 0
+
+    # On an all-Docker box the blue/green slots are vestigial. If the install is
+    # a symlink (a prior hybrid run migrated it), reclaim the *inactive* slot it
+    # left behind — the live tree + DB volume are elsewhere, so this is safe.
+    if [ -L "$INSTALL_DIR" ]; then
+        local active inactive
+        active="$(active_real_dir)"
+        inactive="$DIR_A"; [ "$active" = "$DIR_A" ] && inactive="$DIR_B"
+        if [ -d "$inactive" ]; then
+            warn "Reclaiming stale slot from a prior run: $inactive"
+            rm -rf "$inactive"
+        fi
+    fi
+}
+
+# L4 — Snapshot the current docker deployment so a bad upgrade can be reverted.
+DOCKER_PREV_SHA=""
+DOCKER_ROLLBACK_READY=0
+snapshot_docker_state() {
+    [ "$DRY_RUN" = "1" ] && return 0
+    DOCKER_PREV_SHA="$(git -C "$INSTALL_DIR" rev-parse HEAD 2>/dev/null || true)"
+    # Tag the currently-running images so we can re-point :latest back to them,
+    # and stash the host-built bundle that the new build is about to overwrite.
+    local img
+    for img in serverkit-backend serverkit-frontend; do
+        docker image inspect "$img:latest" >/dev/null 2>&1 && \
+            docker tag "$img:latest" "$img:rollback" 2>/dev/null || true
+    done
+    if [ -d "$INSTALL_DIR/frontend/dist" ]; then
+        rm -rf "$INSTALL_DIR/frontend/dist.rollback"
+        cp -a "$INSTALL_DIR/frontend/dist" "$INSTALL_DIR/frontend/dist.rollback" 2>/dev/null || true
+    fi
+    DOCKER_ROLLBACK_READY=1
+}
+
+rollback_docker() {
+    [ "$DOCKER_ROLLBACK_READY" = "1" ] || halt "New version is unhealthy and no rollback snapshot exists — inspect: cd $INSTALL_DIR && docker compose logs backend"
+    warn "New version unhealthy — rolling back to the previous deployment..."
+
+    # Guard the reset on a non-empty SHA: an empty SHA would make `git reset
+    # --hard ''` reset to HEAD (a no-op at best, surprising at worst). The image
+    # re-tag + bundle restore below still recover the previous deployment even
+    # when no commit was recorded.
+    if [ -n "$DOCKER_PREV_SHA" ]; then
+        git -C "$INSTALL_DIR" reset --hard "$DOCKER_PREV_SHA" 2>&1 | tail -n2 || \
+            warn "git reset to $DOCKER_PREV_SHA failed during rollback"
+    else
+        warn "No previous commit recorded — skipping git reset (images/bundle still restored)"
+    fi
+    if [ -d "$INSTALL_DIR/frontend/dist.rollback" ]; then
+        rm -rf "$INSTALL_DIR/frontend/dist"
+        mv "$INSTALL_DIR/frontend/dist.rollback" "$INSTALL_DIR/frontend/dist"
+    fi
+    local img
+    for img in serverkit-backend serverkit-frontend; do
+        docker image inspect "$img:rollback" >/dev/null 2>&1 && \
+            docker tag "$img:rollback" "$img:latest" 2>/dev/null || true
+    done
+    dc up -d 2>&1 | tail -n10 || true
+
+    # Confirm the restored deployment came back healthy.
+    local waited=0 status=""
+    while [ "$waited" -lt 60 ]; do
+        status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' serverkit-backend 2>/dev/null || echo missing)"
+        { [ "$status" = "healthy" ] || [ "$status" = "none" ]; } && break
+        sleep 3
+        waited=$((waited + 3))
+    done
+    if [ "$status" = "healthy" ] || [ "$status" = "none" ]; then
+        halt "Rolled back to previous version (${DOCKER_PREV_SHA:-unknown}) and it is healthy. Logs: cd $INSTALL_DIR && docker compose logs backend"
+    else
+        halt "Rolled back to previous version (${DOCKER_PREV_SHA:-unknown}) but it is STILL UNHEALTHY (status: $status) — manual intervention needed. Logs: cd $INSTALL_DIR && docker compose logs backend"
+    fi
+}
+
+# Drop rollback artifacts once an upgrade is confirmed healthy.
+clear_docker_rollback() {
+    [ "$DRY_RUN" = "1" ] && return 0
+    rm -rf "$INSTALL_DIR/frontend/dist.rollback" 2>/dev/null || true
+    local img
+    for img in serverkit-backend serverkit-frontend; do
+        docker image inspect "$img:rollback" >/dev/null 2>&1 && \
+            docker rmi "$img:rollback" >/dev/null 2>&1 || true
+    done
+}
+
 update_docker_compose() {
     printf '\n  %s%sServerKit Updater — Docker deployment%s\n' "$BLD" "$PAPER" "$RST"
     STARTED_AT=$(date +%s)
@@ -728,17 +1104,33 @@ update_docker_compose() {
     command -v docker &>/dev/null || halt "docker is required but not installed"
     command -v git &>/dev/null || halt "git is required but not installed"
 
+    heal_layout_for_docker
+
     # Resolve the git ref to update to (branch / release tag / main).
     local ref="origin/main"
+    local mode="main"
     if [ -n "$TARGET_BRANCH" ]; then
         ref="origin/$TARGET_BRANCH"
+        mode="branch:$TARGET_BRANCH"
     elif [ "$USE_RELEASE" = "1" ]; then
         ref="${RELEASE_VERSION:-$(git -C "$INSTALL_DIR" tag -l 'v*' --sort=-v:refname | head -n1)}"
         [ -n "$ref" ] || halt "Could not determine a release tag to update to"
+        mode="release"
     fi
+
+    # Skip when already current (unless --force). Capture the starting version
+    # for the summary before we touch the tree.
+    local old_version
+    old_version="$(local_version)"
+    version_gate
 
     phase "Database Backup"
     backup_docker_db
+
+    # Snapshot the current (still-running, last-known-good) deployment before we
+    # mutate the tree, rebuild the bundle, or rebuild images — so an unhealthy
+    # upgrade can be reverted.
+    snapshot_docker_state
 
     phase "Syncing Source"
     if [ "$DRY_RUN" = "1" ]; then
@@ -807,9 +1199,15 @@ update_docker_compose() {
         done
         if [ "$status" != "healthy" ] && [ "$status" != "none" ]; then
             warn "Backend did not report healthy within 90s (status: $status)"
-            warn "Inspect logs: cd $INSTALL_DIR && docker compose logs backend"
+            rollback_docker   # L4 — revert to the snapshot; this halts the script
         fi
     fi
+
+    # Healthy (or no healthcheck defined): the upgrade stuck, drop the snapshot.
+    clear_docker_rollback
+
+    # Keep the firewall in sync (idempotent, best-effort).
+    ensure_firewall || true
 
     local new_version
     new_version="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ' || echo unknown)"
@@ -817,15 +1215,30 @@ update_docker_compose() {
 
     printf '\n  %s%s✔  Update complete (Docker)%s   %s%s%s\n\n' \
         "$BLD" "$HUE_OK" "$RST" "$FOG" "$(clock)" "$RST"
-    printf '  Version   %s\n' "$new_version"
+    printf '  Updated   %s → %s\n' "${old_version:-unknown}" "$new_version"
+    printf '  Mode      docker/%s\n' "$mode"
+    printf '  Duration  %s\n' "$(clock)"
     printf '  Backend   %s\n' "$(docker inspect -f '{{.State.Status}}' serverkit-backend 2>/dev/null || echo unknown)"
-    printf '  Frontend  %s\n\n' "$(docker inspect -f '{{.State.Status}}' serverkit-frontend 2>/dev/null || echo unknown)"
-    printf '  %sCLI%s       serverkit status\n\n' "$BLD" "$RST"
+    printf '  Frontend  %s\n' "$(docker inspect -f '{{.State.Status}}' serverkit-frontend 2>/dev/null || echo unknown)"
+    [ -n "${UPDATE_LOG:-}" ] && printf '  Log       %s\n' "$UPDATE_LOG"
+    printf '\n  %sCLI%s       serverkit status\n\n' "$BLD" "$RST"
 }
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+# Sourcing this file (e.g. from scripts/test/test_update.sh) exposes every
+# function above for unit testing without running an update. Only a direct
+# execution falls through to the run below.
+[ "${BASH_SOURCE[0]}" = "${0}" ] || return 0
+
+maybe_reexec_latest_updater   # may exec into the newest updater and not return
+acquire_update_lock
+init_logging
+# L5 — turn any unguarded failure (in the main flow OR a helper, thanks to -E)
+# into a labelled report instead of a silent drop back to the prompt.
+trap 'report_failure "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
 # All-Docker deployments don't use the host venv / systemd / blue-green flow —
 # route them to the compose path. This is what prevents the missing-venv crash.
@@ -854,6 +1267,20 @@ cleanup_on_exit() {
 trap cleanup_on_exit EXIT
 
 preflight_check
+
+# Capture where we are coming from and what mode this is, then skip the whole
+# update when the box is already current (unless --force). Doing this before any
+# backup/deploy work means an up-to-date box does zero churn.
+OLD_VERSION="$(local_version)"
+if [ "$USE_RELEASE" = "1" ]; then
+    UPDATE_MODE="release"
+elif [ -n "$TARGET_BRANCH" ]; then
+    UPDATE_MODE="branch:$TARGET_BRANCH"
+else
+    UPDATE_MODE="main"
+fi
+version_gate
+
 ensure_bluegreen_layout
 backup_current
 
@@ -920,8 +1347,8 @@ atomic_switch "$NEXT_DIR"
 phase "Starting Services"
 run_or_dry systemctl start "$BACKEND_SERVICE"
 wait_for_service "$BACKEND_SERVICE" active 30 || warn "Backend did not report active within 30 seconds"
-run_or_dry cd "$INSTALL_DIR" && run_or_dry docker compose up -d --force-recreate frontend
-run_or_dry docker compose up -d backend
+run_in_dir "$INSTALL_DIR" docker compose up -d --force-recreate frontend
+run_in_dir "$INSTALL_DIR" docker compose up -d backend
 run_or_dry systemctl start nginx
 wait_for_service nginx active 15 || warn "nginx did not report active within 15 seconds"
 good "Services started"
@@ -929,14 +1356,21 @@ good "Services started"
 # Health check.
 health_check
 
+# Keep the firewall in sync (idempotent, best-effort).
+ensure_firewall || true
+
 # Cleanup.
 cleanup
 
 # Summary.
+NEW_VERSION="$(local_version)"
 printf '\n  %s%s✔  Update complete%s   %s%s%s\n\n' \
     "$BLD" "$HUE_OK" "$RST" "$FOG" "$(clock)" "$RST"
-printf '  Version   %s\n' "$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ' || echo "unknown")"
+printf '  Updated   %s → %s\n' "${OLD_VERSION:-unknown}" "${NEW_VERSION:-unknown}"
+printf '  Mode      %s\n' "${UPDATE_MODE:-main}"
+printf '  Duration  %s\n' "$(clock)"
 printf '  Active    %s\n' "$(active_real_dir)"
 printf '  Backend   %s\n' "$(systemctl is-active serverkit 2>/dev/null || echo unknown)"
 printf '  Nginx     %s\n\n' "$(systemctl is-active nginx 2>/dev/null || echo unknown)"
+[ -n "${UPDATE_LOG:-}" ] && printf '  Log       %s\n\n' "$UPDATE_LOG"
 printf '  %sCLI%s       serverkit status\n\n' "$BLD" "$RST"
