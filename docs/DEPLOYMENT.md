@@ -2,6 +2,25 @@
 
 Complete guide for deploying ServerKit on Ubuntu servers.
 
+## Deployment model (important)
+
+ServerKit's backend **manages the host it runs on** — it creates app
+directories under `/var/serverkit/apps`, drives the host Docker daemon (one
+container per managed app), reloads nginx, and runs systemctl/firewall/PHP-FPM.
+A backend running *inside a container* cannot do any of that. So the canonical
+deployment installed by `./serverkit install` (`install.sh`) runs:
+
+- the **backend on the host** via systemd (`serverkit.service`), and
+- **only the frontend in Docker** (`docker-compose.yml` is frontend-only; its
+  nginx proxies `/api` + `/socket.io` to the host backend via the
+  `backend:host-gateway` alias).
+
+Do **not** add the backend back into `docker-compose.yml` — a containerized
+backend fails app/WordPress creation with `Permission denied:
+/var/serverkit/apps/...` and has no access to the host Docker daemon. The
+single-container image in `./Dockerfile` exists only for throwaway demos and,
+as its header states, cannot manage the host.
+
 ## Quick Install (Ubuntu)
 
 ```bash
@@ -208,12 +227,16 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 
 ### 5. Build and Start
 
-```bash
-# Build containers
-docker compose build
+`docker compose` builds and serves only the **frontend** container; the backend
+runs on the host under systemd (`serverkit.service`, set up by `./serverkit
+install`). See the **Deployment model** note above.
 
-# Start services
-docker compose up -d
+```bash
+# Build + start the frontend container
+docker compose up -d --build
+
+# Start the host backend (installed by ./serverkit install)
+sudo systemctl start serverkit
 
 # Verify
 serverkit status
@@ -256,12 +279,17 @@ sudo systemctl status serverkit
 | `SSL_PORT` | HTTPS port | `443` |
 | `FLASK_ENV` | Environment mode | `production` |
 
-### Docker Volumes
+### Host data locations
 
-| Volume | Purpose |
-|--------|---------|
-| `serverkit-data` | Database and application data |
-| `nginx/ssl` | SSL certificates |
+The backend runs on the host, so its data lives on the host filesystem (not in
+Docker volumes):
+
+| Path | Purpose |
+|------|---------|
+| `/opt/serverkit/backend/instance/serverkit.db` | SQLite database (default) |
+| `/var/serverkit/apps/` | Managed app directories (one per app) |
+| `/etc/serverkit/` | Config (templates, ssl-mode, install state) |
+| `/var/backups/serverkit/` | Backups |
 
 ## Common Tasks
 

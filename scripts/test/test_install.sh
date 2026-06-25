@@ -291,5 +291,24 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T12 — the canonical docker-compose.yml is frontend-only. The backend manages
+# the host (creates /var/serverkit/apps/*, drives host Docker, reloads nginx),
+# which a container cannot do — a backend container fails app creation with
+# `Permission denied: /var/serverkit/apps/...` and has no host docker.sock.
+# Guard against re-adding a `backend` compose service (the regression that
+# broke WordPress/app creation).
+# --------------------------------------------------------------------------
+compose="$REPO_DIR/docker-compose.yml"
+if grep -Eq '^[[:space:]]{2}backend:' "$compose"; then
+    bad "docker-compose.yml defines a 'backend' service — the backend must run on the host, not in a container"
+elif ! grep -Eq '^[[:space:]]{2}frontend:' "$compose"; then
+    bad "docker-compose.yml is missing the 'frontend' service"
+elif ! grep -q 'backend:host-gateway' "$compose"; then
+    bad "docker-compose.yml frontend is missing the 'backend:host-gateway' alias to reach the host backend"
+else
+    ok "docker-compose.yml is frontend-only and routes /api to the host backend (backend:host-gateway)"
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]
