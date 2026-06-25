@@ -53,3 +53,29 @@ jobs:
 
       - name: Unit tests (test_update.sh)
         run: bash scripts/test/test_update.sh
+
+  cross-distro:
+    name: unit (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    # ServerKit targets several Linux families; the updater's logic (symlink
+    # resolution, locking, refresh_config, detection) must behave the same on
+    # Debian- and RHEL-derived hosts, not just the Ubuntu runner. Run the unit
+    # suite inside each distro's container so a portability regression fails
+    # here instead of on someone's server.
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['debian:12', 'rockylinux:9']
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n + unit tests on ${{ matrix.image }}
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src "${{ matrix.image }}" bash -c '
+            set -e
+            echo "bash $BASH_VERSION"
+            for f in serverkit scripts/*.sh install.sh; do
+              [ -f "$f" ] || continue
+              bash -n "$f" && echo "ok   $f"
+            done
+            bash scripts/test/test_update.sh
+          '
