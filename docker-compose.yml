@@ -1,50 +1,26 @@
 # ============================================
-# ServerKit Docker Compose
+# ServerKit Docker Compose  (canonical deployment)
 # ============================================
-# Runs both backend and frontend in Docker.
-# Note: System management features (PHP install,
-# firewall, etc.) won't work in Docker.
+# ServerKit's backend manages the HOST it runs on — it creates app directories
+# under /var/serverkit/apps, drives the host Docker daemon (one container per
+# managed app), reloads nginx, and runs systemctl/firewall/PHP-FPM. A backend
+# *inside* a container cannot do any of that, so the backend runs directly on
+# the host (via systemd `serverkit.service`, installed by install.sh) and this
+# compose file builds and serves ONLY the frontend.
 #
-# Usage:
-#   docker compose up --build -d
+# The frontend's nginx proxies /api and /socket.io to the host backend through
+# the special `backend:host-gateway` alias (see frontend/nginx.conf), so the
+# `backend` upstream resolves to the host regardless of the bridge network.
 #
-# Access:
-#   Frontend: http://localhost:3847
-#   Backend:  http://localhost:5849
+#   Install (sets up the host backend + this frontend): ./serverkit install
+#   Frontend only:  docker compose up -d --build
+#
+# Want a quick, throwaway demo with NO host management? Use the single-container
+# image built from ./Dockerfile instead — it bundles both tiers but, as its
+# header notes, cannot manage the host.
 # ============================================
 
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: serverkit-backend
-    environment:
-      - FLASK_ENV=development
-      - SECRET_KEY=dev-secret-key-not-for-production
-      - JWT_SECRET_KEY=dev-jwt-key-not-for-production
-      - DATABASE_URL=sqlite:////app/instance/serverkit.db
-      - CORS_ORIGINS=http://localhost,http://localhost:3847,http://localhost:41921
-      - SERVERKIT_BACKEND_PORT=5000
-    ports:
-      - "5849:5000"
-    volumes:
-      - serverkit-data:/app/instance
-      - serverkit-config:/etc/serverkit
-    networks:
-      - serverkit-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:$${SERVERKIT_BACKEND_PORT:-5000}/api/v1/system/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   frontend:
     build:
       context: ./frontend
@@ -52,9 +28,12 @@ services:
     container_name: serverkit-frontend
     ports:
       - "3847:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+    # Resolve `backend` (used by frontend/nginx.conf) to the host, where the
+    # ServerKit backend listens on :5000 under systemd.
+    extra_hosts:
+      - "backend:host-gateway"
+    # install.sh builds the SPA to ./frontend/dist on the host; serve that build
+    # directly so a rebuild doesn't require rebuilding the image.
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
     networks:
@@ -75,9 +54,3 @@ networks:
   serverkit-network:
     driver: bridge
     name: serverkit-network
-
-volumes:
-  serverkit-data:
-    name: serverkit-data
-  serverkit-config:
-    name: serverkit-config

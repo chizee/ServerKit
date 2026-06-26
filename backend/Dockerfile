@@ -1,4 +1,9 @@
 # Backend Dockerfile for ServerKit
+#
+# NOTE: A containerized backend CANNOT manage the host (no host Docker daemon,
+# nginx, systemctl, or real /var/serverkit/apps). The canonical deployment runs
+# the backend on the host via systemd (see install.sh + docker-compose.yml,
+# which is frontend-only). This image is only for local/dev or all-in-one demos.
 FROM python:3.11-slim-bookworm
 
 # Set environment variables
@@ -42,11 +47,14 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Copy application code
 COPY . .
 
-# Create non-root user and set permissions
+# Create non-root user and set permissions. /var/serverkit must be owned by
+# appuser too, otherwise the (dev/demo) backend cannot create app directories
+# under /var/serverkit/apps and fails with EACCES.
 RUN useradd --create-home appuser \
     && chown -R appuser:appuser /app \
     && chown -R appuser:appuser /app/instance \
     && chown -R appuser:appuser /etc/serverkit \
+    && chown -R appuser:appuser /var/serverkit \
     && chown -R appuser:appuser /var/quarantine \
     && chown -R appuser:appuser /var/backups/serverkit
 
