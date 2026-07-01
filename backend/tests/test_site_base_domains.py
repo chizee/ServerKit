@@ -153,6 +153,17 @@ def test_admin_update_dns_mode(app, client, auth_headers):
     assert SiteBaseDomainService.get('toto.com').dns_mode == 'per-site'
 
 
+def test_suggest_subdomain_honours_base(app, client, auth_headers):
+    from app.services.site_base_domain_service import SiteBaseDomainService
+    _set('sites_base_domain', 'example.com')
+    SiteBaseDomainService.add('toto.com')
+    a = _mk_app(name='My Service', port=8900)
+    resp = client.get(f'/api/v1/domains/suggest-subdomain?application_id={a.id}&base=toto.com',
+                      headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.get_json()['suggestion'] == 'my-service.toto.com'
+
+
 def test_per_base_https_setup_persists_to_row(app, monkeypatch):
     from app import db
     from app.models.email import DNSProviderConfig
