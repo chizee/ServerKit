@@ -20,6 +20,12 @@ awaiting a stable release:
 
 ### Added
 
+- **Per-app managed volumes** — first-class, tracked persistent storage for a
+  service. Attach a named Docker volume at a chosen container path under
+  Settings → Storage; it survives redeploys and is visible with live
+  present/size state, instead of a fragile relative bind mount
+  (`./mysql-data:/var/lib/mysql`). Detaching keeps the data by default; wiping is
+  blocked while the app runs. API under `/api/v1/apps/<id>/volumes`.
 - **Private container registries** — store credentials once under Settings →
   Connections (GHCR, Docker Hub, GitLab, ECR, or any generic registry) and
   ServerKit runs `docker login` before pulling a private image, then logs out.

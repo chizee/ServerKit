@@ -811,6 +811,39 @@ class DockerService:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    @staticmethod
+    def inspect_volume(name):
+        """Live state of a named volume: {'present', 'mountpoint', 'driver'}."""
+        try:
+            result = subprocess.run(
+                ['docker', 'volume', 'inspect', name],
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                return {'present': False, 'mountpoint': None, 'driver': None}
+            data = json.loads(result.stdout or '[]')
+            info = data[0] if data else {}
+            return {'present': True, 'mountpoint': info.get('Mountpoint'),
+                    'driver': info.get('Driver')}
+        except Exception:
+            return {'present': False, 'mountpoint': None, 'driver': None}
+
+    @staticmethod
+    def containers_using_volume(name, running_only=False):
+        """Names of containers referencing a volume. ``running_only`` limits it to
+        currently-running containers (the guard for a safe wipe)."""
+        try:
+            cmd = ['docker', 'ps']
+            if not running_only:
+                cmd.append('-a')
+            cmd += ['--filter', f'volume={name}', '--format', '{{.Names}}']
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                return []
+            return [n for n in result.stdout.strip().split('\n') if n]
+        except Exception:
+            return []
+
     # ==================== DOCKER COMPOSE ====================
 
     @classmethod
@@ -1145,8 +1178,15 @@ class DockerService:
             return []
 
     @staticmethod
-    def create_docker_app(app_path, app_name, image, ports=None, volumes=None, env=None):
-        """Create a Docker-based application with docker-compose."""
+    def create_docker_app(app_path, app_name, image, ports=None, volumes=None, env=None,
+                          named_volumes=None):
+        """Create a Docker-based application with docker-compose.
+
+        ``named_volumes`` is a list of managed Docker volume names to declare as
+        top-level (``external: false``) volumes — Compose requires the top-level
+        declaration for any named volume referenced by a service. Callers pass the
+        matching ``name:/mount`` specs in ``volumes`` (see AppVolume.mount_spec).
+        """
         try:
             os.makedirs(app_path, exist_ok=True)
 
@@ -1170,6 +1210,11 @@ class DockerService:
 
             if env:
                 compose['services'][app_name]['environment'] = env
+
+            if named_volumes:
+                # Top-level named volumes so a redeploy reuses the same volume
+                # instead of a fresh anonymous one.
+                compose['volumes'] = {name: {} for name in named_volumes}
 
             compose_path = os.path.join(app_path, 'docker-compose.yml')
             with open(compose_path, 'w') as f:

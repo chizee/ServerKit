@@ -11,6 +11,7 @@ import {
     Boxes,
     Hammer,
     Archive,
+    HardDrive,
     CircleCheck,
     CircleX,
     Sparkles,
@@ -21,6 +22,7 @@ import { DangerZone } from '../DangerZone';
 import RepoConnectForm from '../git/RepoConnectForm';
 import ProtectionPanel from '../backups/ProtectionPanel';
 import ContainerOpsPanel from '../apps/ContainerOpsPanel';
+import VolumesPanel from '../apps/VolumesPanel';
 import AppWafPanel from '../apps/AppWafPanel';
 import BuildTab from '../appdetail/BuildTab';
 import DeployTab from '../appdetail/DeployTab';
@@ -66,7 +68,13 @@ function buildSettingsGroups(app) {
             label: 'Security',
             items: [{ id: 'waf', label: 'WAF', icon: ShieldCheck }],
         }] : []),
-        { label: 'Data', items: [{ id: 'backups', label: 'Backups', icon: Archive }] },
+        {
+            label: 'Data',
+            items: [
+                ...(isDocker ? [{ id: 'storage', label: 'Storage', icon: HardDrive }] : []),
+                { id: 'backups', label: 'Backups', icon: Archive },
+            ],
+        },
         { label: 'Advanced', items: [{ id: 'danger', label: 'Danger Zone', icon: AlertTriangle }] },
     ];
 }
@@ -285,6 +293,15 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     <div className="svc-settings__section">
                         <h3 className="svc-settings__section-title">Container Ops</h3>
                         <ContainerOpsPanel app={app} onChanged={onUpdate} />
+                    </div>
+                )}
+
+                {/* Storage (Docker only) — first-class managed volumes that
+                    survive redeploys, replacing fragile relative bind mounts. */}
+                {section === 'storage' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Storage</h3>
+                        <VolumesPanel app={app} onChanged={onUpdate} />
                     </div>
                 )}
 

@@ -279,6 +279,11 @@ class DeploymentService:
             if not pull.get('success'):
                 return {'success': False, 'error': pull.get('error', 'Registry pull failed')}
 
+        # Attach any managed volumes so app data persists across redeploys
+        # (each returns a `name:/mount[:ro]` spec for `docker run -v`).
+        from app.services.volume_service import VolumeService
+        volumes = VolumeService.run_args(app)
+
         # Run new container
         if log_callback:
             log_callback(f"Starting container {container_name}...")
@@ -287,6 +292,7 @@ class DeploymentService:
             image=image_tag,
             name=container_name,
             ports=ports if ports else None,
+            volumes=volumes if volumes else None,
             env=env if env else None,
             restart_policy='unless-stopped',
             detach=True
