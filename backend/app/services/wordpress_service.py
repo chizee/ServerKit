@@ -1907,7 +1907,8 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
     @classmethod
     def create_site(cls, name: str, admin_email: str, user_id: int, admin_user: str = 'admin',
                     php_version: str = None, enable_page_cache: bool = False,
-                    enable_object_cache: bool = False, domain: str = None) -> Dict:
+                    enable_object_cache: bool = False, domain: str = None,
+                    base_domain: str = None) -> Dict:
         """Create a new WordPress site via Docker.
 
         One-click orchestration: provision the Docker stack on a chosen PHP version,
@@ -1965,9 +1966,11 @@ RewriteRule ^wp-content/uploads/.*\\.php$ - [F]
             # canonical home/siteurl, so this is what makes the site usable as an
             # actual website. Falls back to localhost when no base domain is set
             # (e.g. an unconfigured production install).
-            site_host = SiteDomainService.subdomain_for(safe_name)
+            site_host = SiteDomainService.subdomain_for(safe_name, base=base_domain)
             if site_host:
-                site_url = SiteDomainService.site_url(site_host, ssl=SiteDomainService.https_enabled())
+                base_used = SiteDomainService.covering_base(site_host)
+                site_url = SiteDomainService.site_url(
+                    site_host, ssl=SiteDomainService.https_enabled(base_used))
             else:
                 site_url = f'http://localhost:{http_port}' if http_port else 'http://localhost'
             wp_warning = None

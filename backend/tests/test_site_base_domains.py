@@ -110,6 +110,69 @@ def test_https_and_dns_mode_are_per_base(app, monkeypatch):
     assert fc.endswith('/toto.com/fullchain.pem')
 
 
+# ── API: registry list + admin management ────────────────────────────────────
+
+def test_base_domains_list_endpoint(app, client, auth_headers):
+    from app.services.site_base_domain_service import SiteBaseDomainService
+    _set('sites_base_domain', 'example.com')
+    SiteBaseDomainService.add('toto.com')
+    resp = client.get('/api/v1/domains/base-domains', headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['default'] == 'example.com'
+    assert {b['domain'] for b in data['base_domains']} == {'example.com', 'toto.com'}
+
+
+def test_base_domains_list_legacy_single(app, client, auth_headers):
+    # No registry rows: falls back to the single configured base.
+    _set('sites_base_domain', 'solo.example.com')
+    resp = client.get('/api/v1/domains/base-domains', headers=auth_headers)
+    data = resp.get_json()
+    assert data['default'] == 'solo.example.com'
+    assert data['base_domains'][0]['is_default'] is True
+
+
+def test_admin_add_and_set_default_and_remove(app, client, auth_headers):
+    _set('sites_base_domain', 'example.com')
+    add = client.post('/api/v1/admin/sites-https/base-domains',
+                      json={'domain': 'toto.com'}, headers=auth_headers)
+    assert add.status_code == 201
+    mk = client.post('/api/v1/admin/sites-https/base-domains/toto.com/default', headers=auth_headers)
+    assert mk.status_code == 200 and mk.get_json()['base']['is_default'] is True
+    rm = client.delete('/api/v1/admin/sites-https/base-domains/example.com', headers=auth_headers)
+    assert rm.status_code == 200
+
+
+def test_per_base_https_setup_persists_to_row(app, monkeypatch):
+    from app import db
+    from app.models.email import DNSProviderConfig
+    from app.services.dns_provider_service import DNSProviderService
+    from app.services.advanced_ssl_service import AdvancedSSLService
+    from app.services.sites_https_service import SitesHttpsService
+    from app.services.site_base_domain_service import SiteBaseDomainService
+    from app.services.site_domain_service import SiteDomainService
+
+    _set('sites_base_domain', 'example.com')
+    SiteBaseDomainService.add('toto.com')                    # a second base, https off
+    provider = DNSProviderConfig(name='cf', provider='cloudflare', api_key='tok', api_secret='sec')
+    db.session.add(provider)
+    _set('server_public_ip', '203.0.113.9')
+
+    monkeypatch.setattr(DNSProviderService, 'ensure_a_record',
+                        classmethod(lambda cls, host, ip: {'created': True, 'record': {}}))
+    monkeypatch.setattr(AdvancedSSLService, 'issue_wildcard_cert', staticmethod(
+        lambda domain, prov, creds, email=None: {'success': True,
+                                                 'certificate_path': f'/etc/letsencrypt/live/{domain}/fullchain.pem'}))
+
+    res = SitesHttpsService.setup(provider.id, base='toto.com')
+    assert res['success'] and res['base_domain'] == 'toto.com'
+    # Persisted to toto.com's row only — example.com stays HTTP.
+    assert SiteBaseDomainService.get('toto.com').https_enabled is True
+    assert SiteBaseDomainService.get('toto.com').dns_provider_config_id == provider.id
+    assert SiteDomainService.https_enabled('toto.com') is True
+    assert SiteDomainService.https_enabled('example.com') is False
+
+
 def test_give_subdomain_under_chosen_base(app, monkeypatch):
     from app.services.site_base_domain_service import SiteBaseDomainService
     from app.services.site_domain_service import SiteDomainService
