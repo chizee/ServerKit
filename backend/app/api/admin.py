@@ -471,6 +471,16 @@ def sites_base_domain_set_default(domain):
     return jsonify(result), 200 if result.get('success') else 404
 
 
+@admin_bp.route('/sites-https/base-domains/<path:domain>', methods=['PATCH'])
+@admin_required
+def sites_base_domain_update(domain):
+    """Update a base domain's DNS mode (wildcard | per-site)."""
+    from app.services.site_base_domain_service import SiteBaseDomainService
+    data = request.get_json() or {}
+    result = SiteBaseDomainService.update(domain, dns_mode=data.get('dns_mode'))
+    return jsonify(result), 200 if result.get('success') else 404
+
+
 # ============================================
 # Admin Statistics Endpoints
 # ============================================

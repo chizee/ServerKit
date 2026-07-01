@@ -143,6 +143,16 @@ def test_admin_add_and_set_default_and_remove(app, client, auth_headers):
     assert rm.status_code == 200
 
 
+def test_admin_update_dns_mode(app, client, auth_headers):
+    from app.services.site_base_domain_service import SiteBaseDomainService
+    _set('sites_base_domain', 'example.com')
+    SiteBaseDomainService.add('toto.com')
+    resp = client.patch('/api/v1/admin/sites-https/base-domains/toto.com',
+                        json={'dns_mode': 'per-site'}, headers=auth_headers)
+    assert resp.status_code == 200
+    assert SiteBaseDomainService.get('toto.com').dns_mode == 'per-site'
+
+
 def test_per_base_https_setup_persists_to_row(app, monkeypatch):
     from app import db
     from app.models.email import DNSProviderConfig
