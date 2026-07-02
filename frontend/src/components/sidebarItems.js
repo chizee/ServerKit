@@ -210,16 +210,20 @@ export const SIDEBAR_ITEMS = [
         route: '/marketplace',
         matchPrefixes: groupPrefixes(MARKET_TABS),
         category: 'system',
+        // Always visible, like Dashboard — the Marketplace is the front door to
+        // extensions, so no onboarding preset (or custom config) should hide it.
+        alwaysVisible: true,
         icon: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>'
     }
 ];
 
 // "Advanced" items are powerful but not part of the everyday core for a solo
-// dev / small team: the Marketplace, the internal job-queue console, and the
-// inbound-Webhooks console. They're hidden by the default ("Recommended") view
-// and every curated preset, but stay one click away via the "Full" view or
-// Customize Sidebar — and remain fully routable (deep links, command palette).
-export const ADVANCED_ITEM_IDS = ['marketplace', 'queue', 'webhooks'];
+// dev / small team: the internal job-queue console and the inbound-Webhooks
+// console. They're hidden by the default ("Recommended") view and every curated
+// preset, but stay one click away via the "Full" view or Customize Sidebar — and
+// remain fully routable (deep links, command palette). The Marketplace is NOT in
+// this list — it's alwaysVisible so extensions are always discoverable.
+export const ADVANCED_ITEM_IDS = ['queue', 'webhooks'];
 
 // Preset profiles define which items are hidden (top-level only)
 export const SIDEBAR_PRESETS = {
