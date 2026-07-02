@@ -96,6 +96,8 @@ const getPublishedCatalogEntry = (extension, installed) => ({
     firstParty: isFirstParty(extension.author, extension),
     icon: extension.icon || null,
     screenshots: Array.isArray(extension.screenshots) ? extension.screenshots : [],
+    permissions: Array.isArray(extension.permissions) ? extension.permissions : [],
+    configSchema: extension.config_schema && typeof extension.config_schema === 'object' ? extension.config_schema : null,
     extensionType: extension.extension_type,
     installed,
     rating: extension.rating,
@@ -126,6 +128,8 @@ const getRegistryCatalogEntry = (entry) => ({
     firstParty: isFirstParty(entry.author, entry),
     icon: entry.icon || null,
     screenshots: Array.isArray(entry.screenshots) ? entry.screenshots : [],
+    permissions: Array.isArray(entry.permissions) ? entry.permissions : [],
+    configSchema: entry.config_schema && typeof entry.config_schema === 'object' ? entry.config_schema : null,
     extensionType: 'registry',
     installed: Boolean(entry.installed),
     status: entry.status,
@@ -156,6 +160,8 @@ const getLocalCatalogEntry = (builtin) => {
         firstParty: isFirstParty(manifest.author, manifest),
         icon: manifest.icon || null,
         screenshots: Array.isArray(manifest.screenshots) ? manifest.screenshots : [],
+        permissions: Array.isArray(manifest.permissions) ? manifest.permissions : [],
+        configSchema: manifest.config_schema && typeof manifest.config_schema === 'object' ? manifest.config_schema : null,
         extensionType: 'built-in',
         installed: Boolean(builtin.installed),
         status: builtin.status,
@@ -195,6 +201,8 @@ const Marketplace = () => {
     const [installSource, setInstallSource] = useState('url');
     const [installing, setInstalling] = useState(false);
     const [detailEntry, setDetailEntry] = useState(null);
+    // Plugin pending uninstall — drives the keep-vs-purge data-policy dialog.
+    const [uninstallTarget, setUninstallTarget] = useState(null);
 
     const loadExtensions = useCallback(async () => {
         try {
@@ -303,10 +311,17 @@ const Marketplace = () => {
         }
     };
 
-    const handlePluginUninstall = async (pluginId) => {
+    // Open the data-policy dialog instead of uninstalling immediately, so the
+    // operator can choose to keep or purge the extension's tables.
+    const requestPluginUninstall = (plugin) => setUninstallTarget(plugin);
+
+    const confirmPluginUninstall = async (purge) => {
+        const plugin = uninstallTarget;
+        setUninstallTarget(null);
+        if (!plugin) return;
         try {
-            await api.uninstallPlugin(pluginId);
-            toast.success('Plugin uninstalled');
+            await api.uninstallPlugin(plugin.id, purge);
+            toast.success(purge ? 'Plugin uninstalled; data purged' : 'Plugin uninstalled; data kept');
             loadExtensions();
         } catch (err) { toast.error(err.message); }
     };
@@ -700,7 +715,7 @@ const Marketplace = () => {
                                             installing={installing}
                                             onToggle={handlePluginToggle}
                                             onUpdate={handlePluginUpdate}
-                                            onUninstall={handlePluginUninstall}
+                                            onUninstall={requestPluginUninstall}
                                             statusVariant={pluginStatusVariant}
                                         />
                                     ))}
@@ -727,6 +742,14 @@ const Marketplace = () => {
                         installEntry(detailEntry);
                         setDetailEntry(null);
                     }}
+                />
+            )}
+
+            {uninstallTarget && (
+                <PluginUninstallDialog
+                    plugin={uninstallTarget}
+                    onCancel={() => setUninstallTarget(null)}
+                    onConfirm={confirmPluginUninstall}
                 />
             )}
         </div>
@@ -844,6 +867,10 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
     const isPublished = entry.source === 'published';
     const iconSvg = entry.icon ? sanitizeSvgInner(entry.icon) : '';
     const screenshots = entry.screenshots || [];
+    const permissions = Array.isArray(entry.permissions) ? entry.permissions : [];
+    const configKeys = entry.configSchema && typeof entry.configSchema === 'object'
+        ? Object.keys(entry.configSchema)
+        : [];
     const installedLabel = !isPublished && entry.status && entry.status !== 'active'
         ? titleCase(entry.status)
         : 'Installed';
@@ -883,6 +910,28 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                 </div>
 
                 <p className="extension-detail__desc">{entry.description}</p>
+
+                {permissions.length > 0 && (
+                    <div className="extension-detail__consent">
+                        <p className="extension-detail__section-label">This extension requests:</p>
+                        <div className="extension-detail__chips">
+                            {permissions.map((permission) => (
+                                <Badge key={permission} variant="outline">{permission}</Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {configKeys.length > 0 && (
+                    <div className="extension-detail__config">
+                        <p className="extension-detail__section-label">Configuration</p>
+                        <ul className="extension-detail__config-list">
+                            {configKeys.map((key) => (
+                                <li key={key}><code>{key}</code></li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 {screenshots.length > 0 && (
                     <div className="extension-detail__gallery" aria-label="Screenshots">
@@ -998,13 +1047,40 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
                 >
                     {plugin.status === 'active' ? 'Disable' : 'Enable'}
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => onUninstall(plugin.id)}>
+                <Button size="sm" variant="destructive" onClick={() => onUninstall(plugin)}>
                     Uninstall
                 </Button>
             </div>
         </article>
     );
 };
+
+// Data-policy dialog for plugin uninstall. Keeping data (default) leaves the
+// extension's tables intact for a later reinstall; purging drops them.
+const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => (
+    <Modal
+        open
+        onClose={onCancel}
+        title={`Uninstall ${plugin.display_name}?`}
+        size="sm"
+        footer={
+            <>
+                <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+                <Button variant="outline" onClick={() => onConfirm(false)}>Keep data</Button>
+                <Button variant="destructive" onClick={() => onConfirm(true)}>Purge data</Button>
+            </>
+        }
+    >
+        <div className="plugin-uninstall-dialog">
+            <p>Removing this extension stops its routes and UI contributions.</p>
+            <p className="text-muted">
+                <strong>Keep data</strong> leaves the extension&apos;s database tables intact so you can
+                reinstall later. <strong>Purge data</strong> permanently drops the extension&apos;s tables
+                and cannot be undone.
+            </p>
+        </div>
+    </Modal>
+);
 
 const PluginInstallInput = ({
     description,

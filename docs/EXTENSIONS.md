@@ -199,6 +199,9 @@ def list_things():
 | `queue` | Queue Bus SDK (publish/consume). |
 | `notify` | Notifications SDK (`notify.send(event, to, data)`). |
 | `jobs` | Jobs SDK (schedule/enqueue background work). |
+| `sockets` | Register a status-guarded Socket.IO namespace (`/ext/<slug>`). |
+| `require_permission(slug, cap)` | Capability gate — raises `PermissionDenied` if `cap` isn't declared in `permissions`. |
+| `panel_version()` | The panel's version string (for in-plugin compat checks). |
 
 Errors follow the core convention: `return jsonify({'error': 'message'}), status`.
 
@@ -244,7 +247,41 @@ def register(ctx):
 
 - Install creates the tables; the `upgrade` hook runs on version change.
 - Uninstall offers **keep-data** vs **purge** (mirrors the installer's `--purge`
-  semantics); the choice is passed to the `uninstall` hook.
+  semantics); the choice is passed to the `uninstall` hook (`func(plugin, purge=...)`)
+  and, on purge, drops the `ext_<slug>_*` tables.
+
+## Background jobs & schedules
+
+Declare handlers and recurring jobs in the manifest; they wire into the Jobs SDK
+on install and **pause automatically when the plugin is disabled**:
+
+```jsonc
+"jobs":      [ { "kind": "myext.reindex", "handler": "jobs:reindex" } ],
+"schedules": [ { "name": "myext-nightly", "kind": "myext.reindex", "cron": "0 3 * * *" } ]
+```
+
+## Real-time (Socket.IO)
+
+Declare `"socket_entry": "sockets:register"`; the function returns
+`{event: handler}` and the panel registers them on `/ext/<slug>`, status-guarded
+(a disabled plugin's namespace refuses new connections):
+
+```python
+# app/plugins/<slug>/sockets.py
+def register():
+    def on_connect():  ...
+    def on_subscribe(data):  ...
+    return {"connect": on_connect, "subscribe": on_subscribe}
+```
+
+## Permissions & compatibility
+
+- `permissions` is a consent step on install and is **enforced** by the SDK gate:
+  `require_permission(slug, "docker")` raises unless `docker` is declared. (This is
+  in-process, declaration-based enforcement — see ADR 0001 / plan #42 for the
+  sandboxing posture.)
+- `min_panel_version` / `max_panel_version` are enforced at install **and** update
+  for every source (URL/upload/local/builtin/registry).
 
 ---
 

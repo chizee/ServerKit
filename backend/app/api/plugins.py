@@ -217,15 +217,22 @@ def uninstall_plugin(plugin_id):
     if not plugin:
         return jsonify({'error': 'Plugin not found'}), 404
 
+    # Keep-data by default; purge drops the plugin's ext_<slug>_ tables. Accept
+    # ?purge=true or a JSON body {"purge": true}.
+    purge = str(request.args.get('purge', '')).lower() in ('1', 'true', 'yes')
+    if not purge:
+        body = request.get_json(silent=True) or {}
+        purge = bool(body.get('purge'))
+
     plugin_name = plugin.name
-    uninstall_plugin(plugin_id)
+    uninstall_plugin(plugin_id, purge=purge)
 
     AuditService.log(
         action=AuditLog.ACTION_RESOURCE_DELETE,
         user_id=user.id,
         target_type='plugin',
         target_id=plugin_id,
-        details={'name': plugin_name}
+        details={'name': plugin_name, 'purge': purge}
     )
     return jsonify({'message': f'Plugin {plugin_name} uninstalled. Restart to fully unload backend routes.'})
 
@@ -328,6 +335,35 @@ def install_builtin(slug):
         }), 500
 
 
+@plugins_bp.route('/<slug>/assets/<path:asset_path>', methods=['GET'])
+@jwt_required()
+def plugin_asset(slug, asset_path):
+    """Serve a file from an installed plugin's frontend directory.
+
+    Foundation for the future remote-frontend delivery mechanism (ADR 0001):
+    a panel can serve a plugin's prebuilt/static assets. Path-traversal safe via
+    send_from_directory. Only active plugins' assets are served.
+    """
+    import re
+    from flask import send_from_directory
+    if not re.match(r'^[a-zA-Z0-9_-]+$', slug or ''):
+        return jsonify({'error': 'Invalid slug'}), 400
+
+    from app.services.plugin_service import get_plugin_by_slug, FRONTEND_PLUGINS_DIR
+    import os
+    plugin = get_plugin_by_slug(slug)
+    if not plugin or plugin.status != 'active':
+        return jsonify({'error': 'Plugin not active'}), 404
+
+    base = os.path.join(FRONTEND_PLUGINS_DIR, slug)
+    if not os.path.isdir(base):
+        return jsonify({'error': 'No assets for this plugin'}), 404
+    try:
+        return send_from_directory(base, asset_path)
+    except Exception:
+        return jsonify({'error': 'Asset not found'}), 404
+
+
 @plugins_bp.route('/manifest-spec', methods=['GET'])
 @jwt_required()
 def get_manifest_spec():
@@ -361,13 +397,28 @@ def get_manifest_spec():
             'frontend_entry': {'type': 'string',
                                'description': 'Optional path within the frontend bundle (informational).'},
             'permissions': {'type': 'array', 'items': {'type': 'string'},
-                            'description': 'Declared host permissions (docker, shell, filesystem, network, db). Informational; surfaced to admins on install.'},
+                            'description': 'Declared host capabilities (docker, shell, filesystem, network, db) or agent.command:<action>. Surfaced as a consent step on install and enforced by the SDK capability gate (require_permission).'},
+            'min_panel_version': {'type': 'string',
+                                  'description': 'Lowest compatible panel version (inclusive). Enforced at install/update.'},
+            'max_panel_version': {'type': 'string',
+                                  'description': 'Highest compatible panel version (inclusive). Optional.'},
             'templates': {'type': 'array',
                           'description': 'App-template ids to install on plugin install. String or {id, app_name?, variables?}.'},
+            'models': {'type': 'string',
+                       'description': "module:func — returns/defines the plugin's SQLAlchemy models (tables named ext_<slug>_*). Tables are created on install; dropped on uninstall --purge."},
+            'jobs': {'type': 'array',
+                     'description': 'Background job handlers: [{kind, handler}] where handler is module:func.'},
+            'schedules': {'type': 'array',
+                          'description': 'Recurring jobs: [{name, kind, cron?|interval_seconds?, payload?}]. Paused automatically when the plugin is disabled.'},
+            'socket_entry': {'type': 'string',
+                             'description': "module:func returning {event: handler}. Registers a status-guarded Socket.IO namespace at /ext/<slug>."},
+            'config_schema': {'type': 'object',
+                              'description': 'JSON-schema-ish object rendered as a settings form on the installed-extension detail.'},
             'lifecycle': {'type': 'object',
                           'properties': {
                               'install': {'type': 'string', 'description': "module:func — runs after install."},
-                              'uninstall': {'type': 'string', 'description': "module:func — runs before uninstall."},
+                              'upgrade': {'type': 'string', 'description': "module:func — runs when installing a different version."},
+                              'uninstall': {'type': 'string', 'description': "module:func(plugin, purge=bool) — runs before uninstall."},
                           }},
             'contributions': {
                 'type': 'object',

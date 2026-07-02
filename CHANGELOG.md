@@ -20,6 +20,19 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions platform (Phase 3 — platform primitives)** — the machinery that
+  makes extensions first-class and safe. Extensions can now own **data models**
+  (manifest `models` → `ext_<slug>_*` tables, created on install, dropped on
+  purge), **background jobs & schedules** (wired into the Jobs system, and paused
+  automatically when the extension is disabled), and a **real-time Socket.IO
+  namespace** (`/ext/<slug>`, status-guarded). Declared **permissions** are now a
+  consent step and enforced by an SDK capability gate (`require_permission`).
+  **Panel-version compatibility** (`min_panel_version`/`max_panel_version`) is
+  enforced at install and update. Uninstall offers **keep-data vs purge**. New
+  generic **contribution slots** (`dashboard.top`, `service.detail.tab`,
+  `domain.drawer.panel`) let extensions enrich core surfaces, not just add pages.
+  The frontend-delivery decision is recorded in
+  [`docs/adr/0001-extension-frontend-delivery.md`](docs/adr/0001-extension-frontend-delivery.md).
 - **Extensions platform (Phase 2 — remote registry & updates)** — the Marketplace
   Browse tab can now show extensions from a curated remote **registry** (a single
   `index.json`), merged in and labeled "Registry", with no per-panel seeding. The

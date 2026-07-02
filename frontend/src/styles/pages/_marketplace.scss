@@ -868,4 +868,50 @@
         padding-top: $space-4;
         border-top: 1px solid $border-subtle;
     }
+
+    &__section-label {
+        margin: 0 0 $space-2;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+    }
+
+    &__consent,
+    &__config {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-2;
+    }
+
+    &__config-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-2;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+
+        code {
+            font-size: $font-size-sm;
+            color: $text-secondary;
+        }
+    }
+}
+
+// Keep-vs-purge data policy dialog on plugin uninstall.
+.plugin-uninstall-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+
+    p {
+        margin: 0;
+        line-height: $line-height-normal;
+    }
 }

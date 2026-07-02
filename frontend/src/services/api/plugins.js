@@ -32,8 +32,12 @@ export async function installPluginFromZip(file) {
     });
 }
 
-export async function uninstallPlugin(pluginId) {
-    return this.request(`/plugins/${pluginId}`, {
+// Uninstall a plugin. When `purge` is true the backend also drops the
+// extension's own database tables (?purge=true); otherwise data is kept so the
+// extension can be reinstalled later.
+export async function uninstallPlugin(pluginId, purge = false) {
+    const query = purge ? '?purge=true' : '';
+    return this.request(`/plugins/${pluginId}${query}`, {
         method: 'DELETE',
     });
 }

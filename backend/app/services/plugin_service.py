@@ -191,6 +191,24 @@ def _validate_manifest(manifest):
     return True
 
 
+def _assert_manifest_panel_compatible(manifest):
+    """Enforce a manifest's min/max_panel_version at install (#28), for every
+    install source (URL/upload/local/builtin), not just the registry. A manifest
+    without bounds installs anywhere."""
+    from app.utils.version import version_satisfies, get_panel_version
+    minv = manifest.get('min_panel_version')
+    maxv = manifest.get('max_panel_version')
+    if not (minv or maxv):
+        return
+    panel = get_panel_version()
+    if not version_satisfies(panel, minv, maxv):
+        raise ValueError(
+            f"{manifest.get('display_name') or manifest.get('name')} "
+            f"v{manifest.get('version')} needs panel {minv or '*'}–{maxv or '*'} "
+            f"(this panel is {panel})."
+        )
+
+
 def _safe_extract_path(dest_root, rel_path):
     """Resolve `rel_path` under `dest_root` and assert it stays inside.
 
@@ -370,6 +388,7 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
 
     manifest = json.loads(zf.read(manifest_path))
     _validate_manifest(manifest)
+    _assert_manifest_panel_compatible(manifest)
 
     slug = manifest['name']
 
@@ -377,6 +396,10 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
     existing = InstalledPlugin.query.filter_by(slug=slug).first()
     if existing and existing.status in ('active', 'installing') and not force:
         raise ValueError(f"Plugin '{slug}' is already installed (v{existing.version}). Uninstall first to reinstall.")
+
+    # Remember the version we're replacing so we can run lifecycle.upgrade when
+    # it actually changes (reinstall/update over an existing row).
+    previous_version = existing.version if existing else None
 
     # Create DB record early so we can track errors
     if existing:
@@ -531,10 +554,30 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
         # not roll back the plugin install.
         template_results = _install_template_dependencies(plugin, manifest)
 
+        # Register plugin-owned data models (create ext_<slug>_ tables) and
+        # declarative jobs/schedules before the install hook runs, so the hook
+        # can seed rows into those tables. Best-effort (never fail the install).
+        if has_backend:
+            try:
+                from app.services import extension_lifecycle
+                extension_lifecycle.register_models(plugin, manifest)
+                extension_lifecycle.register_jobs(plugin, manifest)
+            except Exception as e:
+                logger.warning(f'Extension lifecycle setup failed for {slug}: {e}')
+            try:
+                from app.plugins_sdk import sockets as _ext_sockets
+                _ext_sockets.register_from_manifest(plugin, manifest)
+            except Exception as e:
+                logger.warning(f'Extension socket setup failed for {slug}: {e}')
+
         # Run plugin's lifecycle.install hook if declared. Failure here is
         # also non-fatal — the plugin is installed; the hook is for
         # convenience setup (e.g. creating default rows).
         _run_lifecycle_hook(plugin, manifest, 'install')
+
+        # If this was an in-place version change, run the upgrade hook too.
+        if previous_version and previous_version != manifest['version']:
+            _run_lifecycle_hook(plugin, manifest, 'upgrade')
 
         # If the plugin declares an "ai" block, register its tools/context with
         # the core assistant now so installing it teaches the assistant new
@@ -701,6 +744,19 @@ def load_all_plugins(app):
                 _attach_status_guard(bp, plugin.slug)
                 app.register_blueprint(bp, url_prefix=plugin.url_prefix)
                 logger.info(f'Loaded plugin: {plugin.display_name} v{plugin.version} at {plugin.url_prefix}')
+
+                # Re-establish the plugin's data models, jobs, and socket
+                # namespace on boot (install-time registration doesn't survive
+                # a restart).
+                manifest = plugin.manifest or {}
+                try:
+                    from app.services import extension_lifecycle
+                    extension_lifecycle.register_models(plugin, manifest)
+                    extension_lifecycle.register_jobs(plugin, manifest)
+                    from app.plugins_sdk import sockets as _ext_sockets
+                    _ext_sockets.register_from_manifest(plugin, manifest)
+                except Exception as e:
+                    logger.warning(f'Extension runtime setup for {plugin.slug}: {e}')
             except Exception as e:
                 logger.error(f'Failed to load plugin {plugin.slug}: {e}')
                 plugin.status = InstalledPlugin.STATUS_ERROR
@@ -708,8 +764,12 @@ def load_all_plugins(app):
                 db.session.commit()
 
 
-def uninstall_plugin(plugin_id):
-    """Uninstall a plugin by removing its files and DB record."""
+def uninstall_plugin(plugin_id, purge=False):
+    """Uninstall a plugin by removing its files and DB record.
+
+    `purge=True` also drops the plugin's ``ext_<slug>_`` data tables (keep-data
+    is the default, mirroring the installer's --purge/--keep-data semantics).
+    """
     plugin = InstalledPlugin.query.get(plugin_id)
     if not plugin:
         return False
@@ -718,8 +778,18 @@ def uninstall_plugin(plugin_id):
     manifest = plugin.manifest or {}
 
     # Run lifecycle.uninstall hook *before* we delete the files (the hook
-    # may need to read its own files). Best effort — never block teardown.
-    _run_lifecycle_hook(plugin, manifest, 'uninstall')
+    # may need to read its own files). It's told whether the caller asked to
+    # purge data. Best effort — never block teardown.
+    _run_lifecycle_hook(plugin, manifest, 'uninstall', purge=purge)
+
+    # Tear down declarative schedules, and (only on purge) the data tables.
+    try:
+        from app.services import extension_lifecycle
+        extension_lifecycle.remove_jobs(plugin, manifest)
+        if purge:
+            extension_lifecycle.purge_models(plugin)
+    except Exception as e:
+        logger.warning(f'Extension lifecycle teardown for {slug}: {e}')
 
     # Drop any AI tools/context this plugin contributed to the assistant.
     _unregister_plugin_ai(slug)
@@ -754,6 +824,12 @@ def enable_plugin(plugin_id):
     db.session.commit()
     _regenerate_frontend_manifest()
     _refresh_plugin_ai(plugin)
+    # Resume the plugin's scheduled jobs (status-guard parity for background work).
+    try:
+        from app.services import extension_lifecycle
+        extension_lifecycle.resume_jobs(plugin, plugin.manifest or {})
+    except Exception as e:
+        logger.warning(f'Could not resume jobs for {plugin.slug}: {e}')
     return plugin
 
 
@@ -766,6 +842,12 @@ def disable_plugin(plugin_id):
     db.session.commit()
     _regenerate_frontend_manifest()
     _unregister_plugin_ai(plugin.slug)
+    # Pause the plugin's scheduled jobs so a disabled plugin does no background work.
+    try:
+        from app.services import extension_lifecycle
+        extension_lifecycle.pause_jobs(plugin, plugin.manifest or {})
+    except Exception as e:
+        logger.warning(f'Could not pause jobs for {plugin.slug}: {e}')
     return plugin
 
 
@@ -790,16 +872,19 @@ def _unregister_plugin_ai(slug):
         logger.warning(f'AI tool unregister failed for plugin {slug}', exc_info=True)
 
 
-def _run_lifecycle_hook(plugin, manifest, phase):
+def _run_lifecycle_hook(plugin, manifest, phase, **kwargs):
     """Execute a plugin's lifecycle hook.
 
     Manifest format:
-        "lifecycle": { "install": "module:func", "uninstall": "module:func" }
+        "lifecycle": { "install": "module:func", "upgrade": "module:func",
+                       "uninstall": "module:func" }
 
-    The module path is resolved under ``app.plugins.<slug>``. The hook
-    receives the InstalledPlugin row as its single positional arg. Return
-    value is ignored. Failure is logged and swallowed — lifecycle hooks
-    are convenience, not correctness.
+    The module path is resolved under ``app.plugins.<slug>``. The hook receives
+    the InstalledPlugin row as its single positional arg; the uninstall hook may
+    additionally accept ``purge`` (whether the caller asked to drop data). Hooks
+    written as ``func(plugin)`` still work — extra kwargs are only passed when the
+    signature accepts them. Return value is ignored; failure is logged and
+    swallowed — lifecycle hooks are convenience, not correctness.
     """
     lifecycle = (manifest or {}).get('lifecycle') or {}
     target = lifecycle.get(phase)
@@ -811,6 +896,7 @@ def _run_lifecycle_hook(plugin, manifest, phase):
 
     try:
         import importlib
+        import inspect
         mod = importlib.import_module(full_module)
         func = getattr(mod, func_name, None)
         if not callable(func):
@@ -818,7 +904,20 @@ def _run_lifecycle_hook(plugin, manifest, phase):
                 f'Lifecycle {phase} hook {target} for {plugin.slug} is not callable'
             )
             return
-        func(plugin)
+        # Only forward kwargs the hook actually declares (keeps func(plugin) valid).
+        if kwargs:
+            try:
+                params = inspect.signature(func).parameters
+                accepts_kwargs = any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                )
+                passable = {k: v for k, v in kwargs.items()
+                            if accepts_kwargs or k in params}
+            except (TypeError, ValueError):
+                passable = {}
+            func(plugin, **passable)
+        else:
+            func(plugin)
         logger.info(f'Ran lifecycle.{phase} hook for {plugin.slug}')
     except Exception as e:
         logger.warning(f'Lifecycle {phase} hook for {plugin.slug} failed: {e}')
