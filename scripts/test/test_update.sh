@@ -454,5 +454,266 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T19 — U1: backup pruning must be a no-op on an empty/missing BACKUP_DIR.
+# The old `ls -t <glob> | tail | xargs` prune exited 2 on an unmatched glob,
+# aborting the updater AFTER a successful update on any box with no prior
+# backups. Also prove the retention itself: newest 10 kept, oldest removed.
+# --------------------------------------------------------------------------
+t="$WORK/t19"; mkdir -p "$t/empty" "$t/ret"
+prune_survives() {
+    ( set -Eeuo pipefail; BACKUP_DIR="$t/empty"
+      prune_old_backups 'serverkit-tree-*' 10
+      prune_old_backups 'serverkit-pre-upgrade-*.db' 10 ) &&
+    ( set -Eeuo pipefail; BACKUP_DIR="$t/gone"; prune_old_backups 'serverkit-tree-*' 10 ) &&
+    ( set -Eeuo pipefail; BACKUP_DIR="$t/empty"; INSTALL_DIR="$t/no-install"; DRY_RUN=0; cleanup )
+}
+if prune_survives >/dev/null 2>&1; then
+    ok "cleanup/prune are a clean no-op on an empty or missing BACKUP_DIR (post-update abort bug)"
+else
+    bad "backup pruning DIED on an empty/missing BACKUP_DIR — the ls-glob abort is back"
+fi
+
+for i in 01 02 03 04 05 06 07 08 09 10 11 12; do
+    mkdir -p "$t/ret/serverkit-tree-2026$i"
+    touch -d "2026-01-$i 12:00:00" "$t/ret/serverkit-tree-2026$i"
+done
+( set -Eeuo pipefail; BACKUP_DIR="$t/ret"; prune_old_backups 'serverkit-tree-*' 10 ) >/dev/null 2>&1
+remaining="$(find "$t/ret" -mindepth 1 -maxdepth 1 -name 'serverkit-tree-*' | wc -l)"
+if [ "$remaining" -eq 10 ] && [ ! -d "$t/ret/serverkit-tree-202601" ] \
+   && [ ! -d "$t/ret/serverkit-tree-202602" ] && [ -d "$t/ret/serverkit-tree-202612" ]; then
+    ok "prune_old_backups keeps the newest 10 backups and removes the oldest"
+else
+    bad "prune retention wrong: $remaining left, expected the newest 10"
+fi
+
+# --------------------------------------------------------------------------
+# T20 — U2: download_release's stdout is CAPTURED by its caller
+# (tarball="\$(download_release ...)"), so it must print exactly one line — the
+# tarball path — with every step/good/warn routed to stderr. A progress line on
+# stdout used to hand tar a 4-line "filename", breaking every --release update.
+# --------------------------------------------------------------------------
+t="$WORK/t20"; mkdir -p "$t/bin" "$t/payload"
+case "$(uname -m)" in
+    x86_64|amd64)  tarch="amd64" ;;
+    aarch64|arm64) tarch="arm64" ;;
+    *)             tarch="" ;;
+esac
+if [ -z "$tarch" ] || ! command -v sha256sum >/dev/null 2>&1; then
+    skip "download_release stdout purity — needs sha256sum + a known arch (runs on Linux CI)"
+else
+    printf 'fake-release-bytes\n' > "$t/payload/tarball"
+    sha="$(sha256sum "$t/payload/tarball" | cut -d' ' -f1)"
+    printf '%s  serverkit-v9.9.9-linux-%s.tar.gz\n' "$sha" "$tarch" > "$t/payload/checksums.txt"
+    # curl stub that actually materialises the -o target, so the mirror path
+    # runs end-to-end (download + checksum verification) without a network.
+    cat > "$t/bin/curl" <<EOF
+#!/usr/bin/env bash
+out=""; url=""
+while [ \$# -gt 0 ]; do
+    case "\$1" in
+        -o) out="\$2"; shift 2 ;;
+        -*) shift ;;
+        *)  url="\$1"; shift ;;
+    esac
+done
+case "\$url" in
+    *checksums.txt) cp "$t/payload/checksums.txt" "\$out" ;;
+    *)              cp "$t/payload/tarball" "\$out" ;;
+esac
+EOF
+    chmod +x "$t/bin/curl"
+    out="$(
+        set -Eeuo pipefail
+        export PATH="$t/bin:$PATH"
+        SERVERKIT_OFFLINE_TARBALL=""
+        SERVERKIT_MIRROR_URL="http://mirror.invalid"
+        download_release v9.9.9 2>"$t/stderr.txt"
+    )"
+    rc=$?
+    if [ "$rc" -eq 0 ] && [ -n "$out" ] && [ -f "$out" ] \
+       && [ "$(printf '%s' "$out" | wc -l)" -eq 0 ] \
+       && grep -q 'Downloading release tarball' "$t/stderr.txt"; then
+        ok "download_release captures to a single existing path (progress → stderr)"
+    else
+        bad "download_release polluted its captured stdout (rc=$rc): [$out]"
+    fi
+    off="$t/offline.tar.gz"; printf 'x' > "$off"
+    out2="$( set -Eeuo pipefail; SERVERKIT_OFFLINE_TARBALL="$off"; download_release v9.9.9 2>/dev/null )"
+    if [ "$out2" = "$off" ]; then
+        ok "download_release (offline tarball) returns exactly the tarball path"
+    else
+        bad "download_release (offline) returned [$out2], expected [$off]"
+    fi
+fi
+
+# --------------------------------------------------------------------------
+# T21 — U5/U8: a health-check-triggered rollback halts, which fires the EXIT
+# trap (cleanup_on_exit) — that trap must NOT run a second rollback on top of
+# the one that just finished. And the rollback itself must never abort
+# mid-flight: a failed daemon-reload still has to end in a started backend.
+# --------------------------------------------------------------------------
+t="$WORK/t21"; mkdir -p "$t/bin" "$t/prev"
+CALL_LOG="$t/calls.log"; : > "$CALL_LOG"
+cat > "$t/bin/systemctl" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$CALL_LOG"
+[ "\$1" = "daemon-reload" ] && exit 1               # fails mid-rollback (U8)
+if [ "\$1" = "is-active" ]; then
+    grep -q '^start ' "$CALL_LOG" && exit 0         # active once a start was issued
+    exit 1                                          # inactive before that
+fi
+exit 0
+EOF
+chmod +x "$t/bin/systemctl"
+(
+    set -Eeuo pipefail
+    export PATH="$t/bin:$PATH"
+    DRY_RUN=0
+    INSTALL_DIR="$t/serverkit"
+    PREVIOUS_DIR="$t/prev"
+    # atomic_switch needs real symlinks (unsupported on this fs — see T4); the
+    # unit under test is rollback's re-entry discipline, so stub the switch.
+    atomic_switch() { printf 'switched-to %s\n' "$1" >> "$CALL_LOG"; }
+    trap cleanup_on_exit EXIT
+    rollback
+) > "$t/out.txt" 2>&1
+n="$(grep -c 'rolling back to previous slot' "$t/out.txt")"
+if [ "$n" = "1" ]; then
+    ok "rollback runs exactly once through the halt → EXIT-trap path (no double rollback)"
+else
+    bad "rollback transcript appeared $n time(s), expected exactly once"
+fi
+if grep -q '^daemon-reload' "$CALL_LOG" && grep -q '^start serverkit' "$CALL_LOG"; then
+    ok "rollback survives a failed daemon-reload and still starts the backend (never aborts mid-flight)"
+else
+    bad "rollback aborted mid-flight on a failed daemon-reload; calls: $(tr '\n' ';' < "$CALL_LOG")"
+fi
+
+# --------------------------------------------------------------------------
+# T22 — U4: nginx down AND refusing to start must not abort the updater
+# post-switch (which would then abort AGAIN inside the rollback's EXIT trap).
+# reload_nginx_graceful warns and returns 0 no matter what nginx does.
+# --------------------------------------------------------------------------
+t="$WORK/t22"; mkdir -p "$t/bin"
+CALL_LOG="$t/calls.log"; : > "$CALL_LOG"
+cat > "$t/bin/systemctl" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$CALL_LOG"
+[ "\$1" = "start" ] && exit 1                       # nginx refuses to start
+if [ "\$1" = "is-active" ]; then
+    grep -q '^start ' "$CALL_LOG" && exit 0 || exit 1
+fi
+exit 0
+EOF
+chmod +x "$t/bin/systemctl"
+if (
+    set -Eeuo pipefail
+    export PATH="$t/bin:$PATH"
+    DRY_RUN=0
+    reload_nginx_graceful
+) >/dev/null 2>&1; then
+    ok "reload_nginx_graceful never propagates a failed nginx start (post-switch abort averted)"
+else
+    bad "reload_nginx_graceful aborted when nginx was down and refused to start"
+fi
+
+# --------------------------------------------------------------------------
+# T23 — U13: refresh_config runs `systemctl daemon-reload` pre-switch; a
+# failing reload (degraded systemd, container, chroot) must warn, not abort.
+# --------------------------------------------------------------------------
+t="$WORK/t23"
+mkdir -p "$t/nginx/sites-available" "$t/nginx/sites-enabled" "$t/target/nginx/sites-available" "$t/bin"
+printf 'http {\n}\n' > "$t/nginx/nginx.conf"
+printf 'server { listen 80; }\n' > "$t/target/nginx/sites-available/serverkit-insecure.conf"
+cat > "$t/bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = "daemon-reload" ] && exit 1
+exit 0
+EOF
+chmod +x "$t/bin/systemctl"
+if (
+    set -Eeuo pipefail
+    export PATH="$t/bin:$PATH"
+    NGINX_DIR="$t/nginx"; LETSENCRYPT_DIR="$t/le"; SYSTEMD_DIR="$t/sysd"; CONFIG_DIR="$t/cfg"; DRY_RUN=0
+    refresh_config "$t/target"
+) >/dev/null 2>&1; then
+    ok "refresh_config warns (not aborts) when systemctl daemon-reload fails"
+else
+    bad "refresh_config aborted on a failing daemon-reload"
+fi
+
+# --------------------------------------------------------------------------
+# T24 — U9: migrate_database used to `cd` into the new slot's backend and leak
+# that cwd into the main shell for the rest of the update. It now runs the
+# activation + cd in a subshell, leaving the caller's cwd untouched.
+# --------------------------------------------------------------------------
+t="$WORK/t24/serverkit-b"
+mkdir -p "$t/venv/bin" "$t/backend/instance"
+: > "$t/venv/bin/activate"
+: > "$t/backend/instance/serverkit.db"
+printf 'DATABASE_URL=sqlite:////opt/serverkit/backend/instance/serverkit.db\n' > "$t/.env"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/flask"
+chmod +x "$STUB_BIN/flask"
+exp="$(cd "$WORK" && pwd)"
+res="$(
+    set -Eeuo pipefail
+    DRY_RUN=0
+    cd "$WORK"
+    migrate_database "$t" >/dev/null 2>&1
+    pwd
+)"
+rm -f "$STUB_BIN/flask"
+if [ "$res" = "$exp" ]; then
+    ok "migrate_database leaves the caller's cwd untouched (no cd leak)"
+else
+    bad "migrate_database leaked its cd: caller cwd is now [$res]"
+fi
+
+# --------------------------------------------------------------------------
+# T25 — U12: the EXIT trap (cleanup_on_exit) must preserve the script's exit
+# code AND return 0 — returning \$rc re-fired the ERR trap from inside the
+# trap, appending a second, misleading "Update aborted" report.
+# --------------------------------------------------------------------------
+t="$WORK/t25"; mkdir -p "$t"
+(
+    set -Eeuo pipefail
+    trap 'printf "ERR-REFIRED\n"' ERR
+    trap cleanup_on_exit EXIT
+    DRY_RUN=1
+    exit 3
+) > "$t/out.txt" 2>&1
+rc=$?
+if [ "$rc" -eq 3 ] && ! grep -q 'ERR-REFIRED' "$t/out.txt"; then
+    ok "cleanup_on_exit preserves the exit code and never re-fires the ERR trap"
+else
+    bad "cleanup_on_exit changed rc to $rc or re-fired the ERR trap"
+fi
+
+# --------------------------------------------------------------------------
+# T26 — regression guards baked into the source (same spirit as T13): the
+# audited failure shapes must never creep back in.
+# --------------------------------------------------------------------------
+if ! grep -qE '^[^#]*ls -t "\$BACKUP_DIR"' "$UPDATE_SH"; then    # code lines only — the fix's comment cites the old idiom
+    ok "update.sh never prunes backups via an ls-glob (aborts on empty BACKUP_DIR)"
+else
+    bad "an 'ls -t \"\$BACKUP_DIR\"' prune is back — unmatched globs abort under pipefail"
+fi
+if grep -q 'required+=(npm)' "$UPDATE_SH"; then
+    ok "preflight requires npm for source-mode updates (no mid-update discovery)"
+else
+    bad "npm is missing from the source-mode preflight required-tools list"
+fi
+if grep -qF '${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"}' "$UPDATE_SH"; then
+    ok "self-update re-exec guards the empty-ORIG_ARGS expansion (set -u on bash < 4.4)"
+else
+    bad "the re-exec expands ORIG_ARGS unguarded — fatal with no args under set -u on old bash"
+fi
+if ! grep -qF 'frontend.*Up' "$UPDATE_SH"; then
+    ok "health_check no longer probes the retired frontend container"
+else
+    bad "the vestigial 'frontend container Up' check is still in update.sh"
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]

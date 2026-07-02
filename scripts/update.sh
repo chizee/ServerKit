@@ -212,7 +212,9 @@ maybe_reexec_latest_updater() {
     if ! cmp -s "$tmp" "$SELF_PATH" && bash -n "$tmp" 2>/dev/null; then
         info "Refreshing the updater itself from ${ref}..."
         chmod +x "$tmp" 2>/dev/null || true
-        SERVERKIT_UPDATER_REEXECED=1 exec bash "$tmp" "${ORIG_ARGS[@]}"
+        # ${arr[@]+...}: expanding an EMPTY array as "${arr[@]}" is an
+        # unbound-variable error under set -u on bash < 4.4 (older distros).
+        SERVERKIT_UPDATER_REEXECED=1 exec bash "$tmp" ${ORIG_ARGS[@]+"${ORIG_ARGS[@]}"}
     fi
     rm -f "$tmp"
 }
@@ -359,7 +361,11 @@ reload_nginx_graceful() {
         fi
     else
         warn "nginx was not running — starting it"
-        run_or_dry systemctl start nginx
+        # Never propagate a failed start: nginx being down is a pre-existing
+        # condition, and aborting here (post-switch) would fire a rollback that
+        # cannot fix nginx either — warn and let the operator handle it.
+        run_or_dry systemctl start nginx \
+            || warn "nginx failed to start — check 'systemctl status nginx'"
         wait_for_service nginx active 15 || warn "nginx did not report active within 15 seconds"
     fi
 }
@@ -499,9 +505,13 @@ preflight_check() {
     py_version="$($py_bin -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
     good "Python $py_version available ($py_bin)"
 
-    # Required commands
-    local cmd missing=()
-    for cmd in git curl tar rsync systemctl nginx docker python3; do
+    # Required commands. Source-mode updates build the SPA on the host, so npm
+    # must be checked up front — discovering it missing mid-update would abort
+    # after the new slot is already half-built. Release tarballs ship a
+    # prebuilt dist and stay npm-free.
+    local cmd missing=() required=(git curl tar rsync systemctl nginx docker python3)
+    [ "$USE_RELEASE" = "1" ] || required+=(npm)
+    for cmd in "${required[@]}"; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
     if ! docker compose version &>/dev/null && ! docker-compose --version &>/dev/null; then
@@ -514,7 +524,9 @@ preflight_check() {
 
     # Disk space (need 2 GiB free on the install filesystem)
     local avail_kb avail_gb
-    avail_kb="$(df -k "$BASE_DIR" | awk 'NR==2 {print $4}')"
+    # -P (POSIX format) pins each filesystem to one line — a long device name
+    # otherwise wraps and shifts the column the awk parse reads.
+    avail_kb="$(df -Pk "$BASE_DIR" | awk 'NR==2 {print $4}')"
     avail_gb=$((avail_kb / 1024 / 1024))
     if [ "$avail_gb" -lt 2 ]; then
         halt "Insufficient disk space on $BASE_DIR: ${avail_gb} GiB free (need at least 2 GiB)."
@@ -613,27 +625,29 @@ migrate_database() {
         return 0
     fi
 
-    # shellcheck source=/dev/null
-    source "$venv/bin/activate"
-    cd "$work_dir/backend"
-
     # For SQLite installs, migrate the COPY we placed in the *new* slot, not the
     # database the .env points at via the /opt/serverkit symlink (which still
     # resolves to the live OLD slot until atomic_switch). Touching the old slot's
     # DB here would corrupt rollback: reverting the symlink would hand the old
     # code a database already upgraded to the new schema. Pointing the migration
     # at the slot-absolute path keeps the old slot's DB byte-for-byte intact.
+    #
+    # Subshell: the venv activation and the cd must not leak into the main
+    # shell — the rest of the update keeps running from the caller's cwd.
     local slot_db="$work_dir/backend/instance/serverkit.db"
-    if grep -qE '^DATABASE_URL=sqlite' "$work_dir/.env" 2>/dev/null && [ -f "$slot_db" ]; then
-        if ! DATABASE_URL="sqlite:///$slot_db" FLASK_ENV=production flask db upgrade; then
-            halt "Database migration failed. The previous installation is still active."
+    if ! (
+        # shellcheck source=/dev/null
+        source "$venv/bin/activate"
+        cd "$work_dir/backend"
+        if grep -qE '^DATABASE_URL=sqlite' "$work_dir/.env" 2>/dev/null && [ -f "$slot_db" ]; then
+            DATABASE_URL="sqlite:///$slot_db" FLASK_ENV=production flask db upgrade
+        else
+            # Non-SQLite (e.g. PostgreSQL): the DB is shared/external, so there
+            # is no per-slot copy to isolate — migrate it directly.
+            FLASK_ENV=production flask db upgrade
         fi
-    else
-        # Non-SQLite (e.g. PostgreSQL): the DB is shared/external, so there is no
-        # per-slot copy to isolate — migrate it directly.
-        if ! FLASK_ENV=production flask db upgrade; then
-            halt "Database migration failed. The previous installation is still active."
-        fi
+    ); then
+        halt "Database migration failed. The previous installation is still active."
     fi
     good "Database migrated"
 }
@@ -641,9 +655,14 @@ migrate_database() {
 # ---------------------------------------------------------------------------
 # Release download + checksum verification
 # ---------------------------------------------------------------------------
+# Prints exactly ONE line on stdout: the path to the verified tarball. The
+# caller captures that stdout (tarball="$(download_release ...)"), so every
+# bit of progress in here is routed to stderr — a step/good line on stdout
+# would be captured into the "path" and break the tar that follows. stderr
+# still reaches the terminal and the log (init_logging merges 2>&1 into tee).
 download_release() {
     local version="$1"
-    local arch output tmp_dir base_url checksum_file tarball_url
+    local arch output tmp_dir base_url checksum_url tarball_url
 
     case "$(uname -m)" in
         x86_64|amd64)  arch="amd64" ;;
@@ -668,18 +687,18 @@ download_release() {
     tmp_dir="$(mktemp -d)"
     output="$tmp_dir/serverkit-${version}-linux-${arch}.tar.gz"
 
-    step "Downloading release tarball (${arch})..."
+    step "Downloading release tarball (${arch})..." >&2
     curl -sfL "$tarball_url" -o "$output" || halt "Failed to download $tarball_url"
 
-    step "Verifying checksum..."
+    step "Verifying checksum..." >&2
     if curl -sfL "$checksum_url" -o "$tmp_dir/checksums.txt"; then
         cd "$tmp_dir"
         if ! sha256sum -c <(grep "serverkit-${version}-linux-${arch}.tar.gz" checksums.txt) >/dev/null 2>&1; then
             halt "Checksum verification failed for release tarball."
         fi
-        good "Checksum verified"
+        good "Checksum verified" >&2
     else
-        warn "Could not download checksums.txt — skipping verification"
+        warn "Could not download checksums.txt — skipping verification" >&2
     fi
 
     echo "$output"
@@ -841,7 +860,9 @@ deploy_release() {
     unpacked="$stage/serverkit"
     [ ! -d "$unpacked" ] && unpacked="$stage/opt/serverkit"
     if [ ! -d "$unpacked" ]; then
-        unpacked="$(find "$stage" -maxdepth 2 -type d -name serverkit | head -n1)"
+        # `|| true`: head exiting first can SIGPIPE find (rc 141 under
+        # pipefail); an empty result is handled by the halt just below.
+        unpacked="$(find "$stage" -maxdepth 2 -type d -name serverkit | head -n1 || true)"
     fi
     [ -d "$unpacked" ] || halt "Release tarball layout is unrecognized"
 
@@ -977,7 +998,8 @@ EOF
     elif [ -f "$target/serverkit-backend.service" ]; then
         cp "$target/serverkit-backend.service" "$SYSTEMD_DIR/serverkit.service"
     fi
-    systemctl daemon-reload
+    systemctl daemon-reload 2>/dev/null \
+        || warn "systemd daemon-reload failed — the backend may restart with a stale unit"
     good "Configuration refreshed"
 }
 
@@ -998,6 +1020,10 @@ quick_health() {
 }
 
 rollback() {
+    # Flag FIRST: halt() below exits the script, which fires the EXIT trap
+    # (cleanup_on_exit) — without this flag already set, that trap would run a
+    # second, redundant rollback on top of the one that just finished.
+    ROLLING_BACK=1
     warn "Update failed — rolling back to previous slot..."
 
     if [ -z "${PREVIOUS_DIR:-}" ] || [ ! -d "$PREVIOUS_DIR" ]; then
@@ -1012,7 +1038,10 @@ rollback() {
 
     atomic_switch "$PREVIOUS_DIR"
 
-    systemctl daemon-reload
+    # A rollback must never abort mid-flight over one failed step — everything
+    # from here on is best-effort so the backend still gets started.
+    systemctl daemon-reload 2>/dev/null \
+        || warn "systemd daemon-reload failed during rollback — continuing"
     systemctl start "$BACKEND_SERVICE" 2>/dev/null || true
     wait_for_service "$BACKEND_SERVICE" active 30 || true
     # Frontend is static (served from the restored slot); just re-label + reload.
@@ -1026,6 +1055,23 @@ rollback() {
     else
         halt "Rolled back to $(active_real_dir) but it is STILL UNHEALTHY — manual intervention needed. Logs: journalctl -u serverkit -n 50"
     fi
+}
+
+# If the update fails after we have switched the symlink, roll back to the
+# previous slot automatically. Registered as the EXIT trap by the run block
+# below; defined here (above the source guard) so it stays unit-testable.
+cleanup_on_exit() {
+    local rc=$?
+    [ "$rc" -eq 0 ] && return 0
+    if [ "$DRY_RUN" = "0" ] && [ -n "${PREVIOUS_DIR:-}" ] && \
+       [ "${ROLLING_BACK:-0}" != "1" ] && [ "${HEALTH_PASSED:-0}" != "1" ]; then
+        ROLLING_BACK=1
+        rollback
+    fi
+    # Always return 0: the script's exit code is already $rc (an EXIT trap does
+    # not change it) — returning $rc here only re-fires the ERR trap, which
+    # appends a second, misleading "Update aborted" report.
+    return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -1057,19 +1103,28 @@ health_check() {
         rollback
     fi
 
-    # Verify frontend container is running.
-    if docker compose ps 2>/dev/null | grep -q "frontend.*Up"; then
-        good "Frontend container running"
-    else
-        warn "Frontend container not reported as Up yet"
-    fi
-
+    # No frontend probe: the panel frontend is static files served by host
+    # nginx from the active slot — there is no frontend container anymore.
     HEALTH_PASSED=1
 }
 
 # ---------------------------------------------------------------------------
 # Cleanup
 # ---------------------------------------------------------------------------
+# Trim a family of backups down to its newest <keep> entries. Deliberately
+# find-based: the old `ls -t "$BACKUP_DIR"/<glob> | tail | xargs` aborted the
+# whole updater under `set -Eeuo pipefail` whenever the glob matched nothing
+# (ls exits 2) — i.e. on every box with no prior backups of that family, AFTER
+# an otherwise successful update. find treats "nothing matched" as a clean
+# empty result, and an absent BACKUP_DIR is an explicit no-op.
+prune_old_backups() {
+    local pattern="$1" keep="$2"
+    [ -d "$BACKUP_DIR" ] || return 0
+    find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -name "$pattern" -printf '%T@\t%p\n' 2>/dev/null \
+        | sort -rn | tail -n +"$((keep + 1))" | cut -f2- \
+        | xargs -r -d '\n' rm -rf || true
+}
+
 cleanup() {
     phase "Cleanup"
 
@@ -1078,8 +1133,8 @@ cleanup() {
         return 0
     fi
 
-    ls -t "$BACKUP_DIR"/serverkit-tree-*          2>/dev/null | tail -n +11 | xargs -r rm -rf
-    ls -t "$BACKUP_DIR"/serverkit-pre-upgrade-*.db 2>/dev/null | tail -n +11 | xargs -r rm -f
+    prune_old_backups 'serverkit-tree-*'           10
+    prune_old_backups 'serverkit-pre-upgrade-*.db' 10
 
     local new_version
     new_version="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ' || echo "unknown")"
@@ -1283,7 +1338,9 @@ update_docker_compose() {
         ref="origin/$TARGET_BRANCH"
         mode="branch:$TARGET_BRANCH"
     elif [ "$USE_RELEASE" = "1" ]; then
-        ref="${RELEASE_VERSION:-$(git -C "$INSTALL_DIR" tag -l 'v*' --sort=-v:refname | head -n1)}"
+        # `|| true`: head exiting first can SIGPIPE git (rc 141 under
+        # pipefail); an empty ref is caught by the halt just below.
+        ref="${RELEASE_VERSION:-$(git -C "$INSTALL_DIR" tag -l 'v*' --sort=-v:refname | head -n1 || true)}"
         [ -n "$ref" ] || halt "Could not determine a release tag to update to"
         mode="release"
     fi
@@ -1422,18 +1479,8 @@ STARTED_AT=$(date +%s)
 
 [ "$DRY_RUN" = "1" ] && warn "DRY RUN — no changes will be made"
 
-# If the update fails after we have switched the symlink, roll back to the
-# previous slot automatically.
-cleanup_on_exit() {
-    local rc=$?
-    [ "$rc" -eq 0 ] && return 0
-    if [ "$DRY_RUN" = "0" ] && [ -n "${PREVIOUS_DIR:-}" ] && \
-       [ "${ROLLING_BACK:-0}" != "1" ] && [ "${HEALTH_PASSED:-0}" != "1" ]; then
-        ROLLING_BACK=1
-        rollback
-    fi
-    return "$rc"
-}
+# Roll back automatically if the update fails after the symlink switch (the
+# handler, cleanup_on_exit, is defined next to rollback() above).
 trap cleanup_on_exit EXIT
 
 preflight_check
@@ -1489,9 +1536,12 @@ fi
 if [ ! -d "$NEXT_DIR/frontend/dist" ]; then
     step "Building frontend..."
     if [ "$DRY_RUN" = "0" ]; then
-        cd "$NEXT_DIR/frontend"
-        npm ci --prefer-offline 2>&1 | tail -3
-        NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -5
+        # Subshell so the cd cannot leak into the main shell; the pipeline is
+        # guarded so a failed build halts loudly while the old slot still serves.
+        ( cd "$NEXT_DIR/frontend" && \
+          npm ci --prefer-offline 2>&1 | tail -3 && \
+          NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -5 ) \
+            || halt "Frontend build failed — previous installation still active"
     else
         info "[dry-run] would npm ci + npm run build in $NEXT_DIR/frontend"
     fi
@@ -1512,7 +1562,10 @@ refresh_config "$NEXT_DIR"
 APP_BASELINE="$(snapshot_app_reachability)"
 
 phase "Stopping Services"
-run_or_dry systemctl stop "$BACKEND_SERVICE"
+# Guarded like the rollback path: `systemctl stop` exits non-zero when the unit
+# is not loaded (exit 5) — a reason to warn, never to abort a healthy update.
+run_or_dry systemctl stop "$BACKEND_SERVICE" \
+    || warn "Backend service did not stop cleanly (unit may not be loaded) — continuing"
 wait_for_service "$BACKEND_SERVICE" inactive 30 || warn "Backend did not stop within 30 seconds"
 
 # Record the currently active directory before switching.
