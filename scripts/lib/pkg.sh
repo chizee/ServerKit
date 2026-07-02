@@ -80,19 +80,21 @@ pkg_detect() {
 
 # Refresh the package index for the detected manager. Best-effort: index
 # refreshes routinely fail on a flaky mirror and that should not abort an
-# install, so we never propagate the manager's exit here.
+# install, so we never propagate the manager's exit here — every arm is
+# guarded and the function always returns 0.
 pkg_refresh() {
     local mgr
     mgr="$(pkg_detect)"
     case "$mgr" in
-        apt)    _pkg_run apt-get update ;;
-        dnf)    _pkg_run dnf makecache --refresh ;;
-        yum)    _pkg_run yum makecache ;;
-        zypper) _pkg_run zypper --non-interactive refresh ;;
-        pacman) _pkg_run pacman -Sy --noconfirm ;;
-        apk)    _pkg_run apk update ;;
-        *)      return 0 ;;
+        apt)    _pkg_run apt-get update || true ;;
+        dnf)    _pkg_run dnf makecache --refresh || true ;;
+        yum)    _pkg_run yum makecache || true ;;
+        zypper) _pkg_run zypper --non-interactive refresh || true ;;
+        pacman) _pkg_run pacman -Sy --noconfirm || true ;;
+        apk)    _pkg_run apk update || true ;;
+        *)      : ;;
     esac
+    return 0
 }
 
 # Install one or more packages non-interactively for the detected manager.

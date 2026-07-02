@@ -49,6 +49,18 @@ _u_run() {
     "$@"
 }
 
+# Best-effort teardown step (rule R7): run it and, on failure, warn and keep
+# going. By the time these steps run the services are already stopped, so an
+# uninstall must never die mid-teardown and strand the box half-removed over a
+# single EBUSY (live bind-mount), EROFS or ENOSPC rm/mkdir.
+_u_try() {
+    if _u_run "$@"; then
+        return 0
+    fi
+    _u_warn "Step failed (continuing): $*"
+    return 0
+}
+
 # Remove the firewall rules we (and only we) added, reading the record left in
 # install-state.json. Must run BEFORE the config dir is deleted.
 _u_firewall_cleanup() {
@@ -64,7 +76,10 @@ _u_firewall_cleanup() {
     local backend ports
     backend="$(state_get firewall_backend 2>/dev/null || true)"
     [ -n "$backend" ] || return 0
-    ports="$(state_list firewall_ports 2>/dev/null | tr '\n' ' ')"
+    # `|| true` mirrors the state_get line above: under the entry points'
+    # pipefail a failing state_list would otherwise abort the WHOLE uninstall
+    # before anything was removed.
+    ports="$(state_list firewall_ports 2>/dev/null | tr '\n' ' ' || true)"
     [ -n "$ports" ] || return 0
 
     _u_info "Removing firewall rules we added ($backend): $ports"
@@ -119,44 +134,44 @@ serverkit_uninstall_core() {
 
     # ---- systemd unit ------------------------------------------------------
     _u_info "Removing systemd service..."
-    _u_run rm -f /etc/systemd/system/serverkit.service
+    _u_try rm -f /etc/systemd/system/serverkit.service
     _u_run systemctl daemon-reload 2>/dev/null || true
     _u_ok "Systemd service removed"
 
     # ---- nginx ServerKit-owned configs -------------------------------------
     _u_info "Removing nginx configuration..."
-    _u_run rm -f /etc/nginx/sites-enabled/serverkit.conf
-    _u_run rm -f /etc/nginx/sites-available/serverkit.conf
-    _u_run rm -f /etc/nginx/sites-available/serverkit-insecure.conf
-    _u_run rm -f /etc/nginx/sites-available/example.conf.template
-    _u_run rm -f /etc/nginx/conf.d/serverkit-tls.conf
-    _u_run rm -rf /etc/nginx/serverkit-conf.d
+    _u_try rm -f /etc/nginx/sites-enabled/serverkit.conf
+    _u_try rm -f /etc/nginx/sites-available/serverkit.conf
+    _u_try rm -f /etc/nginx/sites-available/serverkit-insecure.conf
+    _u_try rm -f /etc/nginx/sites-available/example.conf.template
+    _u_try rm -f /etc/nginx/conf.d/serverkit-tls.conf
+    _u_try rm -rf /etc/nginx/serverkit-conf.d
     if systemctl is-active --quiet nginx 2>/dev/null; then
         _u_run systemctl reload nginx 2>/dev/null || true
     fi
     _u_ok "Nginx config removed"
 
     # ---- apt lock-wait drop-in (only the installer creates this) -----------
-    _u_run rm -f /etc/apt/apt.conf.d/99-serverkit-lock-wait.conf
+    _u_try rm -f /etc/apt/apt.conf.d/99-serverkit-lock-wait.conf
 
     # ---- CLI symlink -------------------------------------------------------
-    _u_run rm -f /usr/local/bin/serverkit
+    _u_try rm -f /usr/local/bin/serverkit
 
     # ---- Code: install dir + blue/green slots + backup snapshot ------------
     _u_info "Removing installation files..."
-    _u_run rm -rf "$install_dir"
-    _u_run rm -rf "${install_dir}-a"
-    _u_run rm -rf "${install_dir}-b"
-    _u_run rm -rf "${install_dir}.backup"
+    _u_try rm -rf "$install_dir"
+    _u_try rm -rf "${install_dir}-a"
+    _u_try rm -rf "${install_dir}-b"
+    _u_try rm -rf "${install_dir}.backup"
     _u_ok "Installation directory removed"
 
     # ---- Logs (always transient) -------------------------------------------
-    _u_run rm -rf "$log_dir"
+    _u_try rm -rf "$log_dir"
 
     # ---- Data tiers --------------------------------------------------------
     if [ "$purge" = "1" ]; then
         _u_info "Purging data (--purge)..."
-        _u_run rm -rf "$data_dir" "$apps_dir" "$backup_dir" "$config_dir"
+        _u_try rm -rf "$data_dir" "$apps_dir" "$backup_dir" "$config_dir"
         _u_ok "Data directories removed"
     else
         # Config dir holds install-state.json + ssl-mode + templates. Removed by
@@ -164,13 +179,16 @@ serverkit_uninstall_core() {
         if [ "$keep_data" = "1" ]; then
             _u_info "Preserving data (--keep-data): $data_dir, $config_dir, $backup_dir"
         else
-            _u_run rm -rf "$config_dir"
+            _u_try rm -rf "$config_dir"
             _u_info "Preserved user data: $data_dir, $apps_dir, $backup_dir"
         fi
     fi
 
-    # ---- Telemetry (best-effort) -------------------------------------------
-    curl -s "https://serverkit.ai/track/uninstall" >/dev/null 2>&1 || true
+    # ---- Telemetry (best-effort; bounded so an air-gapped box never hangs,
+    # ---- and a --dry-run never phones home) ---------------------------------
+    if [ "${SERVERKIT_UNINSTALL_DRY_RUN:-0}" != "1" ]; then
+        curl -s --max-time 5 "https://serverkit.ai/track/uninstall" >/dev/null 2>&1 || true
+    fi
 }
 
 # Snapshot the live SQLite DB into the (preserved) backup dir so a default
@@ -184,7 +202,7 @@ _u_snapshot_db() {
     # Hybrid: DB sits in the install tree.
     db_src="$install_dir/backend/instance/serverkit.db"
     if [ -f "$db_src" ]; then
-        _u_run mkdir -p "$backup_dir"
+        _u_try mkdir -p "$backup_dir"
         if _u_run cp "$db_src" "$dest" 2>/dev/null; then
             _u_ok "Database snapshot saved to $dest"
             return 0
@@ -194,7 +212,7 @@ _u_snapshot_db() {
     # All-Docker: DB lives in the backend container's volume.
     if command -v docker >/dev/null 2>&1 && \
        docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx 'serverkit-backend'; then
-        _u_run mkdir -p "$backup_dir"
+        _u_try mkdir -p "$backup_dir"
         if _u_run docker cp serverkit-backend:/app/instance/serverkit.db "$dest" 2>/dev/null; then
             _u_ok "Database snapshot saved to $dest"
             return 0

@@ -20,7 +20,9 @@ set -Eeuo pipefail
 ########################################
 
 INSTALL_DIR="${SERVERKIT_DIR:-/opt/serverkit}"
-LOG_FILE="/var/log/serverkit-uninstall.log"
+# SERVERKIT_UNINSTALL_LOG is a test hook (scripts/test/test_lib.sh) — real
+# uninstalls always log to /var/log.
+LOG_FILE="${SERVERKIT_UNINSTALL_LOG:-/var/log/serverkit-uninstall.log}"
 
 PURGE=0
 KEEP_DATA=0
@@ -58,8 +60,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-mkdir -p /var/log
-exec > >(tee -a "$LOG_FILE") 2>&1
+# Logging is best-effort: an unwritable log location must not stop an
+# uninstall (or eat its output through a dead tee) — just skip the log file.
+if mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null && touch "$LOG_FILE" 2>/dev/null; then
+    exec > >(tee -a "$LOG_FILE") 2>&1
+fi
 
 ########################################
 # Colors / masthead
@@ -107,7 +112,9 @@ print_header() {
 # Root check
 ########################################
 
-if [[ $EUID -ne 0 ]]; then
+# SERVERKIT_UNINSTALL_ALLOW_NONROOT=1 is a test hook (scripts/test/test_lib.sh
+# exercises the script against throwaway fixtures) — real uninstalls need root.
+if [[ $EUID -ne 0 && "${SERVERKIT_UNINSTALL_ALLOW_NONROOT:-0}" != "1" ]]; then
     print_error "Please run as root (sudo)"
     exit 1
 fi
@@ -127,9 +134,44 @@ for d in "$SELF_DIR/scripts/lib" "$INSTALL_DIR/scripts/lib"; do
     fi
 done
 if [ -z "$UNINSTALL_LIB" ]; then
-    print_error "Cannot find scripts/lib/uninstall.sh — is ServerKit installed at $INSTALL_DIR?"
-    exit 1
+    # Remnants-only box: the install died early or /opt/serverkit was deleted
+    # by hand, so the canonical routine is gone. Refusing here used to make
+    # such a box impossible to clean up — fall back to a minimal teardown.
+    print_warning "Cannot find scripts/lib/uninstall.sh (partial or broken install at $INSTALL_DIR)."
+    print_warning "Falling back to a minimal cleanup of ServerKit remnants."
 fi
+
+########################################
+# Minimal fallback teardown (no lib found)
+########################################
+
+# Every step is best-effort and only ever removes serverkit-named paths; data
+# dirs (/var/lib/serverkit, /var/serverkit, backups) are never touched, so the
+# default "preserve user data" promise holds here too.
+_fb_run() {
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "  [uninstall] would run: $*"
+        return 0
+    fi
+    "$@" 2>/dev/null || true
+}
+
+fallback_teardown() {
+    echo "Removing ServerKit remnants (minimal fallback)..."
+    _fb_run systemctl stop serverkit
+    _fb_run systemctl disable serverkit
+    _fb_run rm -f /etc/systemd/system/serverkit.service
+    _fb_run rm -f /etc/nginx/sites-enabled/serverkit.conf
+    _fb_run rm -f /etc/nginx/sites-available/serverkit.conf
+    _fb_run rm -f /etc/nginx/sites-available/serverkit-insecure.conf
+    _fb_run rm -f /etc/nginx/conf.d/serverkit-tls.conf
+    _fb_run rm -rf /etc/nginx/serverkit-conf.d
+    _fb_run rm -f /etc/apt/apt.conf.d/99-serverkit-lock-wait.conf
+    _fb_run rm -f /usr/local/bin/serverkit
+    _fb_run rm -rf "$INSTALL_DIR" "${INSTALL_DIR}-a" "${INSTALL_DIR}-b" "${INSTALL_DIR}.backup"
+    _fb_run systemctl daemon-reload
+    echo "Minimal fallback cleanup finished."
+}
 
 ########################################
 # Confirm
@@ -157,15 +199,22 @@ fi
 # Run the canonical teardown
 ########################################
 
-# shellcheck source=scripts/lib/uninstall.sh
-source "$UNINSTALL_LIB"
+if [ -n "$UNINSTALL_LIB" ]; then
+    # shellcheck source=scripts/lib/uninstall.sh
+    source "$UNINSTALL_LIB"
 
-export SERVERKIT_DIR="$INSTALL_DIR"
-export SERVERKIT_PURGE="$PURGE"
-export SERVERKIT_KEEP_DATA="$KEEP_DATA"
-export SERVERKIT_UNINSTALL_DRY_RUN="$DRY_RUN"
+    export SERVERKIT_DIR="$INSTALL_DIR"
+    export SERVERKIT_PURGE="$PURGE"
+    export SERVERKIT_KEEP_DATA="$KEEP_DATA"
+    export SERVERKIT_UNINSTALL_DRY_RUN="$DRY_RUN"
 
-serverkit_uninstall_core
+    serverkit_uninstall_core
+else
+    if [ "$PURGE" = "1" ]; then
+        print_warning "--purge is unavailable in fallback mode — data dirs are left in place"
+    fi
+    fallback_teardown
+fi
 
 ########################################
 # Finish

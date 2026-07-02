@@ -18,7 +18,11 @@
 #   init_stop      <service>   → stop a service
 #   init_enable    <service>   → enable at boot
 #   init_disable   <service>   → disable at boot
-#   init_reload    [service]   → daemon-reload (no arg) / reload a service
+#   init_reload    [service]   → with a service: reload it, propagating the
+#                                tool's exit exactly like init_start/stop;
+#                                with no arg: systemd daemon-reload (a
+#                                successful no-op on every other init system,
+#                                where the concept does not exist)
 #   init_is_active <service>   → return 0 if running, 1 otherwise (no sudo)
 #
 # Honors:
@@ -30,9 +34,9 @@
 # enable/disable (which is symlink-based) never aborts even if the symlink op
 # fails.
 
-# Cache of the detected init system. Populated lazily, but every public function
-# still calls init_detect so that INIT_OVERRIDE/INIT_DRY_RUN flipped per-call in
-# tests always take effect — init_detect honours the override before this cache.
+# Cache of the detected init system: probing /proc and PATH once per process is
+# enough. init_detect honours INIT_OVERRIDE *before* this cache, so an override
+# flipped per-call in tests always takes effect.
 _INIT_DETECTED=""
 
 # Prepend sudo when we are not already root and sudo exists. Used only for the
@@ -71,6 +75,10 @@ init_detect() {
         printf '%s\n' "$INIT_OVERRIDE"
         return 0
     fi
+    if [ -n "$_INIT_DETECTED" ]; then
+        printf '%s\n' "$_INIT_DETECTED"
+        return 0
+    fi
     local comm=""
     if [ -d /run/systemd/system ]; then
         _INIT_DETECTED="systemd"; printf 'systemd\n'; return 0
@@ -97,14 +105,21 @@ init_detect() {
 # Print "No init system detected" and fail. Centralised so every mutating
 # function reports the same actionable message.
 _init_no_init() {
-    local action="$1" svc="$2"
+    local action="${1:-}" svc="${2:-}"
     printf '  [init] No init system detected — cannot %s %s; start it manually\n' \
         "$action" "$svc" >&2
     return 1
 }
 
+# A zero-arg call under a `set -u` caller must warn-and-fail, never die on an
+# unbound $1 expansion. Callers get the same return 1 as any other failure.
+_init_no_svc() {
+    printf '  [init] %s requires a service name\n' "${1:-}" >&2
+}
+
 init_start() {
-    local svc="$1" init
+    local svc="${1:-}" init
+    [ -n "$svc" ] || { _init_no_svc init_start; return 1; }
     init="$(init_detect)"
     case "$init" in
         systemd)  _init_run "$(_init_sudo)" systemctl start "$svc" ;;
@@ -116,7 +131,8 @@ init_start() {
 }
 
 init_stop() {
-    local svc="$1" init
+    local svc="${1:-}" init
+    [ -n "$svc" ] || { _init_no_svc init_stop; return 1; }
     init="$(init_detect)"
     case "$init" in
         systemd)  _init_run "$(_init_sudo)" systemctl stop "$svc" ;;
@@ -128,7 +144,8 @@ init_stop() {
 }
 
 init_enable() {
-    local svc="$1" init
+    local svc="${1:-}" init
+    [ -n "$svc" ] || { _init_no_svc init_enable; return 1; }
     init="$(init_detect)"
     case "$init" in
         systemd)
@@ -158,7 +175,8 @@ init_enable() {
 }
 
 init_disable() {
-    local svc="$1" init
+    local svc="${1:-}" init
+    [ -n "$svc" ] || { _init_no_svc init_disable; return 1; }
     init="$(init_detect)"
     case "$init" in
         systemd)
@@ -189,41 +207,29 @@ init_disable() {
 init_reload() {
     local svc="${1:-}" init
     init="$(init_detect)"
+    # Bare `init_reload` means "systemd daemon-reload"; the concept does not
+    # exist on other init systems, where it is a successful no-op.
+    if [ -z "$svc" ]; then
+        [ "$init" = "systemd" ] || return 0
+        _init_run "$(_init_sudo)" systemctl daemon-reload
+        return
+    fi
+    # A named reload behaves exactly like init_start/stop: it propagates the
+    # tool's exit, and warns-and-fails when no init system can be driven.
     case "$init" in
-        systemd)
-            if [ -n "$svc" ]; then
-                _init_run "$(_init_sudo)" systemctl reload "$svc"
-            else
-                _init_run "$(_init_sudo)" systemctl daemon-reload
-            fi
-            ;;
-        openrc)
-            [ -n "$svc" ] && _init_run "$(_init_sudo)" rc-service "$svc" reload
-            return 0
-            ;;
-        runit)
-            [ -n "$svc" ] && _init_run "$(_init_sudo)" sv reload "$svc"
-            return 0
-            ;;
-        sysvinit)
-            [ -n "$svc" ] && _init_run "$(_init_sudo)" service "$svc" reload
-            return 0
-            ;;
-        *)
-            # daemon-reload has no meaning without an init system; a named reload
-            # is the only mutating intent worth warning about.
-            if [ -n "$svc" ]; then
-                _init_no_init "reload" "$svc"
-            fi
-            return 0
-            ;;
+        systemd)  _init_run "$(_init_sudo)" systemctl reload "$svc" ;;
+        openrc)   _init_run "$(_init_sudo)" rc-service "$svc" reload ;;
+        runit)    _init_run "$(_init_sudo)" sv reload "$svc" ;;
+        sysvinit) _init_run "$(_init_sudo)" service "$svc" reload ;;
+        *)        _init_no_init "reload" "$svc" ;;
     esac
 }
 
 # Report whether a service is currently running. Read-only: no sudo, and the
 # tool's own output is discarded so callers can rely purely on the exit status.
 init_is_active() {
-    local svc="$1" init
+    local svc="${1:-}" init
+    [ -n "$svc" ] || return 1   # no name → not running (read-only, stay quiet)
     init="$(init_detect)"
     case "$init" in
         systemd)  systemctl is-active --quiet "$svc" ;;
