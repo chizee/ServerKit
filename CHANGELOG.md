@@ -281,11 +281,41 @@ awaiting a stable release:
 - Hardened the installer: Docker install on Fedora/RHEL, SELinux + nginx
   reverse-proxy configuration, and low-RAM swap setup.
 - Stopped dropping capability/sysinfo payloads on transient `/poll` failures.
+- **Scripts reliability (round 2)** — swept the whole install/update/uninstall/CLI
+  shell surface for the "benign non-zero under `set -e`/`pipefail`" failure class
+  behind the July 2 update outage:
+  - **Data loss closed:** re-running `install.sh` over a live install no longer
+    destroys `.env` (secret keys) and the SQLite database — it now detects the
+    existing install correctly and carries live state across the re-deploy.
+  - The default **no-domain curl-pipe install** works again (aborted at the nginx
+    phase since v1.6.25); blank Enter at the interactive domain prompt no longer
+    aborts; `--release` updates can complete (progress output was corrupting the
+    captured tarball path); updates on boxes with no prior backups no longer
+    report failure after succeeding.
+  - Rollback can no longer run twice or abort mid-flight; uninstall never aborts
+    mid-teardown and works on remnants-only boxes; `serverkit start/restart/logs/
+    add-site` degrade gracefully on partial installs, non-systemd, and RHEL-family
+    nginx layouts; `serverkit doctor` exits non-zero when checks fail.
+  - Agent enrollment: version discovery now pages past 30 releases (panel releases
+    could push every agent tag off page 1), the panel injects its known agent
+    version into the served installer, and the downloaded agent binary is
+    checksum-verified. Package installs, swap setup, Docker bootstrap, and the
+    Rocky/RHEL 9 OpenSSL/OpenSSH upgrade ordering are hardened across distro
+    families (incl. Fedora 41+ dnf5 and busybox/Alpine).
 
 ### Testing & Infra
 
 - Added a Vagrant + Hyper-V runner (Debian/Fedora/Rocky) and a Multipass-based
   end-to-end harness that runs on Windows.
+- Shell-script test harness: a fresh-minimal-box loop now proves every
+  observation/discovery function in `install.sh` and `update.sh` survives a
+  zero-app box under strict mode (the July 2 outage class), backed by a shared
+  failing-stub library and new `test_cli.sh`/`test_agent_install.sh` suites
+  (171 assertions total across the five suites).
+- Scripts CI now performs a **real install + update end-to-end** on every PR
+  touching `scripts/**` (the updater self-updates from `main`, so this gates the
+  fleet), plus nightly release-tarball install and update-from-latest-release
+  jobs and an advisory full-severity shellcheck pass.
 
 ---
 
