@@ -20,6 +20,11 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions platform (Phase 7 — scheduled update checks)** — the panel now
+  checks the extension registry for updates once a day (a regular scheduled job,
+  visible under Jobs) and notifies admins through the Notifications Bus when new
+  versions are available — once per release set, not once per day. The
+  Marketplace "Update available" badge remains the always-current surface.
 - **Extensions platform (Phase 7 — per-extension configuration)** — an extension
   that declares a `config_schema` in its manifest now gets a real **Configure**
   form on the Marketplace Installed tab (text/number/boolean/enum/secret fields);

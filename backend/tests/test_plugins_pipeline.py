@@ -268,6 +268,57 @@ def test_plugin_config_rejects_non_object(app, client, auth_headers, plugin_dirs
 
 
 # --------------------------------------------------------------------------- #
+# Scheduled extension-update check (#50)
+# --------------------------------------------------------------------------- #
+
+def test_extension_update_check_notifies_admins_once_per_release(app, monkeypatch):
+    """The daily job notifies admins when updates appear, then stays quiet for
+    the same release set, and speaks up again when the set changes."""
+    from app.jobs import builtin_handlers
+    from app.notifications.sdk import NotifySdk
+
+    sent = []
+    monkeypatch.setattr(
+        NotifySdk, 'send',
+        lambda self, event, to=None, data=None, **kw: sent.append((event, to, data)))
+
+    updates = [{'slug': 'serverkit-gui', 'installed_version': '1.0.0',
+                'available_version': '1.1.0', 'update_available': True}]
+    monkeypatch.setattr(
+        'app.services.plugin_service.check_for_updates', lambda: updates)
+
+    result = builtin_handlers.run_extension_update_check()
+    assert result == {'updates': 1, 'notified': True}
+    assert sent and sent[0][0] == 'extensions.updates_available'
+    assert sent[0][1] == 'admins'
+    assert 'serverkit-gui' in sent[0][2]['summary']
+
+    # Same release set → no second notification.
+    result = builtin_handlers.run_extension_update_check()
+    assert result == {'updates': 1, 'notified': False}
+    assert len(sent) == 1
+
+    # A newer release changes the fingerprint → notify again.
+    updates[0]['available_version'] = '1.2.0'
+    result = builtin_handlers.run_extension_update_check()
+    assert result == {'updates': 1, 'notified': True}
+    assert len(sent) == 2
+
+
+def test_extension_update_check_quiet_when_no_updates(app, monkeypatch):
+    from app.jobs import builtin_handlers
+    monkeypatch.setattr('app.services.plugin_service.check_for_updates', lambda: [])
+    assert builtin_handlers.run_extension_update_check() is None
+
+
+def test_extension_update_schedule_is_seeded():
+    """The builtin schedule table includes the daily extension-update check."""
+    from app.jobs.builtin_handlers import _BUILTINS
+    kinds = {b[0] for b in _BUILTINS}
+    assert 'builtin.extension_updates' in kinds
+
+
+# --------------------------------------------------------------------------- #
 # Boot repair pass (#48): plugins whose files a panel update wiped
 # --------------------------------------------------------------------------- #
 
