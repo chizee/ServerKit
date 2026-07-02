@@ -277,7 +277,7 @@ Tools are namespaced `<slug>__<name>`, RBAC-gated per tool, and write tools
 | GitHub / release / zip URL | Paste a URL | `POST /api/v1/plugins/install` |
 | Uploaded zip | Upload (≤ 50 MB) | `POST /api/v1/plugins/install-upload` |
 | Local path (dev) | Panel-host path | `POST /api/v1/plugins/install-local` |
-| Registry | Curated index (checksum-verified) | via Marketplace Browse |
+| Registry | Curated index (checksum-verified) — see [EXTENSIONS_REGISTRY.md](EXTENSIONS_REGISTRY.md) | via Marketplace Browse |
 
 All sources funnel through one install pipeline (`_install_from_buffer`) so
 behavior is identical. Zip-slip is rejected (absolute paths, `..`, escaping

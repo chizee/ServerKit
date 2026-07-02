@@ -20,6 +20,16 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions platform (Phase 2 — remote registry & updates)** — the Marketplace
+  Browse tab can now show extensions from a curated remote **registry** (a single
+  `index.json`), merged in and labeled "Registry", with no per-panel seeding. The
+  fetch is offline-tolerant (last-good cache → a bundled fallback index) and
+  cached. Installing from the registry is **checksum-verified** — the downloaded
+  zip's sha256 must match the index before extraction, or the install hard-fails.
+  Panel-version gates (`min_panel_version`/`max_panel_version`) block installs a
+  panel is too old to run. Installed extensions listed in the registry now get an
+  "Update available" badge and a one-click **Update**. Format + publishing guide in
+  [`docs/EXTENSIONS_REGISTRY.md`](docs/EXTENSIONS_REGISTRY.md).
 - **Extensions platform (Phase 1 — seed the marketplace)** — the Marketplace is
   now genuinely populated. **GPU Monitor** and **Workflow Builder** became bundled
   builtin extensions (`serverkit-gpu`, `serverkit-workflows`) — same route, but

@@ -232,12 +232,15 @@ def _update_plugin_metadata(plugin, manifest):
     plugin.category = manifest.get('category', 'utility')
 
 
-def install_from_url(url, user_id=None):
+def install_from_url(url, user_id=None, expected_sha256=None, force=False):
     """Download and install a plugin from a URL.
 
     Args:
         url: GitHub repo URL, release URL, or direct zip URL
         user_id: ID of the user performing the install
+        expected_sha256: if given, the downloaded zip must match this digest
+            before extraction — a mismatch is a hard failure (no partial install)
+        force: allow reinstalling over an already-active plugin (used by updates)
 
     Returns:
         InstalledPlugin instance
@@ -247,8 +250,18 @@ def install_from_url(url, user_id=None):
     except Exception as e:
         raise ValueError(f'Failed to download plugin: {e}')
 
+    if expected_sha256:
+        import hashlib
+        digest = hashlib.sha256(buf.getvalue()).hexdigest()
+        if digest.lower() != str(expected_sha256).lower():
+            raise ValueError(
+                f'Checksum mismatch — refusing to install. '
+                f'Expected sha256 {expected_sha256}, got {digest}.'
+            )
+        buf.seek(0)
+
     return _install_from_buffer(
-        buf, source_url=url, source_type='url', user_id=user_id,
+        buf, source_url=url, source_type='url', user_id=user_id, force=force,
     )
 
 
@@ -333,11 +346,14 @@ def install_from_zip(zip_bytes, user_id=None, source_name=None):
     )
 
 
-def _install_from_buffer(buf, source_url, source_type, user_id=None):
+def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False):
     """Shared install pipeline: takes a seekable BytesIO containing a zip,
     extracts it into the panel's plugin dirs, and registers / hot-loads
     the resulting blueprint. All public install_* helpers funnel here so
     behavior matches across URL / local / upload sources.
+
+    `force=True` allows reinstalling over an active plugin (the update path);
+    normal installs still refuse to clobber an active install.
     """
     _ensure_dirs()
 
@@ -359,7 +375,7 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None):
 
     # Check if already installed
     existing = InstalledPlugin.query.filter_by(slug=slug).first()
-    if existing and existing.status in ('active', 'installing'):
+    if existing and existing.status in ('active', 'installing') and not force:
         raise ValueError(f"Plugin '{slug}' is already installed (v{existing.version}). Uninstall first to reinstall.")
 
     # Create DB record early so we can track errors
@@ -947,3 +963,82 @@ def install_builtin_extension(slug, user_id=None):
             return install_from_path(entry['path'], user_id=user_id)
 
     raise ValueError(f"No builtin extension with slug '{slug}'")
+
+
+def _assert_panel_compatible(entry):
+    """Raise if the panel version is outside an entry's min/max_panel_version."""
+    from app.utils.version import version_satisfies, get_panel_version
+    panel = get_panel_version()
+    minv = entry.get('min_panel_version')
+    maxv = entry.get('max_panel_version')
+    if not version_satisfies(panel, minv, maxv):
+        raise ValueError(
+            f"{entry.get('display_name') or entry.get('slug')} "
+            f"v{entry.get('version')} needs panel "
+            f"{minv or '*'}–{maxv or '*'} (this panel is {panel})."
+        )
+
+
+def install_registry_extension(slug, user_id=None):
+    """Install an extension listed in the remote registry (checksum-verified)."""
+    from app.services import registry_service
+    entry = registry_service.get_entry(slug)
+    if not entry:
+        raise ValueError(f"No registry extension with slug '{slug}'")
+    _assert_panel_compatible(entry)
+    source = (entry.get('source') or '').strip()
+    if not source:
+        raise ValueError(f"Registry entry '{slug}' has no source URL.")
+    return install_from_url(
+        source, user_id=user_id, expected_sha256=entry.get('sha256'),
+    )
+
+
+def check_for_updates():
+    """Compare installed plugins to the registry; return update candidates.
+
+    Update v1 is registry-driven: a plugin whose slug is in the registry with a
+    higher version than installed is flagged. Panel-version compatibility is
+    surfaced so the UI can gray out an update the panel can't run yet.
+    """
+    from app.services import registry_service
+    from app.utils.version import compare_versions, version_satisfies, get_panel_version
+    panel = get_panel_version()
+    out = []
+    for p in InstalledPlugin.query.all():
+        entry = registry_service.get_entry(p.slug)
+        if not entry:
+            continue
+        available = entry.get('version')
+        out.append({
+            'slug': p.slug,
+            'plugin_id': p.id,
+            'installed_version': p.version,
+            'available_version': available,
+            'update_available': compare_versions(available, p.version) > 0,
+            'compatible': version_satisfies(
+                panel, entry.get('min_panel_version'), entry.get('max_panel_version')
+            ),
+            'source': entry.get('source'),
+        })
+    return out
+
+
+def update_plugin(plugin_id, user_id=None):
+    """Update an installed plugin to the registry's version (reinstall in place)."""
+    from app.services import registry_service
+    plugin = InstalledPlugin.query.get(plugin_id)
+    if not plugin:
+        raise ValueError('Plugin not found')
+    entry = registry_service.get_entry(plugin.slug)
+    if not entry:
+        raise ValueError(
+            f"No registry entry for '{plugin.slug}' — cannot update from the registry."
+        )
+    _assert_panel_compatible(entry)
+    source = (entry.get('source') or '').strip()
+    if not source:
+        raise ValueError('Registry entry has no source URL.')
+    return install_from_url(
+        source, user_id=user_id, expected_sha256=entry.get('sha256'), force=True,
+    )

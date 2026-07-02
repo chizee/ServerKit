@@ -410,6 +410,46 @@ def get_manifest_spec():
     })
 
 
+@plugins_bp.route('/updates', methods=['GET'])
+@jwt_required()
+def list_updates():
+    """List installed plugins that have a newer version in the registry.
+
+    Each entry: {slug, plugin_id, installed_version, available_version,
+    update_available, compatible, source}.
+    """
+    from app.services.plugin_service import check_for_updates
+    return jsonify({'updates': check_for_updates()})
+
+
+@plugins_bp.route('/<int:plugin_id>/update', methods=['POST'])
+@jwt_required()
+def update_plugin_route(plugin_id):
+    """Update an installed plugin to the registry version (reinstall in place)."""
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.services.plugin_service import update_plugin
+    try:
+        plugin = update_plugin(plugin_id, user_id=user.id)
+        AuditService.log(
+            action=AuditLog.ACTION_RESOURCE_UPDATE,
+            user_id=user.id,
+            target_type='plugin',
+            target_id=plugin.id,
+            details={'name': plugin.name, 'version': plugin.version, 'source': 'registry-update'},
+        )
+        return jsonify(plugin.to_dict())
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception:
+        import logging, uuid
+        ref = uuid.uuid4().hex[:8]
+        logging.getLogger(__name__).exception('Plugin update failed (ref=%s)', ref)
+        return jsonify({'error': 'Update failed. Check server logs.', 'ref': ref}), 500
+
+
 @plugins_bp.route('/contributions', methods=['GET'])
 @jwt_required()
 def get_contributions():
