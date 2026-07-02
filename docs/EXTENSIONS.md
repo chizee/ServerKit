@@ -409,7 +409,10 @@ Proven with `serverkit-git`; automated by the one-shot upgrade auto-install
 3. Remove the hardcoded entries from `App.jsx` (import + `<Route>` + `PAGE_TITLES`),
    `sidebarItems.js` (or the group `*Tabs.jsx`), and `CommandPalette.jsx`.
 4. Pre-bundle: `node scripts/sync-builtin-frontends.mjs`.
-5. The backend API stays core for now (two-speed extraction, decision D2). Full
+5. Lint the manifest: `node scripts/new-extension.mjs --validate
+   builtin-extensions/<slug>` — the same shape rules are enforced at install
+   time, so catching a malformed contribution here saves a failed install.
+6. The backend API stays core for now (two-speed extraction, decision D2). Full
    backend extraction happens only after the Phase 3 primitives exist.
 
 Existing panels auto-install converted builtins once on upgrade (a marker in

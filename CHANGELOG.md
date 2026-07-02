@@ -28,6 +28,13 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions platform (Phase 7 — settings slot + manifest linting)** — extensions
+  can now contribute sections to the Settings page (a `settings.section` widget
+  slot rendered below the active tab), and `plugin.json` manifests are shape-checked
+  at install time: malformed entry points, socket/model references, jobs, schedules,
+  or contribution entries now fail the install with a message naming each problem
+  instead of being silently dropped at runtime. Authors get the same rules locally
+  via `node scripts/new-extension.mjs --validate <path>`.
 - **Extensions platform (Phase 7 — scheduled update checks)** — the panel now
   checks the extension registry for updates once a day (a regular scheduled job,
   visible under Jobs) and notifies admins through the Notifications Bus when new

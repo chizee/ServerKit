@@ -268,6 +268,60 @@ def test_plugin_config_rejects_non_object(app, client, auth_headers, plugin_dirs
 
 
 # --------------------------------------------------------------------------- #
+# Manifest shape lint (#52)
+# --------------------------------------------------------------------------- #
+
+_LINT_BASE = {'name': 'demo', 'display_name': 'Demo', 'version': '1.0.0'}
+
+
+def test_manifest_lint_rejects_bad_shapes():
+    from app.services.plugin_service import _validate_manifest
+
+    with pytest.raises(ValueError, match='entry_point'):
+        _validate_manifest({**_LINT_BASE, 'entry_point': 'not-a-module-ref'})
+    with pytest.raises(ValueError, match='socket_entry'):
+        _validate_manifest({**_LINT_BASE, 'socket_entry': 'nope nope'})
+    with pytest.raises(ValueError, match=r'jobs\[0\]'):
+        _validate_manifest({**_LINT_BASE, 'jobs': [{'kind': 'x'}]})
+    with pytest.raises(ValueError, match=r'schedules\[0\]'):
+        _validate_manifest({**_LINT_BASE, 'schedules': [{'name': 'n'}]})
+    with pytest.raises(ValueError, match=r'tabs\[0\] missing to, label'):
+        _validate_manifest({**_LINT_BASE,
+                            'contributions': {'tabs': [{'group': 'files'}]}})
+    with pytest.raises(ValueError, match=r'routes\[0\] missing component'):
+        _validate_manifest({**_LINT_BASE,
+                            'contributions': {'routes': [{'path': 'x'}]}})
+    with pytest.raises(ValueError, match='lifecycle.install'):
+        _validate_manifest({**_LINT_BASE, 'lifecycle': {'install': 'no-colon'}})
+
+
+def test_manifest_lint_unknown_contrib_kind_warns_not_fails():
+    """Forward compat: a newer manifest with a contribution kind this panel
+    doesn't know must still install (warn only)."""
+    from app.services.plugin_service import _validate_manifest
+    assert _validate_manifest(
+        {**_LINT_BASE, 'contributions': {'future_kind': [{'x': 1}]}}) is True
+
+
+def test_manifest_lint_accepts_all_shipped_builtins():
+    """Every in-repo builtin manifest passes the lint — keeps the rules and the
+    shipped extensions honest against each other."""
+    from app.services.plugin_service import _validate_manifest
+    tests_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.dirname(os.path.dirname(tests_dir))
+    builtin_root = os.path.join(repo_root, 'builtin-extensions')
+    manifests = []
+    for folder in sorted(os.listdir(builtin_root)):
+        mpath = os.path.join(builtin_root, folder, 'plugin.json')
+        if os.path.isfile(mpath):
+            with open(mpath, encoding='utf-8') as f:
+                manifests.append((folder, json.load(f)))
+    assert manifests, 'no builtin manifests found'
+    for folder, manifest in manifests:
+        assert _validate_manifest(manifest) is True, folder
+
+
+# --------------------------------------------------------------------------- #
 # Scheduled extension-update check (#50)
 # --------------------------------------------------------------------------- #
 

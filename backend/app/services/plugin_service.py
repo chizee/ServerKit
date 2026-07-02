@@ -223,8 +223,34 @@ def _find_manifest(zf):
     return None, None
 
 
+# 'module:attr' references (entry_point, socket_entry, models, lifecycle hooks,
+# job handlers). Module part may be dotted; attr must be a bare identifier.
+_MODULE_REF_RE = re.compile(r'^[A-Za-z_][\w.]*:[A-Za-z_]\w*$')
+
+# Required keys per contribution kind (mirrors GET /plugins/manifest-spec and
+# docs/EXTENSIONS.md — keep the three in sync).
+_REQUIRED_CONTRIB_KEYS = {
+    'nav': ('id', 'label', 'route'),
+    'routes': ('path', 'component'),
+    'tabs': ('group', 'to', 'label'),
+    'command_palette': ('label', 'path'),
+    'widgets': ('slot', 'component'),
+    'layouts': ('id', 'component'),
+}
+
+_KNOWN_CONTRIB_KINDS = set(_REQUIRED_CONTRIB_KEYS) | {'page_titles', 'ai'}
+
+
 def _validate_manifest(manifest):
-    """Validate required fields in plugin manifest."""
+    """Validate the manifest: required fields plus the SHAPE of every
+    declarative block the platform consumes (#52).
+
+    A malformed block used to be silently skipped at runtime (contribution
+    dropped, socket never registered, job never scheduled) — hard to debug.
+    Now the install fails with a message naming each problem. Unknown
+    contribution kinds only warn, so newer manifests stay installable on
+    older panels (forward compat).
+    """
     required = ['name', 'display_name', 'version']
     missing = [f for f in required if f not in manifest]
     if missing:
@@ -234,6 +260,77 @@ def _validate_manifest(manifest):
     name = manifest['name']
     if not re.match(r'^[a-zA-Z0-9_-]+$', name):
         raise ValueError(f"Plugin name must be alphanumeric/dashes/underscores: {name}")
+
+    problems = []
+
+    for field in ('entry_point', 'socket_entry', 'models'):
+        val = manifest.get(field)
+        if val and not (isinstance(val, str) and _MODULE_REF_RE.match(val)):
+            problems.append(f"{field} must be a 'module:attr' string (got {val!r})")
+
+    lifecycle = manifest.get('lifecycle')
+    if lifecycle is not None:
+        if not isinstance(lifecycle, dict):
+            problems.append('lifecycle must be an object of phase -> module:func')
+        else:
+            for phase, target in lifecycle.items():
+                if not (isinstance(target, str) and _MODULE_REF_RE.match(target)):
+                    problems.append(
+                        f"lifecycle.{phase} must be a 'module:func' string (got {target!r})")
+
+    jobs = manifest.get('jobs')
+    if jobs is not None:
+        if not isinstance(jobs, list):
+            problems.append('jobs must be a list of {kind, handler}')
+        else:
+            for i, j in enumerate(jobs):
+                if not (isinstance(j, dict) and j.get('kind')
+                        and isinstance(j.get('handler'), str)
+                        and _MODULE_REF_RE.match(j['handler'])):
+                    problems.append(f"jobs[{i}] must be {{kind, handler: 'module:func'}}")
+
+    schedules = manifest.get('schedules')
+    if schedules is not None:
+        if not isinstance(schedules, list):
+            problems.append('schedules must be a list of {name, kind, cron?|interval_seconds?}')
+        else:
+            for i, s in enumerate(schedules):
+                if not (isinstance(s, dict) and s.get('name') and s.get('kind')):
+                    problems.append(f'schedules[{i}] needs name and kind')
+
+    contrib = manifest.get('contributions')
+    if contrib is not None and not isinstance(contrib, dict):
+        problems.append('contributions must be an object')
+    elif isinstance(contrib, dict):
+        for key in contrib:
+            if key not in _KNOWN_CONTRIB_KINDS:
+                logger.warning(
+                    f"Manifest for {name}: unknown contribution kind '{key}' (ignored)")
+
+        for kind, req in _REQUIRED_CONTRIB_KEYS.items():
+            entries = contrib.get(kind)
+            if entries is None:
+                continue
+            if not isinstance(entries, list):
+                problems.append(f'contributions.{kind} must be a list')
+                continue
+            for i, entry in enumerate(entries):
+                if not isinstance(entry, dict):
+                    problems.append(f'contributions.{kind}[{i}] must be an object')
+                    continue
+                missing_keys = [k for k in req if not entry.get(k)]
+                if missing_keys:
+                    problems.append(
+                        f"contributions.{kind}[{i}] missing {', '.join(missing_keys)}")
+
+        titles = contrib.get('page_titles')
+        if titles is not None and not isinstance(titles, dict):
+            problems.append('contributions.page_titles must be an object of path -> title')
+
+    if problems:
+        raise ValueError(
+            'Manifest validation failed: ' + '; '.join(problems)
+            + '. See GET /api/v1/plugins/manifest-spec or docs/EXTENSIONS.md.')
 
     return True
 

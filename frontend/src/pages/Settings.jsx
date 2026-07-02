@@ -20,6 +20,7 @@ import IconReferenceTab from '../components/settings/IconReferenceTab';
 import AISettingsTab from '../components/settings/AISettingsTab';
 import ModulesTab from '../components/settings/ModulesTab';
 import AboutTab from '../components/settings/AboutTab';
+import PluginSlot from '../components/PluginSlot';
 import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageTopbar, SegControl } from '@/components/ds';
@@ -314,6 +315,11 @@ const Settings = () => {
                     {activeTab === 'system' && isAdmin && <SystemTab />}
                     {activeTab === 'developer' && devMode && isAdmin && <IconReferenceTab />}
                     {activeTab === 'about' && <AboutTab />}
+                    {/* Extension-contributed settings sections (#52): widgets
+                        targeting the settings.section slot render below the
+                        active tab's content; the tab id comes down as context
+                        so a widget can scope itself to specific tabs. */}
+                    <PluginSlot name="settings.section" context={{ tab: activeTab }} />
                 </div>
             </div>
         </div>
