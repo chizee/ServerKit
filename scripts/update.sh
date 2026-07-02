@@ -193,6 +193,15 @@ report_failure() {
 # fixed one. Before doing any work, fetch the newest update.sh for the target
 # ref and re-exec into it. From this version on, "just run serverkit update"
 # is reliable no matter how old the box is.
+#
+# CHANNEL DECISION (2026-07, scripts-reliability round 2): stable installs keep
+# fetching this file from *main* — no release buffer. The flip side is that any
+# updater bug merged to main is live on every box instantly, so merges touching
+# scripts/** are gated by the real install+update e2e job in scripts-ci.yml
+# (update-e2e). Fetching from the latest release tag was considered and
+# rejected: a broken *released* updater would need a whole new release to fix,
+# while main + a CI gate keeps the one-push-fixes-the-fleet property that
+# resolved the 2026-07-02 incident.
 SELF_PATH="${BASH_SOURCE[0]}"
 maybe_reexec_latest_updater() {
     [ -n "${SERVERKIT_UPDATER_REEXECED:-}" ] && return 0    # already the latest
