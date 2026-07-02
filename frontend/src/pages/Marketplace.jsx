@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { sanitizeSvgInner } from '../utils/sanitizeSvg';
+import Modal from '@/components/Modal';
 import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import { StatStrip, Stat } from '../components/StatCard';
@@ -64,6 +66,22 @@ const titleCase = (value = '') => {
 
 const getCategoryIcon = (category) => CATEGORY_ICONS[category] || Package;
 
+// A first-party ("by ServerKit") entry is one authored by ServerKit or one whose
+// manifest explicitly opts in via `first_party`. Case-insensitive on author.
+const isFirstParty = (author, source = {}) => {
+    if (source && source.first_party) return true;
+    return String(author || '').trim().toLowerCase() === 'serverkit';
+};
+
+// Union of categories actually present across the merged catalog, ordered by the
+// canonical CATEGORIES list first, then any extras alphabetically (stable, deduped).
+const deriveCatalogCategories = (entries) => {
+    const present = new Set(entries.map((entry) => entry.category || 'utility'));
+    const known = CATEGORIES.filter((item) => present.has(item));
+    const extra = [...present].filter((item) => !CATEGORIES.includes(item)).sort();
+    return [...known, ...extra];
+};
+
 const getPublishedCatalogEntry = (extension, installed) => ({
     key: `published:${extension.id}`,
     source: 'published',
@@ -75,6 +93,9 @@ const getPublishedCatalogEntry = (extension, installed) => ({
     category: extension.category || 'utility',
     version: extension.version || '0.0.0',
     author: extension.author,
+    firstParty: isFirstParty(extension.author, extension),
+    icon: extension.icon || null,
+    screenshots: Array.isArray(extension.screenshots) ? extension.screenshots : [],
     extensionType: extension.extension_type,
     installed,
     rating: extension.rating,
@@ -105,6 +126,9 @@ const getLocalCatalogEntry = (builtin) => {
         category: manifest.category || 'utility',
         version: manifest.version || '0.0.0',
         author: manifest.author,
+        firstParty: isFirstParty(manifest.author, manifest),
+        icon: manifest.icon || null,
+        screenshots: Array.isArray(manifest.screenshots) ? manifest.screenshots : [],
         extensionType: 'built-in',
         installed: Boolean(builtin.installed),
         status: builtin.status,
@@ -141,6 +165,7 @@ const Marketplace = () => {
     const [pluginFile, setPluginFile] = useState(null);
     const [installSource, setInstallSource] = useState('url');
     const [installing, setInstalling] = useState(false);
+    const [detailEntry, setDetailEntry] = useState(null);
 
     const loadExtensions = useCallback(async () => {
         try {
@@ -189,6 +214,14 @@ const Marketplace = () => {
             toast.error(err.message || 'Local install failed');
         } finally {
             setInstalling(false);
+        }
+    };
+
+    const installEntry = (entry) => {
+        if (entry.source === 'local') {
+            handleBuiltinInstall(entry.installKey);
+        } else {
+            handleInstall(entry.installKey);
         }
     };
 
@@ -286,7 +319,9 @@ const Marketplace = () => {
     const totalDownloads = extensions.reduce((total, extension) => total + (Number(extension.download_count) || 0), 0);
     const availableCount = extensions.length + builtins.length;
     const installedCatalogCount = installedCatalogEntries.length;
-    const catalogEntries = [...localCatalogEntries, ...publishedCatalogEntries]
+    const mergedCatalogEntries = [...localCatalogEntries, ...publishedCatalogEntries];
+    const catalogCategories = deriveCatalogCategories(mergedCatalogEntries);
+    const catalogEntries = mergedCatalogEntries
         .filter((entry) => catalogEntryMatches(entry, search, category));
     const hasFilters = Boolean(search.trim() || category);
 
@@ -337,7 +372,7 @@ const Marketplace = () => {
                             aria-label="Filter by category"
                         >
                             <option value="">All Categories</option>
-                            {CATEGORIES.map((item) => (
+                            {catalogCategories.map((item) => (
                                 <option key={item} value={item}>{titleCase(item)}</option>
                             ))}
                         </select>
@@ -357,7 +392,7 @@ const Marketplace = () => {
                         >
                             All
                         </button>
-                        {CATEGORIES.map((item) => (
+                        {catalogCategories.map((item) => (
                             <button
                                 key={item}
                                 type="button"
@@ -390,6 +425,7 @@ const Marketplace = () => {
                                                         ? handleBuiltinInstall
                                                         : handleInstall
                                                 }
+                                                onOpenDetail={setDetailEntry}
                                                 statusVariant={pluginStatusVariant}
                                             />
                                         ))}
@@ -418,7 +454,7 @@ const Marketplace = () => {
                                     >
                                         All
                                     </button>
-                                    {CATEGORIES.map((item) => {
+                                    {catalogCategories.map((item) => {
                                         const Icon = getCategoryIcon(item);
                                         return (
                                             <button
@@ -606,6 +642,18 @@ const Marketplace = () => {
                 </TabsContent>
             </Tabs>
 
+            {detailEntry && (
+                <ExtensionDetailModal
+                    entry={detailEntry}
+                    installing={installing}
+                    statusVariant={pluginStatusVariant}
+                    onClose={() => setDetailEntry(null)}
+                    onInstall={() => {
+                        installEntry(detailEntry);
+                        setDetailEntry(null);
+                    }}
+                />
+            )}
         </div>
     );
 };
@@ -620,7 +668,7 @@ const SectionHeader = ({ kicker, title, meta }) => (
     </div>
 );
 
-const CatalogExtensionCard = ({ entry, installing, onInstall, statusVariant }) => {
+const CatalogExtensionCard = ({ entry, installing, onInstall, onOpenDetail, statusVariant }) => {
     const category = entry.category || 'utility';
     const Icon = getCategoryIcon(category);
     const isLocal = entry.source === 'local';
@@ -628,13 +676,30 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, statusVariant }) =
         ? titleCase(entry.status)
         : 'Installed';
 
+    const openDetail = () => onOpenDetail(entry);
+    const handleKeyDown = (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openDetail();
+        }
+    };
+
     return (
-        <article className={`extension-card extension-card--${entry.source} extension-card--${category} card`}>
+        <article
+            className={`extension-card extension-card--${entry.source} extension-card--${category} extension-card--clickable card`}
+            role="button"
+            tabIndex={0}
+            onClick={openDetail}
+            onKeyDown={handleKeyDown}
+        >
             <div className="extension-card__topline">
                 <div className={`extension-card__icon extension-card__icon--${category}`}>
                     <Icon aria-hidden="true" />
                 </div>
                 <div className="extension-card__badges">
+                    {entry.firstParty && (
+                        <Badge variant="secondary" className="extension-firstparty">by ServerKit</Badge>
+                    )}
                     <Badge variant={isLocal ? 'warning' : 'outline'}>{entry.sourceLabel}</Badge>
                     <Badge variant="outline">{titleCase(category)}</Badge>
                 </div>
@@ -681,7 +746,10 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, statusVariant }) =
                         <Button
                             size="sm"
                             disabled={isLocal && installing}
-                            onClick={() => onInstall(entry.installKey)}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onInstall(entry.installKey);
+                            }}
                         >
                             <DownloadCloud aria-hidden="true" />
                             {isLocal && installing ? 'Installing...' : 'Install'}
@@ -690,6 +758,84 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, statusVariant }) =
                 </div>
             </div>
         </article>
+    );
+};
+
+const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onInstall }) => {
+    const category = entry.category || 'utility';
+    const Icon = getCategoryIcon(category);
+    const isLocal = entry.source === 'local';
+    const iconSvg = entry.icon ? sanitizeSvgInner(entry.icon) : '';
+    const screenshots = entry.screenshots || [];
+    const installedLabel = isLocal && entry.status && entry.status !== 'active'
+        ? titleCase(entry.status)
+        : 'Installed';
+
+    return (
+        <Modal open onClose={onClose} title={entry.displayName} size="lg">
+            <div className="extension-detail">
+                <div className="extension-detail__header">
+                    <div className={`extension-detail__icon extension-detail__icon--${category}`}>
+                        {iconSvg ? (
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                aria-hidden="true"
+                                focusable="false"
+                                dangerouslySetInnerHTML={{ __html: iconSvg }}
+                            />
+                        ) : (
+                            <Icon aria-hidden="true" />
+                        )}
+                    </div>
+                    <div className="extension-detail__heading">
+                        <div className="extension-detail__badges">
+                            {entry.firstParty && (
+                                <Badge variant="secondary" className="extension-firstparty">by ServerKit</Badge>
+                            )}
+                            <Badge variant={isLocal ? 'warning' : 'outline'}>{entry.sourceLabel}</Badge>
+                            <Badge variant="outline">{titleCase(category)}</Badge>
+                        </div>
+                        <div className="extension-detail__meta">
+                            <span>v{entry.version}</span>
+                            {entry.author && <span>by {entry.author}</span>}
+                            <span>{isLocal ? 'built-in' : entry.extensionType}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <p className="extension-detail__desc">{entry.description}</p>
+
+                {screenshots.length > 0 && (
+                    <div className="extension-detail__gallery" aria-label="Screenshots">
+                        {screenshots.map((src, index) => (
+                            <img
+                                key={src}
+                                src={src}
+                                alt={`${entry.displayName} screenshot ${index + 1}`}
+                                className="extension-detail__shot"
+                                loading="lazy"
+                            />
+                        ))}
+                    </div>
+                )}
+
+                <div className="extension-detail__actions">
+                    {entry.installed ? (
+                        <Badge variant={isLocal ? statusVariant(entry.status) : 'success'}>
+                            <CheckCircle2 aria-hidden="true" />
+                            {installedLabel}
+                        </Badge>
+                    ) : (
+                        <Button disabled={isLocal && installing} onClick={onInstall}>
+                            <DownloadCloud aria-hidden="true" />
+                            {isLocal && installing ? 'Installing...' : 'Install'}
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </Modal>
     );
 };
 

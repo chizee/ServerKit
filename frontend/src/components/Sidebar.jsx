@@ -10,6 +10,7 @@ import NotificationBell from './NotificationBell';
 import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
 import { useContributions } from '../plugins/contributions';
 import { sanitizeSvgInner } from '../utils/sanitizeSvg';
+import useModules from '../hooks/useModules';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser } = useAuth();
@@ -111,7 +112,13 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             .catch(() => setGpuAvailable(false));
     }, []);
 
-    const conditions = { wpInstalled, gpuAvailable };
+    // Feature-module toggles (Email + WordPress). Default to enabled until the
+    // shared module state loads so items never flicker/hide prematurely.
+    const { isEnabled: isModuleEnabled } = useModules();
+    const emailEnabled = isModuleEnabled('email');
+    const wordpressEnabled = isModuleEnabled('wordpress');
+
+    const conditions = { wpInstalled, gpuAvailable, emailEnabled, wordpressEnabled };
     const currentPreset = user?.sidebar_config?.preset || 'recommended';
     const [manualExpanded, setManualExpanded] = useState({});
     const [autoExpanded, setAutoExpanded] = useState(null);
@@ -150,8 +157,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 category: item.category || 'system',
             }));
         // Top-level items can gate on a runtime condition (e.g. GPU Monitor
-        // only when a GPU is present), mirroring sub-item requiresCondition.
-        const conds = { wpInstalled, gpuAvailable };
+        // only when a GPU is present, or the Email/WordPress modules being
+        // enabled), mirroring sub-item requiresCondition.
+        const conds = { wpInstalled, gpuAvailable, emailEnabled, wordpressEnabled };
         const items = [...core, ...fromPlugins].filter(
             (item) => !item.requiresCondition || conds[item.requiresCondition]
         );
@@ -168,7 +176,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             }
         }
         return applyWorkspaceNavPermissions(items, activeWorkspace, user);
-    }, [user?.sidebar_config, pluginNav, wpInstalled, gpuAvailable, user]);
+    }, [user?.sidebar_config, pluginNav, wpInstalled, gpuAvailable, emailEnabled, wordpressEnabled, user]);
 
     // Group visible items by category
     const groupedItems = useMemo(() => {

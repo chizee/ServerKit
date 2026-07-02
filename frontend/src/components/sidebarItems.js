@@ -95,15 +95,12 @@ export const SIDEBAR_ITEMS = [
         label: 'WordPress',
         route: '/wordpress',
         category: 'infrastructure',
+        // Hidden when an admin disables the WordPress module (Settings → Modules).
+        requiresCondition: 'wordpressEnabled',
         icon: '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M3.5 9h17M3.5 15h17"/>'
     },
-    {
-        id: 'workflow',
-        label: 'Workflow Builder',
-        route: '/workflow',
-        category: 'infrastructure',
-        icon: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/>'
-    },
+    // Workflow Builder is now the serverkit-workflows builtin extension; its
+    // sidebar item is contributed by the extension manifest.
     {
         id: 'databases',
         label: 'Databases',
@@ -173,6 +170,8 @@ export const SIDEBAR_ITEMS = [
         label: 'Email Server',
         route: '/email',
         category: 'operations',
+        // Hidden when an admin disables the Email module (Settings → Modules).
+        requiresCondition: 'emailEnabled',
         icon: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'
     },
     {
@@ -196,16 +195,9 @@ export const SIDEBAR_ITEMS = [
         category: 'system',
         icon: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>'
     },
-    {
-        id: 'gpu',
-        label: 'GPU Monitor',
-        route: '/gpu',
-        // Hidden unless the panel host reports a GPU (Sidebar sets gpuAvailable
-        // from api.getGpuInfo) — no point showing an empty monitor.
-        requiresCondition: 'gpuAvailable',
-        category: 'system',
-        icon: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 6v12"/><circle cx="13" cy="12" r="2.5"/><path d="M17 6v12"/>'
-    },
+    // GPU Monitor is now the serverkit-gpu builtin extension; its sidebar item
+    // (still gated on gpuAvailable via requiresCondition) is contributed by the
+    // extension manifest.
     {
         // Inbound webhook console. Secret storage ("Vaults") that used to share
         // this page now lives under the Organization tab group (/vaults); only

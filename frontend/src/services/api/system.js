@@ -929,3 +929,15 @@ export async function rateExtension(extId, rating) {
         method: 'POST', body: { rating }
     });
 }
+
+// Feature module toggles (Email + WordPress verticals). getModules() is
+// available to any authenticated user; setModule() is admin-only.
+export async function getModules() {
+    return this.request('/modules');
+}
+
+export async function setModule(name, enabled) {
+    return this.request(`/modules/${name}`, {
+        method: 'PUT', body: { enabled }
+    });
+}

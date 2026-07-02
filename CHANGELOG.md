@@ -20,6 +20,17 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions platform (Phase 1 — seed the marketplace)** — the Marketplace is
+  now genuinely populated. **GPU Monitor** and **Workflow Builder** became bundled
+  builtin extensions (`serverkit-gpu`, `serverkit-workflows`) — same route, but
+  their nav/route/title/command-palette entries now come from the extension
+  manifest. An upgraded panel auto-installs a converted builtin once so nothing
+  disappears; fresh installs simply see it in the Marketplace. New **Module
+  toggles** (Settings → Modules) let an admin hide the Email and WordPress
+  verticals — nav, routes, and the module's API (`/api/v1/email`,
+  `/api/v1/wordpress`) all switch off — for a smaller panel without uninstalling
+  anything. The Marketplace gained a "by ServerKit" first-party badge, real
+  category chips, and an extension detail view with icon + screenshots.
 - **Extensions platform (Phase 0 — hygiene)** — groundwork for the small-core +
   marketplace direction. A single **extension author guide**
   ([`docs/EXTENSIONS.md`](docs/EXTENSIONS.md)) documents the manifest schema,

@@ -147,6 +147,11 @@ def create_app(config_name=None):
     from app.api.wordpress_sites import wordpress_sites_bp
     from app.api.environment_pipeline import environment_pipeline_bp
     app.register_blueprint(php_bp, url_prefix='/api/v1/php')
+    # WordPress is a toggleable module (#14): 503 its API when disabled.
+    from app.services.module_service import attach_module_guard
+    attach_module_guard(wordpress_bp, 'wordpress')
+    attach_module_guard(wordpress_sites_bp, 'wordpress')
+    attach_module_guard(environment_pipeline_bp, 'wordpress')
     app.register_blueprint(wordpress_bp, url_prefix='/api/v1/wordpress')
     app.register_blueprint(wordpress_sites_bp, url_prefix='/api/v1/wordpress')
     app.register_blueprint(environment_pipeline_bp, url_prefix='/api/v1/wordpress/projects')
@@ -262,6 +267,9 @@ def create_app(config_name=None):
 
     # Register blueprints - Email Server
     from app.api.email import email_bp
+    # Email is a toggleable module (#14): 503 its API when disabled.
+    from app.services.module_service import attach_module_guard as _attach_module_guard_email
+    _attach_module_guard_email(email_bp, 'email')
     app.register_blueprint(email_bp, url_prefix='/api/v1/email')
 
     # Register blueprints - Uptime Tracking
@@ -411,6 +419,10 @@ def create_app(config_name=None):
     from app.api.plugins import plugins_bp
     app.register_blueprint(plugins_bp, url_prefix='/api/v1/plugins')
 
+    # Register blueprints - Modules (core-vertical toggles)
+    from app.api.modules import modules_bp
+    app.register_blueprint(modules_bp, url_prefix='/api/v1/modules')
+
     # Register blueprints - Queue Bus
     from app.api.queue_bus import queue_bus_bp
     app.register_blueprint(queue_bus_bp, url_prefix='/api/v1/queue')
@@ -497,6 +509,16 @@ def create_app(config_name=None):
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning(f'Plugin loader: {e}')
+
+        # One-shot: auto-install builtin extensions that used to be core pages
+        # so an upgraded panel doesn't lose the feature (decision D3). Fresh
+        # installs see them in the Marketplace instead. Best-effort.
+        try:
+            from app.services.extension_migration import run_auto_install
+            run_auto_install()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f'Extension auto-install: {e}')
 
         # Start metrics history collection in background
         from app.services.metrics_history_service import MetricsHistoryService

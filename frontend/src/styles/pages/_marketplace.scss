@@ -211,6 +211,15 @@
         }
     }
 
+    .extension-card--clickable {
+        cursor: pointer;
+
+        &:focus-visible {
+            outline: 2px solid $accent-primary;
+            outline-offset: 2px;
+        }
+    }
+
     .extension-card__topline,
     .extension-card__footer,
     .extension-card__info,
@@ -757,5 +766,99 @@
         .extension-card__actions .btn {
             width: 100%;
         }
+    }
+}
+
+// First-party "by ServerKit" badge. Rendered both inside .marketplace-page
+// (cards) and inside the detail Modal (a Radix portal outside the page tree),
+// so it lives at the root. Matches the `secondary` variant selector specificity
+// and wins on source order to apply the accent tint.
+[data-slot='badge'].extension-firstparty {
+    gap: 4px;
+    border-color: var(--accent-dim);
+    background: var(--accent-bg);
+    color: var(--accent-bright);
+    font-weight: $font-weight-semibold;
+}
+
+// Extension detail modal (rendered in a Radix Dialog portal).
+.extension-detail {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+
+    &__header {
+        display: flex;
+        align-items: flex-start;
+        gap: $space-4;
+    }
+
+    &__icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        border-radius: $radius-lg;
+        color: $accent-primary;
+        background: fade($accent-primary-raw, 12%);
+
+        svg {
+            width: 26px;
+            height: 26px;
+        }
+    }
+
+    &__heading {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+        min-width: 0;
+    }
+
+    &__badges {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: $space-2;
+    }
+
+    &__meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: $space-3;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+    }
+
+    &__desc {
+        margin: 0;
+        color: $text-secondary;
+        font-size: $font-size-base;
+        line-height: $line-height-normal;
+    }
+
+    &__gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: $space-3;
+    }
+
+    &__shot {
+        width: 100%;
+        height: auto;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-md;
+        background: $bg-elevated;
+        object-fit: cover;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        padding-top: $space-4;
+        border-top: 1px solid $border-subtle;
     }
 }

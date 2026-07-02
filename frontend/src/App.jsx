@@ -29,7 +29,6 @@ import Services from './pages/Services';
 import NewService from './pages/NewService';
 import ServiceDetail from './pages/ServiceDetail';
 import Templates from './pages/Templates';
-import WorkflowBuilder from './pages/WorkflowBuilder';
 import Servers from './pages/Servers';
 import ServerDetail from './pages/ServerDetail';
 import AgentFleet from './pages/AgentFleet';
@@ -75,7 +74,6 @@ import StyleGuide from './pages/StyleGuide';
 import AppMap from './pages/AppMap';
 import Documentation from './pages/Documentation';
 import Deployments from './pages/Deployments';
-import GpuMonitor from './pages/GpuMonitor';
 import QueueOperations from './pages/QueueOperations';
 import QueueDetail from './pages/QueueDetail';
 import Notifications from './pages/Notifications';
@@ -84,6 +82,7 @@ import Telemetry from './pages/Telemetry';
 import Jobs from './pages/Jobs';
 import useExtensionRoutes from './plugins/ExtensionRoutes';
 import { useContributions } from './plugins/contributions';
+import ModuleRoute from './components/ModuleRoute';
 
 // Page title mapping
 const PAGE_TITLES = {
@@ -101,7 +100,6 @@ const PAGE_TITLES = {
     '/wordpress/pipelines': 'WordPress Pipelines',
     '/templates': 'Templates',
     '/deployments': 'Deployment Activity',
-    '/workflow': 'Workflow Builder',
     '/domains': 'Domains',
     '/databases': 'Databases',
     '/ssl': 'SSL Certificates',
@@ -143,7 +141,6 @@ const PAGE_TITLES = {
     '/style-guide': 'Style Guide',
     '/app-map': 'App Map',
     '/documentation': 'Documentation',
-    '/gpu': 'GPU Monitor',
     '/dynamic-dns': 'Dynamic DNS',
     '/queue': 'Queue Bus',
     '/notifications': 'Notifications',
@@ -341,23 +338,26 @@ function AppRoutes() {
                 <Route path="apps" element={<Navigate to="/services" replace />} />
                 <Route path="apps/:id" element={<LegacyAppRedirect />} />
                 <Route path="apps/:id/:tab" element={<LegacyAppRedirect />} />
+                {/* WordPress routes are gated by the WordPress module toggle
+                    (Settings → Modules); disabled ⇒ redirect to the dashboard. */}
                 <Route element={<TabGroupLayout tabs={WORDPRESS_TABS} />}>
-                    <Route path="wordpress" element={<WordPress />} />
-                    <Route path="wordpress/plugins/library" element={<WordPressPluginLibrary />} />
-                    <Route path="wordpress/pipelines" element={<WordPressProjects />} />
+                    <Route path="wordpress" element={<ModuleRoute name="wordpress"><WordPress /></ModuleRoute>} />
+                    <Route path="wordpress/plugins/library" element={<ModuleRoute name="wordpress"><WordPressPluginLibrary /></ModuleRoute>} />
+                    <Route path="wordpress/pipelines" element={<ModuleRoute name="wordpress"><WordPressProjects /></ModuleRoute>} />
                 </Route>
-                <Route path="wordpress/pipelines/:id" element={<WordPressProject />} />
-                <Route path="wordpress/pipelines/:id/:tab" element={<WordPressProject />} />
+                <Route path="wordpress/pipelines/:id" element={<ModuleRoute name="wordpress"><WordPressProject /></ModuleRoute>} />
+                <Route path="wordpress/pipelines/:id/:tab" element={<ModuleRoute name="wordpress"><WordPressProject /></ModuleRoute>} />
                 {/* Legacy "WordPress Projects" URLs → Pipelines (§2). */}
                 <Route path="wordpress/projects" element={<Navigate to="/wordpress/pipelines" replace />} />
                 <Route path="wordpress/projects/:id" element={<LegacyWpPipelineRedirect />} />
                 <Route path="wordpress/projects/:id/:tab" element={<LegacyWpPipelineRedirect />} />
-                <Route path="wordpress/:id" element={<WordPressDetail />} />
-                <Route path="wordpress/:id/:tab" element={<WordPressDetail />} />
+                <Route path="wordpress/:id" element={<ModuleRoute name="wordpress"><WordPressDetail /></ModuleRoute>} />
+                <Route path="wordpress/:id/:tab" element={<ModuleRoute name="wordpress"><WordPressDetail /></ModuleRoute>} />
                 {/* Settings sub-section in the URL (e.g. .../settings/git) so the
                     Settings left-nav is shareable and survives a refresh. */}
-                <Route path="wordpress/:id/:tab/:section" element={<WordPressDetail />} />
-                <Route path="workflow" element={<WorkflowBuilder />} />
+                <Route path="wordpress/:id/:tab/:section" element={<ModuleRoute name="wordpress"><WordPressDetail /></ModuleRoute>} />
+                {/* /workflow is now the serverkit-workflows builtin extension
+                    (contributes the route via its manifest, full layout). */}
                 <Route element={<TabGroupLayout tabs={DOMAIN_TABS} />}>
                     <Route path="domains" element={<Domains />} />
                     <Route path="ssl" element={<SSLCertificates />} />
@@ -426,7 +426,7 @@ function AppRoutes() {
                     <Route path="status-pages" element={<StatusPages />} />
                 </Route>
                 <Route path="observability" element={<Navigate to="/monitoring" replace />} />
-                <Route path="gpu" element={<GpuMonitor />} />
+                {/* /gpu is now the serverkit-gpu builtin extension. */}
                 <Route element={<TabGroupLayout tabs={BACKUP_TABS} />}>
                     <Route path="backups" element={<Backups />} />
                     <Route path="backups/:tab" element={<Backups />} />
@@ -436,8 +436,10 @@ function AppRoutes() {
                     <Route path="security" element={<Security />} />
                     <Route path="security/:tab" element={<Security />} />
                 </Route>
-                <Route path="email" element={<Email />} />
-                <Route path="email/:tab" element={<Email />} />
+                {/* Email routes are gated by the Email module toggle
+                    (Settings → Modules); disabled ⇒ redirect to the dashboard. */}
+                <Route path="email" element={<ModuleRoute name="email"><Email /></ModuleRoute>} />
+                <Route path="email/:tab" element={<ModuleRoute name="email"><Email /></ModuleRoute>} />
                 <Route path="terminal" element={<Terminal />} />
                 <Route path="terminal/terminal" element={<Navigate to="/terminal/shell" replace />} />
                 <Route path="terminal/:tab" element={<Terminal />} />
