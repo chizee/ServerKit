@@ -21,6 +21,10 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 INSTALL_SH="$REPO_DIR/install.sh"
 LIB_DIR="$REPO_DIR/scripts/lib"
 
+# Shared stub factories + the fresh-box fixture builder.
+# shellcheck source=stubs.sh
+source "$SCRIPT_DIR/stubs.sh"
+
 PASS=0
 FAIL=0
 SKIP=0
@@ -44,7 +48,7 @@ mkdir -p "$STUB_BIN" "$PY_STUB"
 # A no-op docker stub so the uninstall routine's `command -v docker` succeeds and
 # its compose-down branch runs deterministically — the CI containers don't have
 # docker installed, and we're only asserting on dry-run output anyway.
-printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/docker"; chmod +x "$STUB_BIN/docker"
+make_stub_ok "$STUB_BIN" docker
 mkpy() {  # mkpy <name> <major.minor>
     {
         printf '#!/usr/bin/env bash\n'
@@ -73,8 +77,9 @@ printf '\ninstall.sh + lib unit tests\n\n'
 # --------------------------------------------------------------------------
 # T1 — locate_python prefers a supported minor version over a too-old python3.
 # --------------------------------------------------------------------------
-res="$( set -Eeuo pipefail; PATH="$PY_STUB:$PATH"; locate_python >/dev/null 2>&1; printf '%s' "$PYTHON_BIN" )"
-if [ "$res" = "python3.11" ]; then
+if ! res="$( set -Eeuo pipefail; PATH="$PY_STUB:$PATH"; locate_python >/dev/null 2>&1; printf '%s' "$PYTHON_BIN" )"; then
+    bad "locate_python aborted under set -Eeuo pipefail"
+elif [ "$res" = "python3.11" ]; then
     ok "locate_python picks python3.11 when python3 is 3.10 and python3.12 is out of range"
 else
     bad "locate_python chose [$res], expected python3.11"
@@ -113,13 +118,14 @@ rm -f "$STUB_BIN/node" "$STUB_BIN/npm"
 # records nothing (FW_DRY_RUN suppresses state writes).
 # --------------------------------------------------------------------------
 state_file="$WORK/state-t4.json"
-out="$(
+if ! out="$(
     set -Eeuo pipefail
     export SERVERKIT_STATE_FILE="$state_file"
     FW_DRY_RUN=1 FIREWALL_BACKEND=firewalld configure_firewall 2>&1
-)"
-if printf '%s' "$out" | grep -q 'firewall-cmd --permanent --add-port=80/tcp' && \
-   printf '%s' "$out" | grep -q 'firewall-cmd --permanent --add-port=443/tcp'; then
+)"; then
+    bad "configure_firewall dry-run returned non-zero: [$out]"
+elif printf '%s' "$out" | grep -q 'firewall-cmd --permanent --add-port=80/tcp' && \
+     printf '%s' "$out" | grep -q 'firewall-cmd --permanent --add-port=443/tcp'; then
     ok "configure_firewall dry-run prints the expected firewalld commands"
 else
     bad "configure_firewall dry-run did not print the expected commands"
@@ -133,8 +139,9 @@ fi
 # --------------------------------------------------------------------------
 # T5 — firewall_detect honors the FIREWALL_BACKEND override.
 # --------------------------------------------------------------------------
-res="$( set -Eeuo pipefail; source "$LIB_DIR/firewall.sh"; FIREWALL_BACKEND=ufw firewall_detect )"
-if [ "$res" = "ufw" ]; then
+if ! res="$( set -Eeuo pipefail; source "$LIB_DIR/firewall.sh"; FIREWALL_BACKEND=ufw firewall_detect )"; then
+    bad "firewall_detect aborted under set -Eeuo pipefail"
+elif [ "$res" = "ufw" ]; then
     ok "firewall_detect honors FIREWALL_BACKEND override"
 else
     bad "firewall_detect ignored the override (got [$res])"
@@ -144,6 +151,7 @@ fi
 # T6 — state.sh roundtrip: set/get scalar, append dedup, list.
 # --------------------------------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
+    t6_rc=0
     res="$(
         set -Eeuo pipefail
         export SERVERKIT_STATE_FILE="$WORK/state-t6.json"
@@ -156,11 +164,11 @@ if command -v python3 >/dev/null 2>&1; then
         # Windows; on Linux there is nothing to strip.
         printf '%s|%s' "$(state_get firewall_backend | tr -d '\r')" \
             "$(state_list firewall_ports | tr -d '\r' | tr '\n' ',')"
-    )"
-    if [ "$res" = "firewalld|80/tcp,443/tcp," ]; then
+    )" || t6_rc=$?
+    if [ "$t6_rc" -eq 0 ] && [ "$res" = "firewalld|80/tcp,443/tcp," ]; then
         ok "state.sh set/get/append(dedup)/list roundtrip"
     else
-        bad "state.sh roundtrip wrong: got [$res]"
+        bad "state.sh roundtrip wrong: rc=$t6_rc got [$res]"
     fi
 else
     skip "state.sh roundtrip — python3 unavailable here"
@@ -185,26 +193,29 @@ uninstall_out() {  # uninstall_out <extra-env>
     )
 }
 
-def_out="$(uninstall_out '')"
-if printf '%s' "$def_out" | grep -q 'down --remove-orphans' && \
-   ! printf '%s' "$def_out" | grep -q 'down -v' && \
-   ! printf '%s' "$def_out" | grep -q 'rm -rf /var/lib/serverkit'; then
+if ! def_out="$(uninstall_out '')"; then
+    bad "uninstall default (dry-run) returned non-zero"
+elif printf '%s' "$def_out" | grep -q 'down --remove-orphans' && \
+     ! printf '%s' "$def_out" | grep -q 'down -v' && \
+     ! printf '%s' "$def_out" | grep -q 'rm -rf /var/lib/serverkit'; then
     ok "uninstall default: compose down WITHOUT -v and keeps /var/lib/serverkit"
 else
     bad "uninstall default behaved wrong (deleted data or used -v)"
 fi
 
-purge_out="$(uninstall_out 'export SERVERKIT_PURGE=1')"
-if printf '%s' "$purge_out" | grep -q 'down -v' && \
-   printf '%s' "$purge_out" | grep -q 'rm -rf /var/lib/serverkit'; then
+if ! purge_out="$(uninstall_out 'export SERVERKIT_PURGE=1')"; then
+    bad "uninstall --purge (dry-run) returned non-zero"
+elif printf '%s' "$purge_out" | grep -q 'down -v' && \
+     printf '%s' "$purge_out" | grep -q 'rm -rf /var/lib/serverkit'; then
     ok "uninstall --purge: compose down -v and removes data dirs"
 else
     bad "uninstall --purge did not remove volumes/data"
 fi
 
-keep_out="$(uninstall_out 'export SERVERKIT_KEEP_DATA=1')"
-if printf '%s' "$keep_out" | grep -q 'Preserving data' && \
-   ! printf '%s' "$keep_out" | grep -q 'rm -rf /etc/serverkit'; then
+if ! keep_out="$(uninstall_out 'export SERVERKIT_KEEP_DATA=1')"; then
+    bad "uninstall --keep-data (dry-run) returned non-zero"
+elif printf '%s' "$keep_out" | grep -q 'Preserving data' && \
+     ! printf '%s' "$keep_out" | grep -q 'rm -rf /etc/serverkit'; then
     ok "uninstall --keep-data: preserves /etc/serverkit"
 else
     bad "uninstall --keep-data removed the config dir"
@@ -239,12 +250,13 @@ inst2="$WORK/custom/srv"
 mkdir -p "$inst2/templates"
 cp "$REPO_DIR/templates/serverkit-backend.service.in" "$inst2/templates/"
 unit_out="$WORK/rendered.service"
+t9_rc=0
 (
     set -Eeuo pipefail
     INSTALL_DIR="$inst2"; VENV_DIR="$inst2/venv"; LOG_DIR="/var/log/serverkit"
     render_service_unit "$unit_out"
-)
-if grep -q "WorkingDirectory=$inst2/backend" "$unit_out" && \
+) || t9_rc=$?
+if [ "$t9_rc" -eq 0 ] && grep -q "WorkingDirectory=$inst2/backend" "$unit_out" && \
    grep -q "$inst2/venv/bin/gunicorn" "$unit_out" && \
    ! grep -q '@SERVERKIT_DIR@\|@SERVERKIT_VENV_DIR@\|@PORT@' "$unit_out"; then
     ok "render_service_unit substitutes a custom SERVERKIT_DIR and leaves no placeholders"
@@ -258,8 +270,9 @@ fi
 # (A) RHEL-style: no ssl_protocols, has conf.d include → reversible snippet.
 ndA="$WORK/nginxA"; mkdir -p "$ndA/conf.d"
 printf 'http {\n    include /etc/nginx/conf.d/*.conf;\n}\n' > "$ndA/nginx.conf"
-( set -Eeuo pipefail; SERVERKIT_NGINX_DIR="$ndA" harden_global_tls )
-if [ -f "$ndA/conf.d/serverkit-tls.conf" ] && \
+tlsA_rc=0
+( set -Eeuo pipefail; SERVERKIT_NGINX_DIR="$ndA" harden_global_tls ) || tlsA_rc=$?
+if [ "$tlsA_rc" -eq 0 ] && [ -f "$ndA/conf.d/serverkit-tls.conf" ] && \
    grep -q 'TLSv1.2 TLSv1.3' "$ndA/conf.d/serverkit-tls.conf" && \
    ! grep -q 'ssl_protocols' "$ndA/nginx.conf"; then
     ok "harden_global_tls drops a reversible conf.d snippet when nginx.conf has none"
@@ -271,8 +284,9 @@ fi
 # (a second declaration would be a 'duplicate ssl_protocols' error).
 ndB="$WORK/nginxB"; mkdir -p "$ndB/conf.d"
 printf 'http {\n    ssl_protocols TLSv1.1 TLSv1.2;\n    include /etc/nginx/conf.d/*.conf;\n}\n' > "$ndB/nginx.conf"
-( set -Eeuo pipefail; SERVERKIT_NGINX_DIR="$ndB" harden_global_tls )
-if [ ! -f "$ndB/conf.d/serverkit-tls.conf" ] && \
+tlsB_rc=0
+( set -Eeuo pipefail; SERVERKIT_NGINX_DIR="$ndB" harden_global_tls ) || tlsB_rc=$?
+if [ "$tlsB_rc" -eq 0 ] && [ ! -f "$ndB/conf.d/serverkit-tls.conf" ] && \
    grep -q 'ssl_protocols TLSv1.2 TLSv1.3;' "$ndB/nginx.conf"; then
     ok "harden_global_tls edits nginx.conf in place (no duplicate) when ssl_protocols exists"
 else
@@ -351,13 +365,14 @@ if printf '\n' | ( set -Eeuo pipefail
 else
     bad "prompt_for_domain DIED on a blank answer under set -e (I2 regression)"
 fi
-res="$(printf 'panel.example.com\n' | (
+if ! res="$(printf 'panel.example.com\n' | (
     set -Eeuo pipefail
     PANEL_DOMAIN=""; PANEL_PORT=""; SERVERKIT_FORCE_PROMPT=1
     prompt_for_domain >/dev/null 2>&1
     printf '%s|%s' "$PANEL_DOMAIN" "$PANEL_PORT"
-))"
-if [ "$res" = "panel.example.com|80" ]; then
+))"; then
+    bad "prompt_for_domain aborted on a typed domain under set -Eeuo pipefail"
+elif [ "$res" = "panel.example.com|80" ]; then
     ok "prompt_for_domain accepts a typed domain and sets the port"
 else
     bad "prompt_for_domain returned [$res], expected panel.example.com|80"
@@ -444,18 +459,20 @@ fi
 # --------------------------------------------------------------------------
 t="$WORK/t17"; mkdir -p "$t/inst"
 printf 'v1\n' > "$t/inst/marker"
-( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; snapshot_existing ) >/dev/null 2>&1
-if [ -f "$t/inst.backup/marker" ] && grep -q v1 "$t/inst.backup/marker"; then
+snap_rc=0
+( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; snapshot_existing ) >/dev/null 2>&1 || snap_rc=$?
+if [ "$snap_rc" -eq 0 ] && [ -f "$t/inst.backup/marker" ] && grep -q v1 "$t/inst.backup/marker"; then
     ok "snapshot_existing creates the first backup"
 else
-    bad "snapshot_existing did not create a backup"
+    bad "snapshot_existing rc=$snap_rc or did not create a backup"
 fi
 printf 'v2\n' > "$t/inst/marker"
-( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; snapshot_existing ) >/dev/null 2>&1
-if grep -q v2 "$t/inst.backup/marker" 2>/dev/null && [ ! -d "$t/inst.backup.new" ]; then
+snap_rc=0
+( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; snapshot_existing ) >/dev/null 2>&1 || snap_rc=$?
+if [ "$snap_rc" -eq 0 ] && grep -q v2 "$t/inst.backup/marker" 2>/dev/null && [ ! -d "$t/inst.backup.new" ]; then
     ok "snapshot_existing refreshes a stale .backup on re-run (no months-old rollback source)"
 else
-    bad "snapshot_existing kept the stale backup (I20 regression) or left .backup.new behind"
+    bad "snapshot_existing rc=$snap_rc, kept the stale backup (I20 regression) or left .backup.new behind"
 fi
 
 # --------------------------------------------------------------------------
@@ -550,11 +567,12 @@ else
     bad "upgrade_rhel_crypto_stack missing/wrong dnf transaction or aborted (I5 regression)"
 fi
 : > "$DNF_LOG"
-( set -Eeuo pipefail; PATH="$t/bin:$PATH"; OS_FAMILY=debian upgrade_rhel_crypto_stack ) >/dev/null 2>&1
-if [ ! -s "$DNF_LOG" ]; then
+rhel_rc=0
+( set -Eeuo pipefail; PATH="$t/bin:$PATH"; OS_FAMILY=debian upgrade_rhel_crypto_stack ) >/dev/null 2>&1 || rhel_rc=$?
+if [ "$rhel_rc" -eq 0 ] && [ ! -s "$DNF_LOG" ]; then
     ok "upgrade_rhel_crypto_stack is a no-op outside the RHEL family"
 else
-    bad "upgrade_rhel_crypto_stack ran dnf on a non-RHEL family"
+    bad "upgrade_rhel_crypto_stack rc=$rhel_rc or ran dnf on a non-RHEL family"
 fi
 
 # --------------------------------------------------------------------------
@@ -764,8 +782,9 @@ fi
 # under pipefail.
 # --------------------------------------------------------------------------
 t="$WORK/t28"; mkdir -p "$t/nofree"
-res="$( set -Eeuo pipefail; PATH="$t/nofree"; SAFE_MODE=true; gauge_memory >/dev/null 2>&1; printf '%s' "$SAFE_MODE" )"
-if [ "$res" = "false" ]; then
+if ! res="$( set -Eeuo pipefail; PATH="$t/nofree"; SAFE_MODE=true; gauge_memory >/dev/null 2>&1; printf '%s' "$SAFE_MODE" )"; then
+    bad "gauge_memory aborted without 'free' under set -Eeuo pipefail (I14 regression)"
+elif [ "$res" = "false" ]; then
     ok "gauge_memory degrades gracefully when 'free' is absent (LXC templates)"
 else
     bad "gauge_memory aborted or left SAFE_MODE=[$res] without 'free' (I14 regression)"
@@ -805,9 +824,10 @@ printf '%s\n' "\$1" >> "$PROCS"
 EOF
 printf '#!/usr/bin/env bash\nexit 0\n' > "$t/bin/mkswap"
 chmod +x "$t/bin/"*
-out="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"
-        SERVERKIT_SWAPFILE="$t/swapfile2" SERVERKIT_PROC_SWAPS="$PROCS" ensure_swap 2>&1 )"
-if printf '%s' "$out" | grep -q 'Swap active' && grep -q "$t/swapfile2" "$PROCS"; then
+if ! out="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"
+        SERVERKIT_SWAPFILE="$t/swapfile2" SERVERKIT_PROC_SWAPS="$PROCS" ensure_swap 2>&1 )"; then
+    bad "ensure_swap returned non-zero on the success path"
+elif printf '%s' "$out" | grep -q 'Swap active' && grep -q "$t/swapfile2" "$PROCS"; then
     ok "ensure_swap claims success only after swapon verifiably activated the file"
 else
     bad "ensure_swap did not verify/activate swap on the success path (I19): [$out]"
@@ -886,8 +906,9 @@ esac
 exit 22
 EOF
 chmod +x "$t/bin/curl"
-res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; SERVERKIT_VERSION="" resolve_release_tag )"
-if [ "$res" = "v9.9.9" ] && ! grep -q 'api.github.com' "$CURL_LOG"; then
+if ! res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; SERVERKIT_VERSION="" resolve_release_tag )"; then
+    bad "resolve_release_tag (redirect path) returned non-zero"
+elif [ "$res" = "v9.9.9" ] && ! grep -q 'api.github.com' "$CURL_LOG"; then
     ok "resolve_release_tag reads the tag from the releases/latest redirect (no API quota burned)"
 else
     bad "resolve_release_tag primary path returned [$res]; curl saw: $(tr '\n' ';' < "$CURL_LOG")"
@@ -902,8 +923,9 @@ esac
 exit 22
 EOF
 chmod +x "$t/bin/curl"
-res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; SERVERKIT_VERSION="" resolve_release_tag )"
-if [ "$res" = "v8.8.8" ]; then
+if ! res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; SERVERKIT_VERSION="" resolve_release_tag )"; then
+    bad "resolve_release_tag (API fallback) returned non-zero"
+elif [ "$res" = "v8.8.8" ]; then
     ok "resolve_release_tag falls back to the GitHub API when the redirect is unreachable"
 else
     bad "resolve_release_tag API fallback returned [$res] (I15)"
@@ -982,12 +1004,13 @@ cat > "$t/sysd/systemctl" <<EOF
 printf 'systemctl %s\n' "\$*" >> "$SVC_LOG"
 EOF
 chmod +x "$t/sysd/systemctl"
+svc_rc=0
 ( set -Eeuo pipefail; PATH="$t/sysd:$PATH"
-  INIT_OVERRIDE=systemd svc_enable nginx; INIT_OVERRIDE=systemd svc_start nginx ) >/dev/null 2>&1
-if grep -q 'systemctl enable nginx' "$SVC_LOG" && grep -q 'systemctl start nginx' "$SVC_LOG"; then
+  INIT_OVERRIDE=systemd svc_enable nginx; INIT_OVERRIDE=systemd svc_start nginx ) >/dev/null 2>&1 || svc_rc=$?
+if [ "$svc_rc" -eq 0 ] && grep -q 'systemctl enable nginx' "$SVC_LOG" && grep -q 'systemctl start nginx' "$SVC_LOG"; then
     ok "svc_enable/svc_start drive systemctl on systemd boxes"
 else
-    bad "svc verbs missed systemctl (I17): $(tr '\n' ';' < "$SVC_LOG")"
+    bad "svc verbs rc=$svc_rc or missed systemctl (I17): $(tr '\n' ';' < "$SVC_LOG")"
 fi
 : > "$SVC_LOG"
 cat > "$t/rc/rc-update" <<EOF
@@ -1026,6 +1049,10 @@ fi
 # --------------------------------------------------------------------------
 t="$WORK/t34"; mkdir -p "$t/opt/serverkit" "$t/opt/serverkit-a/stale"
 printf 'live\n' > "$t/opt/serverkit/marker"
+# Deliberately status-unchecked: ensure_install_layout's trailing `ln -s`
+# legitimately fails on Git Bash (MSYS "symlinks" are copies, so the -L probe
+# is false and the re-link hits an existing dir); the file assertions below
+# fully constrain the behaviour under test. On Linux CI the subshell exits 0.
 ( set -Eeuo pipefail
   INSTALL_DIR="$t/opt/serverkit"; DIR_A="$t/opt/serverkit-a"; DIR_B="$t/opt/serverkit-b"
   FIRST_SLOT="$t/opt/serverkit-a"
@@ -1047,11 +1074,12 @@ ID_LIKE=debian
 PRETTY_NAME="Ubuntu 24.04 LTS"
 VERSION="24.04.1 LTS (Noble Numbat)"
 OSR_EOF
-res="$( set -Eeuo pipefail
+if ! res="$( set -Eeuo pipefail
         VERSION="sk-sentinel"
         SERVERKIT_OS_RELEASE="$t/os-release" identify_system >/dev/null 2>&1
-        printf '%s|%s' "$VERSION" "$OS_FAMILY" )"
-if [ "$res" = "sk-sentinel|debian" ]; then
+        printf '%s|%s' "$VERSION" "$OS_FAMILY" )"; then
+    bad "identify_system aborted under set -Eeuo pipefail"
+elif [ "$res" = "sk-sentinel|debian" ]; then
     ok "identify_system keeps the installer's \$VERSION across the os-release source"
 else
     bad "identify_system clobbered VERSION/OS_FAMILY (I22 regression): [$res]"
@@ -1077,20 +1105,22 @@ fi
 # --------------------------------------------------------------------------
 t="$WORK/t37"; mkdir -p "$t/inst"
 printf 'SECRET_KEY=sentinel-keep\nSERVERKIT_SSL_MODE=insecure\nPORT=80\n' > "$t/inst/.env"
-( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; SSL_MODE=secure; write_config ) >/dev/null 2>&1
-if grep -q '^SERVERKIT_SSL_MODE=secure$' "$t/inst/.env" && \
+wc_rc=0
+( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; SSL_MODE=secure; write_config ) >/dev/null 2>&1 || wc_rc=$?
+if [ "$wc_rc" -eq 0 ] && grep -q '^SERVERKIT_SSL_MODE=secure$' "$t/inst/.env" && \
    grep -q '^SECRET_KEY=sentinel-keep$' "$t/inst/.env" && \
    [ "$(grep -c '^SERVERKIT_SSL_MODE=' "$t/inst/.env")" = "1" ]; then
     ok "write_config early-return refreshes SERVERKIT_SSL_MODE in an existing .env (secrets intact)"
 else
-    bad "write_config left a stale/duplicated SSL mode in the existing .env (I24 regression)"
+    bad "write_config rc=$wc_rc or left a stale/duplicated SSL mode in the existing .env (I24 regression)"
 fi
 printf 'SECRET_KEY=nokey-line\n' > "$t/inst/.env"
-( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; SSL_MODE=insecure; write_config ) >/dev/null 2>&1
-if grep -q '^SERVERKIT_SSL_MODE=insecure$' "$t/inst/.env" && grep -q '^SECRET_KEY=nokey-line$' "$t/inst/.env"; then
+wc_rc=0
+( set -Eeuo pipefail; INSTALL_DIR="$t/inst"; SSL_MODE=insecure; write_config ) >/dev/null 2>&1 || wc_rc=$?
+if [ "$wc_rc" -eq 0 ] && grep -q '^SERVERKIT_SSL_MODE=insecure$' "$t/inst/.env" && grep -q '^SECRET_KEY=nokey-line$' "$t/inst/.env"; then
     ok "write_config appends SERVERKIT_SSL_MODE when a pre-existing .env lacks it"
 else
-    bad "write_config did not add the missing SSL-mode key to a pre-existing .env (I24)"
+    bad "write_config rc=$wc_rc or did not add the missing SSL-mode key to a pre-existing .env (I24)"
 fi
 
 # --------------------------------------------------------------------------
@@ -1124,6 +1154,70 @@ if ! grep -q 'svc_enable nginx' "$INSTALL_SH" || ! grep -q 'svc_start serverkit'
     guards2_ok=0
 fi
 [ "$guards2_ok" = "1" ] && ok "source guards: no curl|sh docker pipe, no 'df /opt', svc verbs at the call sites"
+
+# --------------------------------------------------------------------------
+# T40 — the fresh-minimal-box loop (twin of test_update.sh's; see the
+# 2026-07-02 outage note there). EVERY observation/discovery/snapshot/report/
+# probe function in install.sh must survive the emptiest valid world a fresh
+# box presents — nothing installed yet, zero apps, zero containers, no
+# optional confs, dead network, empty state — under set -Eeuo pipefail.
+#
+# POLICY: every new observation/discovery/snapshot/report function added to
+# install.sh MUST be appended here (add args/disposition to the case table
+# when needed). Dispositions:
+#   must0 — output/result is captured by assignment somewhere (X="$(fn)"), so
+#           a non-zero exit IS the outage: the function must exit 0.
+#   pred  — used only in conditional position (if fn; ...) or legitimately
+#           environment-dependent (root checks, host tool probes): it must
+#           merely return normally (no set -u crash, no signal death).
+# --------------------------------------------------------------------------
+FRESH="$WORK/freshbox"
+make_fresh_box_fixture "$FRESH"
+
+INSTALL_OBSERVERS=(
+    os_family_from ver_in_range py_venv_ok node_major node_ready
+    locate_python gauge_memory identify_system preflight resolve_release_tag
+    should_default_to_release svc_has_systemd snapshot_existing
+    choose_ssl_mode await_health ping_telemetry
+)
+
+loop_fail=0
+for fn in "${INSTALL_OBSERVERS[@]}"; do
+    args=(); mode=must0
+    case "$fn" in
+        os_family_from) args=(ubuntu "") ;;
+        ver_in_range)   args=(3.11) ;;
+        py_venv_ok)     args=(python3); mode=pred ;;
+        node_major|node_ready|locate_python|preflight|svc_has_systemd|await_health) mode=pred ;;
+    esac
+    out="$(
+        {
+            set -Eeuo pipefail
+            export PATH="$FRESH/bin:$PATH"
+            INSTALL_DIR="$FRESH/opt/serverkit"; SERVERKIT_DIR="$INSTALL_DIR"
+            DIR_A="$FRESH/opt/serverkit-a"; DIR_B="$FRESH/opt/serverkit-b"
+            FIRST_SLOT="$DIR_A"
+            OS_FAMILY=unknown; PKG_MGR=""; PANEL_DOMAIN=""; SSL_MODE=insecure
+            SERVERKIT_SKIP_SSL=0; BUILD_FROM_SOURCE=0; SERVERKIT_VERSION=""
+            INSTALL_FROM_RELEASE=0; SERVERKIT_OFFLINE_TARBALL=""; SERVERKIT_MIRROR_URL=""
+            SERVERKIT_OS_RELEASE="$FRESH/etc/os-release"
+            SERVERKIT_NGINX_DIR="$FRESH/etc/nginx"
+            SERVERKIT_CONFIG_DIR="$FRESH/etc/serverkit"
+            "$fn" ${args[@]+"${args[@]}"}
+        } </dev/null 2>&1
+    )"
+    rc=$?
+    if [ "$mode" = "must0" ] && [ "$rc" -ne 0 ]; then
+        bad "fresh-box loop: $fn exited $rc on a fresh box: [$(printf '%s' "$out" | tail -c 160)]"
+        loop_fail=1
+    elif [ "$mode" = "pred" ] && { [ "$rc" -gt 128 ] || printf '%s' "$out" | grep -q 'unbound variable'; }; then
+        bad "fresh-box loop: predicate $fn crashed (rc=$rc) on a fresh box: [$(printf '%s' "$out" | tail -c 160)]"
+        loop_fail=1
+    fi
+done
+if [ "$loop_fail" = "0" ]; then
+    ok "fresh-box loop: all ${#INSTALL_OBSERVERS[@]} observation/discovery functions survive a fresh box"
+fi
 
 # --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"

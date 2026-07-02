@@ -175,8 +175,12 @@ report_failure() {
     printf '\n  %s✘  Update aborted%s during %s%s%s\n' \
         "$HUE_ERR" "$RST" "$BLD" "$LAST_PHASE" "$RST" >&2
     printf '     %sexit %s · line %s · %s%s\n' "$FOG" "$rc" "$line" "$cmd" "$RST" >&2
-    [ -n "$UPDATE_LOG" ] && \
+    # `if`, not a trailing `&&` list: with UPDATE_LOG empty (fresh box before
+    # init_logging, SERVERKIT_NO_LOG=1) the list form returns 1 from the
+    # reporter itself — the same species as the July 2 outage.
+    if [ -n "$UPDATE_LOG" ]; then
         printf '     %sfull log: %s%s\n' "$FOG" "$UPDATE_LOG" "$RST" >&2
+    fi
 }
 
 # ---------------------------------------------------------------------------

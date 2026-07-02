@@ -18,6 +18,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPDATE_SH="$SCRIPT_DIR/../update.sh"
 
+# Shared stub factories + the fresh-box fixture builder.
+# shellcheck source=stubs.sh
+source "$SCRIPT_DIR/stubs.sh"
+
 PASS=0
 FAIL=0
 SKIP=0
@@ -34,9 +38,7 @@ trap 'rm -rf "$WORK"' EXIT
 # --------------------------------------------------------------------------
 STUB_BIN="$WORK/bin"
 mkdir -p "$STUB_BIN"
-for cmd in systemctl nginx npm curl; do
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/$cmd"
-done
+make_stub_ok "$STUB_BIN" systemctl nginx npm curl
 # docker stub: `docker ps ...` lists the fixture container names; anything else
 # (image inspect/tag/compose/...) is a harmless no-op.
 cat > "$STUB_BIN/docker" <<'EOF'
@@ -137,13 +139,14 @@ ln -sfn "$t/serverkit-a" "$t/serverkit" 2>/dev/null || true
 if [ ! -L "$t/serverkit" ]; then
     skip "active/next slot flip — symlinks unsupported here (works on Linux CI)"
 else
-    res="$(
+    exp="$(readlink -f "$t/serverkit-a")|$t/serverkit-b"
+    if ! res="$(
         set -Eeuo pipefail
         INSTALL_DIR="$t/serverkit"; DIR_A="$t/serverkit-a"; DIR_B="$t/serverkit-b"
         printf '%s|%s' "$(active_real_dir)" "$(next_real_dir)"
-    )"
-    exp="$(readlink -f "$t/serverkit-a")|$t/serverkit-b"
-    if [ "$res" = "$exp" ]; then
+    )"; then
+        bad "active/next slot resolution aborted under set -Eeuo pipefail"
+    elif [ "$res" = "$exp" ]; then
         ok "active/next slot flip (A active → B is next)"
     else
         bad "active/next slot wrong: got [$res] expected [$exp]"
@@ -153,11 +156,15 @@ fi
 # --------------------------------------------------------------------------
 # T5 — the loud-failure reporter actually emits a labelled diagnostic.
 # --------------------------------------------------------------------------
-out="$(LAST_PHASE='Refreshing Configuration' report_failure 2 42 'grep ... serverkit.conf' 2>&1)"
-if printf '%s' "$out" | grep -q 'Update aborted'; then
+# UPDATE_LOG pinned non-empty so the "full log:" line is part of what T5
+# asserts; the empty-UPDATE_LOG return-0 contract is covered by the fresh-box
+# loop below (report_failure is in UPDATE_OBSERVERS).
+if out="$(LAST_PHASE='Refreshing Configuration' UPDATE_LOG='/dev/null' \
+          report_failure 2 42 'grep ... serverkit.conf' 2>&1)" \
+   && printf '%s' "$out" | grep -q 'Update aborted'; then
     ok "report_failure emits a labelled 'Update aborted' diagnostic"
 else
-    bad "report_failure produced no diagnostic"
+    bad "report_failure produced no diagnostic (or returned non-zero)"
 fi
 
 # --------------------------------------------------------------------------
@@ -245,16 +252,17 @@ printf '%s' "\${DATABASE_URL:-NONE}" > "$FLASK_CAP"
 exit 0
 EOF
 chmod +x "$STUB_BIN/flask"
+mig_rc=0
 (
     set -Eeuo pipefail
     DRY_RUN=0
     migrate_database "$t"
-) >/dev/null 2>&1
+) >/dev/null 2>&1 || mig_rc=$?
 saw="$(tr -d '\r' < "$FLASK_CAP" 2>/dev/null || true)"
-if [ "$saw" = "sqlite:///$t/backend/instance/serverkit.db" ]; then
+if [ "$mig_rc" -eq 0 ] && [ "$saw" = "sqlite:///$t/backend/instance/serverkit.db" ]; then
     ok "migrate_database targets the new slot's DB, leaving the old slot untouched"
 else
-    bad "migrate_database used [$saw], expected the slot-absolute new-slot DB path"
+    bad "migrate_database rc=$mig_rc, used [$saw], expected rc 0 + the slot-absolute new-slot DB path"
 fi
 rm -f "$STUB_BIN/flask"
 
@@ -348,18 +356,20 @@ mkdir -p "$t/nginx/sites-available" "$t/nginx/sites-enabled" "$t/target/nginx/si
 printf 'http {\n}\n' > "$t/nginx/nginx.conf"
 printf 'server {\n  root /opt/serverkit/frontend/dist;\n  location / { try_files $uri /index.html; }\n}\n' \
     > "$t/target/nginx/sites-available/serverkit-insecure.conf"
+t14_rc=0
 (
     set -Eeuo pipefail
     NGINX_DIR="$t/nginx"; LETSENCRYPT_DIR="$t/le"; SYSTEMD_DIR="$t/sysd"; CONFIG_DIR="$t/cfg"; DRY_RUN=0
     INSTALL_DIR="$WORK/opt/serverkit"     # non-default → substitution must fire
     refresh_config "$t/target"
-) >/dev/null 2>&1
+) >/dev/null 2>&1 || t14_rc=$?
 installed="$t/nginx/sites-available/serverkit-insecure.conf"
-if grep -q "root $WORK/opt/serverkit/frontend/dist;" "$installed" \
+if [ "$t14_rc" -eq 0 ] \
+   && grep -q "root $WORK/opt/serverkit/frontend/dist;" "$installed" \
    && ! grep -q "root /opt/serverkit/frontend/dist;" "$installed"; then
     ok "refresh_config repoints the static-frontend root at a custom SERVERKIT_DIR"
 else
-    bad "refresh_config did not rewrite the frontend dist root: $(grep -n root "$installed" | tr '\n' ';')"
+    bad "refresh_config rc=$t14_rc or did not rewrite the frontend dist root: $(grep -n root "$installed" | tr '\n' ';')"
 fi
 
 # --------------------------------------------------------------------------
@@ -386,8 +396,9 @@ done
 t="$WORK/t16"; mkdir -p "$t/loc"
 printf 'location /app1 { proxy_pass http://127.0.0.1:8001; }\n' > "$t/loc/app1.conf"
 printf 'location /app2  { proxy_pass http://127.0.0.1:8002/; }\nlocation /app2b { proxy_pass http://127.0.0.1:8001; }\n' > "$t/loc/app2.conf"
-res="$( set -Eeuo pipefail; APP_LOCATIONS_DIR="$t/loc"; discover_app_upstreams | tr '\n' ',' )"
-if [ "$res" = "127.0.0.1:8001,127.0.0.1:8002," ]; then
+if ! res="$( set -Eeuo pipefail; APP_LOCATIONS_DIR="$t/loc"; discover_app_upstreams | tr '\n' ',' )"; then
+    bad "discover_app_upstreams aborted on a populated app-locations directory"
+elif [ "$res" = "127.0.0.1:8001,127.0.0.1:8002," ]; then
     ok "discover_app_upstreams extracts the unique app upstreams from location snippets"
 else
     bad "discover_app_upstreams returned [$res], expected the two unique upstreams"
@@ -538,8 +549,9 @@ EOF
         bad "download_release polluted its captured stdout (rc=$rc): [$out]"
     fi
     off="$t/offline.tar.gz"; printf 'x' > "$off"
-    out2="$( set -Eeuo pipefail; SERVERKIT_OFFLINE_TARBALL="$off"; download_release v9.9.9 2>/dev/null )"
-    if [ "$out2" = "$off" ]; then
+    if ! out2="$( set -Eeuo pipefail; SERVERKIT_OFFLINE_TARBALL="$off"; download_release v9.9.9 2>/dev/null )"; then
+        bad "download_release (offline tarball) aborted under set -Eeuo pipefail"
+    elif [ "$out2" = "$off" ]; then
         ok "download_release (offline tarball) returns exactly the tarball path"
     else
         bad "download_release (offline) returned [$out2], expected [$off]"
@@ -655,18 +667,19 @@ printf 'DATABASE_URL=sqlite:////opt/serverkit/backend/instance/serverkit.db\n' >
 printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/flask"
 chmod +x "$STUB_BIN/flask"
 exp="$(cd "$WORK" && pwd)"
+t24_rc=0
 res="$(
     set -Eeuo pipefail
     DRY_RUN=0
     cd "$WORK"
     migrate_database "$t" >/dev/null 2>&1
     pwd
-)"
+)" || t24_rc=$?
 rm -f "$STUB_BIN/flask"
-if [ "$res" = "$exp" ]; then
+if [ "$t24_rc" -eq 0 ] && [ "$res" = "$exp" ]; then
     ok "migrate_database leaves the caller's cwd untouched (no cd leak)"
 else
-    bad "migrate_database leaked its cd: caller cwd is now [$res]"
+    bad "migrate_database rc=$t24_rc or leaked its cd: caller cwd is now [$res]"
 fi
 
 # --------------------------------------------------------------------------
@@ -712,6 +725,131 @@ if ! grep -qF 'frontend.*Up' "$UPDATE_SH"; then
     ok "health_check no longer probes the retired frontend container"
 else
     bad "the vestigial 'frontend container Up' check is still in update.sh"
+fi
+
+# --------------------------------------------------------------------------
+# T27 — the fresh-minimal-box loop. On 2026-07-02 a production update aborted
+# because discover_app_upstreams() grep'd an EMPTY /etc/nginx/serverkit-
+# locations dir (the default state of every fresh install) and set -Eeuo
+# pipefail killed the bare APP_BASELINE="$(snapshot_app_reachability)"
+# assignment. The function HAD a unit test — but only with a populated
+# fixture. This loop runs EVERY observation/discovery/snapshot/report/probe
+# function against the emptiest valid world a fresh box presents (zero apps,
+# zero containers, no optional confs, dead network, empty state), under the
+# script's own set -Eeuo pipefail.
+#
+# POLICY: every new observation/discovery/snapshot/report function added to
+# scripts/update.sh MUST be appended here (add args/disposition to the case
+# table when needed). Dispositions:
+#   must0 — output is captured by assignment somewhere (X="$(fn)"), so a
+#           non-zero exit IS the outage: the function must exit 0.
+#   pred  — used only in conditional position (if fn; ...), where a clean
+#           non-zero answer is legitimate: it must merely return normally
+#           (no set -u crash, no signal death).
+# --------------------------------------------------------------------------
+FRESH="$WORK/freshbox"
+make_fresh_box_fixture "$FRESH"
+
+UPDATE_OBSERVERS=(
+    local_version versions_equal remote_release_tag is_already_current
+    version_gate active_real_dir next_real_dir discover_app_upstreams
+    probe_app_upstreams snapshot_app_reachability report_app_uptime_regressions
+    locate_python wait_for_service quick_health is_docker_deployment
+    snapshot_docker_state report_failure
+)
+
+loop_fail=0
+for fn in "${UPDATE_OBSERVERS[@]}"; do
+    args=(); mode=must0
+    case "$fn" in
+        versions_equal)                args=(1.7.0 v1.7.0) ;;
+        report_failure)                args=(2 42 'grep conf') ;;
+        report_app_uptime_regressions) args=("" "") ;;
+        wait_for_service)              args=(serverkit inactive 1) ;;
+        quick_health)                  args=(1); mode=pred ;;
+        is_already_current|is_docker_deployment|locate_python) mode=pred ;;
+    esac
+    out="$(
+        {
+            set -Eeuo pipefail
+            export PATH="$FRESH/bin:$PATH"
+            INSTALL_DIR="$FRESH/opt/serverkit"; SERVERKIT_DIR="$INSTALL_DIR"
+            DIR_A="$FRESH/opt/serverkit-a"; DIR_B="$FRESH/opt/serverkit-b"
+            APP_LOCATIONS_DIR="$FRESH/etc/nginx/serverkit-locations"
+            NGINX_DIR="$FRESH/etc/nginx"; CONFIG_DIR="$FRESH/etc/serverkit"
+            BACKUP_DIR="$FRESH/var/backups"; LOG_DIR="$FRESH/var/log"
+            DRY_RUN=0; FORCE_UPDATE=0; USE_RELEASE=0
+            RELEASE_VERSION=""; TARGET_BRANCH=""; SERVERKIT_OFFLINE_TARBALL=""
+            "$fn" ${args[@]+"${args[@]}"}
+        } </dev/null 2>&1
+    )"
+    rc=$?
+    if [ "$mode" = "must0" ] && [ "$rc" -ne 0 ]; then
+        bad "fresh-box loop: $fn exited $rc on a zero-app box: [$(printf '%s' "$out" | tail -c 160)]"
+        loop_fail=1
+    elif [ "$mode" = "pred" ] && { [ "$rc" -gt 128 ] || printf '%s' "$out" | grep -q 'unbound variable'; }; then
+        bad "fresh-box loop: predicate $fn crashed (rc=$rc) on a zero-app box: [$(printf '%s' "$out" | tail -c 160)]"
+        loop_fail=1
+    fi
+done
+if [ "$loop_fail" = "0" ]; then
+    ok "fresh-box loop: all ${#UPDATE_OBSERVERS[@]} observation/discovery functions survive a zero-app box"
+fi
+
+# --------------------------------------------------------------------------
+# T28 — the best-effort contract as an executable promise: the app-uptime
+# verification composed exactly the way update.sh's run block wires it —
+#     APP_BASELINE="$(snapshot_app_reachability)"
+#     ... stop/switch/start ...
+#     phase "Verifying App Uptime"
+#     APP_AFTER="$(snapshot_app_reachability)"
+#     report_app_uptime_regressions "$APP_BASELINE" "$APP_AFTER" || true
+# — must exit 0 under set -Eeuo pipefail on (a) a fresh zero-app box (the
+# exact 2026-07-02 world) and (b) a box where an app genuinely regressed:
+# the report warns loudly, but the `|| true` keeps verification from failing
+# an already-healthy update. The outage commit made that promise only in
+# prose; this test makes it executable.
+# --------------------------------------------------------------------------
+t="$WORK/t28"; mkdir -p "$t/binup" "$t/bindown" "$t/loc"
+make_stub_ok          "$t/binup" curl      # every upstream answers → "up"
+make_stub_curl_fail22 "$t/bindown"         # every upstream refuses → "down"
+
+t28_rc=0
+out="$(
+    {
+        set -Eeuo pipefail
+        export PATH="$FRESH/bin:$PATH"
+        APP_LOCATIONS_DIR="$FRESH/etc/nginx/serverkit-locations"; DRY_RUN=0
+        APP_BASELINE="$(snapshot_app_reachability)"
+        phase "Verifying App Uptime"
+        APP_AFTER="$(snapshot_app_reachability)"
+        report_app_uptime_regressions "$APP_BASELINE" "$APP_AFTER" || true
+    } 2>&1
+)" || t28_rc=$?
+if [ "$t28_rc" -eq 0 ] && printf '%s' "$out" | grep -q 'No managed apps'; then
+    ok "contract: the run block's uptime-verification chain exits 0 on a fresh zero-app box"
+else
+    bad "contract: uptime verification FAILED a fresh-box update (rc=$t28_rc): [$out]"
+fi
+
+printf 'location /app { proxy_pass http://127.0.0.1:8009; }\n' > "$t/loc/app.conf"
+t28_rc=0
+out="$(
+    {
+        set -Eeuo pipefail
+        APP_LOCATIONS_DIR="$t/loc"; DRY_RUN=0
+        export PATH="$t/binup:$PATH"       # app reachable pre-switch
+        APP_BASELINE="$(snapshot_app_reachability)"
+        export PATH="$t/bindown:$PATH"     # app dead post-switch → regression
+        phase "Verifying App Uptime"
+        APP_AFTER="$(snapshot_app_reachability)"
+        report_app_uptime_regressions "$APP_BASELINE" "$APP_AFTER" || true
+    } 2>&1
+)" || t28_rc=$?
+if [ "$t28_rc" -eq 0 ] && printf '%s' "$out" | grep -q 'DOWN now'; then
+    ok "contract: a real app regression warns loudly but never fails the healthy update"
+else
+    bad "contract: regression path rc=$t28_rc (must be 0, with the loud warning): [$out]"
 fi
 
 # --------------------------------------------------------------------------

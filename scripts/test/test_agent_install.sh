@@ -83,13 +83,14 @@ printf '[{"tag_name": "v1.6.0"},{"tag_name": "agent-v0.3.2"},{"tag_name": "agent
     > "$FIXTURES/releases_page_2.json"
 
 : > "$CURL_LOG"
-got="$(
+if ! got="$(
     set -Eeuo pipefail
     VERSION="latest"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/ServerKit"
     get_latest_version >/dev/null
     printf '%s' "$VERSION"
-)"
-if [ "$got" = "0.3.2" ]; then
+)"; then
+    bad "paged discovery aborted under set -Eeuo pipefail"
+elif [ "$got" = "0.3.2" ]; then
     ok "paged discovery finds agent-v0.3.2 on page 2 behind a page of panel tags"
 else
     bad "paged discovery: VERSION=[$got], want 0.3.2"
@@ -134,26 +135,28 @@ fi
 # and an explicit --version is left untouched.
 # --------------------------------------------------------------------------
 : > "$CURL_LOG"
-got="$(
+if ! got="$(
     set -Eeuo pipefail
     VERSION="latest"; SERVERKIT_AGENT_VERSION="9.9.9"; GITHUB_REPO="jhd3197/ServerKit"
     get_latest_version >/dev/null
     printf '%s' "$VERSION"
-)"
-if [ "$got" = "9.9.9" ] && [ ! -s "$CURL_LOG" ]; then
+)"; then
+    bad "panel-injected version path aborted under set -Eeuo pipefail"
+elif [ "$got" = "9.9.9" ] && [ ! -s "$CURL_LOG" ]; then
     ok "panel-injected SERVERKIT_AGENT_VERSION is used without any GitHub call"
 else
     bad "panel-injected version: VERSION=[$got], curl calls: $(tr '\n' ' ' < "$CURL_LOG")"
 fi
 
 : > "$CURL_LOG"
-got="$(
+if ! got="$(
     set -Eeuo pipefail
     VERSION="1.2.3"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/ServerKit"
     get_latest_version >/dev/null
     printf '%s' "$VERSION"
-)"
-if [ "$got" = "1.2.3" ] && [ ! -s "$CURL_LOG" ]; then
+)"; then
+    bad "explicit --version path aborted under set -Eeuo pipefail"
+elif [ "$got" = "1.2.3" ] && [ ! -s "$CURL_LOG" ]; then
     ok "an explicit --version skips discovery"
 else
     bad "explicit version: VERSION=[$got]"

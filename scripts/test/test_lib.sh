@@ -35,6 +35,10 @@ skip() { SKIP=$((SKIP + 1)); printf '  \033[33m∼\033[0m %s (skipped)\n' "$1"; 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+# Shared stub factories.
+# shellcheck source=stubs.sh
+source "$SCRIPT_DIR/stubs.sh"
+
 # shellcheck source=/dev/null
 source "$LIB_DIR/pkg.sh"
 # shellcheck source=/dev/null
@@ -48,8 +52,9 @@ printf '\nmulti-distro lib unit tests\n\n'
 # pkg.sh
 # ==========================================================================
 for mgr in apt dnf yum zypper pacman apk; do
-    got="$( set -Eeuo pipefail; PKG_MGR_OVERRIDE="$mgr" pkg_detect )"
-    [ "$got" = "$mgr" ] || bad "pkg_detect override $mgr -> [$got]"
+    if ! got="$( set -Eeuo pipefail; PKG_MGR_OVERRIDE="$mgr" pkg_detect )" || [ "$got" != "$mgr" ]; then
+        bad "pkg_detect override $mgr -> [$got]"
+    fi
 done
 ok "pkg_detect honors PKG_MGR_OVERRIDE for all six managers"
 
@@ -64,8 +69,10 @@ declare -A expect_install=(
 )
 allok=1
 for mgr in "${!expect_install[@]}"; do
-    out="$( set -Eeuo pipefail; PKG_DRY_RUN=1 PKG_MGR_OVERRIDE="$mgr" pkg_install git 2>&1 )"
-    printf '%s' "$out" | grep -qF "${expect_install[$mgr]}" || { bad "pkg_install $mgr dry-run: [$out]"; allok=0; }
+    if ! out="$( set -Eeuo pipefail; PKG_DRY_RUN=1 PKG_MGR_OVERRIDE="$mgr" pkg_install git 2>&1 )" \
+       || ! printf '%s' "$out" | grep -qF "${expect_install[$mgr]}"; then
+        bad "pkg_install $mgr dry-run: [$out]"; allok=0
+    fi
 done
 [ "$allok" = "1" ] && ok "pkg_install emits the right command per manager (dry-run)"
 
@@ -81,8 +88,9 @@ fi
 # init.sh
 # ==========================================================================
 for init in systemd openrc runit sysvinit none; do
-    got="$( set -Eeuo pipefail; INIT_OVERRIDE="$init" init_detect )"
-    [ "$got" = "$init" ] || bad "init_detect override $init -> [$got]"
+    if ! got="$( set -Eeuo pipefail; INIT_OVERRIDE="$init" init_detect )" || [ "$got" != "$init" ]; then
+        bad "init_detect override $init -> [$got]"
+    fi
 done
 ok "init_detect honors INIT_OVERRIDE for all five init systems"
 
@@ -91,8 +99,10 @@ ok "init_detect honors INIT_OVERRIDE for all five init systems"
 allok=1
 check_start() { # <init> <expected-substring>
     local out
-    out="$( set -Eeuo pipefail; INIT_OVERRIDE="$1" INIT_DRY_RUN=1 init_start serverkit 2>&1 )"
-    printf '%s' "$out" | grep -qF "$2" || { bad "init_start $1 dry-run: [$out]"; allok=0; }
+    if ! out="$( set -Eeuo pipefail; INIT_OVERRIDE="$1" INIT_DRY_RUN=1 init_start serverkit 2>&1 )" \
+       || ! printf '%s' "$out" | grep -qF "$2"; then
+        bad "init_start $1 dry-run: [$out]"; allok=0
+    fi
 }
 check_start systemd  "systemctl start serverkit"
 check_start openrc   "rc-service serverkit start"
@@ -107,8 +117,8 @@ else
 fi
 
 # init_reload: no service arg under systemd → daemon-reload.
-out="$( set -Eeuo pipefail; INIT_OVERRIDE=systemd INIT_DRY_RUN=1 init_reload 2>&1 )"
-if printf '%s' "$out" | grep -qF "systemctl daemon-reload"; then
+if out="$( set -Eeuo pipefail; INIT_OVERRIDE=systemd INIT_DRY_RUN=1 init_reload 2>&1 )" \
+   && printf '%s' "$out" | grep -qF "systemctl daemon-reload"; then
     ok "init_reload (no arg, systemd) runs daemon-reload"
 else
     bad "init_reload systemd no-arg: [$out]"
@@ -183,9 +193,10 @@ fi
 
 # The lazily-populated cache must be read back — and the override must still
 # beat it (that ordering is what keeps per-call INIT_OVERRIDE tests working).
-got="$( set -Eeuo pipefail; INIT_OVERRIDE="" _INIT_DETECTED=openrc init_detect )"
-got2="$( set -Eeuo pipefail; INIT_OVERRIDE=runit _INIT_DETECTED=openrc init_detect )"
-if [ "$got" = "openrc" ] && [ "$got2" = "runit" ]; then
+cache_rc=0
+got="$( set -Eeuo pipefail; INIT_OVERRIDE="" _INIT_DETECTED=openrc init_detect )" || cache_rc=$?
+got2="$( set -Eeuo pipefail; INIT_OVERRIDE=runit _INIT_DETECTED=openrc init_detect )" || cache_rc=$?
+if [ "$cache_rc" -eq 0 ] && [ "$got" = "openrc" ] && [ "$got2" = "runit" ]; then
     ok "init_detect serves the _INIT_DETECTED cache, but INIT_OVERRIDE still wins"
 else
     bad "init_detect cache/override order wrong (cache→[$got], override→[$got2])"
@@ -193,9 +204,11 @@ fi
 
 # init_reload: a NAMED reload behaves like init_start (emits the tool command,
 # warns-and-fails under 'none'); a BARE reload is a systemd-only no-op.
-out="$( set -Eeuo pipefail; INIT_OVERRIDE=openrc INIT_DRY_RUN=1 init_reload serverkit 2>&1 )"
 reload_ok=1
-printf '%s' "$out" | grep -qF "rc-service serverkit reload" || { bad "init_reload openrc dry-run: [$out]"; reload_ok=0; }
+if ! out="$( set -Eeuo pipefail; INIT_OVERRIDE=openrc INIT_DRY_RUN=1 init_reload serverkit 2>&1 )" \
+   || ! printf '%s' "$out" | grep -qF "rc-service serverkit reload"; then
+    bad "init_reload openrc dry-run: [$out]"; reload_ok=0
+fi
 ( set -Eeuo pipefail; INIT_OVERRIDE=openrc init_reload ) >/dev/null 2>&1 || { bad "bare init_reload must be a no-op 0 on non-systemd inits"; reload_ok=0; }
 ( set -Eeuo pipefail; INIT_OVERRIDE=none init_reload serverkit ) >/dev/null 2>&1 && { bad "named init_reload under 'none' must return non-zero like its siblings"; reload_ok=0; }
 [ "$reload_ok" = "1" ] && ok "init_reload: named reload matches the siblings' contract; bare reload is systemd-only"
@@ -204,7 +217,7 @@ printf '%s' "$out" | grep -qF "rc-service serverkit reload" || { bad "init_reloa
 # pkg.sh — L10: pkg_refresh promises "never propagate the manager's exit".
 # ==========================================================================
 t="$WORK/pkgrefresh"; mkdir -p "$t/bin"
-printf '#!/bin/sh\nexit 7\n' > "$t/bin/apt-get"; chmod +x "$t/bin/apt-get"
+make_stub_exit "$t/bin" 7 apt-get
 # sudo shim: on a non-root Linux host _pkg_sudo would prepend sudo; keep the
 # stub chain deterministic everywhere.
 printf '#!/bin/sh\nexec "$@"\n' > "$t/bin/sudo"; chmod +x "$t/bin/sudo"
@@ -235,9 +248,10 @@ done
 UFW_EOF
 chmod +x "$t/on/ufw"
 printf '#!/bin/sh\necho "Status: inactive"\n' > "$t/off/ufw"; chmod +x "$t/off/ufw"
-got="$( set -Eeuo pipefail; source "$LIB_DIR/firewall.sh"; PATH="$t/on" FIREWALL_BACKEND="" firewall_detect )"
-got2="$( set -Eeuo pipefail; source "$LIB_DIR/firewall.sh"; PATH="$t/off" FIREWALL_BACKEND="" firewall_detect )"
-if [ "$got" = "ufw" ] && [ "$got2" = "none" ]; then
+fw_rc=0
+got="$( set -Eeuo pipefail; source "$LIB_DIR/firewall.sh"; PATH="$t/on" FIREWALL_BACKEND="" firewall_detect )" || fw_rc=$?
+got2="$( set -Eeuo pipefail; source "$LIB_DIR/firewall.sh"; PATH="$t/off" FIREWALL_BACKEND="" firewall_detect )" || fw_rc=$?
+if [ "$fw_rc" -eq 0 ] && [ "$got" = "ufw" ] && [ "$got2" = "none" ]; then
     ok "firewall_detect sees an active ufw under pipefail and never misreads 'inactive'"
 else
     bad "firewall_detect wrong: active→[$got] (want ufw), inactive→[$got2] (want none)"
@@ -329,9 +343,7 @@ HOSTILE_EOF
 printf 'firewall_close() { return 0; }\n' > "$t/inst/scripts/lib/firewall.sh"
 # rm always fails (EBUSY/EROFS stand-in); docker/systemctl fail hermetically;
 # curl logs its argv so the telemetry contract is observable.
-printf '#!/bin/sh\nexit 1\n' > "$t/bin/rm"; chmod +x "$t/bin/rm"
-printf '#!/bin/sh\nexit 1\n' > "$t/bin/docker"; chmod +x "$t/bin/docker"
-printf '#!/bin/sh\nexit 1\n' > "$t/bin/systemctl"; chmod +x "$t/bin/systemctl"
+make_stub_exit "$t/bin" 1 rm docker systemctl
 CURL_LOG="$t/curl.log"; : > "$CURL_LOG"
 cat > "$t/bin/curl" <<EOF
 #!/bin/sh

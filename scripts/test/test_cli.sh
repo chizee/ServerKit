@@ -18,6 +18,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI="$SCRIPT_DIR/../../serverkit"
 
+# Shared stub factories.
+# shellcheck source=stubs.sh
+source "$SCRIPT_DIR/stubs.sh"
+
 PASS=0
 FAIL=0
 SKIP=0
@@ -35,9 +39,7 @@ trap 'rm -rf "$WORK" 2>/dev/null || true' EXIT   # teardown is best-effort
 # --------------------------------------------------------------------------
 STUB_BIN="$WORK/bin"
 mkdir -p "$STUB_BIN"
-for cmd in systemctl docker nginx journalctl curl sleep ss; do
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/$cmd"
-done
+make_stub_ok "$STUB_BIN" systemctl docker nginx journalctl curl sleep ss
 # Healthy system probes for doctor (free does not exist on Git-Bash/macOS).
 cat > "$STUB_BIN/df" <<'EOF'
 #!/usr/bin/env bash
@@ -81,14 +83,15 @@ fi
 t="$WORK/t1b"; mkdir -p "$t/scripts"
 printf '#!/usr/bin/env bash\nprintf "ARGS:%%s\\n" "$*"\n' > "$t/scripts/update.sh"
 chmod +x "$t/scripts/update.sh"
-out="$(
+if ! out="$(
     set -Eeuo pipefail
     check_root() { :; }
     check_installed() { :; }
     INSTALL_DIR="$t"; VENV_DIR="$t/venv"
     cmd_update --branch dev --force 2>&1
-)"
-if printf '%s' "$out" | grep -q 'ARGS:--branch dev --force'; then
+)"; then
+    bad "update --branch dev returned non-zero against a succeeding updater: [$out]"
+elif printf '%s' "$out" | grep -q 'ARGS:--branch dev --force'; then
     ok "update --branch <name> still forwards args to scripts/update.sh"
 else
     bad "update --branch dev forwarding broken: [$out]"
