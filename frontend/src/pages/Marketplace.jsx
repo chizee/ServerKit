@@ -203,6 +203,8 @@ const Marketplace = () => {
     const [detailEntry, setDetailEntry] = useState(null);
     // Plugin pending uninstall — drives the keep-vs-purge data-policy dialog.
     const [uninstallTarget, setUninstallTarget] = useState(null);
+    // Plugin whose config is being edited (#49) — drives the config dialog.
+    const [configTarget, setConfigTarget] = useState(null);
 
     const loadExtensions = useCallback(async () => {
         try {
@@ -716,6 +718,7 @@ const Marketplace = () => {
                                             onToggle={handlePluginToggle}
                                             onUpdate={handlePluginUpdate}
                                             onUninstall={requestPluginUninstall}
+                                            onConfigure={setConfigTarget}
                                             statusVariant={pluginStatusVariant}
                                         />
                                     ))}
@@ -750,6 +753,13 @@ const Marketplace = () => {
                     plugin={uninstallTarget}
                     onCancel={() => setUninstallTarget(null)}
                     onConfirm={confirmPluginUninstall}
+                />
+            )}
+
+            {configTarget && (
+                <PluginConfigDialog
+                    plugin={configTarget}
+                    onClose={() => setConfigTarget(null)}
                 />
             )}
         </div>
@@ -1001,9 +1011,12 @@ const InstalledCatalogRow = ({ entry, onUninstall }) => {
     );
 };
 
-const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall, statusVariant }) => {
+const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall, onConfigure, statusVariant }) => {
     const updateAvailable = Boolean(update?.update_available);
     const compatible = update?.compatible !== false;
+    const configurable = plugin.config_schema
+        && typeof plugin.config_schema === 'object'
+        && Object.keys(plugin.config_schema).length > 0;
 
     return (
         <article className={`installed-item installed-item--plugin card ${plugin.status === 'error' ? 'installed-item--error' : ''}`}>
@@ -1040,6 +1053,11 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
                         Update
                     </Button>
                 )}
+                {configurable && (
+                    <Button size="sm" variant="outline" onClick={() => onConfigure(plugin)}>
+                        Configure
+                    </Button>
+                )}
                 <Button
                     size="sm"
                     variant={plugin.status === 'active' ? 'outline' : 'default'}
@@ -1052,6 +1070,112 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
                 </Button>
             </div>
         </article>
+    );
+};
+
+// Config editor for an installed plugin (#49). Fields come from the manifest's
+// config_schema (top-level keys, or JSON-schema `properties`); values persist
+// via PUT /plugins/<id>/config and the plugin reads them on the backend via
+// plugins_sdk.config(slug).
+const PluginConfigDialog = ({ plugin, onClose }) => {
+    const toast = useToast();
+    const [values, setValues] = useState(null);
+    const [saving, setSaving] = useState(false);
+
+    const schema = plugin.config_schema || {};
+    const fields = schema.properties && typeof schema.properties === 'object'
+        ? schema.properties
+        : schema;
+
+    useEffect(() => {
+        api.getPluginConfig(plugin.id)
+            .then((data) => setValues(data.config || {}))
+            .catch(() => setValues({}));
+    }, [plugin.id]);
+
+    const setField = (key, v) => setValues((prev) => ({ ...prev, [key]: v }));
+
+    const save = async () => {
+        setSaving(true);
+        try {
+            await api.updatePluginConfig(plugin.id, values || {});
+            toast.success('Plugin configuration saved');
+            onClose();
+        } catch (err) {
+            toast.error(err.message || 'Failed to save configuration');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            title={`Configure ${plugin.display_name}`}
+            size="sm"
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button onClick={save} disabled={saving || values === null}>
+                        {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                </>
+            }
+        >
+            {values === null ? (
+                <p className="text-muted">Loading…</p>
+            ) : (
+                <div className="plugin-config-form">
+                    {Object.entries(fields).map(([key, spec]) => {
+                        const s = spec && typeof spec === 'object' ? spec : {};
+                        const type = s.type || 'string';
+                        const isNumber = type === 'number' || type === 'integer';
+                        const value = values[key] ?? s.default ?? (type === 'boolean' ? false : '');
+                        return (
+                            <label key={key} className="plugin-config-form__field">
+                                <span className="plugin-config-form__label">{s.title || key}</span>
+                                {type === 'boolean' ? (
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(value)}
+                                        onChange={(e) => setField(key, e.target.checked)}
+                                    />
+                                ) : Array.isArray(s.enum) ? (
+                                    <select
+                                        className="ui-input"
+                                        value={value}
+                                        onChange={(e) => setField(key, e.target.value)}
+                                    >
+                                        {s.enum.map((opt) => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        className="ui-input"
+                                        type={isNumber ? 'number' : (s.secret ? 'password' : 'text')}
+                                        value={value}
+                                        onChange={(e) => setField(
+                                            key,
+                                            isNumber
+                                                ? (e.target.value === '' ? '' : Number(e.target.value))
+                                                : e.target.value
+                                        )}
+                                    />
+                                )}
+                                {s.description && (
+                                    <span className="plugin-config-form__hint text-muted">{s.description}</span>
+                                )}
+                            </label>
+                        );
+                    })}
+                    {Object.keys(fields).length === 0 && (
+                        <p className="text-muted">This plugin declares no configuration fields.</p>
+                    )}
+                </div>
+            )}
+        </Modal>
     );
 };
 

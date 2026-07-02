@@ -915,3 +915,26 @@
         line-height: $line-height-normal;
     }
 }
+
+// Per-plugin config editor (#49) — fields generated from config_schema.
+.plugin-config-form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+    }
+
+    &__label {
+        font-size: $font-size-sm;
+        font-weight: $font-weight-semibold;
+    }
+
+    &__hint {
+        font-size: $font-size-xs;
+        line-height: $line-height-normal;
+    }
+}

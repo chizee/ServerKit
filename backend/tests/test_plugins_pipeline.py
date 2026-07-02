@@ -226,6 +226,48 @@ def test_disable_guard_returns_503(app):
 
 
 # --------------------------------------------------------------------------- #
+# Per-plugin config store (#49)
+# --------------------------------------------------------------------------- #
+
+def test_plugin_config_roundtrip_and_sdk(app, client, auth_headers, plugin_dirs):
+    """Config saves via the admin API, reads back, and reaches the plugin
+    through the plugins_sdk.config(slug) accessor."""
+    _write_builtin(plugin_dirs['builtin'])
+    plugin = plugin_service.install_builtin_extension('serverkit-demo')
+
+    # Starts empty (schema comes along for the form).
+    r = client.get(f'/api/v1/plugins/{plugin.id}/config', headers=auth_headers)
+    assert r.status_code == 200
+    assert r.get_json()['config'] == {}
+
+    r = client.put(
+        f'/api/v1/plugins/{plugin.id}/config', headers=auth_headers,
+        json={'config': {'api_key': 'sk-123', 'refresh_seconds': 30, 'enabled': True}},
+    )
+    assert r.status_code == 200
+
+    r = client.get(f'/api/v1/plugins/{plugin.id}/config', headers=auth_headers)
+    assert r.get_json()['config'] == {
+        'api_key': 'sk-123', 'refresh_seconds': 30, 'enabled': True}
+
+    from app import plugins_sdk
+    assert plugins_sdk.config('serverkit-demo')['api_key'] == 'sk-123'
+    assert plugins_sdk.config('no-such-plugin') == {}
+
+    # Values may hold secrets — they must never leak through to_dict().
+    assert 'config' not in plugin.to_dict()
+    assert 'config_json' not in plugin.to_dict()
+
+
+def test_plugin_config_rejects_non_object(app, client, auth_headers, plugin_dirs):
+    _write_builtin(plugin_dirs['builtin'])
+    plugin = plugin_service.install_builtin_extension('serverkit-demo')
+    r = client.put(f'/api/v1/plugins/{plugin.id}/config', headers=auth_headers,
+                   json={'config': 'not-a-dict'})
+    assert r.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
 # Boot repair pass (#48): plugins whose files a panel update wiped
 # --------------------------------------------------------------------------- #
 

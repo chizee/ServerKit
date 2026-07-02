@@ -75,6 +75,21 @@ export async function installBuiltinExtension(slug) {
     });
 }
 
+// Saved config values for an installed plugin (admin):
+//   { config: {...}, config_schema: {...} }
+export async function getPluginConfig(pluginId) {
+    return this.request(`/plugins/${pluginId}/config`);
+}
+
+// Persist a plugin's config values (admin). The plugin reads them via
+// plugins_sdk.config(slug) on the backend.
+export async function updatePluginConfig(pluginId, config) {
+    return this.request(`/plugins/${pluginId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify({ config }),
+    });
+}
+
 // Returns available updates for installed plugins:
 //   { updates: [ { slug, plugin_id, installed_version, available_version,
 //                  update_available, compatible, source } ] }

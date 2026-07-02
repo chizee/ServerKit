@@ -463,6 +463,64 @@ def get_manifest_spec():
     })
 
 
+@plugins_bp.route('/<int:plugin_id>/config', methods=['GET'])
+@jwt_required()
+def get_plugin_config(plugin_id):
+    """Read a plugin's saved config values + its schema (#49).
+
+    Admin-only: config values may hold secrets (API keys etc.), which is also
+    why they are deliberately NOT part of the plugin's to_dict().
+    """
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.services.plugin_service import get_plugin
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        return jsonify({'error': 'Plugin not found'}), 404
+    return jsonify({
+        'config': plugin.config,
+        'config_schema': (plugin.manifest or {}).get('config_schema') or {},
+    })
+
+
+@plugins_bp.route('/<int:plugin_id>/config', methods=['PUT'])
+@jwt_required()
+def update_plugin_config(plugin_id):
+    """Save a plugin's config values (#49). Body: {"config": {...}}.
+
+    The manifest's config_schema is advisory — values are stored as given so a
+    plugin can evolve its fields without a panel release. Plugins read them via
+    plugins_sdk.config(slug).
+    """
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app import db
+    from app.services.plugin_service import get_plugin
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        return jsonify({'error': 'Plugin not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    config = data.get('config')
+    if not isinstance(config, dict):
+        return jsonify({'error': 'config must be an object'}), 400
+
+    plugin.config = config
+    db.session.commit()
+    AuditService.log(
+        action=AuditLog.ACTION_RESOURCE_UPDATE,
+        user_id=user.id,
+        target_type='plugin',
+        target_id=str(plugin.id),
+        details={'event': 'config_update', 'keys': sorted(config.keys())},
+    )
+    return jsonify({'config': plugin.config})
+
+
 @plugins_bp.route('/updates', methods=['GET'])
 @jwt_required()
 def list_updates():

@@ -105,6 +105,18 @@ def panel_version():
     return get_panel_version()
 
 
+def config(slug):
+    """Saved config values for an installed plugin (empty dict if none).
+
+    The manifest's ``config_schema`` documents the fields; admins edit the
+    values from Marketplace → Installed → Configure. Read-only here — the
+    panel owns writes (PUT /api/v1/plugins/<id>/config).
+    """
+    from app.models.plugin import InstalledPlugin
+    p = InstalledPlugin.query.filter_by(slug=slug).first()
+    return dict(p.config or {}) if p else {}
+
+
 # Capability gate: `require(slug, 'docker')` raises unless the plugin declared
 # that permission in its manifest. See app/plugins_sdk/permissions.py.
 require_permission = permissions.require
@@ -125,5 +137,6 @@ __all__ = [
     'permissions',
     'require_permission',
     'panel_version',
+    'config',
     'sockets',
 ]

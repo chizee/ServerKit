@@ -20,6 +20,12 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions platform (Phase 7 — per-extension configuration)** — an extension
+  that declares a `config_schema` in its manifest now gets a real **Configure**
+  form on the Marketplace Installed tab (text/number/boolean/enum/secret fields);
+  values persist on the panel and the extension's backend reads them with the new
+  `plugins_sdk.config(slug)` accessor. Config values may hold secrets, so they are
+  served only by an admin-gated endpoint and never appear in plugin listings.
 - **Extensions platform (Phase 7 — installed extensions survive panel updates)** —
   previously a panel update deployed a fresh source tree preserving only `.env`
   and the database, silently wiping any URL/registry/upload-installed extension's

@@ -294,6 +294,34 @@ on install and **pause automatically when the plugin is disabled**:
 "schedules": [ { "name": "myext-nightly", "kind": "myext.reindex", "cron": "0 3 * * *" } ]
 ```
 
+## Config (`config_schema`)
+
+Declare a `config_schema` in the manifest and the Marketplace renders a
+**Configure** form on the installed plugin (Installed tab). Values persist on
+the panel and your backend reads them with `plugins_sdk.config(slug)`:
+
+```jsonc
+"config_schema": {
+  "api_key":         { "type": "string", "secret": true, "description": "…" },
+  "refresh_seconds": { "type": "integer", "default": 60 },
+  "mode":            { "type": "string", "enum": ["fast", "thorough"] },
+  "enabled":         { "type": "boolean", "default": true }
+}
+```
+
+- Top-level keys are the field names (a JSON-schema-style `properties` wrapper
+  also works). Supported: `string` / `number` / `integer` / `boolean`, `enum`
+  (renders a select), `default`, `title`, `description`, and `secret: true`
+  (renders a password input).
+- Values may hold secrets, so they are **not** part of the plugin's public
+  dict — only the admin-gated `GET/PUT /api/v1/plugins/<id>/config` serves
+  them, and `plugins_sdk.config()` is read-only.
+
+```python
+from app.plugins_sdk import config
+key = config('my-extension').get('api_key')
+```
+
 ## Real-time (Socket.IO)
 
 Declare `"socket_entry": "sockets:register"`; the function returns
