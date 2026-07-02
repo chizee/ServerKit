@@ -133,8 +133,6 @@ SECURITY_AND_CODE_AUDIT.md
 !agent/internal/setupui/serverkit_header.png
 docs/PLAN_AGENT_FLEET.md
 /docs/plans
-/docs/plans/BACKUP_PROTECTION_PLAN.md
-docs/plans/CLOUDFLARE_INTEGRATION_ROADMAP.md
 /.agents
 /.extension-platform-plan/
 /.claude
