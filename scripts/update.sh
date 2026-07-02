@@ -275,7 +275,7 @@ remote_release_tag() {
         return 0
     fi
     curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null \
-        | grep '"tag_name"' | head -1 | cut -d'"' -f4
+        | grep '"tag_name"' | head -1 | cut -d'"' -f4 || true
 }
 
 # Return 0 when the install is already at the target version/ref (the caller
@@ -1460,7 +1460,7 @@ NEXT_DIR="$(next_real_dir)"
 if [ "$USE_RELEASE" = "1" ]; then
     if [ -z "$RELEASE_VERSION" ]; then
         RELEASE_VERSION="$(curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
-            | grep '"tag_name"' | head -1 | cut -d'"' -f4)"
+            | grep '"tag_name"' | head -1 | cut -d'"' -f4 || true)"
         [ -n "$RELEASE_VERSION" ] || halt "Could not determine the latest release"
     fi
     step "Updating to release $RELEASE_VERSION"

@@ -393,6 +393,18 @@ else
     bad "discover_app_upstreams returned [$res], expected the two unique upstreams"
 fi
 
+# T16b — empty app-locations directory must not abort under set -euo pipefail.
+mkdir -p "$t/empty"
+if res="$( set -Eeuo pipefail; APP_LOCATIONS_DIR="$t/empty"; discover_app_upstreams )"; then
+    if [ -z "$res" ]; then
+        ok "discover_app_upstreams tolerates an empty app-locations directory"
+    else
+        bad "discover_app_upstreams returned [$res] for an empty directory, expected empty"
+    fi
+else
+    bad "discover_app_upstreams aborted on an empty app-locations directory"
+fi
+
 # --------------------------------------------------------------------------
 # T17 — report_app_uptime_regressions flags an app that was reachable before the
 # update and is not after (and ignores one that was already down), returning
