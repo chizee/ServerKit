@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import UserModal from './UserModal';
 import InvitationsTab from './InvitationsTab';
+import LoginLinksSection from './LoginLinksSection';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -239,6 +240,8 @@ const UsersTab = () => {
                         </div>
                 </Modal>
             )}
+
+            <LoginLinksSection users={users} currentUserId={currentUser?.id} />
 
             <InvitationsTab />
         </div>
