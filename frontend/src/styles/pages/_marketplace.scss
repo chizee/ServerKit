@@ -73,7 +73,7 @@
 
     .marketplace-toolbar {
         display: grid;
-        grid-template-columns: minmax(260px, 1fr) 220px auto;
+        grid-template-columns: minmax(260px, 1fr) auto;
         gap: $space-3;
         align-items: center;
         margin-bottom: $space-6;
@@ -99,11 +99,6 @@
         color: $text-tertiary;
         transform: translateY(-50%);
         pointer-events: none;
-    }
-
-    .marketplace-category-select {
-        width: 100%;
-        height: 40px;
     }
 
     .cat-chips {
@@ -141,14 +136,6 @@
         }
     }
 
-    .marketplace-browse-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 292px;
-        gap: $space-6;
-        align-items: start;
-    }
-
-    .marketplace-main-stack,
     .plugins-section {
         display: flex;
         flex-direction: column;
@@ -357,112 +344,6 @@
         min-width: 0;
         color: $text-tertiary;
         font-size: $font-size-sm;
-    }
-
-    .marketplace-side-panel {
-        display: flex;
-        flex-direction: column;
-        gap: $space-4;
-        position: sticky;
-        top: $space-4;
-    }
-
-    .marketplace-panel {
-        padding: $space-4;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-lg;
-        background: fade($bg-card-raw, 92%);
-    }
-
-    .marketplace-panel__title {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        margin-bottom: $space-3;
-        color: $text-primary;
-        font-size: $font-size-base;
-        font-weight: $font-weight-semibold;
-
-        svg {
-            width: 16px;
-            height: 16px;
-            color: $accent-primary;
-        }
-    }
-
-    .marketplace-category-list {
-        display: flex;
-        flex-direction: column;
-        gap: $space-2;
-    }
-
-    .marketplace-category {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        width: 100%;
-        height: 36px;
-        padding: 0 $space-3;
-        border: 1px solid transparent;
-        border-radius: $radius-md;
-        background: transparent;
-        color: $text-secondary;
-        font-family: inherit;
-        font-size: $font-size-sm + 1;
-        font-weight: $font-weight-medium;
-        text-align: left;
-        cursor: pointer;
-        transition:
-            color $transition-base,
-            background $transition-base,
-            border-color $transition-base;
-
-        svg {
-            width: 15px;
-            height: 15px;
-        }
-
-        &:hover {
-            border-color: $border-active;
-            background: $bg-hover;
-            color: $text-primary;
-        }
-
-        &--active {
-            border-color: var(--accent-dim);
-            background: var(--accent-bg);
-            color: var(--accent-bright);
-        }
-    }
-
-    .marketplace-runtime {
-        display: flex;
-        flex-direction: column;
-        gap: $space-2;
-    }
-
-    .marketplace-runtime__row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: $space-3;
-        padding: $space-2 0;
-        color: $text-secondary;
-        font-size: $font-size-sm;
-        border-bottom: 1px solid $border-subtle;
-
-        &:last-child {
-            border-bottom: none;
-        }
-
-        strong {
-            color: $text-primary;
-            font-weight: $font-weight-semibold;
-        }
-
-        &--danger strong {
-            color: $danger;
-        }
     }
 
     .installed-list {
@@ -686,18 +567,6 @@
         }
     }
 
-    @media (max-width: 1180px) {
-        .marketplace-browse-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .marketplace-side-panel {
-            position: static;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
     @media (max-width: $breakpoint-md) {
         .marketplace-hero {
             grid-template-columns: 1fr;
@@ -710,10 +579,6 @@
             .btn {
                 width: 100%;
             }
-        }
-
-        .marketplace-side-panel {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .marketplace-toolbar {
@@ -751,10 +616,6 @@
     @media (max-width: $breakpoint-sm) {
         .page-header-content h1 {
             font-size: $font-size-2xl;
-        }
-
-        .marketplace-side-panel {
-            grid-template-columns: 1fr;
         }
 
         .marketplace-section__header {

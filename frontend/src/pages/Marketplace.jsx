@@ -5,7 +5,6 @@ import {
     CheckCircle2,
     DownloadCloud,
     FileArchive,
-    Filter,
     FolderOpen,
     Globe2,
     LayoutGrid,
@@ -25,7 +24,6 @@ import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import Modal from '@/components/Modal';
 import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
-import { StatStrip, Stat } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -323,10 +321,6 @@ const Marketplace = () => {
     const localCatalogEntries = builtins.map(getLocalCatalogEntry);
     const registryCatalogEntries = registryExtensions.map(getRegistryCatalogEntry);
     const installedCatalogEntries = localCatalogEntries.filter((entry) => entry.installed);
-    const installedBuiltinCount = installedCatalogEntries.length;
-    const activePluginCount = plugins.filter((plugin) => plugin.status === 'active').length;
-    const pluginIssueCount = plugins.filter((plugin) => plugin.status === 'error').length;
-    const availableCount = builtins.length + registryExtensions.length;
     const installedCatalogCount = installedCatalogEntries.length;
     // Update descriptors keyed by both plugin_id and slug so PluginRow can match
     // whichever identifier it has on hand.
@@ -343,17 +337,6 @@ const Marketplace = () => {
 
     return (
         <div className="sk-tabgroup__inner marketplace-page">
-            <StatStrip ariaLabel="Marketplace summary">
-                <Stat label="Catalog" value={availableCount} />
-                <Stat label="Built-in" value={builtins.length} />
-                <Stat label="Installed" value={installedCatalogCount} />
-                <Stat
-                    label="Active Plugins"
-                    value={`${activePluginCount}/${plugins.length}`}
-                    state={pluginIssueCount > 0 ? 'danger' : undefined}
-                />
-            </StatStrip>
-
             <Tabs value={activeTab} onValueChange={setActiveTab} className="marketplace-tabs">
                 <TabsList className="marketplace-tabs__list">
                     <TabsTrigger value="browse">
@@ -381,17 +364,6 @@ const Marketplace = () => {
                                 aria-label="Search extensions"
                             />
                         </div>
-                        <select
-                            className="form-select marketplace-category-select"
-                            value={category}
-                            onChange={(event) => setCategory(event.target.value)}
-                            aria-label="Filter by category"
-                        >
-                            <option value="">All Categories</option>
-                            {catalogCategories.map((item) => (
-                                <option key={item} value={item}>{titleCase(item)}</option>
-                            ))}
-                        </select>
                         {hasFilters && (
                             <Button variant="ghost" size="sm" onClick={resetFilters}>
                                 Reset
@@ -421,91 +393,37 @@ const Marketplace = () => {
                         ))}
                     </div>
 
-                    <div className="marketplace-browse-grid">
-                        <div className="marketplace-main-stack">
-                            <section className="marketplace-section">
-                                <SectionHeader
-                                    kicker="Catalog"
-                                    title="Extension catalog"
-                                    meta={`${catalogEntries.length} results`}
-                                />
-                                {catalogEntries.length > 0 ? (
-                                    <div className="extensions-grid">
-                                        {catalogEntries.map((entry) => (
-                                            <CatalogExtensionCard
-                                                key={entry.key}
-                                                entry={entry}
-                                                installing={installing}
-                                                onInstall={
-                                                    entry.source === 'local'
-                                                        ? handleBuiltinInstall
-                                                        : handleRegistryInstall
-                                                }
-                                                onOpenDetail={setDetailEntry}
-                                                statusVariant={pluginStatusVariant}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        icon={Package}
-                                        title="No catalog entries found"
-                                        description={hasFilters ? 'No built-in or registry entries match the current filter.' : 'No extension entries are available yet.'}
+                    <section className="marketplace-section">
+                        <SectionHeader
+                            kicker="Catalog"
+                            title="Extension catalog"
+                            meta={`${catalogEntries.length} results`}
+                        />
+                        {catalogEntries.length > 0 ? (
+                            <div className="extensions-grid">
+                                {catalogEntries.map((entry) => (
+                                    <CatalogExtensionCard
+                                        key={entry.key}
+                                        entry={entry}
+                                        installing={installing}
+                                        onInstall={
+                                            entry.source === 'local'
+                                                ? handleBuiltinInstall
+                                                : handleRegistryInstall
+                                        }
+                                        onOpenDetail={setDetailEntry}
+                                        statusVariant={pluginStatusVariant}
                                     />
-                                )}
-                            </section>
-                        </div>
-
-                        <aside className="marketplace-side-panel" aria-label="Marketplace controls">
-                            <div className="marketplace-panel">
-                                <div className="marketplace-panel__title">
-                                    <Filter aria-hidden="true" />
-                                    Categories
-                                </div>
-                                <div className="marketplace-category-list">
-                                    <button
-                                        type="button"
-                                        className={`marketplace-category ${category === '' ? 'marketplace-category--active' : ''}`}
-                                        onClick={() => setCategory('')}
-                                    >
-                                        All
-                                    </button>
-                                    {catalogCategories.map((item) => {
-                                        const Icon = getCategoryIcon(item);
-                                        return (
-                                            <button
-                                                key={item}
-                                                type="button"
-                                                className={`marketplace-category marketplace-category--${item} ${category === item ? 'marketplace-category--active' : ''}`}
-                                                onClick={() => setCategory(item)}
-                                            >
-                                                <Icon aria-hidden="true" />
-                                                {titleCase(item)}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                                ))}
                             </div>
-
-                            <div className="marketplace-panel">
-                                <div className="marketplace-panel__title">
-                                    <ServerCog aria-hidden="true" />
-                                    Runtime
-                                </div>
-                                <div className="marketplace-runtime">
-                                    <RuntimeRow label="Registry" value={registryExtensions.length} />
-                                    <RuntimeRow label="Built-in" value={builtins.length} />
-                                    <RuntimeRow label="Built-in installed" value={`${installedBuiltinCount}/${builtins.length}`} />
-                                    <RuntimeRow label="Active plugins" value={`${activePluginCount}/${plugins.length}`} />
-                                    <RuntimeRow
-                                        label="Plugin issues"
-                                        value={pluginIssueCount}
-                                        danger={pluginIssueCount > 0}
-                                    />
-                                </div>
-                            </div>
-                        </aside>
-                    </div>
+                        ) : (
+                            <EmptyState
+                                icon={Package}
+                                title="No catalog entries found"
+                                description={hasFilters ? 'No built-in or registry entries match the current filter.' : 'No extension entries are available yet.'}
+                            />
+                        )}
+                    </section>
                 </TabsContent>
 
                 <TabsContent value="installed">
@@ -1124,13 +1042,6 @@ const PluginInstallInput = ({
                 {disabled ? 'Installing...' : 'Install'}
             </Button>
         </div>
-    </div>
-);
-
-const RuntimeRow = ({ label, value, danger }) => (
-    <div className={`marketplace-runtime__row ${danger ? 'marketplace-runtime__row--danger' : ''}`}>
-        <span>{label}</span>
-        <strong>{value}</strong>
     </div>
 );
 
