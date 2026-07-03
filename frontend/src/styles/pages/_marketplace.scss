@@ -136,13 +136,6 @@
         }
     }
 
-    .plugins-section {
-        display: flex;
-        flex-direction: column;
-        gap: $space-8;
-        min-width: 0;
-    }
-
     .marketplace-section {
         min-width: 0;
     }
@@ -441,123 +434,6 @@
         font-weight: $font-weight-semibold;
     }
 
-    .plugin-install-form {
-        padding: $space-5;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-lg;
-        background: fade($bg-card-raw, 92%);
-    }
-
-    .plugin-install-form__heading {
-        display: flex;
-        align-items: flex-start;
-        gap: $space-3;
-        margin-bottom: $space-4;
-
-        h3 {
-            margin: 0 0 $space-1;
-            color: $text-primary;
-            font-size: $font-size-md;
-            font-weight: $font-weight-semibold;
-        }
-
-        p {
-            margin: 0;
-        }
-    }
-
-    .plugin-install-form__icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 38px;
-        height: 38px;
-        flex: 0 0 38px;
-        border-radius: $radius-lg;
-        color: $accent-primary;
-        background: fade($accent-primary-raw, 12%);
-
-        svg {
-            width: 19px;
-            height: 19px;
-        }
-    }
-
-    .plugin-install-tabs {
-        display: inline-flex;
-        gap: $space-1;
-        margin-bottom: $space-4;
-        padding: $space-1;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-lg;
-        background: $bg-body;
-    }
-
-    .plugin-install-tab {
-        display: inline-flex;
-        align-items: center;
-        gap: $space-2;
-        height: 32px;
-        padding: 0 $space-3;
-        border: 1px solid transparent;
-        border-radius: $radius-md;
-        background: transparent;
-        color: $text-secondary;
-        font-family: inherit;
-        font-size: $font-size-sm + 1;
-        font-weight: $font-weight-semibold;
-        cursor: pointer;
-        transition:
-            background $transition-base,
-            color $transition-base,
-            border-color $transition-base;
-
-        svg {
-            width: 14px;
-            height: 14px;
-        }
-
-        &:hover {
-            color: $text-primary;
-        }
-
-        &--active {
-            border-color: $accent-primary;
-            background: fade($accent-primary-raw, 12%);
-            color: $text-primary;
-        }
-    }
-
-    .plugin-install-source {
-        p {
-            margin: 0 0 $space-3;
-            font-size: $font-size-sm;
-        }
-    }
-
-    .plugin-install-row {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-
-        .ui-input,
-        input[type='text'] {
-            flex: 1;
-            min-width: 0;
-        }
-    }
-
-    .marketplace-file-input {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .plugin-file-note {
-        margin-top: $space-2;
-        color: $text-tertiary;
-        font-size: $font-size-sm;
-    }
-
     .marketplace-empty {
         border-radius: $radius-lg;
 
@@ -601,16 +477,6 @@
                 flex: 1;
             }
         }
-
-        .plugin-install-row {
-            align-items: stretch;
-            flex-direction: column;
-
-            .btn {
-                width: 100%;
-            }
-        }
-
     }
 
     @media (max-width: $breakpoint-sm) {
@@ -763,6 +629,128 @@
             color: $text-secondary;
         }
     }
+}
+
+// Manual extension installer (URL / folder / zip). Rendered inside the
+// Install-manually Modal — a Radix Dialog portal outside .marketplace-page —
+// so these live at the root.
+.plugin-install-form__heading {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-3;
+    margin-bottom: $space-4;
+
+    h3 {
+        margin: 0 0 $space-1;
+        color: $text-primary;
+        font-size: $font-size-md;
+        font-weight: $font-weight-semibold;
+    }
+
+    p {
+        margin: 0;
+    }
+}
+
+.plugin-install-form__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-radius: $radius-lg;
+    color: $accent-primary;
+    background: fade($accent-primary-raw, 12%);
+
+    svg {
+        width: 19px;
+        height: 19px;
+    }
+}
+
+.plugin-install-tabs {
+    display: inline-flex;
+    gap: $space-1;
+    margin-bottom: $space-4;
+    padding: $space-1;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-lg;
+    background: $bg-body;
+}
+
+.plugin-install-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    height: 32px;
+    padding: 0 $space-3;
+    border: 1px solid transparent;
+    border-radius: $radius-md;
+    background: transparent;
+    color: $text-secondary;
+    font-family: inherit;
+    font-size: $font-size-sm + 1;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition:
+        background $transition-base,
+        color $transition-base,
+        border-color $transition-base;
+
+    svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    &:hover {
+        color: $text-primary;
+    }
+
+    &--active {
+        border-color: $accent-primary;
+        background: fade($accent-primary-raw, 12%);
+        color: $text-primary;
+    }
+}
+
+.plugin-install-source {
+    p {
+        margin: 0 0 $space-3;
+        font-size: $font-size-sm;
+    }
+}
+
+.plugin-install-row {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+
+    .ui-input,
+    input[type='text'] {
+        flex: 1;
+        min-width: 0;
+    }
+
+    @media (max-width: $breakpoint-md) {
+        align-items: stretch;
+        flex-direction: column;
+
+        .btn {
+            width: 100%;
+        }
+    }
+}
+
+.marketplace-file-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.plugin-file-note {
+    margin-top: $space-2;
+    color: $text-tertiary;
+    font-size: $font-size-sm;
 }
 
 // Keep-vs-purge data policy dialog on plugin uninstall.

@@ -1,12 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     Activity,
-    Archive,
     CheckCircle2,
     DownloadCloud,
-    FileArchive,
-    FolderOpen,
-    Globe2,
     LayoutGrid,
     Package,
     PackageCheck,
@@ -29,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import ManualInstallModal from '../components/marketplace/ManualInstallModal';
 
 const CATEGORIES = ['ai', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
 
@@ -41,12 +38,6 @@ const CATEGORY_ICONS = {
     ui: LayoutGrid,
     utility: Package,
 };
-
-const PLUGIN_INSTALL_SOURCES = [
-    { id: 'url', label: 'URL', icon: Globe2 },
-    { id: 'path', label: 'Folder', icon: FolderOpen },
-    { id: 'upload', label: 'Zip', icon: FileArchive },
-];
 
 const titleCase = (value = '') => {
     const cleaned = String(value || 'utility').replace(/[-_]/g, ' ');
@@ -153,10 +144,9 @@ const Marketplace = () => {
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
     const [activeTab, setActiveTab] = useState('browse');
-    const [pluginUrl, setPluginUrl] = useState('');
-    const [pluginPath, setPluginPath] = useState('');
-    const [pluginFile, setPluginFile] = useState(null);
-    const [installSource, setInstallSource] = useState('url');
+    // Manual install modal (URL / folder / zip); null when closed, otherwise
+    // the source sub-tab to preselect.
+    const [manualInstallSource, setManualInstallSource] = useState(null);
     const [installing, setInstalling] = useState(false);
     const [detailEntry, setDetailEntry] = useState(null);
     // Plugin pending uninstall — drives the keep-vs-purge data-policy dialog.
@@ -219,34 +209,12 @@ const Marketplace = () => {
         }
     };
 
-    const handlePluginInstall = async () => {
-        let action;
-        if (installSource === 'url') {
-            if (!pluginUrl.trim()) return;
-            action = () => api.installPlugin(pluginUrl.trim());
-        } else if (installSource === 'path') {
-            if (!pluginPath.trim()) return;
-            action = () => api.installPluginFromPath(pluginPath.trim());
-        } else if (installSource === 'upload') {
-            if (!pluginFile) return;
-            action = () => api.installPluginFromZip(pluginFile);
-        } else {
-            return;
-        }
-
-        setInstalling(true);
-        try {
-            const result = await action();
-            toast.success(`Plugin "${result.display_name}" installed. Restart backend to activate routes.`);
-            setPluginUrl('');
-            setPluginPath('');
-            setPluginFile(null);
-            loadExtensions();
-        } catch (err) {
-            toast.error(err.message || 'Plugin installation failed');
-        } finally {
-            setInstalling(false);
-        }
+    // Land on Installed after a manual install so the new row (and its
+    // actions) is immediately visible.
+    const handleManualInstalled = () => {
+        setManualInstallSource(null);
+        loadExtensions();
+        setActiveTab('installed');
     };
 
     // Open the data-policy dialog instead of uninstalling immediately, so the
@@ -295,11 +263,6 @@ const Marketplace = () => {
         setCategory('');
     };
 
-    const openZipInstaller = () => {
-        setInstallSource('upload');
-        setActiveTab('plugins');
-    };
-
     const pluginStatusVariant = (status) => {
         if (status === 'active') return 'success';
         if (status === 'error') return 'destructive';
@@ -308,9 +271,9 @@ const Marketplace = () => {
 
     useTopbarActions(() =>
         <>
-            <Button variant="outline" size="sm" onClick={openZipInstaller}>
+            <Button variant="outline" size="sm" onClick={() => setManualInstallSource('url')}>
                 <UploadCloud aria-hidden="true" />
-                Import ZIP
+                Install manually
             </Button>
         </>,
         [],
@@ -320,8 +283,6 @@ const Marketplace = () => {
 
     const localCatalogEntries = builtins.map(getLocalCatalogEntry);
     const registryCatalogEntries = registryExtensions.map(getRegistryCatalogEntry);
-    const installedCatalogEntries = localCatalogEntries.filter((entry) => entry.installed);
-    const installedCatalogCount = installedCatalogEntries.length;
     // Update descriptors keyed by both plugin_id and slug so PluginRow can match
     // whichever identifier it has on hand.
     const updatesByKey = new Map();
@@ -345,11 +306,7 @@ const Marketplace = () => {
                     </TabsTrigger>
                     <TabsTrigger value="installed">
                         <PackageCheck aria-hidden="true" />
-                        Installed ({installedCatalogCount})
-                    </TabsTrigger>
-                    <TabsTrigger value="plugins">
-                        <PlugZap aria-hidden="true" />
-                        ServerKit Plugins ({plugins.length})
+                        Installed ({plugins.length})
                     </TabsTrigger>
                 </TabsList>
 
@@ -431,150 +388,42 @@ const Marketplace = () => {
                         <SectionHeader
                             kicker="Installed"
                             title="Installed extensions"
-                            meta={`${installedCatalogCount} installed`}
+                            meta={`${plugins.length} installed`}
                         />
-                        {installedCatalogEntries.length > 0 ? (
+                        {plugins.length > 0 ? (
                             <div className="installed-list">
-                                {installedCatalogEntries.map((entry) => (
-                                    <InstalledCatalogRow key={entry.key} entry={entry} />
+                                {plugins.map((plugin) => (
+                                    <PluginRow
+                                        key={plugin.id}
+                                        plugin={plugin}
+                                        update={updatesByKey.get(String(plugin.id))}
+                                        installing={installing}
+                                        onToggle={handlePluginToggle}
+                                        onUpdate={handlePluginUpdate}
+                                        onUninstall={requestPluginUninstall}
+                                        onConfigure={setConfigTarget}
+                                        statusVariant={pluginStatusVariant}
+                                    />
                                 ))}
                             </div>
                         ) : (
                             <EmptyState
                                 icon={PackageCheck}
                                 title="No extensions installed"
-                                description="Install a built-in or registry extension to see it here."
+                                description="Install one from Browse or use Install manually."
                             />
                         )}
                     </section>
                 </TabsContent>
-
-                <TabsContent value="plugins">
-                    <div className="plugins-section">
-                        <section className="marketplace-section">
-                            <SectionHeader
-                                kicker="Installer"
-                                title="Install ServerKit plugin"
-                                meta={titleCase(installSource)}
-                            />
-                            <div className="plugin-install-form">
-                                <div className="plugin-install-form__heading">
-                                    <div className="plugin-install-form__icon">
-                                        <PlugZap aria-hidden="true" />
-                                    </div>
-                                    <div>
-                                        <h3>Plugin source</h3>
-                                        <p className="text-muted">Load plugin packages from a repository, host folder, or zip archive.</p>
-                                    </div>
-                                </div>
-
-                                <div className="plugin-install-tabs" role="tablist" aria-label="Plugin install source">
-                                    {PLUGIN_INSTALL_SOURCES.map((source) => {
-                                        const SourceIcon = source.icon;
-                                        return (
-                                            <button
-                                                key={source.id}
-                                                role="tab"
-                                                type="button"
-                                                aria-selected={installSource === source.id}
-                                                className={`plugin-install-tab ${installSource === source.id ? 'plugin-install-tab--active' : ''}`}
-                                                onClick={() => setInstallSource(source.id)}
-                                            >
-                                                <SourceIcon aria-hidden="true" />
-                                                {source.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {installSource === 'url' && (
-                                    <PluginInstallInput
-                                        description="Paste a GitHub repo URL, release URL, or direct zip link."
-                                        placeholder="https://github.com/user/serverkit-plugin"
-                                        value={pluginUrl}
-                                        onChange={setPluginUrl}
-                                        onInstall={handlePluginInstall}
-                                        disabled={installing}
-                                        installDisabled={installing || !pluginUrl.trim()}
-                                    />
-                                )}
-
-                                {installSource === 'path' && (
-                                    <PluginInstallInput
-                                        description="Use an absolute path that exists on the backend host or inside the backend container."
-                                        placeholder="/opt/serverkit/plugins/my-plugin"
-                                        value={pluginPath}
-                                        onChange={setPluginPath}
-                                        onInstall={handlePluginInstall}
-                                        disabled={installing}
-                                        installDisabled={installing || !pluginPath.trim()}
-                                    />
-                                )}
-
-                                {installSource === 'upload' && (
-                                    <div className="plugin-install-source">
-                                        <p className="text-muted">
-                                            Upload a plugin zip with <code>plugin.json</code> at the top level or one folder deep.
-                                        </p>
-                                        <div className="plugin-install-row">
-                                            <Input
-                                                type="file"
-                                                className="marketplace-file-input"
-                                                accept=".zip,application/zip,application/x-zip-compressed"
-                                                disabled={installing}
-                                                onChange={(event) => setPluginFile(event.target.files?.[0] || null)}
-                                            />
-                                            <Button
-                                                onClick={handlePluginInstall}
-                                                disabled={installing || !pluginFile}
-                                            >
-                                                <DownloadCloud aria-hidden="true" />
-                                                {installing ? 'Installing...' : 'Install'}
-                                            </Button>
-                                        </div>
-                                        {pluginFile && (
-                                            <div className="plugin-file-note">
-                                                {pluginFile.name} | {(pluginFile.size / 1024).toFixed(1)} KB
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-
-                        <section className="marketplace-section">
-                            <SectionHeader
-                                kicker="Runtime"
-                                title="Installed ServerKit plugins"
-                                meta={`${plugins.length} plugins`}
-                            />
-                            {plugins.length > 0 ? (
-                                <div className="installed-list">
-                                    {plugins.map((plugin) => (
-                                        <PluginRow
-                                            key={plugin.id}
-                                            plugin={plugin}
-                                            update={updatesByKey.get(String(plugin.id))}
-                                            installing={installing}
-                                            onToggle={handlePluginToggle}
-                                            onUpdate={handlePluginUpdate}
-                                            onUninstall={requestPluginUninstall}
-                                            onConfigure={setConfigTarget}
-                                            statusVariant={pluginStatusVariant}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <EmptyState
-                                    icon={PlugZap}
-                                    title="No ServerKit plugins installed"
-                                    description="Install a plugin package to extend the panel runtime."
-                                />
-                            )}
-                        </section>
-                    </div>
-                </TabsContent>
             </Tabs>
+
+            {manualInstallSource && (
+                <ManualInstallModal
+                    defaultSource={manualInstallSource}
+                    onClose={() => setManualInstallSource(null)}
+                    onInstalled={handleManualInstalled}
+                />
+            )}
 
             {detailEntry && (
                 <ExtensionDetailModal
@@ -800,28 +649,12 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
     );
 };
 
-// Installed catalog entries are builtin installs (the legacy "published"
-// lane was retired, #51); their manage/uninstall actions live on the
-// ServerKit Plugins tab, so this row is informational.
-const InstalledCatalogRow = ({ entry }) => (
-    <article className="installed-item card">
-        <div className="installed-item__main">
-            <div className="installed-item__icon installed-item__icon--local">
-                <Archive aria-hidden="true" />
-            </div>
-            <div className="installed-item__content">
-                <div className="installed-item__title-line">
-                    <strong>{entry.displayName}</strong>
-                    <span className="text-muted">v{entry.version}</span>
-                    <Badge variant="warning">{entry.sourceLabel}</Badge>
-                </div>
-            </div>
-        </div>
-        <div className="installed-item__actions">
-            <Badge variant="success">Installed</Badge>
-        </div>
-    </article>
-);
+// Install-origin badge for installed rows. url/local/upload all collapse to
+// "Manual" — the raw origin lives in the tooltip.
+const PLUGIN_SOURCE_BADGES = {
+    builtin: { label: 'Built-in', variant: 'warning' },
+    registry: { label: 'Registry', variant: 'info' },
+};
 
 const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall, onConfigure, statusVariant }) => {
     const updateAvailable = Boolean(update?.update_available);
@@ -829,6 +662,8 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
     const configurable = plugin.config_schema
         && typeof plugin.config_schema === 'object'
         && Object.keys(plugin.config_schema).length > 0;
+    const sourceBadge = PLUGIN_SOURCE_BADGES[plugin.source_type]
+        || { label: 'Manual', variant: 'outline', title: plugin.source_url || undefined };
 
     return (
         <article className={`installed-item installed-item--plugin card ${plugin.status === 'error' ? 'installed-item--error' : ''}`}>
@@ -841,6 +676,7 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
                         <strong>{plugin.display_name}</strong>
                         <span className="text-muted">v{plugin.version}</span>
                         <Badge variant={statusVariant(plugin.status)}>{plugin.status}</Badge>
+                        <Badge variant={sourceBadge.variant} title={sourceBadge.title}>{sourceBadge.label}</Badge>
                         {plugin.has_backend && <Badge variant="secondary">Backend</Badge>}
                         {plugin.has_frontend && <Badge variant="secondary">Frontend</Badge>}
                         {updateAvailable && (
@@ -1016,33 +852,6 @@ const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => (
             </p>
         </div>
     </Modal>
-);
-
-const PluginInstallInput = ({
-    description,
-    placeholder,
-    value,
-    onChange,
-    onInstall,
-    disabled,
-    installDisabled,
-}) => (
-    <div className="plugin-install-source">
-        <p className="text-muted">{description}</p>
-        <div className="plugin-install-row">
-            <Input
-                placeholder={placeholder}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && onInstall()}
-                disabled={disabled}
-            />
-            <Button onClick={onInstall} disabled={installDisabled}>
-                <DownloadCloud aria-hidden="true" />
-                {disabled ? 'Installing...' : 'Install'}
-            </Button>
-        </div>
-    </div>
 );
 
 export default Marketplace;
