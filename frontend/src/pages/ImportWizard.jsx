@@ -6,6 +6,7 @@ import {
     Upload, Users,
 } from 'lucide-react';
 import api from '../services/api';
+import HtaccessConverter from '../components/apps/HtaccessConverter';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { PageTopbar, Pill } from '@/components/ds';
@@ -370,10 +371,16 @@ function ImportWizard() {
                 icon={<ArrowDownToLine size={18} />}
                 title="Import a site"
                 meta="Bring a site over from another control panel"
-                actions={step > 1 && (
-                    <Button variant="outline" size="sm" onClick={resetWizard}>
-                        Start over
-                    </Button>
+                actions={(
+                    <>
+                        {/* Imported sites often carry .htaccess rules — offer the translator here. */}
+                        <HtaccessConverter />
+                        {step > 1 && (
+                            <Button variant="outline" size="sm" onClick={resetWizard}>
+                                Start over
+                            </Button>
+                        )}
+                    </>
                 )}
             />
 
