@@ -36,6 +36,9 @@ import * as speedTestMethods from './speedtest.js';
 import * as dbProcessMethods from './dbProcesses.js';
 import * as dbTunerMethods from './dbTuner.js';
 import * as importMethods from './imports.js';
+import * as doctorMethods from './doctor.js';
+import * as bandwidthMethods from './bandwidth.js';
+import * as htaccessToolMethods from './htaccessTools.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -79,6 +82,9 @@ class ApiService extends ApiClient {
             dbProcessMethods,
             dbTunerMethods,
             importMethods,
+            doctorMethods,
+            bandwidthMethods,
+            htaccessToolMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

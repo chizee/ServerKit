@@ -67,6 +67,7 @@ from app.models.domain_registration import DomainRegistration
 from app.models.login_link import LoginLink
 from app.models.managed_database_user import ManagedDatabaseUser
 from app.models.site_import import SiteImport
+from app.models.site_bandwidth import SiteBandwidthDaily
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -110,4 +111,5 @@ __all__ = [
     'LoginLink',
     'ManagedDatabaseUser',
     'SiteImport',
+    'SiteBandwidthDaily',
 ]

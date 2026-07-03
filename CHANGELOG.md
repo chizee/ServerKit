@@ -28,6 +28,52 @@ awaiting a stable release:
 
 ### Added
 
+- **Configuration drift detection + repair ("doctor")** — a daily read-only
+  sweep re-renders the expected nginx vhost and compose override for every
+  managed resource from panel state and diffs it against disk; drift raises an
+  admin notification, and a Doctor tab on Monitoring runs the full diagnosis
+  (drift, core services, cert expiry, disk headroom, database) with
+  diff-confirmed per-item repair and batch repair. Nothing is ever changed
+  automatically.
+- **Operator CLI** — the `serverkit` CLI gains API-backed verbs for when the
+  browser isn't an option: `status`, `services list/restart`, `apps list`,
+  `doctor [--repair]`, `repair <type> <id>`, `update`, `support-bundle`, and
+  `login-url` (mints a one-time login link). Auth is a break-glass 10-minute
+  token minted in-process — root on the box already implies full control —
+  and every mint is audit-logged.
+- **Diagnostic support bundle** — one call (API or CLI) exports a sanitized
+  zip (versions, service states, setting shapes without values, recent job
+  failures, scrubbed log tail) to attach to a bug report; secrets are
+  scrubbed by pattern and by the settings secret-key list.
+- **Web-shell/YARA scanning + job-backed malware scans** — malware scans now
+  run as jobs, can target an app's docroot directly, and a curated web-shell
+  rules pass (eval/base64 droppers, c99/r57/WSO markers, PHP-in-image,
+  auto_prepend hijacks…) runs alongside ClamAV — with a pure-Python fallback
+  when yara isn't installed, custom rule upload, and one-click quarantine
+  with restore.
+- **File-integrity monitoring** — baseline-and-diff over the paths ServerKit
+  manages (nginx config, ServerKit systemd units, app docroots on opt-in)
+  every six hours, feeding the Notifications Bus; the Security → Integrity
+  tab gains baseline/check/accept controls and a what-changed view.
+- **CrowdSec extension** — a new `serverkit-crowdsec` marketplace extension
+  surfaces CrowdSec decisions and alerts, lets you ban/unban IPs and manage
+  allowlists via cscli, with graceful degradation when CrowdSec isn't
+  installed.
+- **Authoritative DNS server extension** — a new `serverkit-dns-server`
+  marketplace extension runs PowerDNS in a managed container so a ServerKit
+  box can be the nameserver for its domains: zones, records, DNSSEC with DS
+  records for the registrar, and a delegation check. For homelab and
+  air-gapped setups; complements (never replaces) the provider integrations.
+- **Per-domain bandwidth accounting** — daily nginx access-log aggregation
+  into per-site transfer stats, with 30-day sparklines on the Services list
+  and a monthly figure on the service Overview.
+- **Per-site micro-cache** — an opt-in nginx micro-cache (10s TTL) per site
+  with safe bypasses for logged-in/admin/cart cookies and paths, an
+  `X-SK-Cache` header for verification, and a manual purge button. Big cheap
+  win for WordPress/PHP sites.
+- **`.htaccess` → nginx converter** — a paste-in tool (on the Import wizard)
+  translating common rewrite/redirect/auth/access rules to nginx directives,
+  flagging anything it can't translate with the reason and line number.
 - **Import a site (migration pipeline)** — a 5-step wizard at `/imports`
   (entry points on Services and WordPress) restores cPanel/WHM, DirectAdmin
   and Hestia/Vesta backup archives onto ServerKit: the archive is analysed

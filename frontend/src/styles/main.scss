@@ -35,6 +35,7 @@
 @import 'components/_tables';
 @import 'components/_alerts';
 @import 'components/_modals';
+@import 'components/_htaccess-converter';
 @import 'components/_forms';
 @import 'components/_badges';
 @import 'components/_tabs';
@@ -90,6 +91,8 @@
 @import 'pages/_databases';
 @import 'pages/_db-processes';
 @import 'pages/_db-tuner';
+@import 'pages/_doctor';
+@import 'pages/_bandwidth';
 @import 'pages/_domains';
 @import 'pages/_monitoring';
 @import 'pages/_backups';

@@ -470,6 +470,22 @@ def create_app(config_name=None):
     from app.api.site_imports import site_imports_bp
     app.register_blueprint(site_imports_bp, url_prefix='/api/v1/imports')
 
+    # Register blueprints - Drift detection + doctor sweep
+    from app.api.doctor import doctor_bp
+    app.register_blueprint(doctor_bp, url_prefix='/api/v1/doctor')
+
+    # Register blueprints - Diagnostic support bundle
+    from app.api.support_bundle import support_bundle_bp
+    app.register_blueprint(support_bundle_bp, url_prefix='/api/v1/support-bundle')
+
+    # Register blueprints - Per-site bandwidth accounting
+    from app.api.bandwidth import bandwidth_bp
+    app.register_blueprint(bandwidth_bp, url_prefix='/api/v1/bandwidth')
+
+    # Register blueprints - .htaccess -> nginx converter (apps-prefixed tool)
+    from app.api.htaccess_tools import htaccess_tools_bp
+    app.register_blueprint(htaccess_tools_bp, url_prefix='/api/v1/apps')
+
     # Handle database migrations (Alembic) — must run before plugin loader
     # since the loader queries the installed_plugins table.
     with app.app_context():
@@ -598,6 +614,16 @@ def create_app(config_name=None):
         DbAdminSsoService.register_jobs()
         from app.services.site_import_service import SiteImportService
         SiteImportService.register_jobs()
+        from app.services.drift_service import DriftService
+        DriftService.register_jobs()
+        from app.services.doctor_service import DoctorService
+        DoctorService.register_jobs()
+        from app.services.file_integrity_service import FileIntegrityService
+        FileIntegrityService.register_jobs()
+        from app.services.malware_scan_service import MalwareScanService
+        MalwareScanService.register_jobs()
+        from app.services.bandwidth_service import BandwidthService
+        BandwidthService.register_jobs()
         start_job_system(app, seed=seed_builtin_schedules)
 
     # Request body size limit
