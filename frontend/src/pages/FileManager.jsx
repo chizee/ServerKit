@@ -160,16 +160,29 @@ function FileManager() {
 
     // Per-target rail: agents get their OS's set (unknown os_type — an agent
     // predating sysinfo reporting — is treated as linux, the historical
-    // behavior); the local host gets the panel set with the resolved Stack dir.
+    // behavior), with the agent's SELF-REPORTED config dir preferred over the
+    // installer convention when the agent sent one (system_info footprint);
+    // the local host gets the panel set with the resolved Stack dir.
     const quickAccess = useMemo(() => {
         if (isRemote) {
             const os = (target.os_type || 'linux').toLowerCase();
-            return QUICK_ACCESS_AGENT[os] || QUICK_ACCESS_AGENT.linux;
+            const rail = QUICK_ACCESS_AGENT[os] || QUICK_ACCESS_AGENT.linux;
+            // Windows agents report filepath-style backslashes; the file
+            // wire protocol speaks forward slashes.
+            const configDir = target.agentConfigDir
+                ? target.agentConfigDir.replace(/\\/g, '/').replace(/\/+$/, '')
+                : null;
+            if (!configDir) return rail;
+            return rail.map((q) => {
+                if (q.label === 'Agent') return { ...q, path: configDir };
+                if (q.label === 'Agent logs') return { ...q, path: `${configDir}/logs` };
+                return q;
+            });
         }
         return QUICK_ACCESS.map((q) =>
             q.label === 'Stack' ? { ...q, path: panelInstallDir } : q
         );
-    }, [isRemote, target.os_type, panelInstallDir]);
+    }, [isRemote, target.os_type, target.agentConfigDir, panelInstallDir]);
 
     // ─── core ────────────────────────────────────────────
     const [currentPath, setCurrentPath] = useState(() => searchParams.get('path') || '/home');

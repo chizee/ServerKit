@@ -291,7 +291,9 @@ awaiting a stable release:
   browsing a remote agent the quick-access rail now matches that box: Linux
   agents get their agent config dir alongside the generic paths, Windows agents
   get `ProgramData\ServerKit\Agent` + `C:\Users` instead of Unix paths that
-  don't exist there.
+  don't exist there. Agents newer than v1.0.4 self-report their real install
+  and config directories in `system_info` (stored on the server record,
+  migration 047), and the rail prefers those over the installer conventions.
 - **Scripts reliability (round 2)** — swept the whole install/update/uninstall/CLI
   shell surface for the "benign non-zero under `set -e`/`pipefail`" failure class
   behind the July 2 update outage:

@@ -121,6 +121,10 @@ class Server(db.Model):
     total_memory = db.Column(db.BigInteger)  # bytes
     total_disk = db.Column(db.BigInteger)  # bytes
     docker_version = db.Column(db.String(50))
+    # Agent's self-reported footprint (binary dir / config dir) — preferred
+    # over installer-default conventions by target-aware UIs (File Manager).
+    agent_install_dir = db.Column(db.String(255))
+    agent_config_dir = db.Column(db.String(255))
 
     # Security
     api_key_hash = db.Column(db.String(256))  # bcrypt hash
@@ -444,6 +448,8 @@ class Server(db.Model):
             'total_memory': self.total_memory,
             'total_disk': self.total_disk,
             'docker_version': self.docker_version,
+            'agent_install_dir': self.agent_install_dir,
+            'agent_config_dir': self.agent_config_dir,
             'permissions': self.permissions or [],
             'allowed_ips': self.allowed_ips or [],
             'api_key_last_rotated': self.api_key_last_rotated.isoformat() if self.api_key_last_rotated else None,

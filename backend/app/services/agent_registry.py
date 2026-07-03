@@ -1023,6 +1023,8 @@ class AgentRegistry:
             server.total_disk = _coalesce(server.total_disk, info.get('total_disk'))
             server.docker_version = _coalesce(server.docker_version, info.get('docker_version'))
             server.agent_version = _coalesce(server.agent_version, info.get('agent_version'))
+            server.agent_install_dir = _coalesce(server.agent_install_dir, info.get('install_dir'))
+            server.agent_config_dir = _coalesce(server.agent_config_dir, info.get('config_dir'))
             db.session.commit()
         except Exception:
             logger.exception("Error updating system info")

@@ -41,3 +41,34 @@ def test_available_servers_os_type_null_for_legacy_agents(app):
         assert remote
         assert 'os_type' in remote[0]
         assert remote[0]['os_type'] is None
+
+
+def test_agent_footprint_round_trip(app):
+    """The agent's self-reported install_dir/config_dir (system_info) land on
+    the Server row via update_system_info and surface in /servers/available —
+    the chain the File Manager's per-target quick links ride on."""
+    from app.services.agent_registry import agent_registry
+
+    with app.app_context():
+        server = _make_server(name='Reporting Agent', os_type='linux')
+
+        agent_registry.update_system_info(server.id, {
+            'install_dir': '/usr/local/bin',
+            'config_dir': '/etc/serverkit-agent',
+        })
+
+        db.session.refresh(server)
+        assert server.agent_install_dir == '/usr/local/bin'
+        assert server.agent_config_dir == '/etc/serverkit-agent'
+
+        remote = [s for s in RemoteDockerService.get_available_servers()
+                  if not s['is_local']]
+        assert remote[0]['agent_install_dir'] == '/usr/local/bin'
+        assert remote[0]['agent_config_dir'] == '/etc/serverkit-agent'
+
+        # A later payload without the keys (transient probe gap) must not
+        # wipe the stored values — same coalesce contract as the other
+        # system_info columns.
+        agent_registry.update_system_info(server.id, {'hostname': 'still-here'})
+        db.session.refresh(server)
+        assert server.agent_config_dir == '/etc/serverkit-agent'

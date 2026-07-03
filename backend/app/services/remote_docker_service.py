@@ -514,6 +514,10 @@ class RemoteDockerService:
                 # linux/windows/darwin — lets target-aware UIs (File Manager
                 # quick links) offer paths that exist on that box.
                 'os_type': server.os_type,
+                # Agent's self-reported footprint (null until an agent that
+                # reports it connects) — preferred over installer conventions.
+                'agent_install_dir': server.agent_install_dir,
+                'agent_config_dir': server.agent_config_dir,
             })
 
         return servers
