@@ -40,4 +40,8 @@
 - [ ] Every new observation/discovery/snapshot/report function is appended to
       the **fresh-box loop** in its test suite, and I named which degenerate
       fixture covers the new failure mode
+- [ ] Multi-statement test bodies in tested contexts (`if ( … )` subshells,
+      the left side of `||`) are **`&&`-chained** — bash suppresses `set -e`
+      there even when re-armed inside, so sequential statements assert only
+      the last one
 - [ ] The fix/feature ships with its **proving test in the same commit**
