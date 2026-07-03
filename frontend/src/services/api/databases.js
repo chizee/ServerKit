@@ -262,3 +262,23 @@ export async function revealManagedConnectionUri(id) {
 export async function protectManagedDatabase(id, policy = null) {
     return this.request(`/databases/managed/${id}/protect`, { method: 'POST', body: { policy } });
 }
+
+// Managed database users — tracked rows merged with the live engine list.
+// create returns the password exactly once; it is never stored or re-exposed.
+export async function getManagedDbUsers(id) {
+    return this.request(`/managed-databases/${id}/users`);
+}
+
+export async function createManagedDbUser(id, data) {
+    return this.request(`/managed-databases/${id}/users`, { method: 'POST', body: data });
+}
+
+export async function deleteManagedDbUser(id, userId) {
+    return this.request(`/managed-databases/${id}/users/${userId}`, { method: 'DELETE' });
+}
+
+// One-click Adminer SSO — mints a 5-minute single-database credential and
+// returns the launch descriptor the caller form-POSTs into Adminer.
+export async function launchManagedDbSso(id) {
+    return this.request(`/managed-databases/${id}/sso`, { method: 'POST' });
+}

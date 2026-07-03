@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     PanelLeftClose, PanelLeftOpen, Search, X, RefreshCw, Plus, Terminal,
     Archive, Database, Table2, Server, ChevronDown,
-    Trash2, DatabaseBackup, Copy, FileCode2, Lock, BookMarked,
+    Trash2, DatabaseBackup, Copy, FileCode2, Lock, BookMarked, Activity,
+    SlidersHorizontal,
 } from 'lucide-react';
 import api from '../services/api';
 import Modal from '@/components/Modal';
@@ -15,6 +16,8 @@ import SourceTree from '../components/databases/SourceTree';
 import ConsoleTab from '../components/databases/ConsoleTab';
 import TableDataTab from '../components/databases/TableDataTab';
 import BackupsTab from '../components/databases/BackupsTab';
+import ProcessListPanel from '../components/databases/ProcessListPanel';
+import ConfigTunerPanel from '../components/databases/ConfigTunerPanel';
 import {
     CreateMySQLDatabaseModal, CreateMySQLUserModal,
     CreatePostgreSQLDatabaseModal, CreatePostgreSQLUserModal,
@@ -57,6 +60,7 @@ function dockerDbNode(engine, db, i) {
 
 function TabIcon({ tab }) {
     if (tab.kind === 'backups') return <Archive size={13} aria-hidden="true" />;
+    if (tab.kind === 'processes') return <Activity size={13} aria-hidden="true" />;
     if (tab.kind === 'console') return <Terminal size={13} aria-hidden="true" />;
     return <Table2 size={13} aria-hidden="true" />;
 }
@@ -83,6 +87,7 @@ export default function Databases() {
     const [ctxMenu, setCtxMenu] = useState(null);
     const [showNewMenu, setShowNewMenu] = useState(false);
     const [showManaged, setShowManaged] = useState(false);
+    const [tunerTarget, setTunerTarget] = useState(null);
     const [modal, setModal] = useState(null); // { type, databases }
     const newMenuRef = useRef(null);
     const didAutoExpand = useRef(false);
@@ -232,6 +237,16 @@ export default function Databases() {
         setActiveTabId(id);
     }
 
+    function openProcesses(conn, engine) {
+        // One processes tab per server/container — a database's conn routes to
+        // its host server, so key on engine + container rather than connKey.
+        const id = `proc:${engine}:${conn.container || 'host'}`;
+        const title = conn.container ? `Processes · ${conn.container}` : `Processes · ${ENGINE_META[engine]?.short || engine}`;
+        setTabs((prev) => prev.some((t) => t.id === id) ? prev
+            : [...prev, { id, kind: 'processes', title, conn, engine }]);
+        setActiveTabId(id);
+    }
+
     function openBackups() {
         setTabs((prev) => prev.some((t) => t.id === 'backups') ? prev : [...prev, { id: 'backups', kind: 'backups', title: 'Backups' }]);
         setActiveTabId('backups');
@@ -330,6 +345,7 @@ export default function Databases() {
                     return [
                         { label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'mysql-db' }) },
                         { label: 'Create user', icon: Plus, onClick: () => openUserModal('mysql') },
+                        { label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'mysql' }, 'mysql') },
                         { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
@@ -337,6 +353,7 @@ export default function Databases() {
                     return [
                         { label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'pg-db' }) },
                         { label: 'Create user', icon: Plus, onClick: () => openUserModal('postgresql') },
+                        { label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'postgresql' }, 'postgresql') },
                         { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
@@ -347,7 +364,14 @@ export default function Databases() {
                     { label: 'Refresh tables', icon: RefreshCw, onClick: () => refresh(node) },
                 ];
                 if (node.engine === 'mysql' || node.engine === 'postgresql') {
-                    actions.splice(1, 0, { label: 'Back up database', icon: DatabaseBackup, onClick: () => backupDatabase(node) });
+                    // Processes live at the server/container level; the db node
+                    // is just the natural place to reach them from.
+                    actions.splice(1, 0, { label: 'Server processes', icon: Activity, onClick: () => openProcesses(node.conn, node.engine) });
+                    if (node.conn?.dbType === 'docker' && node.conn.container) {
+                        // Curated config tuner is container-scoped (docker-only).
+                        actions.splice(2, 0, { label: 'Config tuner', icon: SlidersHorizontal, onClick: () => setTunerTarget({ container: node.conn.container, engine: node.engine, password: node.conn.password }) });
+                    }
+                    actions.splice(2, 0, { label: 'Back up database', icon: DatabaseBackup, onClick: () => backupDatabase(node) });
                     actions.push({ label: 'Drop database', icon: Trash2, danger: true, onClick: () => dropDatabase(node) });
                 }
                 return actions;
@@ -564,6 +588,14 @@ export default function Databases() {
                                             onOpenConsole={(q) => openConsole(tab.conn, tab.engine, q)}
                                         />
                                     )}
+                                    {tab.kind === 'processes' && (
+                                        <ProcessListPanel
+                                            conn={tab.conn}
+                                            engine={tab.engine}
+                                            active={tab.id === activeTabId}
+                                            isAdmin={isAdmin}
+                                        />
+                                    )}
                                     {tab.kind === 'backups' && <BackupsTab />}
                                 </div>
                             ))
@@ -624,6 +656,12 @@ export default function Databases() {
 
             <Modal open={showManaged} onClose={() => setShowManaged(false)} title="Managed databases" size="lg">
                 <ManagedDatabasesPanel />
+            </Modal>
+
+            <Modal open={!!tunerTarget} onClose={() => setTunerTarget(null)} title="Config tuner" size="lg">
+                {tunerTarget && (
+                    <ConfigTunerPanel target={tunerTarget.container} engine={tunerTarget.engine} password={tunerTarget.password} />
+                )}
             </Modal>
 
         </div>
