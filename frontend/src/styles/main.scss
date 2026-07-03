@@ -88,6 +88,8 @@
 @import 'pages/_applications';
 @import 'pages/_docker';
 @import 'pages/_databases';
+@import 'pages/_db-processes';
+@import 'pages/_db-tuner';
 @import 'pages/_domains';
 @import 'pages/_monitoring';
 @import 'pages/_backups';
@@ -113,6 +115,7 @@
 @import 'pages/_email';
 @import 'pages/_setup-wizard';
 @import 'pages/_migration-wizard';
+@import 'pages/_import-wizard';
 @import 'pages/_new-service';
 @import 'pages/_services';
 @import 'pages/_service-detail';

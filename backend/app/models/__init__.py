@@ -64,6 +64,9 @@ from app.notifications.models import Notification, NotificationDelivery
 from app.models.email_provider import EmailProviderConnection
 from app.models.system_event import SystemEvent
 from app.models.domain_registration import DomainRegistration
+from app.models.login_link import LoginLink
+from app.models.managed_database_user import ManagedDatabaseUser
+from app.models.site_import import SiteImport
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -104,4 +107,7 @@ __all__ = [
     'ApplicationPreview', 'ApplicationPreviewSettings',
     'ProxyStack',
     'SiteBaseDomain',
+    'LoginLink',
+    'ManagedDatabaseUser',
+    'SiteImport',
 ]

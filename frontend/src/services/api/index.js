@@ -31,6 +31,11 @@ import * as projectMethods from './projects.js';
 import * as sharedResourceMethods from './sharedResources.js';
 import * as previewMethods from './previews.js';
 import * as proxyMethods from './proxy.js';
+import * as metadataGuardMethods from './metadataGuard.js';
+import * as speedTestMethods from './speedtest.js';
+import * as dbProcessMethods from './dbProcesses.js';
+import * as dbTunerMethods from './dbTuner.js';
+import * as importMethods from './imports.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -69,6 +74,11 @@ class ApiService extends ApiClient {
             sharedResourceMethods,
             previewMethods,
             proxyMethods,
+            metadataGuardMethods,
+            speedTestMethods,
+            dbProcessMethods,
+            dbTunerMethods,
+            importMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

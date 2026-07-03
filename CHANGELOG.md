@@ -28,6 +28,39 @@ awaiting a stable release:
 
 ### Added
 
+- **Import a site (migration pipeline)** — a 5-step wizard at `/imports`
+  (entry points on Services and WordPress) restores cPanel/WHM, DirectAdmin
+  and Hestia/Vesta backup archives onto ServerKit: the archive is analysed
+  into a report (domains, databases, DB users, crontab, warnings), then a
+  resumable job maps it to an app, managed databases (MySQL password hashes
+  preserved where the engine allows) and cron entries, with per-step logs and
+  retry-from-failed-step. Uploads and fetch-by-URL both supported, with SSRF
+  and archive-traversal guards throughout.
+- **WordPress: import over SSH** — point at any live WordPress site with SSH
+  credentials (`/wordpress/ssh-import`): probe shows the pinned host key and
+  site facts, then a job pulls the docroot, dumps the database through the
+  tunnel and rebuilds it as a managed site with the URL search-replaced.
+- **Database tools** — the Database Explorer gains a live processlist with
+  kill/terminate per server or container; a curated config tuner (RAM-aware
+  suggested values for vetted MySQL/PostgreSQL settings, applied with backups
+  and clean rollback, never auto-applied); managed database users tracked as
+  first-class rows; and one-click "Open in Adminer" SSO via a single-use,
+  five-minute shadow credential scoped to one database.
+- **Per-app resource limits** — CPU and memory limits are first-class fields
+  on an app (Settings → Resource Limits) showing live usage vs limit, applied
+  to the container without touching the user's own compose file.
+- **One-time login links** — admins can mint single-use, short-TTL,
+  optionally IP-bound login URLs from Settings → Users, for "log in and take
+  a look" support situations; links are hashed at rest and reaped hourly.
+- **Demo mode** — an opt-in flag that blocks every mutating API call with
+  `403 demo_mode` and offers seeded read-only credentials on the login page,
+  for running a public demo of a real panel.
+- **Cloud-metadata egress guard** — a default-on (opt-out) firewall rule
+  blocking app containers from 169.254.169.254, closing the SSRF-to-cloud-IAM
+  credential-theft class on cloud VPSes (Security → Firewall).
+- **Server speed test** — an on-demand download/upload/latency test on the
+  Monitoring page, using the Ookla/speedtest CLI when present with a
+  pure-Python fallback.
 - **Extensions platform (Phase 7 — settings slot + manifest linting)** — extensions
   can now contribute sections to the Settings page (a `settings.section` widget
   slot rendered below the active tab), and `plugin.json` manifests are shape-checked

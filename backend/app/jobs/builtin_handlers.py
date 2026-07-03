@@ -341,3 +341,17 @@ def seed_builtin_schedules():
         ScheduledJobService.ensure(
             name, kind, interval_seconds=interval, startup_delay_seconds=delay,
         )
+    # One-time login-link reaper — handler registered by
+    # login_link_service.register_jobs() at boot.
+    from app.services import login_link_service
+    ScheduledJobService.ensure(
+        login_link_service.REAP_SCHEDULE_NAME, login_link_service.REAP_JOB_KIND,
+        interval_seconds=3600, startup_delay_seconds=120,
+    )
+    # Adminer SSO shadow-credential reaper — handler registered by
+    # DbAdminSsoService.register_jobs() at boot.
+    from app.services import db_admin_sso_service
+    ScheduledJobService.ensure(
+        db_admin_sso_service.REAP_SCHEDULE_NAME, db_admin_sso_service.REAP_JOB_KIND,
+        interval_seconds=300, startup_delay_seconds=120,
+    )

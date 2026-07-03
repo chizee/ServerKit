@@ -26,6 +26,7 @@ import CronJobs from './pages/CronJobs';
 import Security from './pages/Security';
 import Services from './pages/Services';
 import NewService from './pages/NewService';
+import ImportWizard from './pages/ImportWizard';
 import ServiceDetail from './pages/ServiceDetail';
 import Templates from './pages/Templates';
 import Servers from './pages/Servers';
@@ -79,6 +80,7 @@ const PAGE_TITLES = {
     '/setup': 'Setup',
     '/services': 'Services',
     '/services/new': 'New Service',
+    '/imports': 'Import a Site',
     '/projects': 'Projects',
     '/shared-variables': 'Shared Variables',
     '/fleet-proxy': 'Fleet Proxy',
@@ -309,6 +311,7 @@ function AppRoutes() {
                 {/* Settings sub-section in the URL (e.g. .../settings/git)
                     so the Settings left-nav is shareable and survives a refresh. */}
                 <Route path="services/:id/:tab/:section" element={<ServiceDetail />} />
+                <Route path="imports" element={<ImportWizard />} />
                 <Route path="apps" element={<Navigate to="/services" replace />} />
                 <Route path="apps/:id" element={<LegacyAppRedirect />} />
                 <Route path="apps/:id/:tab" element={<LegacyAppRedirect />} />

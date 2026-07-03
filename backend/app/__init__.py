@@ -76,6 +76,10 @@ def create_app(config_name=None):
     from app.middleware.security import register_security_headers
     register_security_headers(app)
 
+    # Demo mode guard — config-gated (default off), blocks mutating API calls
+    from app.middleware.demo import init_demo_mode
+    init_demo_mode(app)
+
     # Register API key authentication middleware
     from app.middleware.api_key_auth import register_api_key_auth
     register_api_key_auth(app)
@@ -162,6 +166,14 @@ def create_app(config_name=None):
     # Register blueprints - Databases
     from app.api.databases import databases_bp
     app.register_blueprint(databases_bp, url_prefix='/api/v1/databases')
+
+    # Register blueprints - Managed DB users + Adminer SSO
+    from app.api.managed_db_users import managed_db_users_bp
+    app.register_blueprint(managed_db_users_bp, url_prefix='/api/v1/managed-databases')
+
+    # Register blueprints - Curated DB config tuner
+    from app.api.db_tuner import db_tuner_bp
+    app.register_blueprint(db_tuner_bp, url_prefix='/api/v1/db-tuner')
 
     # Register blueprints - Monitoring & Alerts
     from app.api.monitoring import monitoring_bp
@@ -450,6 +462,14 @@ def create_app(config_name=None):
     from app.api.ai import ai_bp
     app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
 
+    # Register blueprints - Server speed test (Monitoring card)
+    from app.api.speed_test import speedtest_bp
+    app.register_blueprint(speedtest_bp, url_prefix='/api/v1/speedtest')
+
+    # Register blueprints - Site imports (panel migration pipeline)
+    from app.api.site_imports import site_imports_bp
+    app.register_blueprint(site_imports_bp, url_prefix='/api/v1/imports')
+
     # Handle database migrations (Alembic) — must run before plugin loader
     # since the loader queries the installed_plugins table.
     with app.app_context():
@@ -566,6 +586,18 @@ def create_app(config_name=None):
         ServerOnboardingService.register_jobs()
         from app.services.preview_service import PreviewService
         PreviewService.register_jobs()
+        from app.services.metadata_guard_service import MetadataGuardService
+        MetadataGuardService.register_jobs()
+        if not app.config.get('TESTING'):
+            MetadataGuardService.ensure()  # converge the metadata egress rule (no-op when unsupported)
+        from app.services.speed_test_service import SpeedTestService
+        SpeedTestService.register_jobs()
+        from app.services import login_link_service
+        login_link_service.register_jobs()
+        from app.services.db_admin_sso_service import DbAdminSsoService
+        DbAdminSsoService.register_jobs()
+        from app.services.site_import_service import SiteImportService
+        SiteImportService.register_jobs()
         start_job_system(app, seed=seed_builtin_schedules)
 
     # Request body size limit
