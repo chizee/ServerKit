@@ -23,11 +23,22 @@ def get_panel_version():
 
     here = os.path.dirname(os.path.abspath(__file__))       # backend/app/utils
     backend_root = os.path.dirname(os.path.dirname(here))    # backend/
-    candidates = [
-        '/opt/serverkit/VERSION',
-        os.path.join(backend_root, '..', 'VERSION'),
-        os.path.join(backend_root, 'VERSION'),
-    ]
+    candidates = []
+    # Explicit override first — the systemd unit renders SERVERKIT_INSTALL_DIR
+    # from the installer's SERVERKIT_DIR, so custom install locations are
+    # pinned positively. Deliberately NOT the bare SERVERKIT_DIR env var: the
+    # backend already uses that name for the /var/serverkit data root
+    # (app/paths.py), a different directory with a different default.
+    install_dir = os.environ.get('SERVERKIT_INSTALL_DIR')
+    if install_dir:
+        candidates.append(os.path.join(install_dir, 'VERSION'))
+    # The running code's own tree next: correct for any custom install dir and
+    # for the Docker image (/app/VERSION), and never a stale parallel tree.
+    candidates.append(os.path.join(backend_root, '..', 'VERSION'))
+    candidates.append(os.path.join(backend_root, 'VERSION'))
+    # Legacy default install location last — a box moved to a custom dir may
+    # still have an abandoned tree here.
+    candidates.append('/opt/serverkit/VERSION')
     version = '0.0.0'
     for path in candidates:
         try:
@@ -39,6 +50,23 @@ def get_panel_version():
             pass
     _cached_version = version
     return version
+
+
+def get_install_dir():
+    """Best-effort panel install root (the tree holding backend/, frontend/,
+    VERSION). Same resolution contract as get_panel_version: explicit
+    SERVERKIT_INSTALL_DIR override, then the running code's own tree, then the
+    default install location. abspath (not realpath) on purpose — a blue/green
+    box should report the stable /opt/serverkit symlink, not a slot dir.
+    """
+    install_dir = os.environ.get('SERVERKIT_INSTALL_DIR')
+    if install_dir:
+        return install_dir
+    here = os.path.dirname(os.path.abspath(__file__))        # backend/app/utils
+    tree_root = os.path.abspath(os.path.join(here, '..', '..', '..'))
+    if os.path.exists(os.path.join(tree_root, 'VERSION')):
+        return tree_root
+    return '/opt/serverkit'
 
 
 def _parse(v):

@@ -47,8 +47,16 @@ firewall_detect() {
     if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
         printf 'firewalld\n'; return 0
     fi
-    if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qiE '^Status:[[:space:]]*active'; then
-        printf 'ufw\n'; return 0
+    if command -v ufw >/dev/null 2>&1; then
+        # Capture-then-case rather than `ufw status | grep -q`: grep -q exits
+        # at the first match, ufw can then die of SIGPIPE, and under a caller's
+        # pipefail the pipeline goes non-zero — misdetecting an active ufw.
+        local ufw_out
+        ufw_out="$(ufw status 2>/dev/null || true)"
+        case "$ufw_out" in
+            *[Ss]tatus:*[Ii]nactive*) : ;;  # "inactive" contains "active" — rule it out first
+            *[Ss]tatus:*[Aa]ctive*)   printf 'ufw\n'; return 0 ;;
+        esac
     fi
     if command -v nft >/dev/null 2>&1 && nft list ruleset >/dev/null 2>&1; then
         printf 'nftables\n'; return 0
@@ -64,7 +72,11 @@ _fw_port()  { printf '%s' "${1%%/*}"; }
 _fw_proto() { case "$1" in */*) printf '%s' "${1##*/}" ;; *) printf 'tcp' ;; esac; }
 
 firewall_open() {
-    local backend="$1"; shift
+    # No backend argument (a zero-arg call under a `set -u` caller) is a
+    # no-op, not an unbound-variable abort.
+    local backend="${1:-}"
+    [ -n "$backend" ] || return 0
+    shift
     local spec port proto
     case "$backend" in
         firewalld)
@@ -102,7 +114,10 @@ firewall_open() {
 }
 
 firewall_close() {
-    local backend="$1"; shift
+    # Same zero-arg guard as firewall_open.
+    local backend="${1:-}"
+    [ -n "$backend" ] || return 0
+    shift
     local spec port proto
     case "$backend" in
         firewalld)
@@ -134,6 +149,6 @@ firewall_close() {
 
 # Warn-and-document fallback text for when no firewall could be driven.
 firewall_manual_hint() {
-    local ports="$1"
+    local ports="${1:-}"
     printf 'Open these ports manually so the panel is reachable: %s\n' "$ports"
 }

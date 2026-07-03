@@ -9,6 +9,7 @@ from app.services.system_service import SystemService
 from app.services.resource_tier_service import ResourceTierService
 from app.services.site_domain_service import SiteDomainService
 from app.utils.domain import is_valid_canonical_domain
+from app.utils.version import get_panel_version, get_install_dir
 
 # Cache for update check (to avoid hitting GitHub API too often)
 _update_cache = {
@@ -23,28 +24,17 @@ system_bp = Blueprint('system', __name__)
 @system_bp.route('/version', methods=['GET'])
 @jwt_required()
 def get_version():
-    """Get ServerKit version."""
-    version = '1.0.0'  # Default version
+    """Get ServerKit version.
 
-    # Try to read from VERSION file
-    version_paths = [
-        '/opt/serverkit/VERSION',
-        os.path.join(current_app.root_path, '..', 'VERSION'),
-        os.path.join(current_app.root_path, '..', '..', 'VERSION'),
-    ]
-
-    for path in version_paths:
-        try:
-            if os.path.exists(path):
-                with open(path, 'r') as f:
-                    version = f.read().strip()
-                break
-        except Exception:
-            pass
-
+    Resolution (SERVERKIT_INSTALL_DIR override → own tree → /opt/serverkit)
+    lives in app.utils.version so custom install dirs report honestly.
+    """
     return jsonify({
-        'version': version,
-        'name': 'ServerKit'
+        'version': get_panel_version(),
+        'name': 'ServerKit',
+        # Where the panel is installed — consumers (e.g. the File Manager's
+        # "Stack" quick link) must not assume /opt/serverkit.
+        'install_dir': get_install_dir()
     }), 200
 
 
@@ -58,21 +48,8 @@ def check_update():
     if _update_cache['result'] and (time.time() - _update_cache['last_check']) < _update_cache['ttl']:
         return jsonify(_update_cache['result']), 200
 
-    # Get current version
-    current_version = '1.0.0'
-    version_paths = [
-        '/opt/serverkit/VERSION',
-        os.path.join(current_app.root_path, '..', 'VERSION'),
-        os.path.join(current_app.root_path, '..', '..', 'VERSION'),
-    ]
-    for path in version_paths:
-        try:
-            if os.path.exists(path):
-                with open(path, 'r') as f:
-                    current_version = f.read().strip()
-                break
-        except Exception:
-            pass
+    # Get current version (shared resolver — honors SERVERKIT_INSTALL_DIR)
+    current_version = get_panel_version()
 
     result = {
         'current_version': current_version,

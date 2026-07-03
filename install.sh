@@ -152,24 +152,44 @@ masthead() {
 preflight() {
     step "Running pre-flight checks..."
 
+    # Root first: every check and phase after this point may write to the
+    # host (choose_pkg_manager drops an apt config file), so a non-root run
+    # must die on THIS friendly message, not on the first raw
+    # "Permission denied". (I11)
+    if [ "$EUID" -ne 0 ]; then
+        halt "Please run this installer as root (use sudo)."
+    fi
+
     # Source builds need more headroom than unpacking a release.
     local need_kb=5242880
     [ "$INSTALL_FROM_RELEASE" = "1" ] && need_kb=2097152
 
+    # Probe the filesystem that will actually hold the install — the target
+    # tree rarely exists yet, so walk up to the nearest existing ancestor —
+    # and use POSIX -Pk output so a long device name cannot wrap the line
+    # and skew the awk parse. (I14)
+    local probe="$INSTALL_DIR" parent
+    while [ ! -d "$probe" ]; do
+        parent="$(dirname "$probe")"
+        [ "$parent" != "$probe" ] || break
+        probe="$parent"
+    done
     local free_kb
-    free_kb=$(df /opt 2>/dev/null | awk 'NR==2 {print $4}')
+    free_kb=$(df -Pk "$probe" 2>/dev/null | awk 'NR==2 {print $4}') || free_kb=""
     if [ -n "$free_kb" ] && [ "$free_kb" -lt "$need_kb" ]; then
-        halt "Need at least $((need_kb / 1024 / 1024))GB free on /opt; less is available."
+        halt "Need at least $((need_kb / 1024 / 1024))GB free on $probe; less is available."
     fi
 
-    local free_mem
-    free_mem=$(free -m | awk '/^Mem:/ {print $7}')
+    # `free` is missing from some LXC templates — skip the advisory memory
+    # check rather than aborting on the bare assignment. (I14)
+    local free_mem=""
+    if command -v free &>/dev/null; then
+        free_mem=$(free -m 2>/dev/null | awk '/^Mem:/ {print $7}') || free_mem=""
+    else
+        warn "'free' not found — skipping the memory check."
+    fi
     if [ -n "$free_mem" ] && [ "$free_mem" -lt 256 ]; then
         warn "Under 256MB memory free — the install may run slowly."
-    fi
-
-    if [ "$EUID" -ne 0 ]; then
-        halt "Please run this installer as root (use sudo)."
     fi
 
     good "Pre-flight checks passed."
@@ -216,7 +236,13 @@ identify_system() {
 
     local os_release="${SERVERKIT_OS_RELEASE:-/etc/os-release}"
     [ -f "$os_release" ] || halt "Cannot detect OS — $os_release is missing."
+    # os-release defines its own VERSION ("24.04.1 LTS ..."), which would
+    # clobber the installer's version string; ID/PRETTY_NAME are wanted
+    # globals (provision_python keys off ID), so source in place and restore
+    # just our VERSION afterwards. (I22)
+    local sk_version="$VERSION"
     . "$os_release"
+    VERSION="$sk_version"
 
     OS_FAMILY="$(os_family_from "${ID:-}" "${ID_LIKE:-}")"
     case "$OS_FAMILY" in
@@ -271,40 +297,85 @@ APT_EOF
 }
 
 refresh_pkg_index() {
+    # Best-effort by design (mirrors scripts/lib/pkg.sh pkg_refresh): a failed
+    # index refresh — flaky mirror, momentary lock — must never abort the
+    # install, so every arm is guarded and the function always returns 0.
+    # The --refresh flag is dnf-only; classic yum has no such flag, so its arm
+    # is a plain makecache (same as pkg.sh).
     case "$PKG_MGR" in
-        apt)    apt-get update -y >/dev/null 2>&1 ;;
-        dnf)    dnf makecache --refresh >/dev/null 2>&1 ;;
-        yum)    yum makecache --refresh >/dev/null 2>&1 ;;
-        zypper) zypper --non-interactive refresh >/dev/null 2>&1 ;;
-        pacman) pacman -Sy --noconfirm >/dev/null 2>&1 ;;
-        apk)    apk update >/dev/null 2>&1 ;;
+        apt)    apt-get update -y >/dev/null 2>&1 || true ;;
+        dnf)    dnf makecache --refresh >/dev/null 2>&1 || true ;;
+        yum)    yum makecache >/dev/null 2>&1 || true ;;
+        zypper) zypper --non-interactive refresh >/dev/null 2>&1 || true ;;
+        pacman) pacman -Sy --noconfirm >/dev/null 2>&1 || true ;;
+        apk)    apk update >/dev/null 2>&1 || true ;;
     esac
+    return 0
 }
 
+# Warn-and-continue package install. Output is captured so a failure can be
+# reported with the manager's last lines — and that capture carries an
+# `|| rc=$?` guard because a bare `out=$(apt-get ...)` assignment is itself
+# an abort point under `set -e`: the old body died on the assignment, before
+# it could print anything at all. Always returns 0; callers that *require* a
+# package must probe the resulting state (command -v, locate_python, ...)
+# rather than this exit code.
 pkg_add() {
-    local out rc
+    local out="" rc=0
     case "$PKG_MGR" in
-        apt)    out=$(apt-get install -y "$@" 2>&1) ;;
-        dnf)    out=$(dnf install -y "$@" 2>&1) ;;
-        yum)    out=$(yum install -y "$@" 2>&1) ;;
-        zypper) out=$(zypper --non-interactive install "$@" 2>&1) ;;
-        pacman) out=$(pacman -S --noconfirm "$@" 2>&1) ;;
-        apk)    out=$(apk add "$@" 2>&1) ;;
+        apt)    out=$(apt-get install -y "$@" 2>&1) || rc=$? ;;
+        dnf)    out=$(dnf install -y "$@" 2>&1) || rc=$? ;;
+        yum)    out=$(yum install -y "$@" 2>&1) || rc=$? ;;
+        zypper) out=$(zypper --non-interactive install "$@" 2>&1) || rc=$? ;;
+        pacman) out=$(pacman -S --noconfirm "$@" 2>&1) || rc=$? ;;
+        apk)    out=$(apk add "$@" 2>&1) || rc=$? ;;
+        *)      warn "No supported package manager — cannot install: $*"; return 0 ;;
     esac
-    rc=$?
-    if [ $rc -ne 0 ]; then
+    if [ "$rc" -ne 0 ]; then
         warn "Could not install: $* (exit $rc)"
-        printf '%s\n' "$out" | tail -5 >&2
-        return $rc
+        printf '%s\n' "$out" | tail -5 >&2 || true
     fi
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# RHEL-family (Rocky/Alma/RHEL/CentOS 9): upgrade openssh + openssl TOGETHER,
+# up front, before any other dnf transaction runs.
+#
+# Rocky 9 images ship openssh linked against openssl-libs 3.0.x while the
+# updates stream carries openssl-libs 3.5.x plus a matching openssh rebuild.
+# Any later `dnf install` that pulls dependencies can transitively upgrade
+# openssl-libs; if openssh is not upgraded in the SAME transaction, every new
+# sshd fork dies with "OpenSSL version mismatch" — remote installs over SSH
+# then cut themselves off mid-run. Upgrading both together lets openssh's
+# scriptlet restart sshd against the matched libssl (KillMode=process keeps
+# the live SSH session alive). Do NOT rewrite this with --exclude=openssl
+# shapes; they fail on python3-libs symbol requirements. Best-effort: a box
+# without the updates repo (or already current) is a clean no-op.
+# ---------------------------------------------------------------------------
+upgrade_rhel_crypto_stack() {
+    [ "$OS_FAMILY" = "rhel" ] || return 0
+    command -v dnf &>/dev/null || return 0
+    step "Upgrading openssh/openssl together (avoids sshd 'OpenSSL version mismatch')..."
+    dnf upgrade -y openssh openssh-server openssh-clients openssl openssl-libs openssl-devel 2>/dev/null || true
+    return 0
 }
 
 # ---------------------------------------------------------------------------
 # Memory tuning: low-RAM safe mode and a swap fallback
 # ---------------------------------------------------------------------------
 gauge_memory() {
-    local total
-    total=$(free -m | awk '/^Mem:/ {print $2}')
+    # `free` is missing from some LXC templates — degrade to "no safe mode"
+    # instead of aborting on the bare assignment under pipefail. (I14)
+    local total=""
+    if command -v free &>/dev/null; then
+        total=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}') || total=""
+    fi
+    if [ -z "$total" ]; then
+        SAFE_MODE=false
+        warn "Cannot read total memory ('free' missing) — skipping the low-RAM check."
+        return 0
+    fi
     if [ "$total" -le 700 ]; then
         SAFE_MODE=true
         warn "Low RAM (${total}MB) — enabling VPS safe mode."
@@ -314,19 +385,46 @@ gauge_memory() {
 }
 
 ensure_swap() {
+    # No `free` (some LXC templates) → cannot gauge swap; skip quietly. (I14)
+    if ! command -v free &>/dev/null; then
+        warn "'free' not found — skipping the swap check."
+        return 0
+    fi
+    # The swapfile path and /proc/swaps are overridable so the unit tests can
+    # exercise this against fixtures (same pattern as SERVERKIT_NGINX_DIR).
+    local swapfile="${SERVERKIT_SWAPFILE:-/swapfile}"
+    local proc_swaps="${SERVERKIT_PROC_SWAPS:-/proc/swaps}"
     local swap
-    swap=$(free -m | awk '/^Swap:/ {print $2}')
+    swap=$(free -m 2>/dev/null | awk '/^Swap:/ {print $2}') || swap=""
+    [ -n "$swap" ] || return 0
     if [ "$swap" -lt 512 ]; then
         step "Adding 1GB of swap..."
-        if [ ! -f /swapfile ]; then
-            fallocate -l 1G /swapfile 2>/dev/null || \
-                dd if=/dev/zero of=/swapfile bs=1M count=1024 status=none
-            chmod 600 /swapfile
-            mkswap /swapfile >/dev/null
+        # Every arm is guarded: fallocate is unsupported on some filesystems,
+        # dd dies on a full disk, and swapon fails outright on btrfs/zfs and
+        # in most containers. The old body claimed "Swap active." no matter
+        # what and the Vite build then OOM'd — verify via swapon --show /
+        # /proc/swaps before saying so, and degrade to a warning when no swap
+        # could actually be brought up. (I19)
+        if [ ! -f "$swapfile" ]; then
+            if fallocate -l 1G "$swapfile" 2>/dev/null || \
+               dd if=/dev/zero of="$swapfile" bs=1M count=1024 status=none 2>/dev/null; then
+                chmod 600 "$swapfile" 2>/dev/null || true
+                mkswap "$swapfile" >/dev/null 2>&1 || true
+            else
+                # A dd that died on a full disk leaves a partial file behind.
+                rm -f "$swapfile" 2>/dev/null || true
+            fi
         fi
-        swapon /swapfile 2>/dev/null || true
-        good "Swap active."
+        swapon "$swapfile" 2>/dev/null || true
+        if swapon --show 2>/dev/null | grep -q "$swapfile" || \
+           grep -qs "$swapfile" "$proc_swaps"; then
+            good "Swap active."
+        else
+            warn "Could not activate swap (full disk, unsupported filesystem, or container limits)."
+            warn "Continuing without it — a low-RAM box may need swap for the frontend build."
+        fi
     fi
+    return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -338,16 +436,36 @@ ver_in_range() {
     printf '%s\n%s' "$1" "$PYTHON_MAX" | sort -C -V
 }
 
+# True when <python> can actually create virtual environments. Debian/Ubuntu
+# minimal images split the venv module (ensurepip) into pythonX.Y-venv, so an
+# otherwise-valid interpreter still dies much later at `python -m venv` with
+# "ensurepip is not available" — probe up front instead. (I8)
+py_venv_ok() {
+    "$1" -m venv --help >/dev/null 2>&1
+}
+
 locate_python() {
     # Prefer an explicit minor version, newest first, then bare python3. This
     # mirrors scripts/update.sh so a box that has python3.11 (Debian 12) but a
-    # too-new/too-old default python3 is still recognized. Sets PYTHON_BIN and
-    # returns 0 on success; returns 1 (without aborting) when nothing fits.
+    # too-new/too-old default python3 is still recognized. A candidate must
+    # also be venv-capable (py_venv_ok); on Debian-family boxes the missing
+    # pythonX.Y-venv package is installed on demand before the candidate is
+    # given up on. Sets PYTHON_BIN and returns 0 on success; returns 1
+    # (without aborting) when nothing fits.
     local c v
     for c in python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v=$("$c" -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)
             if [ -n "$v" ] && ver_in_range "$v"; then
+                if ! py_venv_ok "$c" && [ "$OS_FAMILY" = "debian" ]; then
+                    step "Installing python${v}-venv (the venv module is missing)..."
+                    pkg_add "python${v}-venv"
+                    py_venv_ok "$c" || pkg_add python3-venv
+                fi
+                if ! py_venv_ok "$c"; then
+                    warn "$c (Python $v) cannot create virtualenvs (no venv/ensurepip) — skipping it."
+                    continue
+                fi
                 PYTHON_BIN="$c"
                 good "Using $c (Python $v)"
                 return 0
@@ -382,31 +500,37 @@ provision_python() {
     # Prefer the distro's own package over a source compile. Debian 12 ships
     # python3.11; Ubuntu 24.04 ships python3.12 (older Ubuntu falls back to the
     # deadsnakes PPA); Fedora/RHEL provide 3.12 or 3.11 in their repos. A slow,
-    # fragile source build is now strictly the last resort.
+    # fragile source build is now strictly the last resort. pkg_add is
+    # warn-and-continue (always returns 0), so each attempt is followed by a
+    # state probe (command -v) to decide whether the next fallback is needed.
     if [ "$OS_FAMILY" = "debian" ]; then
         if [ "${ID:-}" = "ubuntu" ]; then
-            if ! pkg_add python3.12 python3.12-venv python3.12-dev; then
+            pkg_add python3.12 python3.12-venv python3.12-dev
+            if ! command -v python3.12 &>/dev/null; then
                 step "Adding deadsnakes PPA for Python 3.12..."
                 pkg_add software-properties-common
-                add-apt-repository -y ppa:deadsnakes/ppa
+                add-apt-repository -y ppa:deadsnakes/ppa || true
                 refresh_pkg_index
                 pkg_add python3.12 python3.12-venv python3.12-dev
             fi
         else
             # Debian (and Debian-like): python3.11 lives in the main repo.
             refresh_pkg_index
-            pkg_add python3.11 python3.11-venv python3.11-dev || \
-                pkg_add python3.12 python3.12-venv python3.12-dev || true
+            pkg_add python3.11 python3.11-venv python3.11-dev
+            command -v python3.11 &>/dev/null || \
+                pkg_add python3.12 python3.12-venv python3.12-dev
         fi
     elif [ "$OS_FAMILY" = "fedora" ] || [ "$OS_FAMILY" = "rhel" ]; then
-        pkg_add python3.12 python3.12-devel || pkg_add python3.11 python3.11-devel || true
+        pkg_add python3.12 python3.12-devel
+        command -v python3.12 &>/dev/null || pkg_add python3.11 python3.11-devel
     elif [ "$OS_FAMILY" = "suse" ]; then
-        pkg_add python311 python311-devel || pkg_add python312 python312-devel || true
+        pkg_add python311 python311-devel
+        command -v python3.11 &>/dev/null || pkg_add python312 python312-devel
     elif [ "$OS_FAMILY" = "arch" ]; then
         # Rolling release — `python` is already 3.11+.
-        pkg_add python || true
+        pkg_add python
     elif [ "$OS_FAMILY" = "alpine" ]; then
-        pkg_add python3 python3-dev || true
+        pkg_add python3 python3-dev
     fi
 
     # Did a distro package give us something usable?
@@ -436,6 +560,22 @@ provision_python() {
 # ---------------------------------------------------------------------------
 # Docker engine + compose plugin
 # ---------------------------------------------------------------------------
+# Add Docker's upstream .repo file, handling both config-manager generations:
+# classic dnf4 uses `--add-repo URL`, while dnf5 (Fedora 41+) removed that
+# flag in favour of `addrepo --from-repofile=URL`. Warn-and-continue: when
+# neither works the docker-ce install below fails too (also non-fatally). (I10)
+docker_repo_add() {
+    local url="$1"
+    if dnf config-manager --add-repo "$url" >/dev/null 2>&1; then
+        return 0
+    fi
+    if dnf config-manager addrepo --from-repofile="$url" >/dev/null 2>&1; then
+        return 0
+    fi
+    warn "Could not add the Docker repository ($url)."
+    return 0
+}
+
 provision_docker() {
     phase "Docker"
 
@@ -448,12 +588,12 @@ provision_docker() {
     case "$OS_FAMILY" in
         fedora)
             pkg_add dnf-plugins-core
-            dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            docker_repo_add https://download.docker.com/linux/fedora/docker-ce.repo
             pkg_add docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin
             ;;
         rhel)
             pkg_add dnf-plugins-core
-            dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+            docker_repo_add https://download.docker.com/linux/rhel/docker-ce.repo
             pkg_add docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin
             ;;
         suse)
@@ -466,7 +606,23 @@ provision_docker() {
             pkg_add docker docker-cli-compose
             ;;
         *)
-            curl -fsSL https://get.docker.com | sh
+            # Docker's convenience script (the default Debian/Ubuntu path).
+            # Stage it to a temp file with retries instead of piping curl
+            # straight into sh — a connection dropped mid-download would
+            # otherwise execute half a script. Warn-and-continue on failure,
+            # falling back to the distro package (docker.io on Debian). (I13)
+            local dget drc=0
+            dget="$(mktemp 2>/dev/null)" || dget="/tmp/serverkit-get-docker.sh"
+            if curl -fsSL --retry 3 https://get.docker.com -o "$dget"; then
+                sh "$dget" || drc=$?
+            else
+                drc=1
+            fi
+            rm -f "$dget" 2>/dev/null || true
+            if [ "$drc" -ne 0 ]; then
+                warn "The get.docker.com install script failed — trying the distro package instead."
+                pkg_add docker.io docker-compose-v2
+            fi
             ;;
     esac
 
@@ -479,7 +635,15 @@ provision_docker() {
         rc-update add docker default 2>/dev/null || true
         rc-service docker start 2>/dev/null || true
     fi
-    good "Docker installed."
+    # Don't claim success the old unconditional way — probe. Docker stays
+    # best-effort here (managed app deploys need it, the panel itself runs
+    # without it), so a miss is a loud warning, not a halt. (I13)
+    if command -v docker &>/dev/null; then
+        good "Docker installed."
+    else
+        warn "Docker could not be installed — managed app deployments need it."
+        warn "Install it manually (https://docs.docker.com/engine/install/) when you need containers."
+    fi
 }
 
 ensure_compose_plugin() {
@@ -488,8 +652,21 @@ ensure_compose_plugin() {
         return
     fi
     step "Installing Docker Compose plugin..."
+    # Fallback chain (I9): when Docker came from the distro repo (docker.io),
+    # Docker's own repo was never configured, so 'docker-compose-plugin' does
+    # not exist there — Ubuntu ships the same plugin as 'docker-compose-v2'.
+    # Probe after each attempt; if neither lands, warn and continue (the box
+    # may have compose v1, or the operator can add it later).
     pkg_add docker-compose-plugin
-    good "Docker Compose plugin installed."
+    if ! docker compose version &>/dev/null; then
+        pkg_add docker-compose-v2
+    fi
+    if docker compose version &>/dev/null; then
+        good "Docker Compose plugin installed."
+    else
+        warn "Could not install the Docker Compose plugin — 'docker compose' is unavailable."
+        warn "Managed app deployments need it; install docker-compose-plugin or docker-compose-v2 manually."
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -540,6 +717,47 @@ provision_node() {
 }
 
 # ---------------------------------------------------------------------------
+# Live-state carry: keep .env + backend/instance/ across a slot rewrite
+# ---------------------------------------------------------------------------
+# fetch_release and sync_source both rebuild $FIRST_SLOT with an rm -rf. On a
+# re-run over an existing install that tree holds irreplaceable state: the
+# generated .env (SECRET_KEY / JWT_SECRET_KEY / SERVERKIT_ENCRYPTION_KEY —
+# losing that key orphans every encrypted secret) and backend/instance/ (the
+# SQLite database). Copy them aside before the rewrite and restore them after,
+# mirroring scripts/update.sh's deploy_source carry-forward. Both helpers are
+# best-effort and always return 0 — preservation must never abort an install.
+stash_live_state() {
+    # Echoes a stash directory holding the live state, or nothing when there
+    # is nothing to preserve (fresh install) or no stash could be created.
+    local src="$1" stash
+    if [ ! -f "$src/.env" ] && [ ! -d "$src/backend/instance" ]; then
+        return 0
+    fi
+    stash="$(mktemp -d 2>/dev/null || true)"
+    [ -n "$stash" ] || return 0
+    cp -a "$src/.env" "$stash/.env" 2>/dev/null || true
+    cp -a "$src/backend/instance" "$stash/instance" 2>/dev/null || true
+    printf '%s' "$stash"
+    return 0
+}
+
+restore_live_state() {
+    local stash="$1" dest="$2"
+    [ -n "$stash" ] || return 0
+    if [ -f "$stash/.env" ]; then
+        cp -a "$stash/.env" "$dest/.env" 2>/dev/null || true
+    fi
+    if [ -d "$stash/instance" ]; then
+        mkdir -p "$dest/backend" 2>/dev/null || true
+        rm -rf "$dest/backend/instance" 2>/dev/null || true
+        cp -a "$stash/instance" "$dest/backend/instance" 2>/dev/null || true
+    fi
+    rm -rf "$stash" 2>/dev/null || true
+    good "Preserved the existing .env and database across the rewrite."
+    return 0
+}
+
+# ---------------------------------------------------------------------------
 # Release tarball path
 # ---------------------------------------------------------------------------
 resolve_release_tag() {
@@ -547,8 +765,22 @@ resolve_release_tag() {
         printf '%s' "$SERVERKIT_VERSION"
         return
     fi
-    curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" \
-        | grep '"tag_name"' | head -1 | cut -d'"' -f4
+    # Primary: the releases/latest redirect. Its Location header carries the
+    # tag and — unlike api.github.com, which allows only 60 requests/hour per
+    # IP and is routinely exhausted behind shared cloud NAT — it has no API
+    # quota. The API lookup stays as the fallback. Both arms are guarded so
+    # an unresolvable tag comes back as EMPTY output (the caller warns loudly)
+    # instead of a set -e abort. (I15)
+    local tag=""
+    tag=$(curl -sfLI -o /dev/null -w '%{url_effective}' \
+            "https://github.com/${GITHUB_REPO}/releases/latest" 2>/dev/null \
+        | sed -n 's|.*/releases/tag/||p') || tag=""
+    if [ -n "$tag" ]; then
+        printf '%s' "$tag"
+        return 0
+    fi
+    curl -sf "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null \
+        | grep '"tag_name"' | head -1 | cut -d'"' -f4 || true
 }
 
 fetch_release() {
@@ -562,9 +794,13 @@ fetch_release() {
         tarball="$SERVERKIT_OFFLINE_TARBALL"
         good "Using offline tarball: $tarball"
     else
-        tag=$(resolve_release_tag)
+        tag=$(resolve_release_tag) || tag=""
         if [ -z "$tag" ]; then
-            warn "Latest release tag unknown — falling back to a source build."
+            # Loud on purpose: this used to be a silent downgrade that turned
+            # a 2-minute release install into a full compile. (I15)
+            warn "Could not resolve the latest release tag (GitHub unreachable or API rate-limited)."
+            warn "FALLING BACK TO A FULL SOURCE BUILD — much slower, and it compiles the frontend here."
+            warn "To install a release instead, pin one: SERVERKIT_VERSION=vX.Y.Z"
             INSTALL_FROM_RELEASE=0
             return 1
         fi
@@ -598,7 +834,14 @@ fetch_release() {
 
     step "Unpacking release..."
     tmp_dir="$(mktemp -d)"
-    tar xzf "$tarball" -C "$tmp_dir"
+    # A failed unpack (corrupt download, disk full) must take the clean
+    # source fallback, not "succeed" into a half-written tree. (I16)
+    if ! tar xzf "$tarball" -C "$tmp_dir"; then
+        warn "Could not unpack the release tarball (corrupt download or disk full) — falling back to source."
+        rm -rf "$tmp_dir"
+        INSTALL_FROM_RELEASE=0
+        return 1
+    fi
 
     unpacked="$tmp_dir/serverkit"
     [ ! -d "$unpacked" ] && unpacked="$tmp_dir/opt/serverkit"
@@ -608,9 +851,29 @@ fetch_release() {
     [ -d "$unpacked" ] || halt "Release tarball layout is unrecognized (expected serverkit/ or opt/serverkit/)."
 
     ensure_install_layout
+
+    # A re-run over a live install must never destroy its secrets or database
+    # (the old bare rm -rf below did exactly that). Stash them, rewrite,
+    # restore. (I4)
+    local live_dir stash
+    live_dir="$(readlink -f "$INSTALL_DIR" 2>/dev/null || echo "$FIRST_SLOT")"
+    [ -d "$live_dir" ] || live_dir="$FIRST_SLOT"
+    stash="$(stash_live_state "$live_dir")"
+
     rm -rf "$FIRST_SLOT"
-    cp -a "$unpacked" "$FIRST_SLOT"
+    # Disk full mid-copy: a half-written slot must not masquerade as a
+    # success. Put the live state back and hand control to the caller's
+    # source fallback. (I16)
+    if ! cp -a "$unpacked" "$FIRST_SLOT"; then
+        warn "Could not copy the release into $FIRST_SLOT (disk full?) — falling back to source."
+        rm -rf "$tmp_dir"
+        mkdir -p "$FIRST_SLOT" 2>/dev/null || true
+        restore_live_state "$stash" "$FIRST_SLOT"
+        INSTALL_FROM_RELEASE=0
+        return 1
+    fi
     rm -rf "$tmp_dir"
+    restore_live_state "$stash" "$FIRST_SLOT"
 
     [ -L "$INSTALL_DIR" ] || ln -s "$FIRST_SLOT" "$INSTALL_DIR"
 
@@ -625,6 +888,16 @@ fetch_release() {
 sync_source() {
     phase "Source Code"
 
+    # Source installs clone with git, but minimal images don't guarantee it
+    # and the preflight never checked — install it on demand, and halt only
+    # if that fails too (a source install cannot proceed without git). (I7)
+    if ! command -v git &>/dev/null; then
+        step "Installing git..."
+        pkg_add git
+        command -v git &>/dev/null || \
+            halt "git is required for a source install but could not be installed."
+    fi
+
     ensure_install_layout
 
     if [ -d "$FIRST_SLOT/.git" ]; then
@@ -637,8 +910,14 @@ sync_source() {
         fi
     else
         step "Cloning ServerKit..."
+        # Same live-state carry as fetch_release: the non-git tree replaced
+        # here may still be a live install (e.g. one installed from a release
+        # tarball) holding the generated .env and the database. (I4)
+        local stash
+        stash="$(stash_live_state "$FIRST_SLOT")"
         rm -rf "$FIRST_SLOT"
         git clone --depth 1 "https://github.com/${GITHUB_REPO}.git" "$FIRST_SLOT"
+        restore_live_state "$stash" "$FIRST_SLOT"
         cd "$FIRST_SLOT"
     fi
     [ -L "$INSTALL_DIR" ] || ln -sfn "$FIRST_SLOT" "$INSTALL_DIR"
@@ -652,6 +931,14 @@ ensure_install_layout() {
     # Migrate legacy real-directory installs into the blue/green layout.
     if [ -d "$INSTALL_DIR" ] && [ ! -L "$INSTALL_DIR" ]; then
         step "Migrating to blue/green install layout..."
+        # A stale slot left by an aborted earlier run would make `mv` NEST
+        # the live tree inside it ($FIRST_SLOT/serverkit). The live install
+        # is $INSTALL_DIR (a real dir here, so nothing links to the slot) —
+        # clear the stale slot before moving. (I18)
+        if [ -e "$FIRST_SLOT" ]; then
+            warn "Removing a stale $FIRST_SLOT left by an earlier run."
+            rm -rf "$FIRST_SLOT"
+        fi
         mv "$INSTALL_DIR" "$FIRST_SLOT"
         ln -s "$FIRST_SLOT" "$INSTALL_DIR"
         good "Active install is now $INSTALL_DIR → $FIRST_SLOT"
@@ -687,6 +974,18 @@ build_virtualenv() {
     # If the release shipped a pre-built venv at the expected path, use it.
     if [ "$INSTALL_FROM_RELEASE" = "1" ] && [ -f "$FIRST_SLOT/venv/bin/activate" ] && [ -x "$FIRST_SLOT/venv/bin/python" ]; then
         step "Using pre-built virtual environment from release..."
+        # In the default layout $INSTALL_DIR is a symlink to $FIRST_SLOT, so
+        # $VENV_DIR *is* $FIRST_SLOT/venv — the rm -rf below would delete the
+        # very venv it is about to "copy", and the cp would then fail. When
+        # source and destination resolve to the same directory the venv is
+        # already in place; verify and keep it. (I3)
+        local src_venv dst_venv
+        src_venv="$(readlink -f "$FIRST_SLOT/venv" 2>/dev/null || echo "$FIRST_SLOT/venv")"
+        dst_venv="$(readlink -f "$VENV_DIR" 2>/dev/null || echo "$VENV_DIR")"
+        if [ "$src_venv" = "$dst_venv" ]; then
+            good "Virtual environment already in place from the release."
+            return
+        fi
         rm -rf "$VENV_DIR"
         cp -a "$FIRST_SLOT/venv" "$VENV_DIR"
         good "Virtual environment installed from release."
@@ -720,6 +1019,15 @@ write_config() {
 
     if [ -f "$INSTALL_DIR/.env" ]; then
         warn ".env already exists — leaving the current configuration in place."
+        # ...except the SSL mode, which reflects THIS run's outcome (a re-run
+        # may have gained or lost HTTPS). Refresh just that key so the
+        # panel's HSTS gate matches /etc/serverkit/ssl-mode instead of a
+        # stale value from the previous install. (I24)
+        if grep -q '^SERVERKIT_SSL_MODE=' "$INSTALL_DIR/.env"; then
+            sed -i "s|^SERVERKIT_SSL_MODE=.*|SERVERKIT_SSL_MODE=$SSL_MODE|" "$INSTALL_DIR/.env"
+        else
+            printf 'SERVERKIT_SSL_MODE=%s\n' "$SSL_MODE" >> "$INSTALL_DIR/.env"
+        fi
         return
     fi
 
@@ -839,11 +1147,61 @@ configure_firewall() {
     step "Opening HTTP/HTTPS (80, 443) via $backend..."
     firewall_open "$backend" 80/tcp 443/tcp
     if [ "${FW_DRY_RUN:-0}" != "1" ] && command -v state_set >/dev/null 2>&1; then
-        state_set firewall_backend "$backend"
-        state_append firewall_ports 80/tcp
-        state_append firewall_ports 443/tcp
+        # Best-effort, exactly like update.sh's ensure_firewall: failing to
+        # RECORD the opened ports must not abort an install whose firewall
+        # work already succeeded. (I21)
+        state_set firewall_backend "$backend" || true
+        state_append firewall_ports 80/tcp || true
+        state_append firewall_ports 443/tcp || true
     fi
     good "Firewall configured ($backend): 80/tcp and 443/tcp open."
+}
+
+# ---------------------------------------------------------------------------
+# Init-system probe + tiny service verbs (mirrors scripts/lib/init.sh)
+# ---------------------------------------------------------------------------
+# install.sh runs pre-clone in the `curl | bash` path, so it cannot source
+# scripts/lib/init.sh — the detection is inline here and kept in sync with the
+# lib: systemd when /run/systemd/system exists, then OpenRC/SysV fallbacks.
+# INIT_OVERRIDE (same contract as init.sh) forces the answer for unit tests.
+# Best-effort: on a box none of these can drive (containers, WSL) the verbs
+# warn and return 0 — a missing init system must never abort the install. (I17)
+svc_has_systemd() {
+    if [ -n "${INIT_OVERRIDE:-}" ]; then
+        [ "$INIT_OVERRIDE" = "systemd" ]
+        return
+    fi
+    [ -d /run/systemd/system ] && command -v systemctl &>/dev/null
+}
+
+svc_enable() {
+    local svc="$1"
+    if svc_has_systemd; then
+        systemctl enable "$svc" 2>/dev/null || warn "Could not enable $svc at boot."
+    elif command -v rc-update &>/dev/null; then
+        rc-update add "$svc" default 2>/dev/null || warn "Could not enable $svc at boot."
+    elif command -v chkconfig &>/dev/null; then
+        chkconfig "$svc" on 2>/dev/null || warn "Could not enable $svc at boot."
+    elif command -v update-rc.d &>/dev/null; then
+        update-rc.d "$svc" enable 2>/dev/null || warn "Could not enable $svc at boot."
+    else
+        warn "No init system found to enable $svc — enable it at boot manually."
+    fi
+    return 0
+}
+
+svc_start() {
+    local svc="$1"
+    if svc_has_systemd; then
+        systemctl start "$svc" 2>/dev/null || warn "Could not start $svc."
+    elif command -v rc-service &>/dev/null; then
+        rc-service "$svc" start 2>/dev/null || warn "Could not start $svc."
+    elif command -v service &>/dev/null; then
+        service "$svc" start 2>/dev/null || warn "Could not start $svc."
+    else
+        warn "No init system found to start $svc — start it manually."
+    fi
+    return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -857,7 +1215,7 @@ configure_nginx() {
     else
         step "Installing Nginx..."
         pkg_add nginx
-        systemctl enable nginx
+        svc_enable nginx
         good "Nginx installed."
     fi
 
@@ -960,18 +1318,28 @@ choose_ssl_mode() {
 # Install the nginx config matching the chosen SSL mode.
 # ---------------------------------------------------------------------------
 install_nginx_config_for_mode() {
+    # Dirs are overridable so the unit tests can exercise this against
+    # fixtures (same pattern as harden_global_tls / update.sh's NGINX_DIR).
+    local nginx_dir="${SERVERKIT_NGINX_DIR:-/etc/nginx}"
+    local config_dir="${SERVERKIT_CONFIG_DIR:-/etc/serverkit}"
     if [ "$SSL_MODE" = "secure" ]; then
         sed -i "s|/etc/letsencrypt/live/YOUR_DOMAIN/|/etc/letsencrypt/live/$PANEL_DOMAIN/|g" \
-            /etc/nginx/sites-available/serverkit.conf
-        ln -sf /etc/nginx/sites-available/serverkit.conf /etc/nginx/sites-enabled/serverkit.conf
+            "$nginx_dir/sites-available/serverkit.conf"
+        ln -sf "$nginx_dir/sites-available/serverkit.conf" "$nginx_dir/sites-enabled/serverkit.conf"
     else
-        ln -sf /etc/nginx/sites-available/serverkit-insecure.conf /etc/nginx/sites-enabled/serverkit.conf
+        ln -sf "$nginx_dir/sites-available/serverkit-insecure.conf" "$nginx_dir/sites-enabled/serverkit.conf"
     fi
-    mkdir -p /etc/serverkit
-    printf '%s\n' "$SSL_MODE" > /etc/serverkit/ssl-mode
+    mkdir -p "$config_dir"
+    printf '%s\n' "$SSL_MODE" > "$config_dir/ssl-mode"
     # Persist the domain so update.sh can re-apply the cert path on upgrades
-    # without depending on the (commented-out) .env public URL.
-    [ -n "$PANEL_DOMAIN" ] && printf '%s\n' "$PANEL_DOMAIN" > /etc/serverkit/panel-domain
+    # without depending on the (commented-out) .env public URL. An empty
+    # domain (the default no-domain install) is simply not persisted — and as
+    # the LAST statement of the function this must be an `if`, not a
+    # `[ -n ] && ...` list: the list form returned 1 on an empty domain and
+    # set -e killed every no-domain install right here. (I1)
+    if [ -n "$PANEL_DOMAIN" ]; then
+        printf '%s\n' "$PANEL_DOMAIN" > "$config_dir/panel-domain"
+    fi
 }
 
 # Point the static-frontend `root` at the real install dir. The shipped nginx
@@ -981,8 +1349,15 @@ apply_frontend_root() {
     [ "$INSTALL_DIR" = "/opt/serverkit" ] && return 0
     local f
     for f in "$@"; do
-        [ -f "$f" ] && sed -i "s|/opt/serverkit/frontend/dist|$INSTALL_DIR/frontend/dist|g" "$f"
+        # `if`, not a `[ -f ] && ...` list: with the list form a missing conf
+        # as the LAST file made the loop (and thus the function) return 1,
+        # and set -e killed the custom-SERVERKIT_DIR install right here —
+        # the same species as I1/I2.
+        if [ -f "$f" ]; then
+            sed -i "s|/opt/serverkit/frontend/dist|$INSTALL_DIR/frontend/dist|g" "$f"
+        fi
     done
+    return 0
 }
 
 # Label the SPA bundle so SELinux-enforcing hosts (Fedora/RHEL) let nginx read
@@ -1093,9 +1468,10 @@ install_service() {
     ln -sf "$INSTALL_DIR/serverkit" /usr/local/bin/serverkit
 
     # Without systemd (LXC/WSL/containers) we can't enable the unit — say so
-    # clearly instead of failing cryptically (Goal G5).
-    load_serverkit_lib env.sh || true
-    if command -v has_systemd >/dev/null 2>&1 && ! has_systemd; then
+    # clearly instead of failing cryptically (Goal G5). The probe is inline
+    # (svc_has_systemd) so it holds even when scripts/lib never made it to
+    # disk, where the old env.sh-based check silently skipped itself. (I17)
+    if ! svc_has_systemd; then
         warn "systemd not detected — installed the unit but cannot enable/start it here."
         warn "Start the backend with a supervisor, or run it in the foreground; see docs/ARCHITECTURE.md."
         return 0
@@ -1128,12 +1504,12 @@ launch_services() {
     phase "Starting Services"
 
     step "Starting the backend..."
-    systemctl start serverkit
+    svc_start serverkit
 
     # The frontend is static files served by host nginx (built into
     # frontend/dist by build_frontend) — no container to build or start.
     step "Starting nginx..."
-    systemctl start nginx
+    svc_start nginx
     good "Services started."
 }
 
@@ -1184,10 +1560,26 @@ await_health() {
 snapshot_existing() {
     local active
     active="$(readlink -f "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")"
-    if [ -d "$active" ] && [ ! -d "$active.backup" ]; then
+    [ -d "$active" ] || return 0
+    if [ ! -d "$active.backup" ]; then
         step "Backing up the existing installation..."
         cp -a "$active" "$active.backup"
         good "Backup saved to $active.backup"
+        return 0
+    fi
+    # A .backup left by an earlier run is what revert_install restores — a
+    # stale one would silently roll the box back to a months-old tree.
+    # Refresh it: build the new copy first and swap only on success, so a
+    # failed copy never costs us the backup we already have. (I20)
+    step "Refreshing the existing installation backup..."
+    rm -rf "$active.backup.new" 2>/dev/null || true
+    if cp -a "$active" "$active.backup.new" 2>/dev/null; then
+        rm -rf "$active.backup"
+        mv "$active.backup.new" "$active.backup"
+        good "Backup refreshed at $active.backup"
+    else
+        rm -rf "$active.backup.new" 2>/dev/null || true
+        warn "Could not refresh $active.backup — keeping the previous backup."
     fi
 }
 
@@ -1241,8 +1633,10 @@ print_outro() {
 # Anonymous install ping (best-effort)
 # ---------------------------------------------------------------------------
 ping_telemetry() {
+    # Guarded: a missing VERSION file fails the pipeline under pipefail, and
+    # this runs AFTER a successful install — it must never abort it. (I23)
     local v
-    v=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ')
+    v=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ') || v=""
     curl -s "https://serverkit.ai/track/install?v=${v}" >/dev/null 2>&1 || true
 }
 
@@ -1250,38 +1644,70 @@ ping_telemetry() {
 # Ask for a panel domain when running interactively
 # ---------------------------------------------------------------------------
 prompt_for_domain() {
-    [ -z "$PANEL_DOMAIN" ] && [ -t 0 ] || return 0
+    # Nothing to ask when a domain is already set, or when there is no
+    # interactive stdin to ask on (curl | bash). SERVERKIT_FORCE_PROMPT=1
+    # lets the unit tests drive the prompt from a pipe.
+    [ -z "$PANEL_DOMAIN" ] || return 0
+    if [ ! -t 0 ] && [ "${SERVERKIT_FORCE_PROMPT:-0}" != "1" ]; then
+        return 0
+    fi
     printf '\n'
     printf '%sEnter your panel domain (e.g. panel.example.com)%s\n' "$BLD" "$RST"
     printf 'Leave blank to access via IP (no SSL attempt)\n'
     printf '%sTip:%s set PANEL_DOMAIN=... in the environment to skip this prompt\n' "$BLD" "$RST"
     printf '      set SERVERKIT_SKIP_SSL=1 to disable HTTPS entirely\n'
     printf '> '
-    read -r PANEL_DOMAIN
+    read -r PANEL_DOMAIN || true
     PANEL_DOMAIN=$(printf '%s' "$PANEL_DOMAIN" | tr -d ' ')
-    [ -n "$PANEL_DOMAIN" ] && PANEL_PORT="80"
+    # A blank answer (plain Enter) is the documented default — and as the
+    # LAST statement of the function this must be an `if`, not a
+    # `[ -n ] && ...` list: the list form returned 1 on a blank answer and
+    # set -e killed every interactive no-domain install right here. (I2)
+    if [ -n "$PANEL_DOMAIN" ]; then
+        PANEL_PORT="80"
+    fi
 }
 
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
+# Decide whether a fresh install should default to a release tarball. An
+# EXISTING install must never flip to release mode by default: fetch_release
+# rewrites the whole slot. The old check tested $INSTALL_DIR/backend/src — a
+# path that never existed (the tree is backend/app) — so every re-run over a
+# live install picked release mode and rm -rf'd it, .env and database
+# included. Probe the real tree and the generated .env instead. (I4)
+should_default_to_release() {
+    [ "$BUILD_FROM_SOURCE" != "1" ] || return 1
+    [ -z "${SERVERKIT_VERSION:-}" ] || return 1
+    [ ! -d "$INSTALL_DIR/backend/app" ] || return 1
+    [ ! -f "$INSTALL_DIR/.env" ] || return 1
+    return 0
+}
+
 main() {
     STARTED_AT=$(date +%s)
     masthead
 
-    # Default to a release install unless a source tree is already present or
+    # Default to a release install unless an install is already present or
     # the caller forced a source build / pinned a version.
-    if [ "$BUILD_FROM_SOURCE" != "1" ] && [ ! -d "$INSTALL_DIR/backend/src" ] && [ -z "${SERVERKIT_VERSION:-}" ]; then
+    if should_default_to_release; then
         INSTALL_FROM_RELEASE=1
     fi
 
     identify_system
-    choose_pkg_manager
+    # preflight's root check must run before choose_pkg_manager, which
+    # writes the apt lock-wait drop-in to /etc. (I11)
     preflight
+    choose_pkg_manager
     gauge_memory
     ensure_swap
     prompt_for_domain
     snapshot_existing
+
+    # RHEL 9 family: keep sshd alive across the dnf work below (see the
+    # function's comment for the full openssl/openssh mismatch story).
+    upgrade_rhel_crypto_stack
 
     provision_docker
     ensure_compose_plugin
