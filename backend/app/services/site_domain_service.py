@@ -400,7 +400,12 @@ class SiteDomainService:
         says ``wordpress`` (whose stock template is php-fpm, not a proxy).
         """
         t = (force_type or app.app_type or '').lower()
-        base = dict(name=app.name, domains=domains, ssl_cert=ssl_cert, ssl_key=ssl_key)
+        # micro_cache rides in the shared kwargs so the write path
+        # (write_app_vhost -> create_site) and the drift re-render
+        # (app_vhost_kwargs -> render_site_config) always agree on it —
+        # an enabled cache must never show up as config drift.
+        base = dict(name=app.name, domains=domains, ssl_cert=ssl_cert, ssl_key=ssl_key,
+                    micro_cache=bool(getattr(app, 'micro_cache_enabled', False)))
         # Reverse-proxy to a local container/app port.
         if t in ('docker', 'wordpress'):
             if not app.port:
@@ -423,6 +428,32 @@ class SiteDomainService:
         return None, f"app type '{t}' cannot be published via host nginx."
 
     @classmethod
+    def app_vhost_kwargs(cls, app, force_type=None):
+        """Resolve ``app``'s Domain rows + wildcard-cert choice into the exact
+        ``NginxService.create_site(**kwargs)`` call :meth:`write_app_vhost`
+        makes. Extracted so drift detection can render the *expected* vhost
+        through the same pipeline without writing anything.
+
+        Returns ``(kwargs, warning)`` — ``(None, None)`` when the app has no
+        domains (nothing to publish), ``(None, reason)`` when it can't be
+        published via host nginx.
+        """
+        from app.models.domain import Domain
+
+        domains = [d.name for d in Domain.query.filter_by(application_id=app.id).all()]
+        if not domains:
+            return None, None
+
+        # Pick a wildcard cert only when all domains sit under one base (whichever
+        # base covers them) and that base has HTTPS set up.
+        ssl_cert = ssl_key = None
+        cover = cls.covering_base(domains[0])
+        if cover and cls.https_enabled(cover) and all(cls.covering_base(d) == cover for d in domains):
+            ssl_cert, ssl_key = cls.wildcard_cert_paths(cover)
+
+        return cls._vhost_create_kwargs(app, domains, ssl_cert, ssl_key, force_type)
+
+    @classmethod
     def write_app_vhost(cls, app, force_type=None):
         """(Re)write and enable the host-nginx vhost publishing ``app`` at every
         one of its Domain rows (``server_name`` = all domains).
@@ -434,23 +465,13 @@ class SiteDomainService:
         bring their own cert). Best-effort — never raises; returns ``{'nginx',
         'warning'}`` (``nginx`` is ``None`` when nothing was written).
         """
-        from app.models.domain import Domain
         from app.services.nginx_service import NginxService
 
-        domains = [d.name for d in Domain.query.filter_by(application_id=app.id).all()]
-        if not domains:
-            return {'nginx': None, 'warning': None}
-
-        # Pick a wildcard cert only when all domains sit under one base (whichever
-        # base covers them) and that base has HTTPS set up.
-        ssl_cert = ssl_key = None
-        cover = cls.covering_base(domains[0])
-        if cover and cls.https_enabled(cover) and all(cls.covering_base(d) == cover for d in domains):
-            ssl_cert, ssl_key = cls.wildcard_cert_paths(cover)
-
-        kwargs, reason = cls._vhost_create_kwargs(app, domains, ssl_cert, ssl_key, force_type)
+        kwargs, reason = cls.app_vhost_kwargs(app, force_type)
         if reason:
             return {'nginx': None, 'warning': reason}
+        if kwargs is None:
+            return {'nginx': None, 'warning': None}
 
         try:
             res = NginxService.create_site(**kwargs)

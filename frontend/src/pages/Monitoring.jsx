@@ -5,6 +5,7 @@ import api from '../services/api';
 import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
+import DoctorPanel from '../components/monitoring/DoctorPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +33,7 @@ import {
     Zap,
 } from 'lucide-react';
 
-const VALID_TABS = ['overview', 'alerts', 'config', 'thresholds'];
+const VALID_TABS = ['overview', 'alerts', 'config', 'thresholds', 'doctor'];
 
 const DEFAULT_THRESHOLDS = {
     cpu_percent: 80,
@@ -389,6 +390,7 @@ const Monitoring = () => {
                     <TabsTrigger value="thresholds">Alert Rules</TabsTrigger>
                     <TabsTrigger value="config">Delivery</TabsTrigger>
                     <TabsTrigger value="alerts">History</TabsTrigger>
+                    <TabsTrigger value="doctor">Doctor</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -701,6 +703,10 @@ const Monitoring = () => {
                             </div>
                         )}
                     </section>
+                </TabsContent>
+
+                <TabsContent value="doctor">
+                    <DoctorPanel />
                 </TabsContent>
             </Tabs>
         </div>

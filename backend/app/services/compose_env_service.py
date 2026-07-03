@@ -122,6 +122,71 @@ class ComposeEnvService:
         return str(value).replace('$', '$$')
 
     @classmethod
+    def render_override(cls, project_path, compose_file=None):
+        """Compute the override that *should* exist for a project dir, without
+        touching disk. Extracted from :meth:`refresh_for_project` so drift
+        detection can render the expected file content in-memory.
+
+        Returns ``{'applies': bool, 'path': str|None, 'content': str|None}``:
+        ``applies=False`` when this dir isn't a managed compose app (leave it
+        alone); ``content=None`` (with ``applies=True``) when no override should
+        exist. May raise — :meth:`refresh_for_project` wraps it.
+        """
+        if not project_path or not os.path.isdir(project_path):
+            return {'applies': False, 'path': None, 'content': None}
+
+        app = cls._app_for_project(project_path)
+        if app is None:
+            # Not a managed app dir (e.g. a proxy stack) — leave it alone.
+            return {'applies': False, 'path': None, 'content': None}
+
+        base = cls.find_base_compose(project_path, compose_file)
+        if not base:
+            return {'applies': False, 'path': None, 'content': None}
+        override_path = cls.override_path(project_path)
+        base_path = base if os.path.isabs(base) else os.path.join(project_path, base)
+        service_names = cls._service_names(base_path)
+        if not service_names:
+            return {'applies': True, 'path': override_path, 'content': None}
+
+        from app.services.env_service import EnvService
+        # Per-service effective env: a variable lands on every service unless
+        # it targets a specific one (EnvironmentVariable/SharedVariable
+        # .target_service). Local env vars override shared variable groups.
+        per_service = EnvService.get_effective_env_for_services(app.id, service_names)
+
+        services_block = {}
+        for name in service_names:
+            svc_env = (per_service or {}).get(name) or {}
+            if not svc_env:
+                continue  # nothing targeted at this service
+            services_block[name] = {
+                'environment': {k: cls._escape(v) for k, v in svc_env.items() if k}
+            }
+
+        # Per-app resource limits (task #23): cap the app's primary
+        # (first-declared) compose service. mem_limit/cpus apply with plain
+        # (non-swarm) docker compose.
+        limits = cls._limits_block(app)
+        if limits:
+            services_block.setdefault(service_names[0], {}).update(limits)
+
+        if not services_block:
+            # Nothing to inject → no override should exist.
+            return {'applies': True, 'path': override_path, 'content': None}
+        override = {'services': services_block}
+
+        header = (
+            '# Managed by ServerKit — do not edit.\n'
+            '# Injects the app\'s effective environment (shared variable groups\n'
+            '# under the app\'s own local env vars) into every compose service,\n'
+            '# plus any per-app resource limits on the primary service.\n'
+            '# Regenerated on every deploy; delete it and it will be recreated.\n'
+        )
+        content = header + yaml.safe_dump(override, default_flow_style=False, sort_keys=True)
+        return {'applies': True, 'path': override_path, 'content': content}
+
+    @classmethod
     def refresh_for_project(cls, project_path, compose_file=None):
         """Regenerate (or remove) the env override for a project dir.
 
@@ -129,63 +194,16 @@ class ComposeEnvService:
         Best-effort and fully guarded — never raises.
         """
         try:
-            if not project_path or not os.path.isdir(project_path):
+            spec = cls.render_override(project_path, compose_file)
+            if not spec['applies']:
                 return None
-
-            app = cls._app_for_project(project_path)
-            if app is None:
-                # Not a managed app dir (e.g. a proxy stack) — leave it alone.
-                return None
-
-            base = cls.find_base_compose(project_path, compose_file)
-            if not base:
-                return None
-            base_path = base if os.path.isabs(base) else os.path.join(project_path, base)
-            service_names = cls._service_names(base_path)
-            if not service_names:
-                cls._remove_override(project_path)
-                return None
-
-            from app.services.env_service import EnvService
-            # Per-service effective env: a variable lands on every service unless
-            # it targets a specific one (EnvironmentVariable/SharedVariable
-            # .target_service). Local env vars override shared variable groups.
-            per_service = EnvService.get_effective_env_for_services(app.id, service_names)
-
-            services_block = {}
-            for name in service_names:
-                svc_env = (per_service or {}).get(name) or {}
-                if not svc_env:
-                    continue  # nothing targeted at this service
-                services_block[name] = {
-                    'environment': {k: cls._escape(v) for k, v in svc_env.items() if k}
-                }
-
-            # Per-app resource limits (task #23): cap the app's primary
-            # (first-declared) compose service. mem_limit/cpus apply with plain
-            # (non-swarm) docker compose.
-            limits = cls._limits_block(app)
-            if limits:
-                services_block.setdefault(service_names[0], {}).update(limits)
-
-            if not services_block:
+            if spec['content'] is None:
                 # Nothing to inject → make sure no stale override lingers.
                 cls._remove_override(project_path)
                 return None
-            override = {'services': services_block}
-
-            override_path = cls.override_path(project_path)
-            header = (
-                '# Managed by ServerKit — do not edit.\n'
-                '# Injects the app\'s effective environment (shared variable groups\n'
-                '# under the app\'s own local env vars) into every compose service,\n'
-                '# plus any per-app resource limits on the primary service.\n'
-                '# Regenerated on every deploy; delete it and it will be recreated.\n'
-            )
-            with open(override_path, 'w', encoding='utf-8') as f:
-                f.write(header)
-                yaml.safe_dump(override, f, default_flow_style=False, sort_keys=True)
-            return override_path
+            with open(spec['path'], 'w', encoding='utf-8') as f:
+                f.write(spec['content'])
+            return spec['path']
         except Exception as e:  # pragma: no cover - defensive
             logger.warning('compose env overlay refresh failed for %s: %s', project_path, e)
             return None
