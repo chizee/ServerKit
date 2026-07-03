@@ -118,6 +118,15 @@ export async function convertAppBindMount(id, data) {
     return this.request(`/apps/${id}/volumes/convert`, { method: 'POST', body: data });
 }
 
+// Per-app resource limits (Docker CPU/memory caps) + best-effort live usage.
+export async function getAppResources(id) {
+    return this.request(`/apps/${id}/resources`);
+}
+
+export async function updateAppResources(id, data) {
+    return this.request(`/apps/${id}/resources`, { method: 'PUT', body: data });
+}
+
 export async function startApp(id) {
     return this.request(`/apps/${id}/start`, { method: 'POST' });
 }

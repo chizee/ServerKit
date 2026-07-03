@@ -12,6 +12,7 @@ import {
     Hammer,
     Archive,
     HardDrive,
+    Gauge,
     CircleCheck,
     CircleX,
     Sparkles,
@@ -23,6 +24,7 @@ import RepoConnectForm from '../git/RepoConnectForm';
 import ProtectionPanel from '../backups/ProtectionPanel';
 import ContainerOpsPanel from '../apps/ContainerOpsPanel';
 import VolumesPanel from '../apps/VolumesPanel';
+import ResourceLimitsPanel from '../apps/ResourceLimitsPanel';
 import AppWafPanel from '../apps/AppWafPanel';
 import BuildTab from '../appdetail/BuildTab';
 import DeployTab from '../appdetail/DeployTab';
@@ -53,6 +55,7 @@ function buildSettingsGroups(app) {
                 { id: 'environment', label: 'Environment Type', icon: SlidersHorizontal },
                 { id: 'domain', label: 'Domain & SSL', icon: Shield },
                 ...(isDocker ? [{ id: 'ops', label: 'Container Ops', icon: Boxes }] : []),
+                ...(isDocker ? [{ id: 'resources', label: 'Resource Limits', icon: Gauge }] : []),
             ],
         },
         {
@@ -293,6 +296,15 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     <div className="svc-settings__section">
                         <h3 className="svc-settings__section-title">Container Ops</h3>
                         <ContainerOpsPanel app={app} onChanged={onUpdate} />
+                    </div>
+                )}
+
+                {/* Resource Limits (Docker only) — first-class CPU/memory caps
+                    with live usage, instead of compose-file-only limits. */}
+                {section === 'resources' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Resource Limits</h3>
+                        <ResourceLimitsPanel app={app} onChanged={onUpdate} />
                     </div>
                 )}
 

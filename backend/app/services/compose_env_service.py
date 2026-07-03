@@ -98,6 +98,21 @@ class ComposeEnvService:
         return []
 
     @staticmethod
+    def _limits_block(app):
+        """Compose keys for the app's resource limits, or {} when unset/invalid."""
+        block = {}
+        try:
+            cpu = getattr(app, 'cpu_limit', None)
+            if cpu:
+                block['cpus'] = float(cpu)
+            mem = getattr(app, 'memory_limit', None)
+            if mem:
+                block['mem_limit'] = str(mem)
+        except (TypeError, ValueError):
+            return {}
+        return block
+
+    @staticmethod
     def _escape(value):
         """Escape a value for a compose ``environment:`` entry.
 
@@ -136,20 +151,25 @@ class ComposeEnvService:
             # it targets a specific one (EnvironmentVariable/SharedVariable
             # .target_service). Local env vars override shared variable groups.
             per_service = EnvService.get_effective_env_for_services(app.id, service_names)
-            if not per_service or not any(per_service.values()):
-                # No effective env on any service → make sure no stale override lingers.
-                cls._remove_override(project_path)
-                return None
 
             services_block = {}
             for name in service_names:
-                svc_env = per_service.get(name) or {}
+                svc_env = (per_service or {}).get(name) or {}
                 if not svc_env:
                     continue  # nothing targeted at this service
                 services_block[name] = {
                     'environment': {k: cls._escape(v) for k, v in svc_env.items() if k}
                 }
+
+            # Per-app resource limits (task #23): cap the app's primary
+            # (first-declared) compose service. mem_limit/cpus apply with plain
+            # (non-swarm) docker compose.
+            limits = cls._limits_block(app)
+            if limits:
+                services_block.setdefault(service_names[0], {}).update(limits)
+
             if not services_block:
+                # Nothing to inject → make sure no stale override lingers.
                 cls._remove_override(project_path)
                 return None
             override = {'services': services_block}
@@ -158,7 +178,8 @@ class ComposeEnvService:
             header = (
                 '# Managed by ServerKit — do not edit.\n'
                 '# Injects the app\'s effective environment (shared variable groups\n'
-                '# under the app\'s own local env vars) into every compose service.\n'
+                '# under the app\'s own local env vars) into every compose service,\n'
+                '# plus any per-app resource limits on the primary service.\n'
                 '# Regenerated on every deploy; delete it and it will be recreated.\n'
             )
             with open(override_path, 'w', encoding='utf-8') as f:
