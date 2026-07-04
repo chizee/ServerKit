@@ -22,6 +22,12 @@ class EnvironmentVariable(db.Model):
     # Compose service this var targets (NULL = all services). Lets a compose app
     # scope a variable to one service in the managed env overlay.
     target_service = db.Column(db.String(120), nullable=True)
+    # Reference source (manifest fromSecret/fromService/generate). When set, the
+    # real value is resolved at injection time and never stored in
+    # encrypted_value — masking stays intact and a rotated secret propagates on
+    # the next deploy/restart. JSON e.g. {"kind":"secret","secret":"stripe"} or
+    # {"kind":"service","service":"db","property":"connectionString"}.
+    value_from = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -75,8 +81,23 @@ class EnvironmentVariable(db.Model):
         """Set the value (encrypts automatically)."""
         self.encrypted_value = self.encrypt_value(plaintext)
 
+    def get_reference(self):
+        """Parsed value_from reference, or None for a plain value."""
+        if not self.value_from:
+            return None
+        import json
+        try:
+            return json.loads(self.value_from)
+        except Exception:
+            return None
+
+    def set_reference(self, ref):
+        import json
+        self.value_from = json.dumps(ref) if ref else None
+
     def to_dict(self, include_value=True, mask_secrets=False):
         """Convert to dictionary, optionally masking secret values."""
+        reference = self.get_reference()
         result = {
             'id': self.id,
             'application_id': self.application_id,
@@ -84,12 +105,17 @@ class EnvironmentVariable(db.Model):
             'is_secret': self.is_secret,
             'description': self.description,
             'target_service': self.target_service,
+            'is_reference': bool(reference),
+            'value_from': reference,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
 
         if include_value:
-            if mask_secrets and self.is_secret:
+            if reference:
+                # a reference's real value is never serialized here
+                result['value'] = '••••••••' if mask_secrets else ''
+            elif mask_secrets and self.is_secret:
                 result['value'] = '••••••••'
             else:
                 result['value'] = self.value

@@ -101,11 +101,12 @@ def test_apply_materializes_and_is_idempotent(project, owner):
     assert api.healthcheck_path == '/health'
     assert api.source == 'manifest'
 
-    # env literal set, secret ref NOT applied in Phase 2
+    # env literal set; secret ref is BOUND (Phase 3) but resolves empty because
+    # the referenced vault secret does not exist here
     from app.services.env_service import EnvService
-    env = EnvService.get_env_dict(api.id)
+    env = EnvService.get_effective_env(api.id)
     assert env.get('LOG_LEVEL') == 'info'
-    assert 'SECRET_TOKEN' not in env
+    assert env.get('SECRET_TOKEN') == ''
 
     # managed db recorded
     mdb = ManagedDatabase.query.filter_by(engine='postgresql', name='db').first()

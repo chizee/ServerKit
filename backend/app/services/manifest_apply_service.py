@@ -42,6 +42,7 @@ _STEP_ORDER = {
     'create_app': 2,
     'update_app': 3,
     'set_env': 4,
+    'set_env_ref': 4,
     'ensure_volume': 5,
     'upsert_backup_policy': 6,
     'attach_domain': 7,
@@ -90,6 +91,7 @@ class ManifestApplyService:
         """Diff desired manifest vs live state -> ordered action plan."""
         env = environment or cls._default_environment(project)
         steps: List[Dict[str, Any]] = []
+        issues: List[Dict[str, Any]] = []
 
         services = normalized.get('services', [])
         for svc in services:
@@ -97,7 +99,7 @@ class ManifestApplyService:
             if resolved['kind'] == 'database':
                 steps.extend(cls._plan_db(resolved))
             else:
-                steps.extend(cls._plan_app(project, env, resolved))
+                steps.extend(cls._plan_app(project, env, resolved, issues))
 
         steps.extend(cls._plan_domains(project, normalized.get('domains', [])))
 
@@ -107,6 +109,7 @@ class ManifestApplyService:
             'environment_id': env.id if env else None,
             'steps': steps,
             'step_count': len(steps),
+            'issues': issues,
             'summary': cls._summarize_plan(steps),
         }
 
@@ -140,8 +143,10 @@ class ManifestApplyService:
 
     @classmethod
     def _plan_app(cls, project: Project, env: Optional[Environment],
-                  resolved: Dict[str, Any]) -> List[Dict[str, Any]]:
+                  resolved: Dict[str, Any],
+                  issues: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         steps: List[Dict[str, Any]] = []
+        issues = issues if issues is not None else []
         name = resolved['name']
         app = cls._find_app(project, name)
 
@@ -177,6 +182,31 @@ class ManifestApplyService:
                         'description': f'Set {len(to_set)} env var(s) on `{name}`',
                         'payload': {'app_id': app.id if app else None, 'env': to_set},
                     })
+
+        # env references (fromSecret / fromService / generate) — Phase 3
+        live_vars = cls._live_env_vars(app) if app else {}
+        for ref in resolved.get('env_refs', []):
+            key = ref['key']
+            source = ref['source']
+            if source == 'generate':
+                desired = {'kind': 'secret', 'secret': cls._generated_secret_name(name, key)}
+                live = live_vars.get(key)
+                # a generated secret is created once; leave it in place afterwards
+                if live is not None and (live.get_reference() or {}).get('kind') == 'secret':
+                    continue
+                steps.append(cls._set_env_ref_step(name, app, key, desired, generate=True))
+            elif source == 'secret':
+                desired = {'kind': 'secret', 'secret': ref['secret_name']}
+                if not cls._secret_exists(ref['secret_name']):
+                    issues.append({'service': name, 'key': key, 'kind': 'missing_secret',
+                                   'secret': ref['secret_name']})
+                if cls._ref_changed(live_vars.get(key), desired):
+                    steps.append(cls._set_env_ref_step(name, app, key, desired))
+            elif source == 'service':
+                sr = ref['service_ref']
+                desired = {'kind': 'service', 'service': sr['name'], 'property': sr['property']}
+                if cls._ref_changed(live_vars.get(key), desired):
+                    steps.append(cls._set_env_ref_step(name, app, key, desired))
 
         # disks
         for disk in resolved.get('disks', []):
@@ -283,6 +313,7 @@ class ManifestApplyService:
             'success': not failed,
             'job_id': job.id,
             'applied': sum(1 for r in results if r['status'] == 'ok'),
+            'issues': plan.get('issues', []),
             'results': results,
             'plan': plan,
         }
@@ -379,6 +410,20 @@ class ManifestApplyService:
         if errors:
             raise RuntimeError('; '.join(errors))
         return {'set': count}
+
+    @classmethod
+    def _do_set_env_ref(cls, project, env, payload, user_id):
+        from app.services.env_service import EnvService
+        app_id = payload.get('app_id') or cls._resolve_app_id(project, payload)
+        ref = payload['ref']
+        if payload.get('generate'):
+            secret_name = ref['secret']
+            cls._ensure_generated_secret(secret_name)
+            ref = {'kind': 'secret', 'secret': secret_name}
+        _var, _created, err = EnvService.set_env_reference(app_id, payload['key'], ref, user_id)
+        if err:
+            raise RuntimeError(err)
+        return {'key': payload['key'], 'ref': ref}
 
     @classmethod
     def _do_ensure_volume(cls, project, env, payload, user_id):
@@ -517,6 +562,61 @@ class ManifestApplyService:
             return False
         want_cron = _SCHEDULE_CRON.get(backup['schedule'], '0 2 * * *')
         return pol.schedule_cron == want_cron and pol.retention_count == backup['retain']
+
+    @classmethod
+    def _set_env_ref_step(cls, name, app, key, ref, generate=False):
+        verb = 'Generate secret for' if generate else 'Bind reference'
+        return {
+            'type': 'set_env_ref', 'service': name,
+            'description': f'{verb} `{key}` on `{name}`',
+            'payload': {'app_id': app.id if app else None, 'key': key,
+                        'ref': ref, 'generate': generate},
+        }
+
+    @staticmethod
+    def _live_env_vars(app: Application) -> Dict[str, Any]:
+        from app.models.env_variable import EnvironmentVariable
+        return {ev.key: ev for ev in
+                EnvironmentVariable.query.filter_by(application_id=app.id).all()}
+
+    @staticmethod
+    def _ref_changed(live_var, desired: Dict[str, Any]) -> bool:
+        if live_var is None:
+            return True
+        current = live_var.get_reference()
+        return current != desired
+
+    @staticmethod
+    def _secret_exists(name: str) -> bool:
+        from app.services.env_reference_service import EnvReferenceResolver
+        return EnvReferenceResolver.secret_exists(name)
+
+    @staticmethod
+    def _generated_secret_name(service: str, key: str) -> str:
+        import re
+        return re.sub(r'[^a-z0-9]+', '_', f'{service}_{key}'.lower()).strip('_')
+
+    @staticmethod
+    def _ensure_generated_secret(secret_name: str):
+        """Get-or-create a random vault secret in the `manifest` vault."""
+        import secrets as _secrets
+        from app.models.secret_vault import SecretVault, Secret
+        from app.utils.crypto import encrypt_secret
+        existing = Secret.query.filter_by(name=secret_name).first()
+        if existing:
+            return existing
+        vault = SecretVault.query.filter_by(slug='manifest').first()
+        if not vault:
+            vault = SecretVault(name='Manifest', slug='manifest',
+                                description='Auto-generated manifest secrets')
+            db.session.add(vault)
+            db.session.flush()
+        secret = Secret(vault_id=vault.id, name=secret_name,
+                        encrypted_value=encrypt_secret(_secrets.token_urlsafe(32)),
+                        description='Generated by a serverkit.yaml manifest')
+        db.session.add(secret)
+        db.session.flush()
+        return secret
 
     @staticmethod
     def _find_app(project: Project, name: Optional[str]) -> Optional[Application]:
