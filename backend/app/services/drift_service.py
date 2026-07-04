@@ -442,6 +442,98 @@ register_check({
     'repair': _compose_repair,
 })
 
+# ---------------------------------------------------------------------------
+# manifest reconciliation (#18)
+#
+# Unlike the file-based checks above, this one compares *config*, not files:
+# for every manifest-managed app it asks ManifestApplyService for the
+# (expected, observed) pair over the manifest-declared surface (port,
+# healthcheck, env keys, volumes, domains) and reports drift when they differ.
+# Because there is no file on disk to read, we supply a custom ``read_actual``
+# that re-derives the observed side instead of touching the filesystem. The
+# synthetic path key is ``manifest://app/<id>``.
+# ---------------------------------------------------------------------------
+
+
+def _manifest_list_resources():
+    """Every Application that is governed by a stored manifest."""
+    from app.models.application import Application
+    from app.services.manifest_apply_service import ManifestApplyService
+
+    out = []
+    rows = Application.query.filter(Application.project_id.isnot(None)).all()
+    for app in rows:
+        try:
+            if ManifestApplyService.resolved_for_app(app) is not None:
+                out.append((app.id, app.name))
+        except Exception:  # noqa: BLE001 — skip apps we can't resolve
+            continue
+    return out
+
+
+def _manifest_render_expected(app_id):
+    from app.models.application import Application
+    from app.services.manifest_apply_service import ManifestApplyService
+
+    app = Application.query.get(app_id)
+    if app is None:
+        return {}
+    resolved = ManifestApplyService.resolved_for_app(app)
+    if resolved is None:
+        return {}
+    expected, _observed = ManifestApplyService.drift_pair(app, resolved)
+    return {f'manifest://app/{app_id}': json.dumps(expected, sort_keys=True)}
+
+
+def _manifest_read_actual(paths):
+    from app.models.application import Application
+    from app.services.manifest_apply_service import ManifestApplyService
+
+    actual = {}
+    for path in paths:
+        try:
+            app_id = int(path.rsplit('/', 1)[-1])
+        except (ValueError, IndexError):
+            actual[path] = None
+            continue
+        app = Application.query.get(app_id)
+        resolved = ManifestApplyService.resolved_for_app(app) if app else None
+        if app is None or resolved is None:
+            actual[path] = None
+            continue
+        _expected, observed = ManifestApplyService.drift_pair(app, resolved)
+        actual[path] = json.dumps(observed, sort_keys=True)
+    return actual
+
+
+def _manifest_repair(app_id):
+    from app.models.application import Application
+    from app.services.manifest_apply_service import ManifestApplyService
+
+    app = Application.query.get(app_id)
+    if app is None:
+        return {'success': False, 'error': f'Application {app_id} not found'}
+    if not app.project_id:
+        return {'success': False, 'error': f'Application {app_id} is not manifest-managed'}
+    result = ManifestApplyService.apply_stored(app.project_id)
+    ok = bool(result.get('success', False))
+    return {
+        'success': ok,
+        'wrote': [f'app:{app_id}'],
+        'reloaded': ok,
+        'error': None if ok else result.get('error'),
+    }
+
+
+register_check({
+    'type': 'manifest',
+    'title': 'Manifest reconciliation',
+    'list_resources': _manifest_list_resources,
+    'render_expected': _manifest_render_expected,
+    'read_actual': _manifest_read_actual,
+    'repair': _manifest_repair,
+})
+
 # NOTE: no systemd unit check — see the module docstring. The panel-templated
 # gunicorn units (PythonService.create_gunicorn_service) render from inputs
 # that aren't persisted (workers/user/.env snapshot), so an expected render

@@ -448,7 +448,22 @@ class GitService:
             pass
 
         # Trigger deployment
-        return cls.deploy(app_id)
+        result = cls.deploy(app_id)
+
+        # Push-to-reconfigure: re-read serverkit.yaml at the new commit and
+        # reconcile (plan 17 #17). Best-effort — never affects the deploy result.
+        try:
+            from app.services.manifest_sync_service import ManifestSyncService
+            commit = (payload.get('after')
+                      or (payload.get('head_commit') or {}).get('id'))
+            manifest_sync = ManifestSyncService.resync_for_app(app_id, commit=commit,
+                                                               trigger='webhook')
+            if isinstance(result, dict):
+                result['manifest_sync'] = manifest_sync
+        except Exception:
+            pass
+
+        return result
 
     @classmethod
     def _log_deployment(cls, deploy_log: Dict) -> None:

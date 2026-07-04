@@ -83,6 +83,72 @@ class ManifestApplyService:
             'server': svc.get('server'),
         }
 
+    # -- drift comparison (#18) --------------------------------------------
+
+    @classmethod
+    def resolved_for_app(cls, app) -> Optional[Dict[str, Any]]:
+        """The normalized+resolved manifest service that governs ``app``, or None
+        when the app is not manifest-managed."""
+        if not getattr(app, 'project_id', None):
+            return None
+        row = ApplicationManifest.query.filter_by(project_id=app.project_id).first()
+        if not row:
+            return None
+        normalized = row.get_normalized()
+        if not normalized:
+            return None
+        svc = next((s for s in normalized.get('services', [])
+                    if s.get('name') == app.name and s.get('kind') == 'app'), None)
+        if not svc:
+            return None
+        resolved = cls.resolve_service(svc)
+        resolved['_domains'] = sorted(
+            d['host'] for d in normalized.get('domains', [])
+            if d.get('service') == app.name and d.get('host'))
+        return resolved
+
+    @classmethod
+    def drift_pair(cls, app, resolved: Dict[str, Any]):
+        """(expected, observed) dicts over ONLY the manifest-declared surface.
+
+        The manifest is an overlay: extra live env vars/domains are not drift.
+        We therefore project live state onto what the manifest declares, so the
+        pair is equal iff every declared item is present and matches.
+        """
+        from app.models.env_variable import EnvironmentVariable
+        expected: Dict[str, Any] = {}
+        observed: Dict[str, Any] = {}
+
+        if resolved.get('port') is not None:
+            expected['port'] = resolved['port']
+            observed['port'] = app.port
+        if resolved.get('healthcheck_path'):
+            expected['healthcheck_path'] = resolved['healthcheck_path']
+            observed['healthcheck_path'] = app.healthcheck_path
+
+        declared_env = sorted(list(resolved.get('env', {}).keys())
+                              + [r['key'] for r in resolved.get('env_refs', [])])
+        if declared_env:
+            live_keys = {ev.key for ev in
+                         EnvironmentVariable.query.filter_by(application_id=app.id).all()}
+            expected['env_keys'] = declared_env
+            observed['env_keys'] = sorted(k for k in declared_env if k in live_keys)
+
+        declared_vols = sorted(d['mount_path'] for d in resolved.get('disks', [])
+                               if d.get('mount_path'))
+        if declared_vols:
+            live_mounts = {v.mount_path for v in (app.volumes or [])}
+            expected['volumes'] = declared_vols
+            observed['volumes'] = sorted(m for m in declared_vols if m in live_mounts)
+
+        declared_domains = resolved.get('_domains', [])
+        if declared_domains:
+            live_hosts = {d.name for d in (app.domains or [])}
+            expected['domains'] = declared_domains
+            observed['domains'] = sorted(h for h in declared_domains if h in live_hosts)
+
+        return expected, observed
+
     # -- plan (#8) ----------------------------------------------------------
 
     @classmethod
@@ -317,6 +383,18 @@ class ManifestApplyService:
             'results': results,
             'plan': plan,
         }
+
+    @classmethod
+    def apply_stored(cls, project_id: int, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Load and re-apply the manifest stored for a project (drift repair)."""
+        project = Project.query.get(project_id)
+        if not project:
+            return {'success': False, 'error': 'project not found'}
+        row = ApplicationManifest.query.filter_by(project_id=project_id).first()
+        normalized = row.get_normalized() if row else None
+        if not normalized:
+            return {'success': False, 'error': 'no stored manifest'}
+        return cls.apply(project, normalized, user_id=user_id, manifest_row=row)
 
     @classmethod
     def _execute_step(cls, project, env, step, user_id) -> Dict[str, Any]:
