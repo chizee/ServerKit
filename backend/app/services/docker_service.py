@@ -1,4 +1,5 @@
 import logging
+import re
 import subprocess
 import json
 import os
@@ -7,6 +8,9 @@ import yaml
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# Docker-style memory limit: a number plus a one-letter unit (bytes/kilo/mega/giga).
+_MEMORY_LIMIT_RE = re.compile(r'^\d+(\.\d+)?(b|k|m|g)$', re.IGNORECASE)
 
 
 class DockerService:
@@ -513,6 +517,43 @@ class DockerService:
             'started_at': state.get('StartedAt'),
             'finished_at': state.get('FinishedAt')
         }
+
+    # ==================== RESOURCE LIMITS (task #23) ====================
+
+    @staticmethod
+    def validate_cpu_limit(value):
+        """Normalize a CPU-cores limit ('1.5' → '1.5'). Empty/None clears it.
+
+        Returns the normalized string or None; raises ValueError when invalid.
+        """
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            cores = float(text)
+        except ValueError:
+            raise ValueError('CPU limit must be a number of cores, e.g. "1.5"')
+        if cores <= 0:
+            raise ValueError('CPU limit must be a positive number of cores')
+        return text
+
+    @staticmethod
+    def validate_memory_limit(value):
+        """Normalize a memory limit ('512m', '2g'). Empty/None clears it.
+
+        Returns the normalized (lowercased) string or None; raises ValueError
+        when invalid.
+        """
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if not text:
+            return None
+        if not _MEMORY_LIMIT_RE.match(text):
+            raise ValueError('Memory limit must be a number with a unit, e.g. "512m" or "2g"')
+        return text
 
     @staticmethod
     def get_container_stats(container_id):
@@ -1179,13 +1220,16 @@ class DockerService:
 
     @staticmethod
     def create_docker_app(app_path, app_name, image, ports=None, volumes=None, env=None,
-                          named_volumes=None):
+                          named_volumes=None, cpu_limit=None, memory_limit=None):
         """Create a Docker-based application with docker-compose.
 
         ``named_volumes`` is a list of managed Docker volume names to declare as
         top-level (``external: false``) volumes — Compose requires the top-level
         declaration for any named volume referenced by a service. Callers pass the
         matching ``name:/mount`` specs in ``volumes`` (see AppVolume.mount_spec).
+
+        ``cpu_limit`` / ``memory_limit`` (task #23) emit ``cpus`` / ``mem_limit``
+        on the app's service block so Docker enforces the caps.
         """
         try:
             os.makedirs(app_path, exist_ok=True)
@@ -1210,6 +1254,12 @@ class DockerService:
 
             if env:
                 compose['services'][app_name]['environment'] = env
+
+            if cpu_limit:
+                compose['services'][app_name]['cpus'] = float(cpu_limit)
+
+            if memory_limit:
+                compose['services'][app_name]['mem_limit'] = str(memory_limit)
 
             if named_volumes:
                 # Top-level named volumes so a redeploy reuses the same volume

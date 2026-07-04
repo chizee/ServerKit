@@ -26,6 +26,10 @@ class Application(db.Model):
     python_version = db.Column(db.String(10), nullable=True)  # '3.9', '3.10', '3.11', '3.12'
     port = db.Column(db.Integer, nullable=True)
     root_path = db.Column(db.String(500), nullable=True)
+    # HTTP path used for health checks and the zero-downtime restart gate.
+    # Populated from a manifest at import, editable in Settings. NULL => no gate
+    # (the restart falls back to a fixed wait).
+    healthcheck_path = db.Column(db.String(255), nullable=True)
 
     # Docker specific
     docker_image = db.Column(db.String(200), nullable=True)
@@ -38,6 +42,11 @@ class Application(db.Model):
     # Build packs (zero-Dockerfile deploys). When the build method routes through
     # the build-pack layer, the detected plan and any user overrides are persisted
     # here so the generated Dockerfile is reproducible and the UI can show it.
+    # Per-app resource limits (task #23). Docker-enforced caps emitted into the
+    # generated compose service block (`cpus` / `mem_limit`). NULL = unlimited.
+    cpu_limit = db.Column(db.String(16), nullable=True)     # CPU cores, e.g. '1.5'
+    memory_limit = db.Column(db.String(16), nullable=True)  # e.g. '512m', '2g'
+
     buildpack_type = db.Column(db.String(20), nullable=True)   # 'nixpacks' | 'static' | 'dockerfile-present' | 'unknown'
     buildpack_plan = db.Column(db.Text, nullable=True)         # JSON: the detected build plan
     buildpack_overrides = db.Column(db.Text, nullable=True)    # JSON: user overrides applied to the plan
@@ -63,6 +72,11 @@ class Application(db.Model):
     # Private URL feature
     private_slug = db.Column(db.String(50), unique=True, nullable=True, index=True)
     private_url_enabled = db.Column(db.Boolean, default=False)
+
+    # Opt-in nginx micro-cache (task #21): short-TTL page cache emitted into
+    # the site's vhost, with bypasses for auth/admin/cart traffic. NULL/False
+    # = off (today's behavior).
+    micro_cache_enabled = db.Column(db.Boolean, default=False, nullable=True)
 
     # Environment linking
     environment_type = db.Column(db.String(20), default='standalone')  # 'production', 'development', 'staging', 'standalone'
@@ -106,10 +120,13 @@ class Application(db.Model):
             'php_version': self.php_version,
             'python_version': self.python_version,
             'port': self.port,
+            'healthcheck_path': self.healthcheck_path,
             'root_path': self.root_path,
             'docker_image': self.docker_image,
             'container_id': self.container_id,
             'registry_id': self.registry_id,
+            'cpu_limit': self.cpu_limit,
+            'memory_limit': self.memory_limit,
             'buildpack_type': self.buildpack_type,
             'buildpack_plan': json.loads(self.buildpack_plan) if self.buildpack_plan else None,
             'buildpack_overrides': json.loads(self.buildpack_overrides) if self.buildpack_overrides else None,
@@ -123,6 +140,7 @@ class Application(db.Model):
             'upload_path': self.upload_path,
             'private_slug': self.private_slug,
             'private_url_enabled': self.private_url_enabled,
+            'micro_cache_enabled': bool(self.micro_cache_enabled),
             'environment_type': self.environment_type,
             'linked_app_id': self.linked_app_id,
             'shared_config': json.loads(self.shared_config) if self.shared_config else None,

@@ -76,6 +76,10 @@ def create_app(config_name=None):
     from app.middleware.security import register_security_headers
     register_security_headers(app)
 
+    # Demo mode guard — config-gated (default off), blocks mutating API calls
+    from app.middleware.demo import init_demo_mode
+    init_demo_mode(app)
+
     # Register API key authentication middleware
     from app.middleware.api_key_auth import register_api_key_auth
     register_api_key_auth(app)
@@ -163,6 +167,14 @@ def create_app(config_name=None):
     from app.api.databases import databases_bp
     app.register_blueprint(databases_bp, url_prefix='/api/v1/databases')
 
+    # Register blueprints - Managed DB users + Adminer SSO
+    from app.api.managed_db_users import managed_db_users_bp
+    app.register_blueprint(managed_db_users_bp, url_prefix='/api/v1/managed-databases')
+
+    # Register blueprints - Curated DB config tuner
+    from app.api.db_tuner import db_tuner_bp
+    app.register_blueprint(db_tuner_bp, url_prefix='/api/v1/db-tuner')
+
     # Register blueprints - Monitoring & Alerts
     from app.api.monitoring import monitoring_bp
     app.register_blueprint(monitoring_bp, url_prefix='/api/v1/monitoring')
@@ -178,6 +190,10 @@ def create_app(config_name=None):
     # Register blueprints - Deployment config snapshots + diff
     from app.api.snapshots import snapshots_bp
     app.register_blueprint(snapshots_bp, url_prefix='/api/v1/apps')
+
+    # Register blueprints - Declarative serverkit.yaml manifest
+    from app.api.manifests import manifests_bp
+    app.register_blueprint(manifests_bp, url_prefix='/api/v1/manifests')
 
     # Register blueprints - Projects & Environments hierarchy
     from app.api.projects import projects_bp
@@ -366,6 +382,13 @@ def create_app(config_name=None):
     # connection stay core (they back /domains); the extension borrows the single
     # core CloudflareClient, never a duplicate.
 
+    # Register blueprints - DNS provider connections. Core (they back the
+    # Settings -> Connections DNS tiles and wildcard TLS), but kept at the
+    # historical /api/v1/email/dns-providers paths from before the email
+    # extraction so existing frontends keep working.
+    from app.api.dns_providers import dns_providers_bp
+    app.register_blueprint(dns_providers_bp, url_prefix='/api/v1/email')
+
     # Register blueprints - Dynamic DNS
     from app.api.ddns import ddns_bp
     app.register_blueprint(ddns_bp, url_prefix='/api/v1/ddns')
@@ -449,6 +472,30 @@ def create_app(config_name=None):
     # Register blueprints - AI Assistant (core primitive, powered by Prompture)
     from app.api.ai import ai_bp
     app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
+
+    # Register blueprints - Server speed test (Monitoring card)
+    from app.api.speed_test import speedtest_bp
+    app.register_blueprint(speedtest_bp, url_prefix='/api/v1/speedtest')
+
+    # Register blueprints - Site imports (panel migration pipeline)
+    from app.api.site_imports import site_imports_bp
+    app.register_blueprint(site_imports_bp, url_prefix='/api/v1/imports')
+
+    # Register blueprints - Drift detection + doctor sweep
+    from app.api.doctor import doctor_bp
+    app.register_blueprint(doctor_bp, url_prefix='/api/v1/doctor')
+
+    # Register blueprints - Diagnostic support bundle
+    from app.api.support_bundle import support_bundle_bp
+    app.register_blueprint(support_bundle_bp, url_prefix='/api/v1/support-bundle')
+
+    # Register blueprints - Per-site bandwidth accounting
+    from app.api.bandwidth import bandwidth_bp
+    app.register_blueprint(bandwidth_bp, url_prefix='/api/v1/bandwidth')
+
+    # Register blueprints - .htaccess -> nginx converter (apps-prefixed tool)
+    from app.api.htaccess_tools import htaccess_tools_bp
+    app.register_blueprint(htaccess_tools_bp, url_prefix='/api/v1/apps')
 
     # Handle database migrations (Alembic) — must run before plugin loader
     # since the loader queries the installed_plugins table.
@@ -566,6 +613,28 @@ def create_app(config_name=None):
         ServerOnboardingService.register_jobs()
         from app.services.preview_service import PreviewService
         PreviewService.register_jobs()
+        from app.services.metadata_guard_service import MetadataGuardService
+        MetadataGuardService.register_jobs()
+        if not app.config.get('TESTING'):
+            MetadataGuardService.ensure()  # converge the metadata egress rule (no-op when unsupported)
+        from app.services.speed_test_service import SpeedTestService
+        SpeedTestService.register_jobs()
+        from app.services import login_link_service
+        login_link_service.register_jobs()
+        from app.services.db_admin_sso_service import DbAdminSsoService
+        DbAdminSsoService.register_jobs()
+        from app.services.site_import_service import SiteImportService
+        SiteImportService.register_jobs()
+        from app.services.drift_service import DriftService
+        DriftService.register_jobs()
+        from app.services.doctor_service import DoctorService
+        DoctorService.register_jobs()
+        from app.services.file_integrity_service import FileIntegrityService
+        FileIntegrityService.register_jobs()
+        from app.services.malware_scan_service import MalwareScanService
+        MalwareScanService.register_jobs()
+        from app.services.bandwidth_service import BandwidthService
+        BandwidthService.register_jobs()
         start_job_system(app, seed=seed_builtin_schedules)
 
     # Request body size limit

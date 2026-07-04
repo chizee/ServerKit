@@ -1038,6 +1038,12 @@ $dbx-sqlite: #3d8fd1;
         flex-direction: column;
     }
 
+    &__item {
+        border-top: 1px solid var(--border-soft);
+
+        &:first-child { border-top: none; }
+    }
+
     &__row {
         display: flex;
         align-items: center;
@@ -1046,6 +1052,49 @@ $dbx-sqlite: #3d8fd1;
         border-top: 1px solid var(--border-soft);
 
         &:first-child { border-top: none; }
+
+        // Inside an __item wrapper the item owns the divider.
+        .managed-db__item > & { border-top: none; }
+    }
+
+    // Per-database users panel (expanded under a row)
+    &__users {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+        padding: 0 0 $space-3 $spacing-md;
+        border-left: 2px solid var(--border-soft);
+        margin-bottom: $space-3;
+    }
+
+    &__secret {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        padding: $spacing-sm;
+        border: 1px dashed var(--border-soft);
+        border-radius: 6px;
+
+        code { word-break: break-all; }
+    }
+
+    &__user-form {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+
+        input {
+            flex: 1;
+            min-width: 160px;
+            padding: 6px 10px;
+            font-size: 13px;
+            background: var(--bg-input, transparent);
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            color: var(--text);
+        }
     }
 
     &__info {

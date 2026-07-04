@@ -830,3 +830,113 @@
         color: $text-tertiary;
     }
 }
+
+// --------------------------------------------
+// One-Time Login Links (Users tab)
+// --------------------------------------------
+.login-links {
+    margin-top: $space-10;
+
+    &__form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: $space-4;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+
+        span {
+            font-size: $font-size-xs;
+            color: $text-secondary;
+        }
+
+        select,
+        input {
+            min-width: 160px;
+            padding: $space-2 $space-3;
+            background: $bg-card;
+            border: 1px solid $border-default;
+            border-radius: $radius-md;
+            color: $text-primary;
+            font-size: $font-size-sm;
+        }
+    }
+
+    &__bind {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-2;
+        padding-bottom: $space-2;
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        cursor: pointer;
+    }
+
+    &__note {
+        margin-top: $space-2;
+        font-size: $font-size-xs;
+        color: $text-tertiary;
+    }
+
+    &__reveal {
+        margin-top: $space-4;
+        padding: $space-4;
+        border: 1px solid $border-default;
+        border-radius: $radius-md;
+        background: $bg-hover;
+
+        &-title {
+            margin: 0 0 $space-2;
+            font-size: $font-size-sm;
+            font-weight: 600;
+        }
+
+        &-row {
+            display: flex;
+            align-items: center;
+            gap: $space-3;
+
+            code {
+                flex: 1;
+                overflow-x: auto;
+                white-space: nowrap;
+                font-size: $font-size-xs;
+            }
+        }
+    }
+
+    &__list {
+        list-style: none;
+        margin: $space-4 0 0;
+        padding: 0;
+        border: 1px solid $border-default;
+        border-radius: $radius-md;
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+        padding: $space-3 $space-4;
+
+        + .login-links__item {
+            border-top: 1px solid $border-subtle;
+        }
+    }
+
+    &__item-user {
+        font-size: $font-size-sm;
+        font-weight: 500;
+        margin-right: $space-2;
+    }
+
+    &__item-meta {
+        font-size: $font-size-xs;
+        color: $text-tertiary;
+    }
+}

@@ -305,6 +305,60 @@ location = /wordpress {{
     }}
 '''
 
+    # ==================== MICRO-CACHE (task #21) ====================
+    # Opt-in per-site micro-cache: a very short (10s) full-page cache in front
+    # of proxied/PHP sites, with hard bypasses for anything personalized.
+    #
+    # Design tradeoff — ONE shared zone/path for every opted-in site: nginx
+    # cache zones must be declared statically in the http context, so a zone
+    # per site does not scale (and can't be added/removed without touching a
+    # global file per site). Consequence: a manual purge is a full-zone wipe
+    # that clears cached entries for ALL opted-in sites. That is acceptable
+    # because the TTL is only 10 seconds — the purge button exists for the
+    # "I need it gone *now*" case, not for cache hygiene. proxy_* and
+    # fastcgi_* caches cannot share a keys_zone, hence two zones over one
+    # base directory (both wiped together on purge).
+    MICROCACHE_CONF_NAME = 'serverkit-microcache.conf'
+    MICROCACHE_DIR = '/var/cache/nginx/serverkit-microcache'
+
+    MICROCACHE_ZONE_SNIPPET = '''# ServerKit micro-cache zones (auto-generated; do not edit).
+# One shared zone pair serves every site with micro-cache enabled — nginx
+# requires cache zones to be declared statically in the http context, so
+# per-site zones are not practical. Entries expire after 10s; a manual purge
+# wipes the whole directory (all opted-in sites).
+proxy_cache_path /var/cache/nginx/serverkit-microcache/proxy levels=1:2 keys_zone=serverkit_microcache:10m max_size=256m inactive=10m use_temp_path=off;
+fastcgi_cache_path /var/cache/nginx/serverkit-microcache/fastcgi levels=1:2 keys_zone=serverkit_microcache_php:10m max_size=256m inactive=10m use_temp_path=off;
+'''
+
+    # Server-level bypass logic, shared by the proxy and fastcgi variants.
+    # Cached responses are never stored/served for: non-GET/HEAD requests,
+    # requests with a query string (safer default), session/auth/cart cookies,
+    # or admin/login/cart paths.
+    MICROCACHE_SKIP_BLOCK = '''    # ServerKit micro-cache bypass (never cache personalized responses)
+    set $sk_skip_cache 0;
+    if ($request_method !~ ^(GET|HEAD)$) { set $sk_skip_cache 1; }
+    if ($query_string != "") { set $sk_skip_cache 1; }
+    if ($http_cookie ~* "wordpress_logged_in_|wp-postpass|woocommerce_cart_hash|woocommerce_items_in_cart|comment_author|PHPSESSID|session|auth") { set $sk_skip_cache 1; }
+    if ($request_uri ~* "^/(wp-admin|wp-login|admin|login|cart|checkout|my-account)") { set $sk_skip_cache 1; }
+'''
+
+    MICROCACHE_PROXY_BLOCK = '''        proxy_cache serverkit_microcache;
+        proxy_cache_valid 200 301 10s;
+        proxy_cache_use_stale updating error timeout;
+        proxy_cache_lock on;
+        proxy_no_cache $sk_skip_cache;
+        add_header X-SK-Cache $upstream_cache_status;
+'''
+
+    MICROCACHE_FASTCGI_BLOCK = '''        fastcgi_cache serverkit_microcache_php;
+        fastcgi_cache_valid 200 301 10s;
+        fastcgi_cache_use_stale updating error timeout;
+        fastcgi_cache_lock on;
+        fastcgi_cache_bypass $sk_skip_cache;
+        fastcgi_no_cache $sk_skip_cache;
+        add_header X-SK-Cache $upstream_cache_status;
+'''
+
     PRIVATE_URL_MAIN_CONFIG = '''# ServerKit Private URL Routes
 # This file is auto-generated. Do not edit manually.
 # Generated at: {timestamp}
@@ -436,15 +490,19 @@ location /p/ {{
         return config
 
     @classmethod
-    def create_site(cls, name: str, app_type: str, domains: List[str],
-                    root_path: str, port: int = None, php_version: str = '8.2',
-                    ssl_cert: str = None, ssl_key: str = None,
-                    upstream: str = None) -> Dict:
-        """Create a new site configuration.
+    def render_site_config(cls, name: str, app_type: str, domains: List[str],
+                           root_path: str = None, port: int = None,
+                           php_version: str = '8.2',
+                           ssl_cert: str = None, ssl_key: str = None,
+                           upstream: str = None,
+                           micro_cache: bool = False) -> Dict:
+        """Render the vhost config for a site to a string — no side effects.
 
-        When ``ssl_cert``/``ssl_key`` are given the generated vhost serves HTTPS
-        (443) from that cert with an HTTP->HTTPS redirect — used to point managed
-        subdomains at the base-domain wildcard cert.
+        This is the exact template pipeline :meth:`create_site` writes to disk;
+        it is exposed separately so callers (e.g. drift detection) can compute
+        the expected on-disk content without touching the filesystem.
+        Returns ``{'success': True, 'config': str}`` or
+        ``{'success': False, 'error': msg}``.
         """
         if not domains:
             return {'success': False, 'error': 'At least one domain is required'}
@@ -504,8 +562,135 @@ location /p/ {{
         else:
             return {'success': False, 'error': f'Unknown app type: {app_type}'}
 
+        if micro_cache:
+            # Inject before the SSL wrap so the redirect server block (which
+            # also carries a server_name line) never receives cache directives.
+            config = cls._with_micro_cache(config, app_type)
+
         if ssl_cert and ssl_key:
             config = cls._with_ssl(config, domains_str, ssl_cert, ssl_key)
+
+        return {'success': True, 'config': config}
+
+    @classmethod
+    def _with_micro_cache(cls, config: str, app_type: str) -> str:
+        """Inject the shared-zone micro-cache directives into a rendered vhost.
+
+        fastcgi_cache for PHP-FPM-served sites, proxy_cache for reverse-proxied
+        ones; static sites are a no-op (files already come straight off disk).
+        Scheme-agnostic — nothing here depends on HTTP vs HTTPS. The referenced
+        zones are declared once in conf.d by :meth:`ensure_cache_zone`.
+        """
+        t = (app_type or '').lower()
+        if t in ('php', 'wordpress'):
+            anchor = '        include fastcgi_params;\n'
+            if anchor not in config:
+                return config
+            config = config.replace(anchor, anchor + cls.MICROCACHE_FASTCGI_BLOCK, 1)
+        elif t in ('flask', 'django', 'python', 'docker', 'remote'):
+            # proxy_cache_bypass may only be declared once per location, so
+            # fold $sk_skip_cache into the template's existing $http_upgrade
+            # bypass instead of adding a duplicate directive.
+            anchor = '        proxy_cache_bypass $http_upgrade;\n'
+            if anchor not in config:
+                return config
+            config = config.replace(
+                anchor,
+                '        proxy_cache_bypass $sk_skip_cache $http_upgrade;\n'
+                + cls.MICROCACHE_PROXY_BLOCK,
+                1,
+            )
+        else:
+            return config
+
+        # Server-level $sk_skip_cache logic, right after server_name.
+        match = re.search(r'^(    server_name [^;]+;\n)', config, re.MULTILINE)
+        if match:
+            config = config.replace(
+                match.group(1), match.group(1) + '\n' + cls.MICROCACHE_SKIP_BLOCK, 1)
+        return config
+
+    @classmethod
+    def ensure_cache_zone(cls) -> Dict:
+        """Write the shared micro-cache zone declaration to conf.d (idempotent).
+
+        The zone must live in the http context, so it is a conf.d snippet
+        written once — not part of any per-site vhost. Also pre-creates the
+        on-disk cache directories. Skips the write when the snippet on disk
+        already matches.
+        """
+        conf_path = os.path.join(cls.NGINX_CONF_DIR, 'conf.d', cls.MICROCACHE_CONF_NAME)
+        try:
+            if os.path.isfile(conf_path):
+                with open(conf_path, 'r') as f:
+                    if f.read() == cls.MICROCACHE_ZONE_SNIPPET:
+                        return {'success': True, 'changed': False, 'path': conf_path,
+                                'message': 'Micro-cache zone already configured'}
+            run_privileged(['mkdir', '-p',
+                            os.path.join(cls.MICROCACHE_DIR, 'proxy'),
+                            os.path.join(cls.MICROCACHE_DIR, 'fastcgi')])
+            process = run_privileged(['tee', conf_path], input=cls.MICROCACHE_ZONE_SNIPPET)
+            if process.returncode != 0:
+                return {'success': False, 'error': process.stderr}
+            return {'success': True, 'changed': True, 'path': conf_path,
+                    'message': 'Micro-cache zone configured'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def purge_micro_cache(cls) -> Dict:
+        """Wipe the shared micro-cache directory contents. Linux-only.
+
+        Full-zone wipe by design (see the tradeoff note at the MICROCACHE_*
+        constants): the zone is shared across all opted-in sites, and with a
+        10s TTL a per-site purge buys almost nothing. nginx recreates cache
+        entries on demand — no reload needed.
+        """
+        if os.name == 'nt':
+            return {'success': False,
+                    'error': 'Micro-cache purge is only available on Linux hosts'}
+        try:
+            subdirs = [os.path.join(cls.MICROCACHE_DIR, d) for d in ('proxy', 'fastcgi')]
+            process = run_privileged(['rm', '-rf'] + subdirs)
+            if process.returncode != 0:
+                return {'success': False, 'error': process.stderr}
+            run_privileged(['mkdir', '-p'] + subdirs)
+            return {'success': True, 'message': 'Micro-cache cleared',
+                    'note': ('The micro-cache is one shared zone, so purging clears '
+                             'cached entries for every site that uses it. Entries '
+                             'expire within 10 seconds regardless.')}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def create_site(cls, name: str, app_type: str, domains: List[str],
+                    root_path: str = None, port: int = None, php_version: str = '8.2',
+                    ssl_cert: str = None, ssl_key: str = None,
+                    upstream: str = None, micro_cache: bool = False) -> Dict:
+        """Create a new site configuration.
+
+        When ``ssl_cert``/``ssl_key`` are given the generated vhost serves HTTPS
+        (443) from that cert with an HTTP->HTTPS redirect — used to point managed
+        subdomains at the base-domain wildcard cert. ``micro_cache`` opts the
+        site into the shared 10s micro-cache (the global zone snippet is
+        ensured first, since the vhost references it).
+        """
+        rendered = cls.render_site_config(
+            name, app_type, domains, root_path=root_path, port=port,
+            php_version=php_version, ssl_cert=ssl_cert, ssl_key=ssl_key,
+            upstream=upstream, micro_cache=micro_cache,
+        )
+        if not rendered.get('success'):
+            return rendered
+        config = rendered['config']
+
+        # The vhost references the shared cache zone — declare it (once)
+        # before the write so `nginx -t` on the next reload passes.
+        if micro_cache:
+            zone = cls.ensure_cache_zone()
+            if not zone.get('success'):
+                return {'success': False,
+                        'error': f"micro-cache zone setup failed: {zone.get('error')}"}
 
         # Write config file
         config_path = os.path.join(cls.SITES_AVAILABLE, name)

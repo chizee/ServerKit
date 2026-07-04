@@ -341,3 +341,38 @@ def seed_builtin_schedules():
         ScheduledJobService.ensure(
             name, kind, interval_seconds=interval, startup_delay_seconds=delay,
         )
+    # One-time login-link reaper — handler registered by
+    # login_link_service.register_jobs() at boot.
+    from app.services import login_link_service
+    ScheduledJobService.ensure(
+        login_link_service.REAP_SCHEDULE_NAME, login_link_service.REAP_JOB_KIND,
+        interval_seconds=3600, startup_delay_seconds=120,
+    )
+    # Adminer SSO shadow-credential reaper — handler registered by
+    # DbAdminSsoService.register_jobs() at boot.
+    from app.services import db_admin_sso_service
+    ScheduledJobService.ensure(
+        db_admin_sso_service.REAP_SCHEDULE_NAME, db_admin_sso_service.REAP_JOB_KIND,
+        interval_seconds=300, startup_delay_seconds=120,
+    )
+    # Daily configuration-drift sweep — handler registered by
+    # DriftService.register_jobs() at boot.
+    from app.services.drift_service import DRIFT_JOB_KIND, DRIFT_SCHEDULE_NAME
+    ScheduledJobService.ensure(
+        DRIFT_SCHEDULE_NAME, DRIFT_JOB_KIND,
+        interval_seconds=86400, startup_delay_seconds=900,
+    )
+    # File-integrity sweep — handler registered by
+    # FileIntegrityService.register_jobs() at boot.
+    from app.services import file_integrity_service
+    ScheduledJobService.ensure(
+        file_integrity_service.FIM_SCHEDULE_NAME, file_integrity_service.FIM_JOB_KIND,
+        interval_seconds=21600, startup_delay_seconds=1200,
+    )
+    # Daily per-site bandwidth aggregation — handler registered by
+    # BandwidthService.register_jobs() at boot.
+    from app.services import bandwidth_service
+    ScheduledJobService.ensure(
+        bandwidth_service.BANDWIDTH_SCHEDULE_NAME, bandwidth_service.BANDWIDTH_JOB_KIND,
+        interval_seconds=86400, startup_delay_seconds=1800,
+    )

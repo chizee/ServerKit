@@ -1,0 +1,122 @@
+"""Resolve manifest env references at injection time (plan 17, Phase 3).
+
+`fromSecret` -> a vault secret's value; `fromService` -> a sibling service's
+connection property. The resolved value never lands in the env-var row — it is
+computed here whenever the effective env is built, so rotating a vault secret or
+changing a db password propagates on the next deploy/restart.
+"""
+
+import logging
+from typing import Any, Dict, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+# fromService properties by kind
+_DB_PROPERTIES = ('connectionString', 'host', 'port', 'database', 'username', 'password')
+_APP_PROPERTIES = ('host', 'port', 'url')
+
+
+class EnvReferenceResolver:
+
+    @classmethod
+    def resolve(cls, app, ref: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+        """Resolve a reference for ``app``. Returns (value, error)."""
+        if not isinstance(ref, dict):
+            return None, 'invalid reference'
+        kind = ref.get('kind')
+        if kind == 'secret':
+            return cls._resolve_secret(ref.get('secret'))
+        if kind == 'service':
+            return cls._resolve_service(app, ref.get('service'), ref.get('property'))
+        return None, f'unknown reference kind: {kind}'
+
+    # -- fromSecret ---------------------------------------------------------
+
+    @classmethod
+    def _resolve_secret(cls, name: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+        if not name:
+            return None, 'missing secret name'
+        from app.models.secret_vault import Secret
+        # a bare name resolves against any vault; a "vault/name" form scopes it
+        vault_slug = None
+        secret_name = name
+        if '/' in name:
+            vault_slug, secret_name = name.split('/', 1)
+        q = Secret.query.filter_by(name=secret_name)
+        if vault_slug:
+            from app.models.secret_vault import SecretVault
+            vault = SecretVault.query.filter_by(slug=vault_slug).first()
+            if not vault:
+                return None, f'vault `{vault_slug}` not found'
+            q = q.filter_by(vault_id=vault.id)
+        secret = q.order_by(Secret.id).first()
+        if not secret:
+            return None, f'secret `{name}` not found'
+        try:
+            return secret.value, None
+        except Exception as exc:  # decryption failure
+            return None, f'secret `{name}` unreadable: {exc}'
+
+    @classmethod
+    def secret_exists(cls, name: Optional[str]) -> bool:
+        value, error = cls._resolve_secret(name)
+        return error is None
+
+    # -- fromService --------------------------------------------------------
+
+    @classmethod
+    def _resolve_service(cls, app, service_name: Optional[str],
+                         prop: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+        if not service_name or not prop:
+            return None, 'missing service/property'
+        project_id = getattr(app, 'project_id', None)
+
+        # db sibling first (ManagedDatabase by name within the workspace)
+        from app.models.managed_database import ManagedDatabase
+        managed = ManagedDatabase.query.filter_by(name=service_name).first()
+        if managed is not None:
+            return cls._db_property(managed, prop)
+
+        # app sibling (Application by name within the project)
+        from app.models.application import Application
+        sibling = None
+        if project_id is not None:
+            sibling = Application.query.filter_by(project_id=project_id, name=service_name).first()
+        if sibling is None:
+            sibling = Application.query.filter_by(name=service_name).first()
+        if sibling is not None:
+            return cls._app_property(sibling, service_name, prop)
+
+        return None, f'service `{service_name}` not found'
+
+    @classmethod
+    def _db_property(cls, managed, prop: str) -> Tuple[Optional[str], Optional[str]]:
+        from app.services.managed_database_service import ManagedDatabaseService
+        if prop == 'connectionString':
+            return ManagedDatabaseService.build_connection_uri(managed, reveal=True), None
+        if prop == 'host':
+            return managed.host, None
+        if prop == 'port':
+            return str(managed.effective_port()), None
+        if prop == 'database':
+            return managed.name, None
+        if prop == 'username':
+            return managed.admin_username or '', None
+        if prop == 'password':
+            from app.utils.crypto import decrypt_secret_safe
+            return (decrypt_secret_safe(managed.admin_secret_encrypted) or '') \
+                if managed.admin_secret_encrypted else '', None
+        return None, f'property `{prop}` not valid for a database service'
+
+    @classmethod
+    def _app_property(cls, sibling, service_name: str, prop: str) -> Tuple[Optional[str], Optional[str]]:
+        # in-cluster addressing: the service name resolves on the compose/docker network
+        host = service_name
+        port = sibling.port
+        if prop == 'host':
+            return host, None
+        if prop == 'port':
+            return str(port) if port else '', None
+        if prop == 'url':
+            return f'http://{host}:{port}' if port else f'http://{host}', None
+        return None, f'property `{prop}` not valid for an app service'

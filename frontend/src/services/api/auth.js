@@ -47,6 +47,36 @@ export async function updateCurrentUser(data) {
     });
 }
 
+// One-time login links
+export async function mintLoginLink(data = {}) {
+    return this.request('/auth/login-links', {
+        method: 'POST',
+        body: data,
+    });
+}
+
+export async function getLoginLinks() {
+    return this.request('/auth/login-links');
+}
+
+export async function revokeLoginLink(id) {
+    return this.request(`/auth/login-links/${id}`, { method: 'DELETE' });
+}
+
+export async function redeemLoginLink(token) {
+    const data = await this.request('/auth/login-links/redeem', {
+        method: 'POST',
+        body: { token },
+    });
+    this.setTokens(data.access_token, data.refresh_token);
+    return data;
+}
+
+// Demo mode
+export async function getDemoInfo() {
+    return this.request('/auth/demo-info');
+}
+
 // Admin - User Management endpoints
 export async function getUsers() {
     return this.request('/admin/users');

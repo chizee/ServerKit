@@ -14,6 +14,11 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // One-time login link + demo mode state
+    const [redeemingLink, setRedeemingLink] = useState(false);
+    const [demoInfo, setDemoInfo] = useState(null);
+    const linkAttempted = useRef(false);
+
     // 2FA state
     const [requires2FA, setRequires2FA] = useState(false);
     const [tempToken, setTempToken] = useState('');
@@ -36,6 +41,42 @@ const Login = () => {
             setTempToken(location.state.tempToken);
         }
     }, [location.state]);
+
+    // One-time login link redemption (?link=<token>). Single-use, so guard
+    // against double-invocation (React StrictMode re-runs effects).
+    useEffect(() => {
+        const token = new URLSearchParams(location.search).get('link');
+        if (!token || linkAttempted.current) return;
+        linkAttempted.current = true;
+
+        setRedeemingLink(true);
+        api.redeemLoginLink(token)
+            .then((response) => {
+                setUser(response.user);
+                navigate('/', { replace: true });
+            })
+            .catch((err) => {
+                setError(err.message || 'Invalid or expired login link');
+                setRedeemingLink(false);
+                navigate('/login', { replace: true });
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.search]);
+
+    // Demo mode: surface read-only credentials when the panel runs as a demo.
+    useEffect(() => {
+        api.getDemoInfo()
+            .then((info) => {
+                if (info?.enabled) setDemoInfo(info);
+            })
+            .catch(() => { /* demo info is a nicety — never block login */ });
+    }, []);
+
+    function fillDemoCredentials() {
+        if (!demoInfo) return;
+        setEmail(demoInfo.username);
+        setPassword(demoInfo.password);
+    }
 
     async function handleSSOLogin(provider) {
         setSsoLoading(provider);
@@ -241,6 +282,23 @@ const Login = () => {
         );
     }
 
+    // A one-time login link is being redeemed — show a minimal waiting card
+    if (redeemingLink) {
+        return (
+            <div className="auth-container">
+                <div className="auth-card">
+                    <div className="auth-header">
+                        <div className="brand-logo">
+                            <ServerKitLogo width={40} height={40} />
+                        </div>
+                        <h1>ServerKit</h1>
+                        <p>Signing you in…</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // Render normal login form
     return (
         <div className="auth-container">
@@ -254,6 +312,18 @@ const Login = () => {
                 </div>
 
                 {error && <div className="error-message">{error}</div>}
+
+                {demoInfo && (
+                    <div className="demo-hint">
+                        <div className="demo-hint__title">Demo mode — sign in read-only</div>
+                        <div className="demo-hint__creds">
+                            <code>{demoInfo.username}</code> / <code>{demoInfo.password}</code>
+                        </div>
+                        <Button type="button" variant="link" className="demo-hint__fill" onClick={fillDemoCredentials}>
+                            Use demo credentials
+                        </Button>
+                    </div>
+                )}
 
                 {ssoProviders && ssoProviders.length > 0 && (
                     <div className="sso-providers">

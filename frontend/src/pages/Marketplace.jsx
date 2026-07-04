@@ -1,13 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     Activity,
-    Archive,
     CheckCircle2,
     DownloadCloud,
-    FileArchive,
-    Filter,
-    FolderOpen,
-    Globe2,
     LayoutGrid,
     Package,
     PackageCheck,
@@ -25,12 +20,12 @@ import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import Modal from '@/components/Modal';
 import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
-import { StatStrip, Stat } from '../components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import ManualInstallModal from '../components/marketplace/ManualInstallModal';
 
 const CATEGORIES = ['ai', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
 
@@ -43,12 +38,6 @@ const CATEGORY_ICONS = {
     ui: LayoutGrid,
     utility: Package,
 };
-
-const PLUGIN_INSTALL_SOURCES = [
-    { id: 'url', label: 'URL', icon: Globe2 },
-    { id: 'path', label: 'Folder', icon: FolderOpen },
-    { id: 'upload', label: 'Zip', icon: FileArchive },
-];
 
 const titleCase = (value = '') => {
     const cleaned = String(value || 'utility').replace(/[-_]/g, ' ');
@@ -154,11 +143,12 @@ const Marketplace = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
+    // Ownership filter: '' (all), 'serverkit' (firstParty), 'community'.
+    const [ownership, setOwnership] = useState('');
     const [activeTab, setActiveTab] = useState('browse');
-    const [pluginUrl, setPluginUrl] = useState('');
-    const [pluginPath, setPluginPath] = useState('');
-    const [pluginFile, setPluginFile] = useState(null);
-    const [installSource, setInstallSource] = useState('url');
+    // Manual install modal (URL / folder / zip); null when closed, otherwise
+    // the source sub-tab to preselect.
+    const [manualInstallSource, setManualInstallSource] = useState(null);
     const [installing, setInstalling] = useState(false);
     const [detailEntry, setDetailEntry] = useState(null);
     // Plugin pending uninstall — drives the keep-vs-purge data-policy dialog.
@@ -221,34 +211,12 @@ const Marketplace = () => {
         }
     };
 
-    const handlePluginInstall = async () => {
-        let action;
-        if (installSource === 'url') {
-            if (!pluginUrl.trim()) return;
-            action = () => api.installPlugin(pluginUrl.trim());
-        } else if (installSource === 'path') {
-            if (!pluginPath.trim()) return;
-            action = () => api.installPluginFromPath(pluginPath.trim());
-        } else if (installSource === 'upload') {
-            if (!pluginFile) return;
-            action = () => api.installPluginFromZip(pluginFile);
-        } else {
-            return;
-        }
-
-        setInstalling(true);
-        try {
-            const result = await action();
-            toast.success(`Plugin "${result.display_name}" installed. Restart backend to activate routes.`);
-            setPluginUrl('');
-            setPluginPath('');
-            setPluginFile(null);
-            loadExtensions();
-        } catch (err) {
-            toast.error(err.message || 'Plugin installation failed');
-        } finally {
-            setInstalling(false);
-        }
+    // Land on Installed after a manual install so the new row (and its
+    // actions) is immediately visible.
+    const handleManualInstalled = () => {
+        setManualInstallSource(null);
+        loadExtensions();
+        setActiveTab('installed');
     };
 
     // Open the data-policy dialog instead of uninstalling immediately, so the
@@ -261,7 +229,7 @@ const Marketplace = () => {
         if (!plugin) return;
         try {
             await api.uninstallPlugin(plugin.id, purge);
-            toast.success(purge ? 'Plugin uninstalled; data purged' : 'Plugin uninstalled; data kept');
+            toast.success(purge ? 'Extension uninstalled; data purged' : 'Extension uninstalled; data kept');
             loadExtensions();
         } catch (err) { toast.error(err.message); }
     };
@@ -270,10 +238,10 @@ const Marketplace = () => {
         setInstalling(true);
         try {
             const result = await api.updatePlugin(pluginId);
-            toast.success(`Plugin "${result.display_name}" updated to v${result.version}.`);
+            toast.success(`Extension "${result.display_name}" updated to v${result.version}.`);
             loadExtensions();
         } catch (err) {
-            toast.error(err.message || 'Plugin update failed');
+            toast.error(err.message || 'Extension update failed');
         } finally {
             setInstalling(false);
         }
@@ -283,10 +251,10 @@ const Marketplace = () => {
         try {
             if (plugin.status === 'active') {
                 await api.disablePlugin(plugin.id);
-                toast.success('Plugin disabled');
+                toast.success('Extension disabled');
             } else {
                 await api.enablePlugin(plugin.id);
-                toast.success('Plugin enabled');
+                toast.success('Extension enabled');
             }
             loadExtensions();
         } catch (err) { toast.error(err.message); }
@@ -295,11 +263,7 @@ const Marketplace = () => {
     const resetFilters = () => {
         setSearch('');
         setCategory('');
-    };
-
-    const openZipInstaller = () => {
-        setInstallSource('upload');
-        setActiveTab('plugins');
+        setOwnership('');
     };
 
     const pluginStatusVariant = (status) => {
@@ -310,9 +274,9 @@ const Marketplace = () => {
 
     useTopbarActions(() =>
         <>
-            <Button variant="outline" size="sm" onClick={openZipInstaller}>
+            <Button variant="outline" size="sm" onClick={() => setManualInstallSource('url')}>
                 <UploadCloud aria-hidden="true" />
-                Import ZIP
+                Install manually
             </Button>
         </>,
         [],
@@ -322,12 +286,6 @@ const Marketplace = () => {
 
     const localCatalogEntries = builtins.map(getLocalCatalogEntry);
     const registryCatalogEntries = registryExtensions.map(getRegistryCatalogEntry);
-    const installedCatalogEntries = localCatalogEntries.filter((entry) => entry.installed);
-    const installedBuiltinCount = installedCatalogEntries.length;
-    const activePluginCount = plugins.filter((plugin) => plugin.status === 'active').length;
-    const pluginIssueCount = plugins.filter((plugin) => plugin.status === 'error').length;
-    const availableCount = builtins.length + registryExtensions.length;
-    const installedCatalogCount = installedCatalogEntries.length;
     // Update descriptors keyed by both plugin_id and slug so PluginRow can match
     // whichever identifier it has on hand.
     const updatesByKey = new Map();
@@ -338,22 +296,16 @@ const Marketplace = () => {
     const mergedCatalogEntries = [...localCatalogEntries, ...registryCatalogEntries];
     const catalogCategories = deriveCatalogCategories(mergedCatalogEntries);
     const catalogEntries = mergedCatalogEntries
-        .filter((entry) => catalogEntryMatches(entry, search, category));
-    const hasFilters = Boolean(search.trim() || category);
+        .filter((entry) => catalogEntryMatches(entry, search, category))
+        .filter((entry) => {
+            if (ownership === 'serverkit') return entry.firstParty;
+            if (ownership === 'community') return !entry.firstParty;
+            return true;
+        });
+    const hasFilters = Boolean(search.trim() || category || ownership);
 
     return (
         <div className="sk-tabgroup__inner marketplace-page">
-            <StatStrip ariaLabel="Marketplace summary">
-                <Stat label="Catalog" value={availableCount} />
-                <Stat label="Built-in" value={builtins.length} />
-                <Stat label="Installed" value={installedCatalogCount} />
-                <Stat
-                    label="Active Plugins"
-                    value={`${activePluginCount}/${plugins.length}`}
-                    state={pluginIssueCount > 0 ? 'danger' : undefined}
-                />
-            </StatStrip>
-
             <Tabs value={activeTab} onValueChange={setActiveTab} className="marketplace-tabs">
                 <TabsList className="marketplace-tabs__list">
                     <TabsTrigger value="browse">
@@ -362,11 +314,7 @@ const Marketplace = () => {
                     </TabsTrigger>
                     <TabsTrigger value="installed">
                         <PackageCheck aria-hidden="true" />
-                        Installed ({installedCatalogCount})
-                    </TabsTrigger>
-                    <TabsTrigger value="plugins">
-                        <PlugZap aria-hidden="true" />
-                        ServerKit Plugins ({plugins.length})
+                        Installed ({plugins.length})
                     </TabsTrigger>
                 </TabsList>
 
@@ -381,17 +329,6 @@ const Marketplace = () => {
                                 aria-label="Search extensions"
                             />
                         </div>
-                        <select
-                            className="form-select marketplace-category-select"
-                            value={category}
-                            onChange={(event) => setCategory(event.target.value)}
-                            aria-label="Filter by category"
-                        >
-                            <option value="">All Categories</option>
-                            {catalogCategories.map((item) => (
-                                <option key={item} value={item}>{titleCase(item)}</option>
-                            ))}
-                        </select>
                         {hasFilters && (
                             <Button variant="ghost" size="sm" onClick={resetFilters}>
                                 Reset
@@ -421,91 +358,55 @@ const Marketplace = () => {
                         ))}
                     </div>
 
-                    <div className="marketplace-browse-grid">
-                        <div className="marketplace-main-stack">
-                            <section className="marketplace-section">
-                                <SectionHeader
-                                    kicker="Catalog"
-                                    title="Extension catalog"
-                                    meta={`${catalogEntries.length} results`}
-                                />
-                                {catalogEntries.length > 0 ? (
-                                    <div className="extensions-grid">
-                                        {catalogEntries.map((entry) => (
-                                            <CatalogExtensionCard
-                                                key={entry.key}
-                                                entry={entry}
-                                                installing={installing}
-                                                onInstall={
-                                                    entry.source === 'local'
-                                                        ? handleBuiltinInstall
-                                                        : handleRegistryInstall
-                                                }
-                                                onOpenDetail={setDetailEntry}
-                                                statusVariant={pluginStatusVariant}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState
-                                        icon={Package}
-                                        title="No catalog entries found"
-                                        description={hasFilters ? 'No built-in or registry entries match the current filter.' : 'No extension entries are available yet.'}
-                                    />
-                                )}
-                            </section>
-                        </div>
-
-                        <aside className="marketplace-side-panel" aria-label="Marketplace controls">
-                            <div className="marketplace-panel">
-                                <div className="marketplace-panel__title">
-                                    <Filter aria-hidden="true" />
-                                    Categories
-                                </div>
-                                <div className="marketplace-category-list">
-                                    <button
-                                        type="button"
-                                        className={`marketplace-category ${category === '' ? 'marketplace-category--active' : ''}`}
-                                        onClick={() => setCategory('')}
-                                    >
-                                        All
-                                    </button>
-                                    {catalogCategories.map((item) => {
-                                        const Icon = getCategoryIcon(item);
-                                        return (
-                                            <button
-                                                key={item}
-                                                type="button"
-                                                className={`marketplace-category marketplace-category--${item} ${category === item ? 'marketplace-category--active' : ''}`}
-                                                onClick={() => setCategory(item)}
-                                            >
-                                                <Icon aria-hidden="true" />
-                                                {titleCase(item)}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="marketplace-panel">
-                                <div className="marketplace-panel__title">
-                                    <ServerCog aria-hidden="true" />
-                                    Runtime
-                                </div>
-                                <div className="marketplace-runtime">
-                                    <RuntimeRow label="Registry" value={registryExtensions.length} />
-                                    <RuntimeRow label="Built-in" value={builtins.length} />
-                                    <RuntimeRow label="Built-in installed" value={`${installedBuiltinCount}/${builtins.length}`} />
-                                    <RuntimeRow label="Active plugins" value={`${activePluginCount}/${plugins.length}`} />
-                                    <RuntimeRow
-                                        label="Plugin issues"
-                                        value={pluginIssueCount}
-                                        danger={pluginIssueCount > 0}
-                                    />
-                                </div>
-                            </div>
-                        </aside>
+                    <div className="cat-chips cat-chips--ownership" role="group" aria-label="Filter by publisher">
+                        {[
+                            { id: '', label: 'All publishers' },
+                            { id: 'serverkit', label: 'By ServerKit' },
+                            { id: 'community', label: 'Community' },
+                        ].map((option) => (
+                            <button
+                                key={option.id || 'all'}
+                                type="button"
+                                className={`cat-chip ${ownership === option.id ? 'cat-chip--active' : ''}`}
+                                aria-pressed={ownership === option.id}
+                                onClick={() => setOwnership(option.id)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
                     </div>
+
+                    <section className="marketplace-section">
+                        <SectionHeader
+                            kicker="Catalog"
+                            title="Extension catalog"
+                            meta={`${catalogEntries.length} results`}
+                        />
+                        {catalogEntries.length > 0 ? (
+                            <div className="extensions-grid">
+                                {catalogEntries.map((entry) => (
+                                    <CatalogExtensionCard
+                                        key={entry.key}
+                                        entry={entry}
+                                        installing={installing}
+                                        onInstall={
+                                            entry.source === 'local'
+                                                ? handleBuiltinInstall
+                                                : handleRegistryInstall
+                                        }
+                                        onOpenDetail={setDetailEntry}
+                                        statusVariant={pluginStatusVariant}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <EmptyState
+                                icon={Package}
+                                title="No catalog entries found"
+                                description={hasFilters ? 'No built-in or registry entries match the current filter.' : 'No extension entries are available yet.'}
+                            />
+                        )}
+                    </section>
                 </TabsContent>
 
                 <TabsContent value="installed">
@@ -513,150 +414,42 @@ const Marketplace = () => {
                         <SectionHeader
                             kicker="Installed"
                             title="Installed extensions"
-                            meta={`${installedCatalogCount} installed`}
+                            meta={`${plugins.length} installed`}
                         />
-                        {installedCatalogEntries.length > 0 ? (
+                        {plugins.length > 0 ? (
                             <div className="installed-list">
-                                {installedCatalogEntries.map((entry) => (
-                                    <InstalledCatalogRow key={entry.key} entry={entry} />
+                                {plugins.map((plugin) => (
+                                    <PluginRow
+                                        key={plugin.id}
+                                        plugin={plugin}
+                                        update={updatesByKey.get(String(plugin.id))}
+                                        installing={installing}
+                                        onToggle={handlePluginToggle}
+                                        onUpdate={handlePluginUpdate}
+                                        onUninstall={requestPluginUninstall}
+                                        onConfigure={setConfigTarget}
+                                        statusVariant={pluginStatusVariant}
+                                    />
                                 ))}
                             </div>
                         ) : (
                             <EmptyState
                                 icon={PackageCheck}
                                 title="No extensions installed"
-                                description="Install a built-in or registry extension to see it here."
+                                description="Install one from Browse or use Install manually."
                             />
                         )}
                     </section>
                 </TabsContent>
-
-                <TabsContent value="plugins">
-                    <div className="plugins-section">
-                        <section className="marketplace-section">
-                            <SectionHeader
-                                kicker="Installer"
-                                title="Install ServerKit plugin"
-                                meta={titleCase(installSource)}
-                            />
-                            <div className="plugin-install-form">
-                                <div className="plugin-install-form__heading">
-                                    <div className="plugin-install-form__icon">
-                                        <PlugZap aria-hidden="true" />
-                                    </div>
-                                    <div>
-                                        <h3>Plugin source</h3>
-                                        <p className="text-muted">Load plugin packages from a repository, host folder, or zip archive.</p>
-                                    </div>
-                                </div>
-
-                                <div className="plugin-install-tabs" role="tablist" aria-label="Plugin install source">
-                                    {PLUGIN_INSTALL_SOURCES.map((source) => {
-                                        const SourceIcon = source.icon;
-                                        return (
-                                            <button
-                                                key={source.id}
-                                                role="tab"
-                                                type="button"
-                                                aria-selected={installSource === source.id}
-                                                className={`plugin-install-tab ${installSource === source.id ? 'plugin-install-tab--active' : ''}`}
-                                                onClick={() => setInstallSource(source.id)}
-                                            >
-                                                <SourceIcon aria-hidden="true" />
-                                                {source.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {installSource === 'url' && (
-                                    <PluginInstallInput
-                                        description="Paste a GitHub repo URL, release URL, or direct zip link."
-                                        placeholder="https://github.com/user/serverkit-plugin"
-                                        value={pluginUrl}
-                                        onChange={setPluginUrl}
-                                        onInstall={handlePluginInstall}
-                                        disabled={installing}
-                                        installDisabled={installing || !pluginUrl.trim()}
-                                    />
-                                )}
-
-                                {installSource === 'path' && (
-                                    <PluginInstallInput
-                                        description="Use an absolute path that exists on the backend host or inside the backend container."
-                                        placeholder="/opt/serverkit/plugins/my-plugin"
-                                        value={pluginPath}
-                                        onChange={setPluginPath}
-                                        onInstall={handlePluginInstall}
-                                        disabled={installing}
-                                        installDisabled={installing || !pluginPath.trim()}
-                                    />
-                                )}
-
-                                {installSource === 'upload' && (
-                                    <div className="plugin-install-source">
-                                        <p className="text-muted">
-                                            Upload a plugin zip with <code>plugin.json</code> at the top level or one folder deep.
-                                        </p>
-                                        <div className="plugin-install-row">
-                                            <Input
-                                                type="file"
-                                                className="marketplace-file-input"
-                                                accept=".zip,application/zip,application/x-zip-compressed"
-                                                disabled={installing}
-                                                onChange={(event) => setPluginFile(event.target.files?.[0] || null)}
-                                            />
-                                            <Button
-                                                onClick={handlePluginInstall}
-                                                disabled={installing || !pluginFile}
-                                            >
-                                                <DownloadCloud aria-hidden="true" />
-                                                {installing ? 'Installing...' : 'Install'}
-                                            </Button>
-                                        </div>
-                                        {pluginFile && (
-                                            <div className="plugin-file-note">
-                                                {pluginFile.name} | {(pluginFile.size / 1024).toFixed(1)} KB
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-
-                        <section className="marketplace-section">
-                            <SectionHeader
-                                kicker="Runtime"
-                                title="Installed ServerKit plugins"
-                                meta={`${plugins.length} plugins`}
-                            />
-                            {plugins.length > 0 ? (
-                                <div className="installed-list">
-                                    {plugins.map((plugin) => (
-                                        <PluginRow
-                                            key={plugin.id}
-                                            plugin={plugin}
-                                            update={updatesByKey.get(String(plugin.id))}
-                                            installing={installing}
-                                            onToggle={handlePluginToggle}
-                                            onUpdate={handlePluginUpdate}
-                                            onUninstall={requestPluginUninstall}
-                                            onConfigure={setConfigTarget}
-                                            statusVariant={pluginStatusVariant}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <EmptyState
-                                    icon={PlugZap}
-                                    title="No ServerKit plugins installed"
-                                    description="Install a plugin package to extend the panel runtime."
-                                />
-                            )}
-                        </section>
-                    </div>
-                </TabsContent>
             </Tabs>
+
+            {manualInstallSource && (
+                <ManualInstallModal
+                    defaultSource={manualInstallSource}
+                    onClose={() => setManualInstallSource(null)}
+                    onInstalled={handleManualInstalled}
+                />
+            )}
 
             {detailEntry && (
                 <ExtensionDetailModal
@@ -882,28 +675,12 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
     );
 };
 
-// Installed catalog entries are builtin installs (the legacy "published"
-// lane was retired, #51); their manage/uninstall actions live on the
-// ServerKit Plugins tab, so this row is informational.
-const InstalledCatalogRow = ({ entry }) => (
-    <article className="installed-item card">
-        <div className="installed-item__main">
-            <div className="installed-item__icon installed-item__icon--local">
-                <Archive aria-hidden="true" />
-            </div>
-            <div className="installed-item__content">
-                <div className="installed-item__title-line">
-                    <strong>{entry.displayName}</strong>
-                    <span className="text-muted">v{entry.version}</span>
-                    <Badge variant="warning">{entry.sourceLabel}</Badge>
-                </div>
-            </div>
-        </div>
-        <div className="installed-item__actions">
-            <Badge variant="success">Installed</Badge>
-        </div>
-    </article>
-);
+// Install-origin badge for installed rows. url/local/upload all collapse to
+// "Manual" — the raw origin lives in the tooltip.
+const PLUGIN_SOURCE_BADGES = {
+    builtin: { label: 'Built-in', variant: 'warning' },
+    registry: { label: 'Registry', variant: 'info' },
+};
 
 const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall, onConfigure, statusVariant }) => {
     const updateAvailable = Boolean(update?.update_available);
@@ -911,6 +688,8 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
     const configurable = plugin.config_schema
         && typeof plugin.config_schema === 'object'
         && Object.keys(plugin.config_schema).length > 0;
+    const sourceBadge = PLUGIN_SOURCE_BADGES[plugin.source_type]
+        || { label: 'Manual', variant: 'outline', title: plugin.source_url || undefined };
 
     return (
         <article className={`installed-item installed-item--plugin card ${plugin.status === 'error' ? 'installed-item--error' : ''}`}>
@@ -923,6 +702,7 @@ const PluginRow = ({ plugin, update, installing, onToggle, onUpdate, onUninstall
                         <strong>{plugin.display_name}</strong>
                         <span className="text-muted">v{plugin.version}</span>
                         <Badge variant={statusVariant(plugin.status)}>{plugin.status}</Badge>
+                        <Badge variant={sourceBadge.variant} title={sourceBadge.title}>{sourceBadge.label}</Badge>
                         {plugin.has_backend && <Badge variant="secondary">Backend</Badge>}
                         {plugin.has_frontend && <Badge variant="secondary">Frontend</Badge>}
                         {updateAvailable && (
@@ -993,7 +773,7 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
         setSaving(true);
         try {
             await api.updatePluginConfig(plugin.id, values || {});
-            toast.success('Plugin configuration saved');
+            toast.success('Extension configuration saved');
             onClose();
         } catch (err) {
             toast.error(err.message || 'Failed to save configuration');
@@ -1065,7 +845,7 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
                         );
                     })}
                     {Object.keys(fields).length === 0 && (
-                        <p className="text-muted">This plugin declares no configuration fields.</p>
+                        <p className="text-muted">This extension declares no configuration fields.</p>
                     )}
                 </div>
             )}
@@ -1098,40 +878,6 @@ const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => (
             </p>
         </div>
     </Modal>
-);
-
-const PluginInstallInput = ({
-    description,
-    placeholder,
-    value,
-    onChange,
-    onInstall,
-    disabled,
-    installDisabled,
-}) => (
-    <div className="plugin-install-source">
-        <p className="text-muted">{description}</p>
-        <div className="plugin-install-row">
-            <Input
-                placeholder={placeholder}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && onInstall()}
-                disabled={disabled}
-            />
-            <Button onClick={onInstall} disabled={installDisabled}>
-                <DownloadCloud aria-hidden="true" />
-                {disabled ? 'Installing...' : 'Install'}
-            </Button>
-        </div>
-    </div>
-);
-
-const RuntimeRow = ({ label, value, danger }) => (
-    <div className={`marketplace-runtime__row ${danger ? 'marketplace-runtime__row--danger' : ''}`}>
-        <span>{label}</span>
-        <strong>{value}</strong>
-    </div>
 );
 
 export default Marketplace;

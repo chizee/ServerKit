@@ -40,14 +40,17 @@ const ProjectDetail = () => {
     const [error, setError] = useState(null);
     const [showCreateEnv, setShowCreateEnv] = useState(false);
     const [deleteEnv, setDeleteEnv] = useState(null);
+    const [manifest, setManifest] = useState(null);
 
     const loadProject = useCallback(async () => {
         setLoading(true);
         try {
-            const [projectData, appsData] = await Promise.all([
+            const [projectData, appsData, manifestData] = await Promise.all([
                 api.getProject(id),
                 api.getApps(),
+                api.getManifest(id).catch(() => null),
             ]);
+            setManifest(manifestData?.manifest || null);
             const p = projectData?.project || null;
             setProject(p);
             const envs = Array.isArray(p?.environments) ? p.environments : [];
@@ -150,6 +153,25 @@ const ProjectDetail = () => {
                 {project.description && (
                     <p className="project-detail-page__description">{project.description}</p>
                 )}
+
+                {manifest && (() => {
+                    const src = manifest.source || {};
+                    const commit = src.commit ? String(src.commit).slice(0, 7) : null;
+                    const status = manifest.status || 'pending';
+                    return (
+                        <div className="project-manifest-strip">
+                            <span className="project-manifest-strip__label">Manifest</span>
+                            <span className={`project-manifest-strip__pill project-manifest-strip__pill--${status}`}>
+                                {status}
+                            </span>
+                            {(src.repo || commit) && (
+                                <span className="project-manifest-strip__source">
+                                    {src.repo || ''}{src.repo && commit ? '@' : ''}{commit || ''}
+                                </span>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 <div className="project-env-tabs" role="tablist" aria-label="Environments">
                     {environments.map((env, index) => (

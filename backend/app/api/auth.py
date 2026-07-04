@@ -11,8 +11,11 @@ from flask_jwt_extended import (
 )
 from app import db, limiter
 from app.models import User, AuditLog, SystemSettings
+# Aliased: this module already has a `get_current_user` route handler.
+from app.middleware.rbac import admin_required, get_current_user as get_request_user
 from app.services.settings_service import SettingsService
 from app.services.audit_service import AuditService
+from app.services import login_link_service
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +265,150 @@ def login():
         'access_token': access_token,
         'refresh_token': refresh_token
     }), 200
+
+
+# ==========================================
+# ONE-TIME LOGIN LINKS
+# ==========================================
+@auth_bp.route('/login-links', methods=['POST'])
+@admin_required
+def create_login_link():
+    """Mint a single-use login URL. The raw token is returned exactly once."""
+    current = get_request_user()
+    data = request.get_json() or {}
+
+    target_id = data.get('user_id') or current.id
+    target = User.query.get(target_id)
+    if not target:
+        return jsonify({'error': 'User not found'}), 404
+
+    bound_ip = (data.get('bound_ip') or '').strip() or None
+    if bound_ip and len(bound_ip) > 64:
+        return jsonify({'error': 'Invalid IP address'}), 400
+
+    token, link = login_link_service.mint(
+        user_id=target.id,
+        ttl_minutes=data.get('ttl_minutes'),
+        bound_ip=bound_ip,
+        created_by=current.id,
+    )
+
+    AuditService.log(
+        action='login_link.create',
+        user_id=current.id,
+        target_type='user',
+        target_id=target.id,
+        details={'link_id': link.id, 'expires_at': link.expires_at.isoformat(),
+                 'ip_bound': bound_ip is not None},
+    )
+    db.session.commit()
+
+    return jsonify({
+        'url': f'/login?link={token}',
+        'token': token,
+        'expires_at': link.expires_at.isoformat(),
+        'link': link.to_dict(),
+    }), 201
+
+
+@auth_bp.route('/login-links', methods=['GET'])
+@admin_required
+def list_login_links():
+    """List active (unused, unexpired) login links. Hashes are never exposed."""
+    links = login_link_service.list_active()
+    return jsonify({'links': [l.to_dict() for l in links]}), 200
+
+
+@auth_bp.route('/login-links/<int:link_id>', methods=['DELETE'])
+@admin_required
+def revoke_login_link(link_id):
+    from app.models.login_link import LoginLink
+    link = LoginLink.query.get(link_id)
+    if not link:
+        return jsonify({'error': 'Link not found'}), 404
+
+    current = get_request_user()
+    AuditService.log(
+        action='login_link.revoke',
+        user_id=current.id,
+        target_type='user',
+        target_id=link.user_id,
+        details={'link_id': link.id},
+    )
+    db.session.delete(link)
+    db.session.commit()
+    return jsonify({'message': 'Login link revoked'}), 200
+
+
+@auth_bp.route('/login-links/redeem', methods=['POST'])
+@limiter.limit("30 per minute")
+def redeem_login_link():
+    """Redeem a one-time login link and issue normal JWT tokens."""
+    data = request.get_json() or {}
+    token = data.get('token')
+
+    user, reason = login_link_service.redeem(token, request.remote_addr)
+    if not user:
+        logger.info(f"Login link redeem failed ({reason}) from {request.remote_addr}")
+        return jsonify({'error': 'Invalid or expired link'}), 401
+
+    user.reset_failed_login()
+    user.last_login_at = datetime.utcnow()
+    db.session.commit()
+
+    AuditService.log_login(user.id, success=True, details={'method': 'login_link'})
+    db.session.commit()
+
+    access_token = create_access_token(identity=user.id)
+    refresh_token = create_refresh_token(identity=user.id)
+
+    return jsonify({
+        'user': user.to_dict(),
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    }), 200
+
+
+# ==========================================
+# DEMO MODE
+# ==========================================
+@auth_bp.route('/demo-info', methods=['GET'])
+def demo_info():
+    """Public demo-mode info for the login page.
+
+    Only when demo mode is active: ensures the seeded read-only ``demo``
+    user exists (stable random password stored in settings) and returns
+    its credentials. Otherwise reveals nothing.
+    """
+    from app.middleware.demo import is_demo_mode_active
+
+    if not is_demo_mode_active():
+        return jsonify({'enabled': False}), 200
+
+    import secrets as _secrets
+
+    password = SettingsService.get('demo_password')
+    user = User.query.filter_by(username='demo').first()
+
+    if not password:
+        password = _secrets.token_urlsafe(12)
+        SettingsService.set('demo_password', password)
+
+    if not user:
+        user = User(
+            email='demo@demo.local',
+            username='demo',
+            role=User.ROLE_VIEWER,
+        )
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+    elif not user.check_password(password):
+        # Keep the stored credential authoritative (e.g. rotated setting).
+        user.set_password(password)
+        db.session.commit()
+
+    return jsonify({'enabled': True, 'username': 'demo', 'password': password}), 200
 
 
 @auth_bp.route('/refresh', methods=['POST'])

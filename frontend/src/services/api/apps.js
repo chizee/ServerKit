@@ -118,6 +118,24 @@ export async function convertAppBindMount(id, data) {
     return this.request(`/apps/${id}/volumes/convert`, { method: 'POST', body: data });
 }
 
+// Per-app resource limits (Docker CPU/memory caps) + best-effort live usage.
+export async function getAppResources(id) {
+    return this.request(`/apps/${id}/resources`);
+}
+
+export async function updateAppResources(id, data) {
+    return this.request(`/apps/${id}/resources`, { method: 'PUT', body: data });
+}
+
+// Per-site nginx micro-cache (short-TTL page cache with auth/admin/cart bypasses).
+export async function setMicroCache(id, enabled) {
+    return this.request(`/apps/${id}/micro-cache`, { method: 'PUT', body: { enabled } });
+}
+
+export async function purgeMicroCache(id) {
+    return this.request(`/apps/${id}/micro-cache/purge`, { method: 'POST' });
+}
+
 export async function startApp(id) {
     return this.request(`/apps/${id}/start`, { method: 'POST' });
 }

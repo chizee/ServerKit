@@ -122,3 +122,43 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+// Demo mode hint on the login card
+.demo-hint {
+    margin-bottom: $space-6;
+    padding: $space-4;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-lg;
+    background: $bg-hover;
+    text-align: center;
+
+    &__title {
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+        margin-bottom: $space-2;
+    }
+
+    &__creds {
+        font-size: $font-size-sm;
+        color: $text-secondary;
+        margin-bottom: $space-3;
+
+        code {
+            color: $text-primary;
+        }
+    }
+
+    &__fill {
+        background: none;
+        border: none;
+        padding: 0;
+        color: $accent-primary;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+        cursor: pointer;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}

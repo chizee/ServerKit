@@ -837,9 +837,22 @@ def create_app_from_repository():
         if not build_result.get('success'):
             raise RuntimeError(build_result.get('error', 'Failed to configure build'))
 
+        # Stop dropping what we detect: persist the manifest, seed non-secret
+        # env values, and record the health-check path (plan 17, Phase 1).
+        manifest_summary = None
+        try:
+            from app.services.manifest_persistence_service import ManifestPersistenceService
+            manifest_summary = ManifestPersistenceService.apply_import(
+                app, manifest, user_id=current_user_id,
+                source_repo=deploy_repo_url, source_ref=branch or 'main',
+            )
+        except Exception:
+            manifest_summary = None
+
         return jsonify({
             'message': 'Repository service created',
             'app': _attach_deploy_config(app.to_dict(include_linked=True)),
+            'manifest_import': manifest_summary,
             'deploy_config': {
                 'repo_url': _safe_repo_url(deploy_repo_url),
                 'branch': branch or 'main',
@@ -1257,6 +1270,9 @@ def update_app(app_id):
         app.python_version = data['python_version']
     if 'port' in data:
         app.port = data['port']
+    if 'healthcheck_path' in data:
+        hc = (data['healthcheck_path'] or '').strip()
+        app.healthcheck_path = hc or None
     if 'root_path' in data:
         app.root_path = data['root_path']
     if 'docker_image' in data:
@@ -1507,6 +1523,198 @@ def sweep_idle_apps():
     if not (user and user.is_admin):
         return jsonify({'error': 'Admin access required'}), 403
     return jsonify(ContainerSleepService.sweep_idle())
+
+
+# ==================== RESOURCE LIMITS (task #23) ====================
+
+def _parse_docker_stats(stats):
+    """Normalize a `docker stats --format json` row to a small usage dict.
+
+    Returns None when stats are unavailable (stopped app, no Docker on the
+    host — e.g. Windows dev).
+    """
+    if not stats:
+        return None
+
+    def _pct(value):
+        try:
+            return float(str(value).rstrip('%'))
+        except (TypeError, ValueError):
+            return None
+
+    usage = {
+        'cpu_percent': _pct(stats.get('CPUPerc')),
+        'memory_percent': _pct(stats.get('MemPerc')),
+        'memory_usage': None,
+        'memory_limit': None,
+    }
+    mem = stats.get('MemUsage') or ''
+    if '/' in mem:
+        used, limit = mem.split('/', 1)
+        usage['memory_usage'] = used.strip()
+        usage['memory_limit'] = limit.strip()
+    return usage
+
+
+@apps_bp.route('/<int:app_id>/resources', methods=['GET'])
+@jwt_required()
+def get_app_resources(app_id):
+    """The app's configured CPU/memory limits plus best-effort live usage."""
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if not _can_access_app(user, app):
+        return jsonify({'error': 'Access denied'}), 403
+
+    usage = None
+    if app.status == 'running' and not app.server_id:
+        try:
+            container_id = DockerService.get_app_container_id(app)
+            if container_id:
+                usage = _parse_docker_stats(DockerService.get_container_stats(container_id))
+        except Exception:
+            usage = None  # live stats are best-effort
+
+    return jsonify({
+        'cpu_limit': app.cpu_limit,
+        'memory_limit': app.memory_limit,
+        'usage': usage,
+    }), 200
+
+
+@apps_bp.route('/<int:app_id>/resources', methods=['PUT'])
+@jwt_required()
+def update_app_resources(app_id):
+    """Set the app's CPU/memory limits; re-apply live when possible.
+
+    Empty/null clears a limit. For a locally managed compose app that is
+    running, `compose up -d` regenerates the ServerKit override (which carries
+    the limits) and recreates changed containers; otherwise the limits are
+    saved and take effect on the next restart/redeploy.
+    """
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if not _can_edit_app(user, app):
+        return jsonify({'error': 'Access denied'}), 403
+
+    data = request.get_json() or {}
+    try:
+        if 'cpu_limit' in data:
+            app.cpu_limit = DockerService.validate_cpu_limit(data['cpu_limit'])
+        if 'memory_limit' in data:
+            app.memory_limit = DockerService.validate_memory_limit(data['memory_limit'])
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    db.session.commit()
+
+    applied = False
+    note = None
+    is_local_compose = (
+        not app.server_id and app.root_path
+        and (app.app_type == 'docker' or app.managed_by == 'docker_compose')
+    )
+    if app.status == 'running':
+        if is_local_compose:
+            result = DockerService.compose_up(app.root_path, compose_file=_local_compose_file(app))
+            applied = bool(result.get('success'))
+            if not applied:
+                note = 'restart required'
+        else:
+            note = 'restart required'
+
+    response = {
+        'message': 'Resource limits saved',
+        'cpu_limit': app.cpu_limit,
+        'memory_limit': app.memory_limit,
+        'applied': applied,
+    }
+    if note:
+        response['note'] = note
+    return jsonify(response), 200
+
+
+# ==================== MICRO-CACHE (task #21) ====================
+
+@apps_bp.route('/<int:app_id>/micro-cache', methods=['PUT'])
+@jwt_required()
+def set_micro_cache(app_id):
+    """Toggle the per-site nginx micro-cache and republish the vhost.
+
+    The flag flows through the same kwargs pipeline drift detection uses
+    (SiteDomainService.app_vhost_kwargs -> NginxService.render_site_config),
+    so an enabled cache is part of the expected vhost and never reads as
+    config drift. When the app has no domains yet, the flag is save-only and
+    takes effect on first publish.
+    """
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if not _can_edit_app(user, app):
+        return jsonify({'error': 'Access denied'}), 403
+
+    data = request.get_json() or {}
+    if 'enabled' not in data:
+        return jsonify({'error': "'enabled' is required"}), 400
+
+    app.micro_cache_enabled = bool(data['enabled'])
+    db.session.commit()
+
+    applied = False
+    note = None
+    warning = None
+    if app.domains:
+        # Reuse the exact publish path (render + write + enable + reload).
+        from app.services.site_domain_service import SiteDomainService
+        result = SiteDomainService.write_app_vhost(app)
+        warning = result.get('warning')
+        applied = result.get('nginx') is not None and not warning
+    else:
+        note = ('Saved. The micro-cache takes effect when this service is '
+                'published at a domain.')
+
+    response = {
+        'message': f"Micro-cache {'enabled' if app.micro_cache_enabled else 'disabled'}",
+        'micro_cache_enabled': bool(app.micro_cache_enabled),
+        'applied': applied,
+    }
+    if note:
+        response['note'] = note
+    if warning:
+        response['warning'] = warning
+    return jsonify(response), 200
+
+
+@apps_bp.route('/<int:app_id>/micro-cache/purge', methods=['POST'])
+@jwt_required()
+def purge_micro_cache(app_id):
+    """Manually clear the micro-cache.
+
+    The cache is ONE shared nginx zone for all opted-in sites (zones must be
+    declared statically, so per-site zones don't scale) — purging therefore
+    wipes cached entries for every opted-in site. With the 10-second TTL this
+    is near-harmless, and no nginx reload is needed.
+    """
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if not _can_edit_app(user, app):
+        return jsonify({'error': 'Access denied'}), 403
+
+    from app.services.nginx_service import NginxService
+    result = NginxService.purge_micro_cache()
+    if not result.get('success'):
+        return jsonify({'error': result.get('error', 'Purge failed')}), 500
+
+    response = {'message': result.get('message', 'Micro-cache cleared')}
+    if result.get('note'):
+        response['note'] = result['note']
+    return jsonify(response), 200
 
 
 @apps_bp.route('/<int:app_id>/scale-policy', methods=['GET'])

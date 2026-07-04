@@ -114,6 +114,12 @@ class RepositoryManifestService:
         if not isinstance(data, dict):
             return
 
+        # v1 declarative manifest: recognize it, surface a multi-service summary,
+        # and seed `recommended` from the first app service for the wizard. Legacy
+        # flat files (no `version: 1`) keep the original code path untouched.
+        if cls._detect_serverkit_v1(file_name, data, result, file_map.get(file_name)):
+            return
+
         build = data.get('build') if isinstance(data.get('build'), dict) else {}
         deploy = data.get('deploy') if isinstance(data.get('deploy'), dict) else {}
         app_type = data.get('app_type') or data.get('type') or deploy.get('type')
@@ -142,6 +148,71 @@ class RepositoryManifestService:
         )
         cls._merge_env(result, cls._env_from_mapping(data.get('env'), source=file_name))
         cls._add_manifest(result, 'serverkit', file_name, 'ServerKit manifest', 'Native import settings')
+
+    @classmethod
+    def _detect_serverkit_v1(cls, file_name: str, data: Dict, result: Dict,
+                             raw: Optional[str] = None) -> bool:
+        """Recognize a `version: 1` manifest. Returns True when handled."""
+        from app.services.manifest_spec_service import ManifestSpecService, ManifestError
+
+        if not ManifestSpecService.is_v1(data):
+            return False
+
+        result['manifest_v1_raw'] = raw
+        result['manifest_v1_file'] = file_name
+
+        try:
+            normalized = ManifestSpecService.normalize(data)
+        except ManifestError as exc:
+            result['warnings'].append('Invalid serverkit.yaml: ' + '; '.join(exc.errors[:5]))
+            result['manifest_v1_errors'] = exc.errors
+            # still record that a v1 manifest exists so the UI can show the errors
+            cls._add_manifest(result, 'serverkit', file_name,
+                              'ServerKit manifest (v1)', 'Declarative manifest — has errors')
+            return True
+
+        summary = ManifestSpecService.summarize(normalized)
+        result['manifest_v1'] = summary
+        result['manifest_v1_normalized'] = normalized
+
+        # Seed `recommended` from the first app service so the existing single-app
+        # wizard flow still gets sensible defaults.
+        first_app = next((s for s in normalized['services'] if s['kind'] == 'app'), None)
+        if first_app:
+            cls._set_recommended(
+                result,
+                strategy='serverkit',
+                app_type=first_app.get('app_type'),
+                port=first_app.get('port'),
+                custom_build_cmd=first_app.get('build_command'),
+                custom_start_cmd=first_app.get('start_command'),
+                healthcheck_path=first_app.get('healthcheck_path'),
+            )
+            # surface non-secret env keys the wizard can render
+            entries = []
+            for var in first_app['env_vars']:
+                entries.append({
+                    'key': var['key'],
+                    'value': var['value'] if var['source'] == 'value' else None,
+                    'required': var['source'] in ('secret', 'placeholder'),
+                    'secret': var['secret'],
+                    'source': file_name,
+                    'description': '',
+                })
+            cls._merge_env(result, entries)
+        else:
+            result['strategy'] = result['strategy'] or 'serverkit'
+
+        svc_count = summary['service_count']
+        db_count = len(summary['databases'])
+        parts = [f'{svc_count} service{"s" if svc_count != 1 else ""}']
+        if db_count:
+            parts.append(f'{db_count} database{"s" if db_count != 1 else ""}')
+        if summary['domains']:
+            parts.append(f'{len(summary["domains"])} domain{"s" if len(summary["domains"]) != 1 else ""}')
+        cls._add_manifest(result, 'serverkit', file_name,
+                          'ServerKit manifest (v1)', ', '.join(parts))
+        return True
 
     @classmethod
     def _detect_compose(cls, file_map: Dict[str, str], result: Dict) -> None:

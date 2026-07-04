@@ -90,9 +90,65 @@ class EnvService:
 
         # 2) Local env vars — the override layer (highest precedence wins).
         for ev in EnvironmentVariable.query.filter_by(application_id=application_id).all():
-            merged[ev.key] = ev.value  # decrypted via the model's `value` property
+            merged[ev.key] = EnvService._resolve_var_value(app, ev)
 
         return merged
+
+    @staticmethod
+    def _resolve_var_value(app, ev):
+        """Decrypt a plain value, or resolve a manifest reference at injection."""
+        if not ev.value_from:
+            return ev.value
+        try:
+            from app.services.env_reference_service import EnvReferenceResolver
+            value, error = EnvReferenceResolver.resolve(app, ev.get_reference())
+            if error:
+                logger.warning('Env reference %s on app %s unresolved: %s',
+                               ev.key, ev.application_id, error)
+                return ''
+            return value
+        except Exception as exc:  # best-effort — never block a deploy
+            logger.warning('Env reference %s resolution failed: %s', ev.key, exc)
+            return ''
+
+    @staticmethod
+    def set_env_reference(application_id, key, reference, user_id=None, target_service=_UNSET):
+        """Create/update a variable that resolves from a reference (manifest).
+
+        ``reference`` is a dict e.g. {'kind':'secret','secret':'name'} or
+        {'kind':'service','service':'db','property':'connectionString'}. The real
+        value is never stored — encrypted_value holds a placeholder.
+        """
+        valid, error = EnvService.validate_key(key)
+        if not valid:
+            return None, False, error
+        app = Application.query.get(application_id)
+        if not app:
+            return None, False, 'Application not found'
+
+        norm_target = None if target_service in ('', _UNSET) else target_service
+        existing = EnvService.get_env_var(application_id, key)
+        if existing:
+            existing.set_reference(reference)
+            existing.is_secret = True
+            existing.value = ''  # clear any stored literal
+            if target_service is not _UNSET:
+                existing.target_service = norm_target
+            db.session.commit()
+            return existing, False, None
+
+        env_var = EnvironmentVariable(
+            application_id=application_id, key=key, is_secret=True,
+            target_service=norm_target, created_by=user_id,
+        )
+        env_var.set_reference(reference)
+        env_var.value = ''
+        db.session.add(env_var)
+        db.session.flush()
+        EnvironmentVariableHistory.record_change(env_var, 'created', new_value='<reference>',
+                                                 user_id=user_id)
+        db.session.commit()
+        return env_var, True, None
 
     @staticmethod
     def get_effective_env_for_services(application_id, service_names):
@@ -139,7 +195,7 @@ class EnvService:
             for ev in local_vars:
                 tgt = ev.target_service
                 if tgt in (None, '') or tgt == svc:
-                    env[ev.key] = ev.value
+                    env[ev.key] = EnvService._resolve_var_value(app, ev)
             result[svc] = env
         return result
 

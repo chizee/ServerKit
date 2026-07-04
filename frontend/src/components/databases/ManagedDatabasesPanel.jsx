@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Copy, ShieldCheck, Trash2, RefreshCw, Link2 } from 'lucide-react';
+import { Copy, ShieldCheck, Trash2, RefreshCw, Link2, Users } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Pill } from '../ds';
+import AdminerSsoButton from './AdminerSsoButton';
+import DbUsersPanel from './DbUsersPanel';
 
 // Durable list of the databases ServerKit tracks (provisioned or adopted),
 // beside the live explorer. Reveal/copy a real connection string (audited),
@@ -15,6 +17,7 @@ export default function ManagedDatabasesPanel() {
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [busyId, setBusyId] = useState(null);
+    const [usersOpenId, setUsersOpenId] = useState(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -106,29 +109,42 @@ export default function ManagedDatabasesPanel() {
             ) : (
                 <div className="managed-db__list">
                     {rows.map((row) => (
-                        <div key={row.id} className="managed-db__row">
-                            <div className="managed-db__info">
-                                <strong>{row.name}</strong>
-                                <span className="managed-db__meta">
-                                    {row.engine} · {row.host}:{row.port}
-                                    {row.admin_username ? ` · ${row.admin_username}` : ''}
-                                </span>
+                        <div key={row.id} className="managed-db__item">
+                            <div className="managed-db__row">
+                                <div className="managed-db__info">
+                                    <strong>{row.name}</strong>
+                                    <span className="managed-db__meta">
+                                        {row.engine} · {row.host}:{row.port}
+                                        {row.admin_username ? ` · ${row.admin_username}` : ''}
+                                    </span>
+                                </div>
+                                <Pill kind={row.origin === 'provisioned' ? 'green' : 'gray'}>{row.origin}</Pill>
+                                <div className="managed-db__actions">
+                                    {(row.engine === 'mysql' || row.engine === 'postgresql') && (
+                                        <AdminerSsoButton databaseId={row.id} disabled={busyId === row.id} />
+                                    )}
+                                    <Button type="button" size="sm" variant="outline" disabled={busyId === row.id}
+                                        onClick={() => copyConnectionUri(row)}>
+                                        <Copy size={14} /> Connection string
+                                    </Button>
+                                    <Button type="button" size="sm" variant="outline" disabled={busyId === row.id}
+                                        onClick={() => protect(row)}>
+                                        <ShieldCheck size={14} /> Protect
+                                    </Button>
+                                    {(row.engine === 'mysql' || row.engine === 'postgresql') && (
+                                        <Button type="button" size="sm" variant="ghost" disabled={busyId === row.id}
+                                            onClick={() => setUsersOpenId(usersOpenId === row.id ? null : row.id)}
+                                            aria-expanded={usersOpenId === row.id}>
+                                            <Users size={14} /> Users
+                                        </Button>
+                                    )}
+                                    <Button type="button" size="sm" variant="ghost" disabled={busyId === row.id}
+                                        onClick={() => untrack(row, false)} aria-label={`Untrack ${row.name}`}>
+                                        <Trash2 size={14} /> Untrack
+                                    </Button>
+                                </div>
                             </div>
-                            <Pill kind={row.origin === 'provisioned' ? 'green' : 'gray'}>{row.origin}</Pill>
-                            <div className="managed-db__actions">
-                                <Button type="button" size="sm" variant="outline" disabled={busyId === row.id}
-                                    onClick={() => copyConnectionUri(row)}>
-                                    <Copy size={14} /> Connection string
-                                </Button>
-                                <Button type="button" size="sm" variant="outline" disabled={busyId === row.id}
-                                    onClick={() => protect(row)}>
-                                    <ShieldCheck size={14} /> Protect
-                                </Button>
-                                <Button type="button" size="sm" variant="ghost" disabled={busyId === row.id}
-                                    onClick={() => untrack(row, false)} aria-label={`Untrack ${row.name}`}>
-                                    <Trash2 size={14} /> Untrack
-                                </Button>
-                            </div>
+                            {usersOpenId === row.id && <DbUsersPanel databaseId={row.id} />}
                         </div>
                     ))}
                 </div>

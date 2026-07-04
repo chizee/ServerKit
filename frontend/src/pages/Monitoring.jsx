@@ -5,6 +5,7 @@ import api from '../services/api';
 import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
+import DoctorPanel from '../components/monitoring/DoctorPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +15,8 @@ import { MetricCard, Pill, Gauge } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity,
+    ArrowDown,
+    ArrowUp,
     Bell,
     Clock,
     Cpu,
@@ -25,10 +28,12 @@ import {
     RefreshCw,
     Settings,
     Siren,
+    Timer,
     Webhook,
+    Zap,
 } from 'lucide-react';
 
-const VALID_TABS = ['overview', 'alerts', 'config', 'thresholds'];
+const VALID_TABS = ['overview', 'alerts', 'config', 'thresholds', 'doctor'];
 
 const DEFAULT_THRESHOLDS = {
     cpu_percent: 80,
@@ -68,6 +73,14 @@ function formatMetric(value, unit = '%') {
     return `${value.toFixed(unit === '' ? 2 : 1)}${unit}`;
 }
 
+function formatSpeedValue(value, digits = 1) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+    return value.toFixed(digits);
+}
+
+const SPEEDTEST_POLL_INTERVAL_MS = 3000;
+const SPEEDTEST_POLL_TIMEOUT_MS = 90000;
+
 function getSeverityTone(severity) {
     switch (severity) {
         case 'critical':
@@ -99,6 +112,19 @@ const Monitoring = () => {
     });
 
     const [thresholdForm, setThresholdForm] = useState(DEFAULT_THRESHOLDS);
+    const [speedTest, setSpeedTest] = useState(null);
+    const [speedTestRunning, setSpeedTestRunning] = useState(false);
+
+    const loadSpeedTest = async () => {
+        try {
+            const res = await api.getSpeedTest();
+            setSpeedTest(res);
+            return res;
+        } catch {
+            // Speed test endpoint is optional — never block the page on it.
+            return null;
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -129,6 +155,7 @@ const Monitoring = () => {
 
     useEffect(() => {
         loadData();
+        loadSpeedTest();
     }, []);
 
     const metricRules = useMemo(() => {
@@ -277,6 +304,33 @@ const Monitoring = () => {
         }
     };
 
+    const handleRunSpeedTest = async () => {
+        try {
+            setSpeedTestRunning(true);
+            await api.runSpeedTest();
+            const previousTestedAt = speedTest?.last_result?.tested_at || null;
+            const deadline = Date.now() + SPEEDTEST_POLL_TIMEOUT_MS;
+            while (Date.now() < deadline) {
+                await new Promise((resolve) => setTimeout(resolve, SPEEDTEST_POLL_INTERVAL_MS));
+                const res = await loadSpeedTest();
+                const latest = res?.last_result;
+                if (latest?.tested_at && latest.tested_at !== previousTestedAt) {
+                    if (latest.success === false) {
+                        toast.error(latest.error || 'Speed test failed');
+                    } else {
+                        toast.success('Speed test complete');
+                    }
+                    return;
+                }
+            }
+            toast.warning('Speed test is still running — refresh in a moment');
+        } catch (err) {
+            toast.error(err.message || 'Failed to start speed test');
+        } finally {
+            setSpeedTestRunning(false);
+        }
+    };
+
     const updateThreshold = (key, value) => {
         setThresholdForm((current) => ({
             ...current,
@@ -336,6 +390,7 @@ const Monitoring = () => {
                     <TabsTrigger value="thresholds">Alert Rules</TabsTrigger>
                     <TabsTrigger value="config">Delivery</TabsTrigger>
                     <TabsTrigger value="alerts">History</TabsTrigger>
+                    <TabsTrigger value="doctor">Doctor</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -423,6 +478,57 @@ const Monitoring = () => {
                                     );
                                 })}
                             </div>
+                        </section>
+
+                        <section className="monitoring-panel mon-speedtest">
+                            <div className="monitoring-panel__header">
+                                <h3>Speed Test</h3>
+                                <Button size="sm" variant="outline" onClick={handleRunSpeedTest} disabled={speedTestRunning}>
+                                    <Zap size={14} />
+                                    {speedTestRunning ? 'Running...' : 'Run Test'}
+                                </Button>
+                            </div>
+                            {speedTest?.last_result ? (
+                                <>
+                                    <div className="mon-speedtest__grid">
+                                        <MetricCard
+                                            tone="accent"
+                                            icon={<ArrowDown size={16} />}
+                                            value={formatSpeedValue(speedTest.last_result.download_mbps)}
+                                            label="Download (Mbps)"
+                                        />
+                                        <MetricCard
+                                            tone="cyan"
+                                            icon={<ArrowUp size={16} />}
+                                            value={formatSpeedValue(speedTest.last_result.upload_mbps)}
+                                            label="Upload (Mbps)"
+                                        />
+                                        <MetricCard
+                                            tone="violet"
+                                            icon={<Timer size={16} />}
+                                            value={formatSpeedValue(speedTest.last_result.latency_ms, 0)}
+                                            label="Latency (ms)"
+                                        />
+                                    </div>
+                                    <div className="mon-speedtest__meta">
+                                        {speedTestRunning || speedTest.running ? (
+                                            <Pill kind="amber">running</Pill>
+                                        ) : (
+                                            <Pill kind={speedTest.last_result.success === false ? 'red' : 'green'}>
+                                                {speedTest.last_result.success === false ? 'failed' : 'ok'}
+                                            </Pill>
+                                        )}
+                                        <span>Tested {formatTimestamp(speedTest.last_result.tested_at)}</span>
+                                        {speedTest.last_result.success === false && speedTest.last_result.error && (
+                                            <span className="mon-speedtest__error">{speedTest.last_result.error}</span>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="mon-speedtest__empty">
+                                    <span>No speed test has been run yet. Run one to measure this server&apos;s connection.</span>
+                                </div>
+                            )}
                         </section>
 
                         {activeAlerts.length > 0 && (
@@ -597,6 +703,10 @@ const Monitoring = () => {
                             </div>
                         )}
                     </section>
+                </TabsContent>
+
+                <TabsContent value="doctor">
+                    <DoctorPanel />
                 </TabsContent>
             </Tabs>
         </div>

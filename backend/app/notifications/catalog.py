@@ -100,6 +100,14 @@ _CATALOG = {
         'severity': 'warning',
         'category': 'system',
     },
+    # Daily drift sweep found managed config files that no longer match what
+    # the panel would write (see app/services/drift_service.py).
+    'drift.detected': {
+        'title': 'Configuration drift detected ({count})',
+        'template': 'generic',
+        'severity': 'warning',
+        'category': 'system',
+    },
     # Multi-alert monitoring digest (used by the legacy send_all path).
     'monitoring.alert': {
         'title': 'ServerKit alert',

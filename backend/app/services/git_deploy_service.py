@@ -430,9 +430,9 @@ class GitDeployService:
                 timeout=120
             )
 
-            # Wait for new container to be healthy
-            import time
-            time.sleep(5)
+            # Wait for the new container to be healthy. When a health-check path
+            # is declared, poll it instead of a blind fixed wait (plan 17 #4).
+            output.append(cls._wait_for_health(app))
 
             # Scale back down
             scale_result = subprocess.run(
@@ -454,6 +454,43 @@ class GitDeployService:
             return {'success': False, 'error': 'Restart timed out', 'output': '\n'.join(output)}
         except Exception as e:
             return {'success': False, 'error': str(e), 'output': '\n'.join(output)}
+
+    @classmethod
+    def _wait_for_health(cls, app, timeout: int = 30, fallback: int = 5) -> str:
+        """Block until the app answers its health-check path, or time out.
+
+        Falls back to a fixed wait when no path/port is declared, preserving the
+        previous behavior. Best-effort — never raises.
+        """
+        import time
+
+        path = getattr(app, 'healthcheck_path', None)
+        port = getattr(app, 'port', None)
+        if not path or not port:
+            time.sleep(fallback)
+            return f"Waited {fallback}s (no health check configured)"
+
+        import urllib.request
+        import urllib.error
+
+        url = f"http://127.0.0.1:{port}{path if path.startswith('/') else '/' + path}"
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            try:
+                with urllib.request.urlopen(url, timeout=3) as resp:
+                    if 200 <= resp.status < 400:
+                        return f"Health check passed ({url} -> {resp.status})"
+                    last = f"status {resp.status}"
+            except urllib.error.HTTPError as exc:
+                if 200 <= exc.code < 500:
+                    # a 4xx still means the app is up and routing
+                    return f"Health check reachable ({url} -> {exc.code})"
+                last = f"HTTP {exc.code}"
+            except Exception as exc:  # not up yet
+                last = str(exc)
+            time.sleep(1)
+        return f"Health check did not pass within {timeout}s ({url}; last: {last})"
 
     @classmethod
     def _run_script(cls, script: str, cwd: str) -> Dict:

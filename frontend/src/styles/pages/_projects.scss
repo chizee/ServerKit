@@ -158,6 +158,52 @@
     }
 }
 
+// Compact manifest status strip — only rendered when the project is managed by
+// a serverkit.yaml manifest.
+.project-manifest-strip {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    flex-wrap: wrap;
+    padding: $space-2 $space-3;
+    background: $bg-elevated;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-md;
+
+    &__label {
+        color: $text-secondary;
+        font-size: $font-size-xs;
+        font-weight: $font-weight-semibold;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    &__pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        padding: 0 10px;
+        border-radius: $radius-full;
+        font-size: $font-size-xs;
+        font-weight: $font-weight-semibold;
+        text-transform: capitalize;
+        background: $bg-card;
+        color: $text-secondary;
+
+        &--applied { background: rgba(61, 220, 151, 0.14); color: $success; }
+        &--pending { background: rgba(245, 185, 69, 0.14); color: $warning; }
+        &--drifted,
+        &--error { background: rgba(251, 111, 111, 0.14); color: $danger; }
+    }
+
+    &__source {
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        font-family: $font-mono;
+        overflow-wrap: anywhere;
+    }
+}
+
 .project-env-tabs {
     display: flex;
     flex-wrap: wrap;

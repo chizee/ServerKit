@@ -178,10 +178,11 @@ class TestBuiltins:
         assert len([k for k in kinds if k.startswith('builtin.')]) == 10
 
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 10
+        # 10 builtin.* schedules + login-link/SSO reapers + drift/FIM/bandwidth sweeps.
+        assert ScheduledJob.query.count() == 15
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 10
+        assert ScheduledJob.query.count() == 15
 
 
 class TestApi:

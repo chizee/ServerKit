@@ -1,0 +1,110 @@
+// ============================================
+// DOCTOR TAB (Monitoring → Doctor)
+// One-shot health sweep: check list + drift diffs + explicit repairs.
+// NOTE: imported from main.scss (wired by the orchestrator).
+// ============================================
+
+.doctor-panel {
+    display: grid;
+    gap: $space-5;
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
+
+    &__blurb {
+        margin: 0 0 $space-4;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text-dim);
+        max-width: 68ch;
+    }
+
+    &__ranat {
+        color: var(--text-faint);
+    }
+}
+
+.doctor-check-list {
+    display: grid;
+    gap: $space-2;
+}
+
+.doctor-check {
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: $space-3 $space-4;
+
+    &--warn {
+        border-color: rgba(245, 179, 66, 0.3);
+    }
+
+    &--fail {
+        border-color: rgba(240, 82, 82, 0.35);
+    }
+
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    &__title {
+        font-size: 13px;
+        font-weight: $font-weight-semibold;
+        color: var(--text);
+    }
+
+    &__detail {
+        font-size: 12px;
+        color: var(--text-dim);
+        overflow-wrap: anywhere;
+    }
+
+    // Rendered as a ghost Button — just tighten it to a mono affordance.
+    &__difftoggle {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+    }
+}
+
+// Unified diff viewer — monospace pre, collapsed by default (toggle-rendered).
+.doctor-diff {
+    margin: $space-3 0 0;
+    padding: $space-3;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre;
+
+    &--modal {
+        max-height: 220px;
+    }
+}
+
+.doctor-confirm {
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $space-2;
+        margin-top: $space-4;
+    }
+}

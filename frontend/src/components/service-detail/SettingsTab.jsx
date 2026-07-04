@@ -12,9 +12,11 @@ import {
     Hammer,
     Archive,
     HardDrive,
+    Gauge,
     CircleCheck,
     CircleX,
     Sparkles,
+    Zap,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -23,6 +25,8 @@ import RepoConnectForm from '../git/RepoConnectForm';
 import ProtectionPanel from '../backups/ProtectionPanel';
 import ContainerOpsPanel from '../apps/ContainerOpsPanel';
 import VolumesPanel from '../apps/VolumesPanel';
+import ResourceLimitsPanel from '../apps/ResourceLimitsPanel';
+import MicroCachePanel from '../apps/MicroCachePanel';
 import AppWafPanel from '../apps/AppWafPanel';
 import BuildTab from '../appdetail/BuildTab';
 import DeployTab from '../appdetail/DeployTab';
@@ -43,6 +47,9 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 function buildSettingsGroups(app) {
     const isDocker = app.isDocker ?? app.app_type === 'docker';
     const isPython = app.isPython ?? ['flask', 'django'].includes(app.app_type);
+    // Micro-cache applies to anything nginx fronts with an upstream (proxied
+    // or PHP-FPM); static sites already serve files straight off disk.
+    const isCacheable = isDocker || isPython || ['php', 'wordpress'].includes(app.app_type);
 
     return [
         {
@@ -53,6 +60,8 @@ function buildSettingsGroups(app) {
                 { id: 'environment', label: 'Environment Type', icon: SlidersHorizontal },
                 { id: 'domain', label: 'Domain & SSL', icon: Shield },
                 ...(isDocker ? [{ id: 'ops', label: 'Container Ops', icon: Boxes }] : []),
+                ...(isDocker ? [{ id: 'resources', label: 'Resource Limits', icon: Gauge }] : []),
+                ...(isCacheable ? [{ id: 'cache', label: 'Cache', icon: Zap }] : []),
             ],
         },
         {
@@ -62,6 +71,7 @@ function buildSettingsGroups(app) {
             items: [
                 { id: 'git', label: 'Git & Deploy', icon: GitBranch },
                 { id: 'build', label: 'Build', icon: Hammer },
+                { id: 'manifest', label: 'Manifest', icon: Zap },
             ],
         },
         ...((isDocker || isPython) ? [{
@@ -296,6 +306,24 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     </div>
                 )}
 
+                {/* Resource Limits (Docker only) — first-class CPU/memory caps
+                    with live usage, instead of compose-file-only limits. */}
+                {section === 'resources' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Resource Limits</h3>
+                        <ResourceLimitsPanel app={app} onChanged={onUpdate} />
+                    </div>
+                )}
+
+                {/* Cache — opt-in nginx micro-cache (task #21): 10s page cache
+                    with auth/admin/cart bypasses and a manual purge. */}
+                {section === 'cache' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Cache</h3>
+                        <MicroCachePanel app={app} onChanged={onUpdate} />
+                    </div>
+                )}
+
                 {/* Storage (Docker only) — first-class managed volumes that
                     survive redeploys, replacing fragile relative bind mounts. */}
                 {section === 'storage' && (
@@ -340,6 +368,16 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     <div className="svc-settings__section">
                         <h3 className="svc-settings__section-title">Build</h3>
                         <BuildTab appId={app.id} appPath={app.path} app={app} />
+                    </div>
+                )}
+
+                {/* Manifest — declarative serverkit.yaml: shows manifest status
+                    when the app's project is manifest-managed, plus scaffold /
+                    plan / apply actions. */}
+                {section === 'manifest' && (
+                    <div className="svc-settings__section">
+                        <h3 className="svc-settings__section-title">Manifest</h3>
+                        <ManifestSection app={app} />
                     </div>
                 )}
 
@@ -734,6 +772,219 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                     </>
                 )}
             </Modal>
+        </div>
+    );
+};
+
+// Manifest panel for a service. When the app belongs to a manifest-managed
+// project it shows the current manifest status; either way it exposes the
+// scaffold / plan / apply actions for the declarative serverkit.yaml workflow.
+const ManifestSection = ({ app }) => {
+    const toast = useToast();
+    const projectId = app.project_id;
+    const [manifest, setManifest] = useState(null);
+    const [loading, setLoading] = useState(Boolean(projectId));
+    const [scaffold, setScaffold] = useState(null);
+    const [scaffolding, setScaffolding] = useState(false);
+    const [plan, setPlan] = useState(null);
+    const [planning, setPlanning] = useState(false);
+    const [applyResult, setApplyResult] = useState(null);
+    const [applying, setApplying] = useState(false);
+
+    useEffect(() => {
+        if (!projectId) { setLoading(false); return; }
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            try {
+                const res = await api.getManifest(projectId);
+                if (!cancelled) setManifest(res?.manifest || null);
+            } catch (err) {
+                if (!cancelled) setManifest(null);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [projectId]);
+
+    const statusLabels = {
+        applied: 'Applied',
+        pending: 'Pending',
+        drifted: 'Drifted',
+        error: 'Error',
+    };
+
+    async function handleScaffold() {
+        setScaffolding(true);
+        try {
+            const res = await api.scaffoldManifest(app.id);
+            const yaml = res?.yaml || res?.manifest || '';
+            setScaffold(yaml);
+        } catch (err) {
+            toast.error(err.message || 'Failed to generate scaffold');
+        } finally {
+            setScaffolding(false);
+        }
+    }
+
+    function handleDownloadScaffold() {
+        if (!scaffold) return;
+        const blob = new Blob([scaffold], { type: 'text/yaml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'serverkit.yaml';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    async function handlePlan() {
+        if (!projectId) return;
+        setPlanning(true);
+        setApplyResult(null);
+        try {
+            const res = await api.planManifest(projectId, {});
+            setPlan(res?.plan || null);
+        } catch (err) {
+            toast.error(err.message || 'Failed to plan manifest');
+        } finally {
+            setPlanning(false);
+        }
+    }
+
+    async function handleApply() {
+        if (!projectId) return;
+        if (!window.confirm('Apply the manifest to this project? This will create or update services to match serverkit.yaml.')) return;
+        setApplying(true);
+        try {
+            const res = await api.applyManifest(projectId, {});
+            setApplyResult(res || null);
+            if (res?.success) {
+                toast.success(`Applied ${res.applied ?? 0} change(s)`);
+                const refreshed = await api.getManifest(projectId).catch(() => null);
+                setManifest(refreshed?.manifest || manifest);
+            } else {
+                toast.error('Apply finished with errors');
+            }
+        } catch (err) {
+            toast.error(err.message || 'Failed to apply manifest');
+        } finally {
+            setApplying(false);
+        }
+    }
+
+    if (loading) {
+        return <div className="card settings-section"><p className="hint">Loading manifest…</p></div>;
+    }
+
+    const source = manifest?.source || {};
+    const shortCommit = source.commit ? String(source.commit).slice(0, 7) : null;
+
+    return (
+        <div className="card settings-section svc-manifest">
+            {manifest ? (
+                <div className="svc-manifest__status">
+                    <span className="svc-manifest__badge">
+                        <Zap size={13} />
+                        Managed by manifest
+                    </span>
+                    <span className={`svc-manifest__pill svc-manifest__pill--${manifest.status || 'pending'}`}>
+                        {statusLabels[manifest.status] || manifest.status || 'Pending'}
+                    </span>
+                    {(source.repo || shortCommit) && (
+                        <span className="svc-manifest__source mono">
+                            {source.repo || ''}{source.repo && shortCommit ? '@' : ''}{shortCommit || ''}
+                        </span>
+                    )}
+                </div>
+            ) : (
+                <div className="svc-manifest__empty">
+                    <p className="hint">
+                        This project is not managed by a <code>serverkit.yaml</code> manifest. A manifest lets you
+                        declare services, domains, databases and environment requirements in one file so ServerKit
+                        can create and reconcile them for you.
+                    </p>
+                    <p className="hint">
+                        <Link to="/docs/SERVERKIT_YAML.md">Learn about serverkit.yaml</Link>
+                    </p>
+                </div>
+            )}
+
+            <div className="svc-manifest__actions">
+                <Button variant="outline" onClick={handleScaffold} disabled={scaffolding}>
+                    {scaffolding ? 'Generating…' : 'Download scaffold'}
+                </Button>
+                {projectId && (
+                    <>
+                        <Button variant="outline" onClick={handlePlan} disabled={planning}>
+                            {planning ? 'Planning…' : 'Plan'}
+                        </Button>
+                        <Button onClick={handleApply} disabled={applying}>
+                            {applying ? 'Applying…' : 'Apply'}
+                        </Button>
+                    </>
+                )}
+            </div>
+
+            {scaffold && (
+                <div className="svc-manifest__block">
+                    <div className="svc-manifest__block-head">
+                        <h4 className="svc-manifest__block-title">Scaffolded serverkit.yaml</h4>
+                        <Button variant="outline" className="btn-icon" onClick={handleDownloadScaffold}>Download</Button>
+                    </div>
+                    <pre className="svc-manifest__pre">{scaffold}</pre>
+                </div>
+            )}
+
+            {plan && (
+                <div className="svc-manifest__block">
+                    <h4 className="svc-manifest__block-title">Plan ({plan.step_count ?? (plan.steps || []).length} step(s))</h4>
+                    {plan.summary && <p className="hint">{plan.summary}</p>}
+                    {(plan.steps || []).length > 0 && (
+                        <ul className="svc-manifest__steps">
+                            {plan.steps.map((step, i) => (
+                                <li key={`${step.type}-${step.service}-${i}`}>
+                                    <span className="svc-manifest__step-type">{step.type}</span>
+                                    {step.service && <span className="svc-manifest__step-service mono">{step.service}</span>}
+                                    <span className="svc-manifest__step-desc">{step.description}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {(plan.issues || []).length > 0 && (
+                        <ul className="svc-manifest__issues">
+                            {plan.issues.map((issue, i) => (
+                                <li key={`${issue.service}-${issue.key}-${i}`}>
+                                    {issue.service ? `${issue.service}.` : ''}{issue.key} — {issue.kind}
+                                    {issue.secret ? ' (secret)' : ''}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
+
+            {applyResult && (
+                <div className="svc-manifest__block">
+                    <h4 className="svc-manifest__block-title">
+                        Apply result — {applyResult.applied ?? 0} applied
+                    </h4>
+                    {(applyResult.results || []).length > 0 && (
+                        <ul className="svc-manifest__steps">
+                            {applyResult.results.map((res, i) => (
+                                <li key={`${res.type}-${res.service}-${i}`}>
+                                    <span className={`svc-manifest__step-type ${res.status === 'error' ? 'is-error' : ''}`}>{res.status}</span>
+                                    {res.service && <span className="svc-manifest__step-service mono">{res.service}</span>}
+                                    {res.error && <span className="svc-manifest__step-desc">{res.error}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

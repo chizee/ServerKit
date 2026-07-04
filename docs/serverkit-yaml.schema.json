@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://serverkit.dev/serverkit-yaml.schema.json",
+  "title": "ServerKit Manifest",
+  "description": "Declarative deployment manifest (serverkit.yaml / serverkit.json). A version:1 file describes a whole deployment — services, databases, disks, backups, env vars, cron and domains — that ServerKit parses, diffs against live state, and applies. camelCase is canonical; snake_case aliases are accepted everywhere.",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "description": "Manifest schema version. 1 selects the declarative multi-service spec. Files without version:1 are legacy flat manifests and keep their v0 behavior.",
+      "const": 1
+    },
+    "server": {
+      "description": "Optional default fleet target (agent server name or id). A service may override it. Omit for the local panel host.",
+      "type": "string",
+      "minLength": 1
+    },
+    "project": {
+      "description": "Optional project name this manifest maps to. Defaults to the repository name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "envVars": {
+      "description": "Manifest-level (project-scoped) environment variables, applied to every service as a shared variable group.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/envVar" }
+    },
+    "services": {
+      "description": "The services that make up this deployment.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/service" }
+    },
+    "domains": {
+      "description": "Public domains routed to services.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/domain" }
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "description": "Unique service name within the manifest. Becomes the Application (or ManagedDatabase) name.",
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "type": {
+          "description": "Service kind. web/worker/static/docker create Applications; postgres/mysql/mariadb/redis create ManagedDatabases.",
+          "enum": ["web", "worker", "static", "docker", "postgres", "mysql", "mariadb", "redis"]
+        },
+        "runtime": {
+          "description": "Build runtime hint for app services (e.g. python, node, static, docker). Ignored for db types.",
+          "type": "string"
+        },
+        "buildCommand": {
+          "description": "Command used to build the app (buildpack override).",
+          "type": "string"
+        },
+        "startCommand": {
+          "description": "Command used to start the app (buildpack override).",
+          "type": "string"
+        },
+        "port": {
+          "description": "Container port the app listens on.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "healthCheckPath": {
+          "description": "HTTP path used for health checks and the zero-downtime restart gate.",
+          "type": "string"
+        },
+        "autoDeploy": {
+          "description": "When true, a push that changes this service's declared config auto-applies. Otherwise the manifest flips to pending and waits for an explicit apply.",
+          "type": "boolean",
+          "default": false
+        },
+        "version": {
+          "description": "Engine version for db services (e.g. \"16\" for postgres).",
+          "type": ["string", "number"]
+        },
+        "server": {
+          "description": "Per-service fleet target override.",
+          "type": "string"
+        },
+        "cpu": {
+          "description": "CPU limit (cores).",
+          "type": ["number", "string"]
+        },
+        "memory": {
+          "description": "Memory limit (e.g. 512MB, 1GB).",
+          "type": ["string", "number"]
+        },
+        "envVars": {
+          "description": "Per-service environment variables.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/envVar" }
+        },
+        "disks": {
+          "description": "Persistent volumes for app services.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/disk" }
+        },
+        "disk": {
+          "description": "Single primary disk for db services.",
+          "$ref": "#/definitions/disk"
+        },
+        "cron": {
+          "description": "Scheduled job(s) run in the service context.",
+          "oneOf": [
+            { "$ref": "#/definitions/cron" },
+            { "type": "array", "items": { "$ref": "#/definitions/cron" } }
+          ]
+        }
+      }
+    },
+    "envVar": {
+      "type": "object",
+      "required": ["key"],
+      "additionalProperties": true,
+      "properties": {
+        "key": {
+          "description": "Environment variable name.",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "value": {
+          "description": "Literal value. Use only for non-secrets — secrets never live in the manifest.",
+          "type": ["string", "number", "boolean"]
+        },
+        "fromSecret": {
+          "description": "Reference to a vault secret by name; resolved at injection time, never stored in the env row.",
+          "type": "string"
+        },
+        "fromService": {
+          "description": "Reference to a sibling service's connection property.",
+          "type": "object",
+          "required": ["name", "property"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "property": {
+              "type": "string",
+              "enum": [
+                "connectionString", "host", "port", "database", "username", "password", "url"
+              ]
+            }
+          }
+        },
+        "generate": {
+          "description": "When true, ServerKit generates a random value on first apply, stores it as a vault secret, and rewires this entry as a fromSecret reference.",
+          "type": "boolean"
+        }
+      }
+    },
+    "disk": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "description": "Volume name.",
+          "type": "string"
+        },
+        "mountPath": {
+          "description": "Mount path inside the container.",
+          "type": "string"
+        },
+        "size": {
+          "description": "Requested size (e.g. 10GB). Recorded; not enforced by the local driver.",
+          "type": ["string", "number"]
+        },
+        "backup": { "$ref": "#/definitions/backup" }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "schedule": {
+          "description": "Backup frequency.",
+          "type": "string",
+          "enum": ["hourly", "daily", "weekly", "monthly"]
+        },
+        "retain": {
+          "description": "Number of backups to keep.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "cron": {
+      "type": "object",
+      "required": ["schedule", "command"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "schedule": {
+          "description": "Cron expression (5-field) or shorthand (daily, hourly...).",
+          "type": "string"
+        },
+        "command": {
+          "description": "Command to run.",
+          "type": "string"
+        }
+      }
+    },
+    "domain": {
+      "type": "object",
+      "required": ["host"],
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "description": "Fully-qualified hostname (e.g. api.example.com).",
+          "type": "string",
+          "minLength": 1
+        },
+        "service": {
+          "description": "Name of the service this domain routes to.",
+          "type": "string"
+        },
+        "ssl": {
+          "description": "Certificate mode. auto = best-effort issuance (never blocks); off = HTTP only.",
+          "oneOf": [
+            { "type": "string", "enum": ["auto", "off", "on"] },
+            { "type": "boolean" }
+          ]
+        }
+      }
+    }
+  }
+}
