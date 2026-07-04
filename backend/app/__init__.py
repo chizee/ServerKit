@@ -191,6 +191,10 @@ def create_app(config_name=None):
     from app.api.snapshots import snapshots_bp
     app.register_blueprint(snapshots_bp, url_prefix='/api/v1/apps')
 
+    # Register blueprints - Declarative serverkit.yaml manifest
+    from app.api.manifests import manifests_bp
+    app.register_blueprint(manifests_bp, url_prefix='/api/v1/manifests')
+
     # Register blueprints - Projects & Environments hierarchy
     from app.api.projects import projects_bp
     app.register_blueprint(projects_bp, url_prefix='/api/v1/projects')
