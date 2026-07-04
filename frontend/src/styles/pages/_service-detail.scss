@@ -838,6 +838,149 @@ h3.svc-eyebrow {
 }
 
 // ============================================
+// MANIFEST PANEL (service settings → Manifest)
+// Declarative serverkit.yaml status + scaffold / plan / apply actions.
+// ============================================
+.svc-manifest {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+
+    &__status {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+        flex-wrap: wrap;
+    }
+
+    &__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-dim);
+        font-size: 13px;
+        font-weight: $font-weight-medium;
+
+        svg { color: var(--accent-bright); }
+    }
+
+    &__pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 10px;
+        border-radius: $radius-full;
+        font-size: 11px;
+        font-weight: $font-weight-semibold;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: var(--surface-hover);
+        color: var(--text-dim);
+
+        &--applied { background: rgba(61, 220, 151, 0.14); color: $success; }
+        &--pending { background: rgba(245, 185, 69, 0.14); color: $warning; }
+        &--drifted,
+        &--error { background: rgba(239, 68, 68, 0.14); color: $danger; }
+    }
+
+    &__source {
+        color: var(--text-faint);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+    }
+
+    &__empty {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+
+        .hint { margin: 0; }
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        flex-wrap: wrap;
+    }
+
+    &__block {
+        padding-top: $space-3;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    &__block-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+    }
+
+    &__block-title {
+        margin: 0 0 $space-2;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: $font-weight-semibold;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+    }
+
+    &__pre {
+        max-height: 320px;
+        margin: $space-2 0 0;
+        padding: $space-3;
+        overflow: auto;
+        background: var(--surface-sunken, var(--surface-hover));
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text);
+    }
+
+    &__steps,
+    &__issues {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: $space-2 0 0;
+        padding: 0;
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: $space-2;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+    }
+
+    &__issues li { color: $warning; }
+
+    &__step-type {
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        padding: 0 8px;
+        border-radius: $radius-full;
+        background: var(--accent-bg);
+        color: var(--accent-bright);
+        font-size: 11px;
+        font-weight: $font-weight-semibold;
+        text-transform: capitalize;
+
+        &.is-error { background: rgba(239, 68, 68, 0.14); color: $danger; }
+    }
+
+    &__step-service { color: var(--text); font-size: 12px; }
+    &__step-desc { color: var(--text-dim); }
+}
+
+// ============================================
 // DOMAIN & SSL PANEL (service settings)
 // Mirrors the WordPress SiteSSLPanel layout so both detail pages feel the same.
 // ============================================

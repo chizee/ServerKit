@@ -39,6 +39,7 @@ import * as importMethods from './imports.js';
 import * as doctorMethods from './doctor.js';
 import * as bandwidthMethods from './bandwidth.js';
 import * as htaccessToolMethods from './htaccessTools.js';
+import * as manifestMethods from './manifests.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -85,6 +86,7 @@ class ApiService extends ApiClient {
             doctorMethods,
             bandwidthMethods,
             htaccessToolMethods,
+            manifestMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

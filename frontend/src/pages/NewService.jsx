@@ -4,9 +4,11 @@ import {
     ArrowRight,
     CheckCircle2,
     ChevronDown,
+    Database,
     FileArchive,
     FolderOpen,
     GitBranch,
+    Globe,
     Link2,
     Lock,
     Network,
@@ -938,39 +940,104 @@ const NewService = () => {
                                 <strong>{repoManifestLoading ? 'Inspecting' : activeManifest?.strategy?.replace('_', ' ') || 'Detected'}</strong>
                             </div>
                             {!repoManifestLoading && activeManifest && (
-                                <>
-                                    <div className="new-service-page__manifest-grid">
-                                        <div>
-                                            <span>Type</span>
-                                            <strong>{formatAppType(recommended.app_type)}</strong>
+                                activeManifest.manifest_v1 ? (
+                                    <div className="new-service-page__manifest-v1">
+                                        <div className="new-service-page__manifest-services">
+                                            {(activeManifest.manifest_v1.services || []).map(svc => (
+                                                <div key={svc.name} className="new-service-page__manifest-service">
+                                                    <span className="new-service-page__manifest-service-name">{svc.name}</span>
+                                                    {(svc.type || svc.kind) && (
+                                                        <span className="new-service-page__manifest-badge">{svc.type || svc.kind}</span>
+                                                    )}
+                                                    {svc.port ? <span className="new-service-page__manifest-port">:{svc.port}</span> : null}
+                                                    {svc.auto_deploy && (
+                                                        <span className="new-service-page__manifest-chip">auto-deploy</span>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div>
-                                            <span>Build</span>
-                                            <strong>{formatBuildMethod(recommended.build_method)}</strong>
-                                        </div>
-                                        <div>
-                                            <span>Port</span>
-                                            <strong>{recommended.port || 'Auto'}</strong>
-                                        </div>
+                                        {(activeManifest.manifest_v1.databases || []).length > 0 && (
+                                            <div className="new-service-page__manifest-row">
+                                                <span className="new-service-page__manifest-row-label">
+                                                    <Database size={13} />
+                                                    Databases
+                                                </span>
+                                                <div className="new-service-page__manifest-tags">
+                                                    {activeManifest.manifest_v1.databases.map(db => (
+                                                        <span key={db}>{db}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {(activeManifest.manifest_v1.domains || []).length > 0 && (
+                                            <div className="new-service-page__manifest-row">
+                                                <span className="new-service-page__manifest-row-label">
+                                                    <Globe size={13} />
+                                                    Domains
+                                                </span>
+                                                <div className="new-service-page__manifest-tags">
+                                                    {activeManifest.manifest_v1.domains.map(domain => (
+                                                        <span key={domain.host}>
+                                                            {domain.host}{domain.ssl ? ' · SSL' : ''}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {(activeManifest.manifest_v1.env_required || []).length > 0 && (
+                                            <div className="new-service-page__manifest-row">
+                                                <span className="new-service-page__manifest-row-label">
+                                                    <Lock size={13} />
+                                                    Env requirements
+                                                </span>
+                                                <div className="new-service-page__env-preview">
+                                                    {activeManifest.manifest_v1.env_required.map(env => (
+                                                        <span
+                                                            key={`${env.service || ''}.${env.key}`}
+                                                            className={env.source === 'secret' ? 'new-service-page__env-preview-secret' : ''}
+                                                        >
+                                                            {env.service ? `${env.service}.` : ''}{env.key}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="new-service-page__manifest-files">
-                                        {(activeManifest.manifests || []).slice(0, 5).map(manifest => (
-                                            <span key={manifest.file}>
-                                                <CheckCircle2 size={13} />
-                                                {manifest.file}
-                                            </span>
-                                        ))}
-                                    </div>
-                                    {(activeManifest.env || []).length > 0 && (
-                                        <div className="new-service-page__env-preview">
-                                            {(activeManifest.env || []).slice(0, 6).map(env => (
-                                                <span key={env.key} className={env.secret ? 'new-service-page__env-preview-secret' : ''}>
-                                                    {env.key}
+                                ) : (
+                                    <>
+                                        <div className="new-service-page__manifest-grid">
+                                            <div>
+                                                <span>Type</span>
+                                                <strong>{formatAppType(recommended.app_type)}</strong>
+                                            </div>
+                                            <div>
+                                                <span>Build</span>
+                                                <strong>{formatBuildMethod(recommended.build_method)}</strong>
+                                            </div>
+                                            <div>
+                                                <span>Port</span>
+                                                <strong>{recommended.port || 'Auto'}</strong>
+                                            </div>
+                                        </div>
+                                        <div className="new-service-page__manifest-files">
+                                            {(activeManifest.manifests || []).slice(0, 5).map(manifest => (
+                                                <span key={manifest.file}>
+                                                    <CheckCircle2 size={13} />
+                                                    {manifest.file}
                                                 </span>
                                             ))}
                                         </div>
-                                    )}
-                                </>
+                                        {(activeManifest.env || []).length > 0 && (
+                                            <div className="new-service-page__env-preview">
+                                                {(activeManifest.env || []).slice(0, 6).map(env => (
+                                                    <span key={env.key} className={env.secret ? 'new-service-page__env-preview-secret' : ''}>
+                                                        {env.key}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                )
                             )}
                         </div>
                     )}
