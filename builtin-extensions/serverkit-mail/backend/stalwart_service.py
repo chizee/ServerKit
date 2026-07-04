@@ -69,6 +69,15 @@ ADMIN_USER = 'admin'
 # fresh container Stalwart boots into *bootstrap mode*: only this UI + a recovery
 # listener are up, and the whole ``/api/*`` management surface 404s until the
 # one-time initial setup is completed here.
+#
+# Live findings (Stalwart 0.16.11, real box): in bootstrap ``GET /api/account``
+# returns 200 with ``{"permissions": ["sysBootstrapGet", "sysBootstrapUpdate"]}``
+# — i.e. the setup CAN be completed programmatically via that bootstrap grant, so
+# a future iteration could auto-finish setup instead of asking the operator to
+# use the web wizard. The management vocabulary (``principal``, ``dkim``,
+# ``queue``, ``mailbox``, ``domain``) was confirmed against the server's own
+# config schema, so the EP_* nouns below are correct; only their exact
+# post-setup routing stays best-effort until confirmed on a fully-initialized box.
 ADMIN_UI = '/account'
 
 # Mail ports published on the host (SMTP / submission / IMAP / Sieve).
