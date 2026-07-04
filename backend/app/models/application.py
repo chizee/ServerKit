@@ -26,6 +26,10 @@ class Application(db.Model):
     python_version = db.Column(db.String(10), nullable=True)  # '3.9', '3.10', '3.11', '3.12'
     port = db.Column(db.Integer, nullable=True)
     root_path = db.Column(db.String(500), nullable=True)
+    # HTTP path used for health checks and the zero-downtime restart gate.
+    # Populated from a manifest at import, editable in Settings. NULL => no gate
+    # (the restart falls back to a fixed wait).
+    healthcheck_path = db.Column(db.String(255), nullable=True)
 
     # Docker specific
     docker_image = db.Column(db.String(200), nullable=True)
@@ -116,6 +120,7 @@ class Application(db.Model):
             'php_version': self.php_version,
             'python_version': self.python_version,
             'port': self.port,
+            'healthcheck_path': self.healthcheck_path,
             'root_path': self.root_path,
             'docker_image': self.docker_image,
             'container_id': self.container_id,

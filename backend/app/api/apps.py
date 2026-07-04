@@ -837,9 +837,22 @@ def create_app_from_repository():
         if not build_result.get('success'):
             raise RuntimeError(build_result.get('error', 'Failed to configure build'))
 
+        # Stop dropping what we detect: persist the manifest, seed non-secret
+        # env values, and record the health-check path (plan 17, Phase 1).
+        manifest_summary = None
+        try:
+            from app.services.manifest_persistence_service import ManifestPersistenceService
+            manifest_summary = ManifestPersistenceService.apply_import(
+                app, manifest, user_id=current_user_id,
+                source_repo=deploy_repo_url, source_ref=branch or 'main',
+            )
+        except Exception:
+            manifest_summary = None
+
         return jsonify({
             'message': 'Repository service created',
             'app': _attach_deploy_config(app.to_dict(include_linked=True)),
+            'manifest_import': manifest_summary,
             'deploy_config': {
                 'repo_url': _safe_repo_url(deploy_repo_url),
                 'branch': branch or 'main',
@@ -1257,6 +1270,9 @@ def update_app(app_id):
         app.python_version = data['python_version']
     if 'port' in data:
         app.port = data['port']
+    if 'healthcheck_path' in data:
+        hc = (data['healthcheck_path'] or '').strip()
+        app.healthcheck_path = hc or None
     if 'root_path' in data:
         app.root_path = data['root_path']
     if 'docker_image' in data:

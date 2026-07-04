@@ -31,6 +31,7 @@ from app.models.source_connection import SourceConnection
 from app.models.registrar_connection import RegistrarConnection
 from app.models.container_registry import ContainerRegistry
 from app.models.app_volume import AppVolume
+from app.models.application_manifest import ApplicationManifest
 from app.models.managed_database import ManagedDatabase
 from app.models.api_key import ApiKey
 from app.models.api_usage import ApiUsageLog, ApiUsageSummary

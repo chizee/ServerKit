@@ -117,7 +117,7 @@ class RepositoryManifestService:
         # v1 declarative manifest: recognize it, surface a multi-service summary,
         # and seed `recommended` from the first app service for the wizard. Legacy
         # flat files (no `version: 1`) keep the original code path untouched.
-        if cls._detect_serverkit_v1(file_name, data, result):
+        if cls._detect_serverkit_v1(file_name, data, result, file_map.get(file_name)):
             return
 
         build = data.get('build') if isinstance(data.get('build'), dict) else {}
@@ -150,12 +150,16 @@ class RepositoryManifestService:
         cls._add_manifest(result, 'serverkit', file_name, 'ServerKit manifest', 'Native import settings')
 
     @classmethod
-    def _detect_serverkit_v1(cls, file_name: str, data: Dict, result: Dict) -> bool:
+    def _detect_serverkit_v1(cls, file_name: str, data: Dict, result: Dict,
+                             raw: Optional[str] = None) -> bool:
         """Recognize a `version: 1` manifest. Returns True when handled."""
         from app.services.manifest_spec_service import ManifestSpecService, ManifestError
 
         if not ManifestSpecService.is_v1(data):
             return False
+
+        result['manifest_v1_raw'] = raw
+        result['manifest_v1_file'] = file_name
 
         try:
             normalized = ManifestSpecService.normalize(data)
