@@ -41,6 +41,32 @@ _CATALOG = {
         'severity': 'critical',
         'category': 'backups',
     },
+    # Restore-proof edge alerts (plan 23 #17): fire once on a state transition
+    # when a restore drill or backup verification starts failing / recovers.
+    'backup.drill_failed': {
+        'title': 'Restore drill failed: {target}',
+        'template': 'generic',
+        'severity': 'critical',
+        'category': 'backups',
+    },
+    'backup.drill_recovered': {
+        'title': 'Restore drills passing again: {target}',
+        'template': 'generic',
+        'severity': 'success',
+        'category': 'backups',
+    },
+    'backup.verify_failed': {
+        'title': 'Backup verification failed: {target}',
+        'template': 'generic',
+        'severity': 'critical',
+        'category': 'backups',
+    },
+    'backup.verify_recovered': {
+        'title': 'Backups verifying cleanly again: {target}',
+        'template': 'generic',
+        'severity': 'success',
+        'category': 'backups',
+    },
     # --- security ---
     'security.alert': {
         'title': 'Security alert: {alert_type}',
