@@ -920,6 +920,48 @@ class BackupPolicyService:
             'storage_used_human': format_bytes(storage_used),
             'remote_configured': BackupCostService.configured_remote_provider() is not None,
             'is_running': cls.is_running(policy),
+            'restore_proof': cls._restore_proof_view(policy),
+        }
+
+    # ------------------------------------------------------------------ #
+    # Restore-proof view (plan 23 Phase 3) — the "last proven restore" badge
+    # ------------------------------------------------------------------ #
+
+    # A drilled policy reads as "stale" once its last successful drill is older
+    # than this multiple of the cadence interval.
+    _DRILL_STALE_MULT = 1.5
+
+    @classmethod
+    def _drill_badge(cls, policy):
+        """One-word restore-proof state derived from the policy's drill cache:
+        ``never`` (never drilled), ``failed`` (last drill failed), ``stale``
+        (last success older than 1.5x the cadence interval), else ``ok``."""
+        if not policy.last_drill_at:
+            return 'never'
+        if policy.last_drill_status == 'failed':
+            return 'failed'
+        from app.services.backup_drill_service import CADENCE_DAYS
+        days = CADENCE_DAYS.get(policy.drill_cadence or 'off')
+        if days is not None:
+            threshold = timedelta(days=days * cls._DRILL_STALE_MULT)
+            if (datetime.utcnow() - policy.last_drill_at) > threshold:
+                return 'stale'
+        return 'ok'
+
+    @classmethod
+    def _restore_proof_view(cls, policy, drill_limit=5):
+        """Restore-proof projection for the protection panel: the drill cadence,
+        the current badge (never/ok/stale/failed), and the most recent drill
+        rows serialized."""
+        from app.models.restore_drill import RestoreDrill
+        recent = (RestoreDrill.query
+                  .filter_by(policy_id=policy.id)
+                  .order_by(RestoreDrill.started_at.desc())
+                  .limit(drill_limit).all())
+        return {
+            'drill_cadence': policy.drill_cadence or 'off',
+            'badge': cls._drill_badge(policy),
+            'recent_drills': [d.to_dict() for d in recent],
         }
 
     # ------------------------------------------------------------------ #
