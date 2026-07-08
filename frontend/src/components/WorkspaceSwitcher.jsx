@@ -101,5 +101,4 @@ const WorkspaceSwitcher = () => {
     );
 };
 
-export default Workspa
-2026-07-07 
+export default WorkspaceSwitcher;

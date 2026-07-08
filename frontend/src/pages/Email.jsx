@@ -1,229 +1,748 @@
-37351300Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/2011e743b9a906d10e8df98b7a17753e65677e80337d09fa3af0782679502e96/stats?stream=false","time":"2026-07-07T12:05:42.534351600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.537351300Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/2011e743b9a906d10e8df98b7a17753e65677e80337d09fa3af0782679502e96/stats?stream=false","time":"2026-07-07T12:05:42.534850700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.537850500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/bae5f09c587ab399f10ac3dff542e6e4594f10d6d622220d3c06fe92d6cce431/stats?stream=false","time":"2026-07-07T12:05:42.537850500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.537850500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/bae5f09c587ab399f10ac3dff542e6e4594f10d6d622220d3c06fe92d6cce431/stats?stream=false","time":"2026-07-07T12:05:42.537850500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.539351800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/0afa7db65bebc5836d86dbc30e11d38449b245e2b9316cb5db78bf4986733413/stats?stream=false","time":"2026-07-07T12:05:42.538851400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.539351800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/0afa7db65bebc5836d86dbc30e11d38449b245e2b9316cb5db78bf4986733413/stats?stream=false","time":"2026-07-07T12:05:42.538851400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.541855100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/9c42dc147dad5af62095815335cc937aefe50e2662a922252783be8849046e3c/stats?stream=false","time":"2026-07-07T12:05:42.541855100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.542351100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/9c42dc147dad5af62095815335cc937aefe50e2662a922252783be8849046e3c/stats?stream=false","time":"2026-07-07T12:05:42.542351100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.544350800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/07aa3fb78a059874554d2bc65ae5dac547376960a8a3dc0005b6d80e1088e69e/stats?stream=false","time":"2026-07-07T12:05:42.544350800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.544350800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/07aa3fb78a059874554d2bc65ae5dac547376960a8a3dc0005b6d80e1088e69e/stats?stream=false","time":"2026-07-07T12:05:42.544350800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.546350500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/6e60e4feeea218cfff786169045ef21512e95f495b52a4ae49072094052fbc19/stats?stream=false","time":"2026-07-07T12:05:42.546350500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.546350500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/6e60e4feeea218cfff786169045ef21512e95f495b52a4ae49072094052fbc19/stats?stream=false","time":"2026-07-07T12:05:42.546350500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.548350700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/de0de76f2c3f6e951167c08648e3c84bb4a0a8ff40b73af511130db08b0e3983/stats?stream=false","time":"2026-07-07T12:05:42.548350700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.548350700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/de0de76f2c3f6e951167c08648e3c84bb4a0a8ff40b73af511130db08b0e3983/stats?stream=false","time":"2026-07-07T12:05:42.548350700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.560850900Z] {"component":"apiproxy","level":"info","msg":"Context canceled, closing connection for \"/v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D\"","time":"2026-07-07T12:05:42.560350900-04:00"}
-[2026-07-07T16:05:42.562851200Z] {"component":"apiproxy","duration":2283618700,"level":"info","msg":"<< GET /v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D","time":"2026-07-07T12:05:42.562352000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:42.563352000Z] {"component":"apiproxy","level":"info","msg":"Context canceled, closing connection for \"/v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D\"","time":"2026-07-07T12:05:42.562851200-04:00"}
-[2026-07-07T16:05:42.565350900Z] {"component":"apiproxy","duration":2031198000,"level":"info","msg":"<< GET /v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D","time":"2026-07-07T12:05:42.565350900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.424151100Z] {"component":"apiproxy","level":"info","msg":">> HEAD /_ping","time":"2026-07-07T12:05:49.423150100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.427150300Z] {"component":"apiproxy","level":"info","msg":"<< HEAD /_ping","time":"2026-07-07T12:05:49.427150300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.428650100Z] Failed to fire hook: writing to log file: rotating log file: rename C:\Users\Juan\AppData\Local\Docker\log\host\com.docker.backend.exe.log.7 C:\Users\Juan\AppData\Local\Docker\log\host\com.docker.backend.exe.log.8: Access is denied.
-[2026-07-07T16:05:49.428650100Z] [16:05:49.427650100Z][main.idle             ] event handler ef70ee0c-f0bc-4b8c-adb5-d3a1b890d93b: request: GET /v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D
-[2026-07-07T16:05:49.428650100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D","time":"2026-07-07T12:05:49.428650100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.432150200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/json?all=1","time":"2026-07-07T12:05:49.431651400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.659805600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/json?all=1","time":"2026-07-07T12:05:49.659306600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.661806300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/de0de76f2c3f6e951167c08648e3c84bb4a0a8ff40b73af511130db08b0e3983/stats?stream=false","time":"2026-07-07T12:05:49.661806300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.663306000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/f66ec08ca4259eaf57b8a2b27679dc28f1d7e972d4b2cd8af537d9aa63fc48bb/stats?stream=false","time":"2026-07-07T12:05:49.663306000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.663306000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1897ddf479a04f75d004a1e7c4066deafc2f631bee034cfd7842875efcb33a40/stats?stream=false","time":"2026-07-07T12:05:49.663306000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.663807100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/9c42dc147dad5af62095815335cc937aefe50e2662a922252783be8849046e3c/stats?stream=false","time":"2026-07-07T12:05:49.663306000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.663807100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/5cdebd7687374908b64c0edde38db9fd942e92d07be0244256f7b901ed1bad61/stats?stream=false","time":"2026-07-07T12:05:49.663807100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.663807100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/d3e23e5fcfa023038e5095964239682218ec3edd4aa1239faa1849fb09aebfdc/stats?stream=false","time":"2026-07-07T12:05:49.663807100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.664306400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/319a6aa5d00c6e227fe733dec61fdd8625224ad68b276a2d821af25112d99e13/stats?stream=false","time":"2026-07-07T12:05:49.664306400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.664306400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1b9bfb7ad2442236ceb00d23c991ae6bd68a6a3bc2c80371f0bfcaf9ade0e2d2/stats?stream=false","time":"2026-07-07T12:05:49.664306400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.665806300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/4b42b6b63e3517db23802e60f8eccc00df3d41be264d7537afc8056e8fc33f31/stats?stream=false","time":"2026-07-07T12:05:49.665306500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.665806300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/7dbb738017e9046b355407bc2e680d6cfda66b49205ebe342e12767f0d9c3846/stats?stream=false","time":"2026-07-07T12:05:49.665306500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.665806300Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/f66ec08ca4259eaf57b8a2b27679dc28f1d7e972d4b2cd8af537d9aa63fc48bb/stats?stream=false","time":"2026-07-07T12:05:49.665806300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.666306900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1ddef6d262c0ffde2f0b6849424e3aae985d44108001f602814d66eaf1e2941b/stats?stream=false","time":"2026-07-07T12:05:49.666306900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.666806500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/d3e23e5fcfa023038e5095964239682218ec3edd4aa1239faa1849fb09aebfdc/stats?stream=false","time":"2026-07-07T12:05:49.666806500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.666806500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/95bb5651be773b3d73d2e1e23c4b179611f580b5e60e5cf3f5faea0818608e95/stats?stream=false","time":"2026-07-07T12:05:49.666806500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.667307000Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/4b42b6b63e3517db23802e60f8eccc00df3d41be264d7537afc8056e8fc33f31/stats?stream=false","time":"2026-07-07T12:05:49.667307000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.668306100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/7d578945e54274b8f795edcfac17d34c88750a238250b8af1fc0a6926b6f274b/stats?stream=false","time":"2026-07-07T12:05:49.667808400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.668306100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/e289c1dc949d115e22407168e713263b038d5410ea84c192b45b72797259f85b/stats?stream=false","time":"2026-07-07T12:05:49.668306100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.668805700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/7dbb738017e9046b355407bc2e680d6cfda66b49205ebe342e12767f0d9c3846/stats?stream=false","time":"2026-07-07T12:05:49.668805700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.669305500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/cdb69b89e3cfb418d3587d790edbb779cd6d754586084d3d53d791aa18c995c0/stats?stream=false","time":"2026-07-07T12:05:49.668805700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.669305500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/07aa3fb78a059874554d2bc65ae5dac547376960a8a3dc0005b6d80e1088e69e/stats?stream=false","time":"2026-07-07T12:05:49.669305500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.669305500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/30d89f7af8ed07a940ca17d70db16f4ffd3621e5f352a3184edf12827b1c01bb/stats?stream=false","time":"2026-07-07T12:05:49.669305500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.669305500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/618978779c019f85500778b5eb5c2faa6ba7ec6fa088c9e622ec630570f674b2/stats?stream=false","time":"2026-07-07T12:05:49.669305500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.670805500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/7d578945e54274b8f795edcfac17d34c88750a238250b8af1fc0a6926b6f274b/stats?stream=false","time":"2026-07-07T12:05:49.670306300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.670805500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/95bb5651be773b3d73d2e1e23c4b179611f580b5e60e5cf3f5faea0818608e95/stats?stream=false","time":"2026-07-07T12:05:49.670306300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.676321100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/e289c1dc949d115e22407168e713263b038d5410ea84c192b45b72797259f85b/stats?stream=false","time":"2026-07-07T12:05:49.672310500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.676321100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3f11e1aef5527d3eb7e35cce702cb5512e9ff949ddc8d630b6deab7293515f26/stats?stream=false","time":"2026-07-07T12:05:49.672310500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.676321100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/b8fdd21ecf8988898b9b477386de2c501178d8ba40dc3d2325e477de002b6c25/stats?stream=false","time":"2026-07-07T12:05:49.672809900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.681245500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/df1a85c33907efa5531d24d0570490ff5c52f6d1e59085a5842f7d4f713f136f/stats?stream=false","time":"2026-07-07T12:05:49.676321100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.681245500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/ed043d293fbfef9d26603c204ed8f253b54a95e70d44a4d4887d77bc5e6b339a/stats?stream=false","time":"2026-07-07T12:05:49.676321100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.681245500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/b47b214864e4c56d10980acf6a27f6714d412a749d182f54d769c4d00f09753f/stats?stream=false","time":"2026-07-07T12:05:49.677365000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.689736300Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/30d89f7af8ed07a940ca17d70db16f4ffd3621e5f352a3184edf12827b1c01bb/stats?stream=false","time":"2026-07-07T12:05:49.687831900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.689736300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/7f5f6acc7bac00247cee5873f9c0098a7a214c6781940fe99f3f7409ce1c0a82/stats?stream=false","time":"2026-07-07T12:05:49.688830600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.692249400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/65fd05f3f4bffd3426c08a6ae7673a8410e821e52a3351a14dc57f329c404762/stats?stream=false","time":"2026-07-07T12:05:49.690240600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.693308700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3fe802f478b2d1fbe7d2436f7bcc1399f03cd2ae71c8f573269778a020ea4d6e/stats?stream=false","time":"2026-07-07T12:05:49.693308700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.693308700Z] {"component":"apiproxy","level":"info","msg":"Context canceled, closing connection for \"/v1.53/containers/df1a85c33907efa5531d24d0570490ff5c52f6d1e59085a5842f7d4f713f136f/stats?stream=false\"","time":"2026-07-07T12:05:49.693308700-04:00"}
-[2026-07-07T16:05:49.693807700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/29c5c3875063e15c1cd17d76d22a9fc1f9ff59dfd383dd79a0acfeb5be59b041/stats?stream=false","time":"2026-07-07T12:05:49.693308700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.694307800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/bfe425e53d8f6841d0269cc036a2a1879be28cdc376596571f854245a1fe8486/stats?stream=false","time":"2026-07-07T12:05:49.693807700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.695811600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/df1a85c33907efa5531d24d0570490ff5c52f6d1e59085a5842f7d4f713f136f/stats?stream=false","time":"2026-07-07T12:05:49.695811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.695811600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/b47b214864e4c56d10980acf6a27f6714d412a749d182f54d769c4d00f09753f/stats?stream=false","time":"2026-07-07T12:05:49.695811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.696312100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/7f5f6acc7bac00247cee5873f9c0098a7a214c6781940fe99f3f7409ce1c0a82/stats?stream=false","time":"2026-07-07T12:05:49.695811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.696312100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/ed043d293fbfef9d26603c204ed8f253b54a95e70d44a4d4887d77bc5e6b339a/stats?stream=false","time":"2026-07-07T12:05:49.695811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.697811400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/99a91313224dbb114148c5c4f599f813dde92731c5aa07a5d3d13f1c1084da54/stats?stream=false","time":"2026-07-07T12:05:49.697312100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.697811400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/6e60e4feeea218cfff786169045ef21512e95f495b52a4ae49072094052fbc19/stats?stream=false","time":"2026-07-07T12:05:49.697811400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.697811400Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/65fd05f3f4bffd3426c08a6ae7673a8410e821e52a3351a14dc57f329c404762/stats?stream=false","time":"2026-07-07T12:05:49.697811400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.697811400Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/29c5c3875063e15c1cd17d76d22a9fc1f9ff59dfd383dd79a0acfeb5be59b041/stats?stream=false","time":"2026-07-07T12:05:49.697811400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.698313300Z] {"component":"apiproxy","level":"info","msg":"Context canceled, closing connection for \"/v1.53/containers/65fd05f3f4bffd3426c08a6ae7673a8410e821e52a3351a14dc57f329c404762/stats?stream=false\"","time":"2026-07-07T12:05:49.697811400-04:00"}
-[2026-07-07T16:05:49.698811600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/3fe802f478b2d1fbe7d2436f7bcc1399f03cd2ae71c8f573269778a020ea4d6e/stats?stream=false","time":"2026-07-07T12:05:49.697811400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.699314100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/c48146dd4419e53669d117e9a0821f1bec21c0729c84cdc11149ecdef46274b2/stats?stream=false","time":"2026-07-07T12:05:49.699314100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.699314100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/bfe425e53d8f6841d0269cc036a2a1879be28cdc376596571f854245a1fe8486/stats?stream=false","time":"2026-07-07T12:05:49.699314100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.699314100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/e49793440273cdd5114de5708befd654666569423f470a9990b3d864b822b00e/stats?stream=false","time":"2026-07-07T12:05:49.699314100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.700311700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1a1e53f6caae1af87c8bb17ee09f4f5d13ab63ea18d97a84fef52b55d3327c0c/stats?stream=false","time":"2026-07-07T12:05:49.699812900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.700311700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/fa537256d19cfc24492a6ffede0f1657b0cf3ab9ece8e92e3b309d912a2b7135/stats?stream=false","time":"2026-07-07T12:05:49.700311700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.700311700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/bae5f09c587ab399f10ac3dff542e6e4594f10d6d622220d3c06fe92d6cce431/stats?stream=false","time":"2026-07-07T12:05:49.700311700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.700811500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2011e743b9a906d10e8df98b7a17753e65677e80337d09fa3af0782679502e96/stats?stream=false","time":"2026-07-07T12:05:49.700811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.701311100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/78da6e0498e8dc114209489e59fd838e5a60ac024afb51918ae8f11fbf1cb6b3/stats?stream=false","time":"2026-07-07T12:05:49.701311100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.701311100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/e49793440273cdd5114de5708befd654666569423f470a9990b3d864b822b00e/stats?stream=false","time":"2026-07-07T12:05:49.701311100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.701311100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/28aa1baebd4d2ce9f097d8e106001e02b2509acea45eb1eeb08415a8902f13c5/stats?stream=false","time":"2026-07-07T12:05:49.701311100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.701811400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/e9cc40974672329916e4a0f1ed653c35e2afef3d3fe213936b3bf80159dc0453/stats?stream=false","time":"2026-07-07T12:05:49.701311100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.702312600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/da2e874ccaa518f7256c7fa9bf9621454af0fc301c37460af78092f298b60be9/stats?stream=false","time":"2026-07-07T12:05:49.701811400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.702312600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/d20a4928619517bc6061d817e539f6889ab6af53ceb36503c3a6a6add33ef8b6/stats?stream=false","time":"2026-07-07T12:05:49.701811400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.702312600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/8a94910e82b4998559c2def506bcecbfc1a25f790371bbbf882f155db7ea8f05/stats?stream=false","time":"2026-07-07T12:05:49.702312600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.702811500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/1a1e53f6caae1af87c8bb17ee09f4f5d13ab63ea18d97a84fef52b55d3327c0c/stats?stream=false","time":"2026-07-07T12:05:49.702312600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.702811500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/fa537256d19cfc24492a6ffede0f1657b0cf3ab9ece8e92e3b309d912a2b7135/stats?stream=false","time":"2026-07-07T12:05:49.702811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.702811500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/78da6e0498e8dc114209489e59fd838e5a60ac024afb51918ae8f11fbf1cb6b3/stats?stream=false","time":"2026-07-07T12:05:49.702811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703312200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/28aa1baebd4d2ce9f097d8e106001e02b2509acea45eb1eeb08415a8902f13c5/stats?stream=false","time":"2026-07-07T12:05:49.702811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703312200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/0afa7db65bebc5836d86dbc30e11d38449b245e2b9316cb5db78bf4986733413/stats?stream=false","time":"2026-07-07T12:05:49.703312200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703312200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/e9cc40974672329916e4a0f1ed653c35e2afef3d3fe213936b3bf80159dc0453/stats?stream=false","time":"2026-07-07T12:05:49.703312200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703817900Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/da2e874ccaa518f7256c7fa9bf9621454af0fc301c37460af78092f298b60be9/stats?stream=false","time":"2026-07-07T12:05:49.703817900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703817900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/c8aabd5a036fc2daa93a384fcef7fa0eba84ccd0c821fdaf31a13af7be365d91/stats?stream=false","time":"2026-07-07T12:05:49.703817900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703817900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1f9b7a90efc26e497c63b73db37410e19ea17272eaa26ac8a9c5f83aa51ef0ec/stats?stream=false","time":"2026-07-07T12:05:49.703817900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703817900Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/8a94910e82b4998559c2def506bcecbfc1a25f790371bbbf882f155db7ea8f05/stats?stream=false","time":"2026-07-07T12:05:49.703817900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.703817900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/f12cb2506fd59ccd02fa557f943f0ddab61ff614cfad92c8d4e7b5f0768c98ad/stats?stream=false","time":"2026-07-07T12:05:49.703817900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.705312100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/c8aabd5a036fc2daa93a384fcef7fa0eba84ccd0c821fdaf31a13af7be365d91/stats?stream=false","time":"2026-07-07T12:05:49.705312100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.705312100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/1f9b7a90efc26e497c63b73db37410e19ea17272eaa26ac8a9c5f83aa51ef0ec/stats?stream=false","time":"2026-07-07T12:05:49.705312100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.709312100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2ec4cc4f1cd1bd3ff36a2af7cad6281ec67dafd093593fa65b21d0dd87576108/stats?stream=false","time":"2026-07-07T12:05:49.709312100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.709312100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/e0a36bfba5d39b37316e5eb977e903570c0f931b8bc6cade7f07ed8db88f0375/stats?stream=false","time":"2026-07-07T12:05:49.709312100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.709312100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/be233c60b58b255012b9d8365979e2300c367a6682780b433b6eabe62a316db9/stats?stream=false","time":"2026-07-07T12:05:49.709312100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.709811800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/a824babc925b0e3e624cfdf6091d7b685eb956691d3307650c9d2981200fc178/stats?stream=false","time":"2026-07-07T12:05:49.709811800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.710311400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/27ee25d3e308c7f164602f5b50040550b3cfac5ff6e1b4f24078ad40bd4995b9/stats?stream=false","time":"2026-07-07T12:05:49.710311400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.710811500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/956b65bf88f81876e97c02e66275cccb3b2e08b346609720f258001d24fd2597/stats?stream=false","time":"2026-07-07T12:05:49.710811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.710811500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3cd53586fe9d664307246dd3ef4c1c62079c3bd624ba90fc5b437ec24f88b5b2/stats?stream=false","time":"2026-07-07T12:05:49.710811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.710811500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/a7236acfa587c1c2c955bcf73c9a0318aeaf0ed45c37ec07293cd433a710db4a/stats?stream=false","time":"2026-07-07T12:05:49.710811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.710811500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/75abb1122c4e47e4e784d3cc948a1121c41d2ff12516502d075ddd368358370c/stats?stream=false","time":"2026-07-07T12:05:49.710811500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.711312000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/6a4b2bd525a3bdef61d59d9f341cc4d558991d0238056b98023d23118d66e718/stats?stream=false","time":"2026-07-07T12:05:49.711312000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.711811600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/e0a36bfba5d39b37316e5eb977e903570c0f931b8bc6cade7f07ed8db88f0375/stats?stream=false","time":"2026-07-07T12:05:49.711312000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.711811600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/0c51944dbd4521b565ac5d02d5349f7ae52a0a463eb6219087f9850cb0d15f18/stats?stream=false","time":"2026-07-07T12:05:49.711811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.711811600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/a824babc925b0e3e624cfdf6091d7b685eb956691d3307650c9d2981200fc178/stats?stream=false","time":"2026-07-07T12:05:49.711811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.712312500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/956b65bf88f81876e97c02e66275cccb3b2e08b346609720f258001d24fd2597/stats?stream=false","time":"2026-07-07T12:05:49.711811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.712312500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/3cd53586fe9d664307246dd3ef4c1c62079c3bd624ba90fc5b437ec24f88b5b2/stats?stream=false","time":"2026-07-07T12:05:49.712312500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.712312500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/a7236acfa587c1c2c955bcf73c9a0318aeaf0ed45c37ec07293cd433a710db4a/stats?stream=false","time":"2026-07-07T12:05:49.712312500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.712811700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/75abb1122c4e47e4e784d3cc948a1121c41d2ff12516502d075ddd368358370c/stats?stream=false","time":"2026-07-07T12:05:49.712811700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.713312600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/6a4b2bd525a3bdef61d59d9f341cc4d558991d0238056b98023d23118d66e718/stats?stream=false","time":"2026-07-07T12:05:49.713312600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.713812400Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/0c51944dbd4521b565ac5d02d5349f7ae52a0a463eb6219087f9850cb0d15f18/stats?stream=false","time":"2026-07-07T12:05:49.713312600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.714311900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/37fe9457cd4255583bc9397aac66f7fdbb62131658360631a5acb4d51b5f830f/stats?stream=false","time":"2026-07-07T12:05:49.714311900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.714311900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/ab2931529b5f368890bd68b999aa9e18413f6d6dadea9c402c48094a0bcfacae/stats?stream=false","time":"2026-07-07T12:05:49.714311900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.714311900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2d7975a6ad610d8660f69e2c23c6ca917f5e101085ccb98f2df3aab3adfbf036/stats?stream=false","time":"2026-07-07T12:05:49.714311900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.715811000Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/37fe9457cd4255583bc9397aac66f7fdbb62131658360631a5acb4d51b5f830f/stats?stream=false","time":"2026-07-07T12:05:49.715811000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.716311200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/dd2f3d17322a75adc324fcd8cb73df97fe6c97ef5e22fdc9e8ea4b00f0af88b0/stats?stream=false","time":"2026-07-07T12:05:49.716311200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.716311200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/ab2931529b5f368890bd68b999aa9e18413f6d6dadea9c402c48094a0bcfacae/stats?stream=false","time":"2026-07-07T12:05:49.716311200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.716311200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/2d7975a6ad610d8660f69e2c23c6ca917f5e101085ccb98f2df3aab3adfbf036/stats?stream=false","time":"2026-07-07T12:05:49.716311200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.716811800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/022771b7aecf90d1b44ffaf3c7e1972d5eac4a99f7521b9fdc9f00631b704937/stats?stream=false","time":"2026-07-07T12:05:49.716811800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.718312000Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/022771b7aecf90d1b44ffaf3c7e1972d5eac4a99f7521b9fdc9f00631b704937/stats?stream=false","time":"2026-07-07T12:05:49.718312000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.718813600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/d8879985ec611018d465f8780088a8d591d646e90a158f8fc6d8204135a1332c/stats?stream=false","time":"2026-07-07T12:05:49.718813600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.718813600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/4455426bebee54eaa08e820cc1763b4098b6fea1e8336fac292c94506fc1d5da/stats?stream=false","time":"2026-07-07T12:05:49.718813600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.719311400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/de80eb6ef6871aee97cac5ead28f53c263571448d47eda47db325bd01e766fc1/stats?stream=false","time":"2026-07-07T12:05:49.719311400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.719311400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/4d9e8450685962877fe3dea83bdcae58767922513e541772a92cf4debd4bf44b/stats?stream=false","time":"2026-07-07T12:05:49.719311400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.720811200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/4455426bebee54eaa08e820cc1763b4098b6fea1e8336fac292c94506fc1d5da/stats?stream=false","time":"2026-07-07T12:05:49.720811200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.720811200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/de80eb6ef6871aee97cac5ead28f53c263571448d47eda47db325bd01e766fc1/stats?stream=false","time":"2026-07-07T12:05:49.720811200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.720811200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/4d9e8450685962877fe3dea83bdcae58767922513e541772a92cf4debd4bf44b/stats?stream=false","time":"2026-07-07T12:05:49.720811200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.721311400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/857b4d0c57a027589ce9ad5802198546bcaeb251d54802ff17502e1b71ed68e6/stats?stream=false","time":"2026-07-07T12:05:49.721311400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.721311400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/dd2566b2cfe9f00377b01d57434f22488d3cda187812c117eb431e694ce08829/stats?stream=false","time":"2026-07-07T12:05:49.721311400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.722313600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1fb466a4ab069dd7afa0fc775653d87c98aaa205ec80ea5451af84376502fca5/stats?stream=false","time":"2026-07-07T12:05:49.721811700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.722811900Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/dd2566b2cfe9f00377b01d57434f22488d3cda187812c117eb431e694ce08829/stats?stream=false","time":"2026-07-07T12:05:49.722811900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.723811600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/1fb466a4ab069dd7afa0fc775653d87c98aaa205ec80ea5451af84376502fca5/stats?stream=false","time":"2026-07-07T12:05:49.723811600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.724314300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/ab039fdd99569f465b6f4db62fed11392111d3334f1f4cd53df87cc8069d89c9/stats?stream=false","time":"2026-07-07T12:05:49.724314300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.725812100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/ab039fdd99569f465b6f4db62fed11392111d3334f1f4cd53df87cc8069d89c9/stats?stream=false","time":"2026-07-07T12:05:49.725812100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.726312500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2d35647943f8fbe254b8f38376793451d23d3fb6b7dbdf60fd54c0ff0a509cf5/stats?stream=false","time":"2026-07-07T12:05:49.726312500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.729312400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/45ae5a57f2280ade7155f0dcd060c1798ab276b24fc1fe2297a674a5f9b8f962/stats?stream=false","time":"2026-07-07T12:05:49.729312400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.729812100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/791851df45140baf4b40ac68081b92e0e34c7306ca51ff5c78bf5b0246b74174/stats?stream=false","time":"2026-07-07T12:05:49.729812100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.729812100Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/8ec27e2dae5fb18b52c837de19f5e9432d8bfbf00505df90fe00c0b33132a7f4/stats?stream=false","time":"2026-07-07T12:05:49.729812100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.730811200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2e0776bf823d829b18412bb129a22e0cbbdd7cd138f92996a4a137c62b18bf5f/stats?stream=false","time":"2026-07-07T12:05:49.730811200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.731811800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/8ec27e2dae5fb18b52c837de19f5e9432d8bfbf00505df90fe00c0b33132a7f4/stats?stream=false","time":"2026-07-07T12:05:49.731315000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.731811800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/45ae5a57f2280ade7155f0dcd060c1798ab276b24fc1fe2297a674a5f9b8f962/stats?stream=false","time":"2026-07-07T12:05:49.731315000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.731811800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/a9a2f80aaf83e9e218febe154dbdb8cb60d083b281566abd03441d9231291d43/stats?stream=false","time":"2026-07-07T12:05:49.731811800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.732312800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/b2a0d27b9f227a6430500b1e317b05ba34e34406ef9ca72e6f9f290bd32cef71/stats?stream=false","time":"2026-07-07T12:05:49.732312800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.733311600Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/2e0776bf823d829b18412bb129a22e0cbbdd7cd138f92996a4a137c62b18bf5f/stats?stream=false","time":"2026-07-07T12:05:49.732814300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.733311600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/f7770807cd18e5c6fbb0d89357aebb877f6a22b827e50329af5c8163b4160271/stats?stream=false","time":"2026-07-07T12:05:49.733311600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.734311300Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/a9a2f80aaf83e9e218febe154dbdb8cb60d083b281566abd03441d9231291d43/stats?stream=false","time":"2026-07-07T12:05:49.734311300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.734311300Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/b2a0d27b9f227a6430500b1e317b05ba34e34406ef9ca72e6f9f290bd32cef71/stats?stream=false","time":"2026-07-07T12:05:49.734311300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.739836800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3d69ccb869d033a30e1cdac6c25e242e99d37990a79acbe03ae7311bced86abd/stats?stream=false","time":"2026-07-07T12:05:49.739836800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.739836800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/5ddc4d0cbeeb6bf01f0fc23b4b321297b94a0f6ff7e39f19a6f20e289b96155f/stats?stream=false","time":"2026-07-07T12:05:49.739836800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.740338300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/8c3dcf57e6d9dacf4c8fca2f304d5e913aff5f6baad2a2200fcc9ac98b72cd45/stats?stream=false","time":"2026-07-07T12:05:49.740338300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.740338300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/afe0c30318574abb30c2d23298a819c2cdf1f7ee714035159e2689e87e433bb5/stats?stream=false","time":"2026-07-07T12:05:49.740338300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.740338300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/fd57a7726d14bd16c6a2c47ba35d75c4bb61165eaf87b3def8fbe99b7cbe2c21/stats?stream=false","time":"2026-07-07T12:05:49.740338300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.741837200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/bfa70fac777075ef7bab3a1c901cee985a4fd3efae131bf8e60d5ba3f0eb24bb/stats?stream=false","time":"2026-07-07T12:05:49.741338100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.741837200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/bd92aed64536975bd6eab770f7dad897de7ca087073c0f2ef2180905f299d5c7/stats?stream=false","time":"2026-07-07T12:05:49.741837200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.742336200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/fd57a7726d14bd16c6a2c47ba35d75c4bb61165eaf87b3def8fbe99b7cbe2c21/stats?stream=false","time":"2026-07-07T12:05:49.742336200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.742336200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/afe0c30318574abb30c2d23298a819c2cdf1f7ee714035159e2689e87e433bb5/stats?stream=false","time":"2026-07-07T12:05:49.742336200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.742836700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/8c3dcf57e6d9dacf4c8fca2f304d5e913aff5f6baad2a2200fcc9ac98b72cd45/stats?stream=false","time":"2026-07-07T12:05:49.742336200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.749886900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/cd1fb9ee3f831a84ad3f02da708b5ed3a5183e4d429482e96232e59e702b7b41/stats?stream=false","time":"2026-07-07T12:05:49.749386700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.749886900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/f3a5fe9289ae460f7bcb4e9df8a1c9137386ab92617223cb18a411adddb5727e/stats?stream=false","time":"2026-07-07T12:05:49.749886900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.750387400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/965b44998dab520a67ddc121f2c4a0a2a5d0dded0c6b16e10705a019374bf467/stats?stream=false","time":"2026-07-07T12:05:49.750387400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.751388500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/f3a6e34730250b29aee697640d5b87dd6c817c9327de95dc5680a8aa20b8f505/stats?stream=false","time":"2026-07-07T12:05:49.751388500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.752387200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/f3a5fe9289ae460f7bcb4e9df8a1c9137386ab92617223cb18a411adddb5727e/stats?stream=false","time":"2026-07-07T12:05:49.752387200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.752387200Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/965b44998dab520a67ddc121f2c4a0a2a5d0dded0c6b16e10705a019374bf467/stats?stream=false","time":"2026-07-07T12:05:49.752387200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.752387200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/fb71556a39239d6dcb3076b1d609e904899a71ca2da4d5aa16c2424d2c6e4fbe/stats?stream=false","time":"2026-07-07T12:05:49.752387200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.753388500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/f3a6e34730250b29aee697640d5b87dd6c817c9327de95dc5680a8aa20b8f505/stats?stream=false","time":"2026-07-07T12:05:49.753388500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.754388800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/fb71556a39239d6dcb3076b1d609e904899a71ca2da4d5aa16c2424d2c6e4fbe/stats?stream=false","time":"2026-07-07T12:05:49.754388800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.754886500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/84b4c4629e109711ccf8865fa536721f3fbd346ee226714b32ffe06e7bb59570/stats?stream=false","time":"2026-07-07T12:05:49.754886500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.756386400Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/84b4c4629e109711ccf8865fa536721f3fbd346ee226714b32ffe06e7bb59570/stats?stream=false","time":"2026-07-07T12:05:49.756386400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.756887800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/21b5da26ffaa50f01a4ab36f58d1e2c2a3c8e1ffc3c6c9cc21df44a4e225749a/stats?stream=false","time":"2026-07-07T12:05:49.756887800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:49.759387600Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/da1ae27f16abc9d29d992b79140fd1d5d277998c6769e8618ed6c51596c259f9/stats?stream=false","time":"2026-07-07T12:05:49.759387600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.106215700Z] {"component":"apiproxy","level":"info","msg":">> HEAD /_ping","time":"2026-07-07T12:05:50.106215700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.108716100Z] {"component":"apiproxy","level":"info","msg":"<< HEAD /_ping","time":"2026-07-07T12:05:50.108716100-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.109716400Z] Failed to fire hook: writing to log file: rotating log file: rename C:\Users\Juan\AppData\Local\Docker\log\host\com.docker.backend.exe.log.7 C:\Users\Juan\AppData\Local\Docker\log\host\com.docker.backend.exe.log.8: Access is denied.
-[2026-07-07T16:05:50.109716400Z] [16:05:50.109215000Z][main.idle             ] event handler fac12ea2-04b9-446f-aa2b-ffcf85a8a6c1: request: GET /v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D
-[2026-07-07T16:05:50.109716400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/events?filters=%7B%22type%22%3A%7B%22container%22%3Atrue%7D%7D","time":"2026-07-07T12:05:50.109716400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.112214800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/json?all=1","time":"2026-07-07T12:05:50.111715400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.342051400Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/json?all=1","time":"2026-07-07T12:05:50.342051400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.346051000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3f11e1aef5527d3eb7e35cce702cb5512e9ff949ddc8d630b6deab7293515f26/stats?stream=false","time":"2026-07-07T12:05:50.345550500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.346051000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/dd2f3d17322a75adc324fcd8cb73df97fe6c97ef5e22fdc9e8ea4b00f0af88b0/stats?stream=false","time":"2026-07-07T12:05:50.346051000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.346551000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/45ae5a57f2280ade7155f0dcd060c1798ab276b24fc1fe2297a674a5f9b8f962/stats?stream=false","time":"2026-07-07T12:05:50.346051000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.346551000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/f12cb2506fd59ccd02fa557f943f0ddab61ff614cfad92c8d4e7b5f0768c98ad/stats?stream=false","time":"2026-07-07T12:05:50.346551000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.348055800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/857b4d0c57a027589ce9ad5802198546bcaeb251d54802ff17502e1b71ed68e6/stats?stream=false","time":"2026-07-07T12:05:50.348055800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.350051500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/8c3dcf57e6d9dacf4c8fca2f304d5e913aff5f6baad2a2200fcc9ac98b72cd45/stats?stream=false","time":"2026-07-07T12:05:50.349552900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.350051500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/de0de76f2c3f6e951167c08648e3c84bb4a0a8ff40b73af511130db08b0e3983/stats?stream=false","time":"2026-07-07T12:05:50.350051500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.350550700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/fd57a7726d14bd16c6a2c47ba35d75c4bb61165eaf87b3def8fbe99b7cbe2c21/stats?stream=false","time":"2026-07-07T12:05:50.350550700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.350550700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/45ae5a57f2280ade7155f0dcd060c1798ab276b24fc1fe2297a674a5f9b8f962/stats?stream=false","time":"2026-07-07T12:05:50.350550700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.351551200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/da2e874ccaa518f7256c7fa9bf9621454af0fc301c37460af78092f298b60be9/stats?stream=false","time":"2026-07-07T12:05:50.351051600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.351551200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/29c5c3875063e15c1cd17d76d22a9fc1f9ff59dfd383dd79a0acfeb5be59b041/stats?stream=false","time":"2026-07-07T12:05:50.351551200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.352550700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/bfe425e53d8f6841d0269cc036a2a1879be28cdc376596571f854245a1fe8486/stats?stream=false","time":"2026-07-07T12:05:50.352051000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.352550700Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/8c3dcf57e6d9dacf4c8fca2f304d5e913aff5f6baad2a2200fcc9ac98b72cd45/stats?stream=false","time":"2026-07-07T12:05:50.352550700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.352550700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3cd53586fe9d664307246dd3ef4c1c62079c3bd624ba90fc5b437ec24f88b5b2/stats?stream=false","time":"2026-07-07T12:05:50.352550700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.353050500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/fd57a7726d14bd16c6a2c47ba35d75c4bb61165eaf87b3def8fbe99b7cbe2c21/stats?stream=false","time":"2026-07-07T12:05:50.353050500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.353551000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1897ddf479a04f75d004a1e7c4066deafc2f631bee034cfd7842875efcb33a40/stats?stream=false","time":"2026-07-07T12:05:50.353551000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.354050100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/da2e874ccaa518f7256c7fa9bf9621454af0fc301c37460af78092f298b60be9/stats?stream=false","time":"2026-07-07T12:05:50.353551000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.354050100Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/29c5c3875063e15c1cd17d76d22a9fc1f9ff59dfd383dd79a0acfeb5be59b041/stats?stream=false","time":"2026-07-07T12:05:50.353551000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.354550900Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/bfe425e53d8f6841d0269cc036a2a1879be28cdc376596571f854245a1fe8486/stats?stream=false","time":"2026-07-07T12:05:50.354550900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.355051500Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/3cd53586fe9d664307246dd3ef4c1c62079c3bd624ba90fc5b437ec24f88b5b2/stats?stream=false","time":"2026-07-07T12:05:50.354550900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.355051500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/cdb69b89e3cfb418d3587d790edbb779cd6d754586084d3d53d791aa18c995c0/stats?stream=false","time":"2026-07-07T12:05:50.354550900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.355051500Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/5cdebd7687374908b64c0edde38db9fd942e92d07be0244256f7b901ed1bad61/stats?stream=false","time":"2026-07-07T12:05:50.355051500-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.355550400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/791851df45140baf4b40ac68081b92e0e34c7306ca51ff5c78bf5b0246b74174/stats?stream=false","time":"2026-07-07T12:05:50.355550400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.356051300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/b8fdd21ecf8988898b9b477386de2c501178d8ba40dc3d2325e477de002b6c25/stats?stream=false","time":"2026-07-07T12:05:50.356051300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.356051300Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2011e743b9a906d10e8df98b7a17753e65677e80337d09fa3af0782679502e96/stats?stream=false","time":"2026-07-07T12:05:50.356051300-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.356550800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/99a91313224dbb114148c5c4f599f813dde92731c5aa07a5d3d13f1c1084da54/stats?stream=false","time":"2026-07-07T12:05:50.356550800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.357550200Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/75abb1122c4e47e4e784d3cc948a1121c41d2ff12516502d075ddd368358370c/stats?stream=false","time":"2026-07-07T12:05:50.357550200-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.358050000Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1a1e53f6caae1af87c8bb17ee09f4f5d13ab63ea18d97a84fef52b55d3327c0c/stats?stream=false","time":"2026-07-07T12:05:50.358050000-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.359550800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/75abb1122c4e47e4e784d3cc948a1121c41d2ff12516502d075ddd368358370c/stats?stream=false","time":"2026-07-07T12:05:50.359050600-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.359550800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/8a94910e82b4998559c2def506bcecbfc1a25f790371bbbf882f155db7ea8f05/stats?stream=false","time":"2026-07-07T12:05:50.359550800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.359550800Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/1a1e53f6caae1af87c8bb17ee09f4f5d13ab63ea18d97a84fef52b55d3327c0c/stats?stream=false","time":"2026-07-07T12:05:50.359550800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.360050800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/84b4c4629e109711ccf8865fa536721f3fbd346ee226714b32ffe06e7bb59570/stats?stream=false","time":"2026-07-07T12:05:50.360050800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.360050800Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/1b9bfb7ad2442236ceb00d23c991ae6bd68a6a3bc2c80371f0bfcaf9ade0e2d2/stats?stream=false","time":"2026-07-07T12:05:50.360050800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.360550700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/95bb5651be773b3d73d2e1e23c4b179611f580b5e60e5cf3f5faea0818608e95/stats?stream=false","time":"2026-07-07T12:05:50.360050800-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.360550700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/0afa7db65bebc5836d86dbc30e11d38449b245e2b9316cb5db78bf4986733413/stats?stream=false","time":"2026-07-07T12:05:50.360550700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.360550700Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/3fe802f478b2d1fbe7d2436f7bcc1399f03cd2ae71c8f573269778a020ea4d6e/stats?stream=false","time":"2026-07-07T12:05:50.360550700-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.361550400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/21b5da26ffaa50f01a4ab36f58d1e2c2a3c8e1ffc3c6c9cc21df44a4e225749a/stats?stream=false","time":"2026-07-07T12:05:50.361550400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.361550400Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/8a94910e82b4998559c2def506bcecbfc1a25f790371bbbf882f155db7ea8f05/stats?stream=false","time":"2026-07-07T12:05:50.361550400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.361550400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/2e0776bf823d829b18412bb129a22e0cbbdd7cd138f92996a4a137c62b18bf5f/stats?stream=false","time":"2026-07-07T12:05:50.361550400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.361550400Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/d20a4928619517bc6061d817e539f6889ab6af53ceb36503c3a6a6add33ef8b6/stats?stream=false","time":"2026-07-07T12:05:50.361550400-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.362049900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/fa537256d19cfc24492a6ffede0f1657b0cf3ab9ece8e92e3b309d912a2b7135/stats?stream=false","time":"2026-07-07T12:05:50.362049900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.362049900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/c48146dd4419e53669d117e9a0821f1bec21c0729c84cdc11149ecdef46274b2/stats?stream=false","time":"2026-07-07T12:05:50.362049900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.362551900Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/95bb5651be773b3d73d2e1e23c4b179611f580b5e60e5cf3f5faea0818608e95/stats?stream=false","time":"2026-07-07T12:05:50.362049900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.362551900Z] {"component":"apiproxy","level":"info","msg":"<< GET /v1.53/containers/84b4c4629e109711ccf8865fa536721f3fbd346ee226714b32ffe06e7bb59570/stats?stream=false","time":"2026-07-07T12:05:50.362049900-04:00","user_agent":"Docker-Client/29.2.1 (windows)"}
-[2026-07-07T16:05:50.362551900Z] {"component":"apiproxy","level":"info","msg":">> GET /v1.53/containers/7
+// Email Server — management page for the serverkit-email extension.
+//
+// NOTE: This file was reconstructed after a data-loss corruption. The original
+// was ~63KB; this is a coherent, functional, on-style rebuild — not a
+// byte-for-byte restore. It is wired to the real ApiService email methods
+// (see frontend/src/services/api/system.js, the `/email/*` endpoints) and
+// covers the same surface area: server/service status, mail domains with
+// SPF/DKIM/DMARC/PTR presence pills + DNS verify/deploy, accounts, aliases,
+// outbound relay (smarthost), SpamAssassin, webmail, and the mail queue.
+import { useState, useEffect, useCallback } from 'react';
+import {
+    Mail, RefreshCw, Plus, Trash2, ShieldCheck, Server, Globe, Users,
+    Send, Filter, Inbox, ExternalLink, CheckCircle2, XCircle, HelpCircle,
+} from 'lucide-react';
+import api from '../services/api';
+import useTabParam from '../hooks/useTabParam';
+import { PageTopbar, Pill, MetricCard, KpiBand } from '@/components/ds';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../hooks/useConfirm';
+
+const VALID_TABS = ['overview', 'domains', 'accounts', 'relay', 'spam', 'webmail', 'queue'];
+
+// DNS record checks surfaced as presence pills. `state` is one of
+// 'ok' | 'missing' | 'unknown' and maps to a DS Pill colour + dot.
+const DNS_RECORDS = [
+    { key: 'spf', label: 'SPF' },
+    { key: 'dkim', label: 'DKIM' },
+    { key: 'dmarc', label: 'DMARC' },
+    { key: 'ptr', label: 'PTR' },
+    { key: 'mx', label: 'MX' },
+];
+
+function dnsPillKind(state) {
+    if (state === 'ok') return 'green';
+    if (state === 'missing') return 'red';
+    return 'gray';
+}
+
+// Derive a per-record status map from a domain record and an optional live
+// verify result. Falls back to "does the stored record string exist" when we
+// have not run a live DNS check yet.
+function deriveDnsStatus(domain, verify) {
+    const out = {};
+    for (const { key } of DNS_RECORDS) {
+        if (verify && verify[key]) {
+            out[key] = verify[key].valid || verify[key].present ? 'ok' : 'missing';
+        } else if (key === 'spf') {
+            out[key] = domain?.spf_record ? 'ok' : 'unknown';
+        } else if (key === 'dkim') {
+            out[key] = domain?.dkim_public_key ? 'ok' : 'unknown';
+        } else if (key === 'dmarc') {
+            out[key] = domain?.dmarc_record ? 'ok' : 'unknown';
+        } else {
+            out[key] = 'unknown';
+        }
+    }
+    return out;
+}
+
+function DnsIcon({ state }) {
+    if (state === 'ok') return <CheckCircle2 size={12} aria-hidden="true" />;
+    if (state === 'missing') return <XCircle size={12} aria-hidden="true" />;
+    return <HelpCircle size={12} aria-hidden="true" />;
+}
+
+export default function Email() {
+    const [activeTab] = useTabParam('/email', VALID_TABS);
+
+    const [status, setStatus] = useState(null);
+    const [domains, setDomains] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const loadStatus = useCallback(async () => {
+        try {
+            const res = await api.getEmailStatus();
+            setStatus(res?.status || res || null);
+        } catch {
+            setStatus(null);
+        }
+    }, []);
+
+    const loadDomains = useCallback(async () => {
+        try {
+            const res = await api.getEmailDomains();
+            setDomains(res?.domains || res || []);
+        } catch {
+            setDomains([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            await Promise.all([loadStatus(), loadDomains()]);
+            if (alive) setLoading(false);
+        })();
+        return () => { alive = false; };
+    }, [loadStatus, loadDomains]);
+
+    const installed = status?.installed ?? status?.is_installed ?? (status != null && status.components != null);
+
+    const tabs = VALID_TABS.map((t) => ({
+        to: `/email/${t}`,
+        label: t.charAt(0).toUpperCase() + t.slice(1),
+        end: false,
+    }));
+
+    return (
+        <>
+            <PageTopbar
+                icon={<Mail size={18} />}
+                title="Email Server"
+                meta="Postfix / Dovecot, domains, accounts, DKIM/SPF/DMARC"
+                tabs={tabs}
+                actions={(
+                    <Button variant="outline" size="sm" onClick={() => { loadStatus(); loadDomains(); }}>
+                        <RefreshCw size={14} /> Refresh
+                    </Button>
+                )}
+            />
+
+            <div className="sk-email">
+                {loading ? (
+                    <div className="sk-email__empty">Loading…</div>
+                ) : (
+                    <>
+                        {activeTab === 'overview' && (
+                            <OverviewTab status={status} installed={installed} onChange={loadStatus} />
+                        )}
+                        {activeTab === 'domains' && (
+                            <DomainsTab domains={domains} onChange={loadDomains} />
+                        )}
+                        {activeTab === 'accounts' && (
+                            <AccountsTab domains={domains} />
+                        )}
+                        {activeTab === 'relay' && <RelayTab />}
+                        {activeTab === 'spam' && <SpamTab />}
+                        {activeTab === 'webmail' && <WebmailTab />}
+                        {activeTab === 'queue' && <QueueTab />}
+                    </>
+                )}
+            </div>
+        </>
+    );
+}
+
+// ---------- Overview ----------
+function OverviewTab({ status, installed, onChange }) {
+    const toast = useToast();
+    const components = status?.components || {};
+    const names = Object.keys(components);
+
+    const install = async () => {
+        try {
+            await api.installEmailServer();
+            toast.success('Email server install started');
+            onChange();
+        } catch {
+            toast.error('Install failed');
+        }
+    };
+
+    const control = async (component, action) => {
+        try {
+            await api.controlEmailService(component, action);
+            toast.success(`${component}: ${action}`);
+            onChange();
+        } catch {
+            toast.error(`Failed to ${action} ${component}`);
+        }
+    };
+
+    if (!installed) {
+        return (
+            <div className="sk-email__empty">
+                <Server size={24} aria-hidden="true" />
+                <p>The mail server stack is not installed on this host.</p>
+                <Button size="sm" onClick={install}>
+                    <Plus size={14} /> Install mail server
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <section className="sk-email__section">
+            <KpiBand>
+                <MetricCard label="Domains" value={status?.domains_count ?? 0} tone="accent" icon={<Globe size={16} />} />
+                <MetricCard label="Accounts" value={status?.accounts_count ?? 0} tone="cyan" icon={<Users size={16} />} />
+                <MetricCard label="Queue" value={status?.queue_count ?? 0} tone="amber" icon={<Inbox size={16} />} />
+            </KpiBand>
+
+            <h2 className="sk-email__section-title"><Server size={16} /> Services</h2>
+            {names.length === 0 ? (
+                <div className="sk-email__empty">No service components reported.</div>
+            ) : (
+                <table className="sk-email__table">
+                    <thead>
+                        <tr><th>Component</th><th>State</th><th aria-label="Actions" /></tr>
+                    </thead>
+                    <tbody>
+                        {names.map((name) => {
+                            const running = components[name]?.running ?? components[name] === 'running';
+                            return (
+                                <tr key={name}>
+                                    <td>{name}</td>
+                                    <td><Pill kind={running ? 'green' : 'red'}>{running ? 'Running' : 'Stopped'}</Pill></td>
+                                    <td className="sk-email__actions">
+                                        <Button variant="ghost" size="sm" onClick={() => control(name, running ? 'restart' : 'start')}>
+                                            {running ? 'Restart' : 'Start'}
+                                        </Button>
+                                        {running && (
+                                            <Button variant="ghost" size="sm" onClick={() => control(name, 'stop')}>Stop</Button>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            )}
+        </section>
+    );
+}
+
+// ---------- Domains ----------
+function DomainsTab({ domains, onChange }) {
+    const toast = useToast();
+    const { confirm } = useConfirm();
+    const [newDomain, setNewDomain] = useState('');
+    const [verifying, setVerifying] = useState({});
+    const [dnsResults, setDnsResults] = useState({});
+
+    const add = async (e) => {
+        e.preventDefault();
+        if (!newDomain.trim()) return;
+        try {
+            await api.addEmailDomain({ name: newDomain.trim() });
+            toast.success('Domain added');
+            setNewDomain('');
+            onChange();
+        } catch {
+            toast.error('Could not add domain');
+        }
+    };
+
+    const remove = async (domain) => {
+        const ok = await confirm({
+            title: 'Delete domain',
+            message: `Delete ${domain.name} and all of its accounts and aliases?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
+        try {
+            await api.deleteEmailDomain(domain.id);
+            toast.success('Domain deleted');
+            onChange();
+        } catch {
+            toast.error('Delete failed');
+        }
+    };
+
+    const verify = async (domain) => {
+        setVerifying((v) => ({ ...v, [domain.id]: true }));
+        try {
+            const res = await api.verifyEmailDNS(domain.id);
+            setDnsResults((r) => ({ ...r, [domain.id]: res?.records || res || {} }));
+            toast.success('DNS checked');
+        } catch {
+            toast.error('DNS check failed');
+        } finally {
+            setVerifying((v) => ({ ...v, [domain.id]: false }));
+        }
+    };
+
+    const deploy = async (domain) => {
+        try {
+            await api.deployEmailDNS(domain.id);
+            toast.success('DNS records deployed to provider');
+        } catch {
+            toast.error('Deploy failed (no linked DNS provider?)');
+        }
+    };
+
+    return (
+        <section className="sk-email__section">
+            <form className="sk-email__add" onSubmit={add}>
+                <Input
+                    value={newDomain}
+                    onChange={(e) => setNewDomain(e.target.value)}
+                    placeholder="example.com"
+                    aria-label="New mail domain"
+                />
+                <Button type="submit" size="sm"><Plus size={14} /> Add domain</Button>
+            </form>
+
+            {domains.length === 0 ? (
+                <div className="sk-email__empty">
+                    <Globe size={24} aria-hidden="true" />
+                    <p>No mail domains yet.</p>
+                </div>
+            ) : (
+                <ul className="sk-email__domains">
+                    {domains.map((domain) => {
+                        const dns = deriveDnsStatus(domain, dnsResults[domain.id]);
+                        return (
+                            <li key={domain.id} className="sk-email__domain">
+                                <div className="sk-email__domain-head">
+                                    <span className="sk-email__domain-name">{domain.name}</span>
+                                    <Pill kind={domain.is_active ? 'green' : 'gray'}>
+                                        {domain.is_active ? 'Active' : 'Disabled'}
+                                    </Pill>
+                                </div>
+
+                                <div className="sk-email__dns">
+                                    {DNS_RECORDS.map(({ key, label }) => (
+                                        <Pill key={key} kind={dnsPillKind(dns[key])} title={`${label}: ${dns[key]}`}>
+                                            <DnsIcon state={dns[key]} /> {label}
+                                        </Pill>
+                                    ))}
+                                </div>
+
+                                <div className="sk-email__domain-meta">
+                                    <span>{domain.accounts_count ?? 0} accounts</span>
+                                    <span>{domain.aliases_count ?? 0} aliases</span>
+                                    {domain.dkim_selector && <span>DKIM selector: {domain.dkim_selector}</span>}
+                                </div>
+
+                                <div className="sk-email__actions">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => verify(domain)}
+                                        disabled={verifying[domain.id]}
+                                    >
+                                        <ShieldCheck size={14} /> {verifying[domain.id] ? 'Checking…' : 'Verify DNS'}
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => deploy(domain)}>
+                                        <ExternalLink size={14} /> Deploy DNS
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => remove(domain)}>
+                                        <Trash2 size={14} /> Delete
+                                    </Button>
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+// ---------- Accounts ----------
+function AccountsTab({ domains }) {
+    const toast = useToast();
+    const { confirm } = useConfirm();
+    const [domainId, setDomainId] = useState(domains[0]?.id ? String(domains[0].id) : '');
+    const [accounts, setAccounts] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [form, setForm] = useState({ username: '', password: '', quota_mb: 1024 });
+
+    const load = useCallback(async () => {
+        if (!domainId) { setAccounts([]); return; }
+        setLoading(true);
+        try {
+            const res = await api.getEmailAccounts(domainId);
+            setAccounts(res?.accounts || res || []);
+        } catch {
+            setAccounts([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [domainId]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const create = async (e) => {
+        e.preventDefault();
+        if (!form.username.trim() || !form.password) return;
+        try {
+            await api.createEmailAccount(domainId, form);
+            toast.success('Account created');
+            setForm({ username: '', password: '', quota_mb: 1024 });
+            load();
+        } catch {
+            toast.error('Create failed');
+        }
+    };
+
+    const remove = async (account) => {
+        const ok = await confirm({
+            title: 'Delete account',
+            message: `Delete ${account.email}?`,
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
+        try {
+            await api.deleteEmailAccount(account.id);
+            toast.success('Account deleted');
+            load();
+        } catch {
+            toast.error('Delete failed');
+        }
+    };
+
+    if (domains.length === 0) {
+        return (
+            <div className="sk-email__empty">
+                <Users size={24} aria-hidden="true" />
+                <p>Add a mail domain first.</p>
+            </div>
+        );
+    }
+
+    return (
+        <section className="sk-email__section">
+            <div className="sk-email__filters">
+                <label>
+                    Domain
+                    <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
+                        {domains.map((d) => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
+                    </select>
+                </label>
+            </div>
+
+            <form className="sk-email__add" onSubmit={create}>
+                <Input
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    placeholder="username"
+                    aria-label="Mailbox username"
+                />
+                <Input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="password"
+                    aria-label="Mailbox password"
+                />
+                <Input
+                    type="number"
+                    value={form.quota_mb}
+                    onChange={(e) => setForm({ ...form, quota_mb: Number(e.target.value) })}
+                    placeholder="Quota (MB)"
+                    aria-label="Quota in MB"
+                />
+                <Button type="submit" size="sm"><Plus size={14} /> Create</Button>
+            </form>
+
+            {loading ? (
+                <div className="sk-email__empty">Loading…</div>
+            ) : accounts.length === 0 ? (
+                <div className="sk-email__empty">No accounts in this domain.</div>
+            ) : (
+                <table className="sk-email__table">
+                    <thead>
+                        <tr><th>Address</th><th>Quota</th><th>State</th><th aria-label="Actions" /></tr>
+                    </thead>
+                    <tbody>
+                        {accounts.map((account) => (
+                            <tr key={account.id}>
+                                <td>{account.email}</td>
+                                <td>{account.quota_used_mb ?? 0} / {account.quota_mb ?? 0} MB</td>
+                                <td><Pill kind={account.is_active ? 'green' : 'gray'}>{account.is_active ? 'Active' : 'Disabled'}</Pill></td>
+                                <td className="sk-email__actions">
+                                    <Button variant="ghost" size="sm" onClick={() => remove(account)}>
+                                        <Trash2 size={14} /> Delete
+                                    </Button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </section>
+    );
+}
+
+// ---------- Relay (smarthost) ----------
+function RelayTab() {
+    const toast = useToast();
+    const [relay, setRelay] = useState({ host: '', port: 587, username: '', password: '', enabled: false });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let alive = true;
+        api.getEmailRelay()
+            .then((res) => { if (alive) setRelay((r) => ({ ...r, ...(res?.relay || res || {}) })); })
+            .catch(() => { /* defaults */ })
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, []);
+
+    const save = async (e) => {
+        e.preventDefault();
+        try {
+            await api.updateEmailRelay(relay);
+            toast.success('Relay saved');
+        } catch {
+            toast.error('Save failed');
+        }
+    };
+
+    const test = async () => {
+        try {
+            await api.testEmailRelay(relay);
+            toast.success('Relay reachable');
+        } catch {
+            toast.error('Relay test failed');
+        }
+    };
+
+    const disable = async () => {
+        try {
+            await api.disableEmailRelay();
+            setRelay((r) => ({ ...r, enabled: false }));
+            toast.success('Relay disabled');
+        } catch {
+            toast.error('Failed to disable relay');
+        }
+    };
+
+    if (loading) return <div className="sk-email__empty">Loading…</div>;
+
+    return (
+        <section className="sk-email__section">
+            <h2 className="sk-email__section-title"><Send size={16} /> Outbound relay (smarthost)</h2>
+            <form className="sk-email__form" onSubmit={save}>
+                <label>Host<Input value={relay.host || ''} onChange={(e) => setRelay({ ...relay, host: e.target.value })} placeholder="smtp.provider.com" /></label>
+                <label>Port<Input type="number" value={relay.port || 587} onChange={(e) => setRelay({ ...relay, port: Number(e.target.value) })} /></label>
+                <label>Username<Input value={relay.username || ''} onChange={(e) => setRelay({ ...relay, username: e.target.value })} /></label>
+                <label>Password<Input type="password" value={relay.password || ''} onChange={(e) => setRelay({ ...relay, password: e.target.value })} /></label>
+                <label className="sk-email__check">
+                    <input type="checkbox" checked={!!relay.enabled} onChange={(e) => setRelay({ ...relay, enabled: e.target.checked })} />
+                    Enable relay
+                </label>
+                <div className="sk-email__actions">
+                    <Button type="submit" size="sm">Save</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={test}>Test</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={disable}>Disable</Button>
+                </div>
+            </form>
+        </section>
+    );
+}
+
+// ---------- Spam ----------
+function SpamTab() {
+    const toast = useToast();
+    const [config, setConfig] = useState({ enabled: true, required_score: 5 });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let alive = true;
+        api.getSpamConfig()
+            .then((res) => { if (alive) setConfig((c) => ({ ...c, ...(res?.config || res || {}) })); })
+            .catch(() => { /* defaults */ })
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, []);
+
+    const save = async (e) => {
+        e.preventDefault();
+        try {
+            await api.updateSpamConfig(config);
+            toast.success('Spam config saved');
+        } catch {
+            toast.error('Save failed');
+        }
+    };
+
+    const updateRules = async () => {
+        try {
+            await api.updateSpamRules();
+            toast.success('Rule update started');
+        } catch {
+            toast.error('Rule update failed');
+        }
+    };
+
+    if (loading) return <div className="sk-email__empty">Loading…</div>;
+
+    return (
+        <section className="sk-email__section">
+            <h2 className="sk-email__section-title"><Filter size={16} /> SpamAssassin</h2>
+            <form className="sk-email__form" onSubmit={save}>
+                <label className="sk-email__check">
+                    <input type="checkbox" checked={!!config.enabled} onChange={(e) => setConfig({ ...config, enabled: e.target.checked })} />
+                    Enable spam filtering
+                </label>
+                <label>Required score<Input type="number" step="0.1" value={config.required_score ?? 5} onChange={(e) => setConfig({ ...config, required_score: Number(e.target.value) })} /></label>
+                <div className="sk-email__actions">
+                    <Button type="submit" size="sm">Save</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={updateRules}>Update rules</Button>
+                </div>
+            </form>
+        </section>
+    );
+}
+
+// ---------- Webmail ----------
+function WebmailTab() {
+    const toast = useToast();
+    const [state, setState] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        try {
+            const res = await api.getWebmailStatus();
+            setState(res?.status || res || null);
+        } catch {
+            setState(null);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    const install = async () => {
+        try {
+            await api.installWebmail();
+            toast.success('Webmail install started');
+            load();
+        } catch {
+            toast.error('Install failed');
+        }
+    };
+
+    const control = async (action) => {
+        try {
+            await api.controlWebmail(action);
+            toast.success(`Webmail: ${action}`);
+            load();
+        } catch {
+            toast.error(`Failed to ${action} webmail`);
+        }
+    };
+
+    if (loading) return <div className="sk-email__empty">Loading…</div>;
+
+    const installed = state?.installed ?? state?.is_installed;
+    const running = state?.running;
+
+    return (
+        <section className="sk-email__section">
+            <h2 className="sk-email__section-title"><Inbox size={16} /> Roundcube webmail</h2>
+            {!installed ? (
+                <div className="sk-email__empty">
+                    <p>Webmail is not installed.</p>
+                    <Button size="sm" onClick={install}><Plus size={14} /> Install webmail</Button>
+                </div>
+            ) : (
+                <div className="sk-email__actions">
+                    <Pill kind={running ? 'green' : 'red'}>{running ? 'Running' : 'Stopped'}</Pill>
+                    <Button variant="outline" size="sm" onClick={() => control(running ? 'restart' : 'start')}>
+                        {running ? 'Restart' : 'Start'}
+                    </Button>
+                    {running && <Button variant="ghost" size="sm" onClick={() => control('stop')}>Stop</Button>}
+                </div>
+            )}
+        </section>
+    );
+}
+
+// ---------- Mail queue ----------
+function QueueTab() {
+    const toast = useToast();
+    const [queue, setQueue] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.getMailQueue();
+            setQueue(res?.queue || res || []);
+        } catch {
+            setQueue([]);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    const flush = async () => {
+        try {
+            await api.flushMailQueue();
+            toast.success('Queue flushed');
+            load();
+        } catch {
+            toast.error('Flush failed');
+        }
+    };
+
+    const remove = async (id) => {
+        try {
+            await api.deleteMailQueueItem(id);
+            load();
+        } catch {
+            toast.error('Delete failed');
+        }
+    };
+
+    return (
+        <section className="sk-email__section">
+            <div className="sk-email__actions">
+                <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /> Refresh</Button>
+                <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
+            </div>
+
+            {loading ? (
+                <div className="sk-email__empty">Loading…</div>
+            ) : queue.length === 0 ? (
+                <div className="sk-email__empty">
+                    <Inbox size={24} aria-hidden="true" />
+                    <p>The mail queue is empty.</p>
+                </div>
+            ) : (
+                <table className="sk-email__table">
+                    <thead>
+                        <tr><th>ID</th><th>Sender</th><th>Recipient</th><th>Size</th><th aria-label="Actions" /></tr>
+                    </thead>
+                    <tbody>
+                        {queue.map((item) => (
+                            <tr key={item.id || item.queue_id}>
+                                <td className="sk-email__mono">{item.id || item.queue_id}</td>
+                                <td>{item.sender || '—'}</td>
+                                <td>{item.recipient || '—'}</td>
+                                <td>{item.size || '—'}</td>
+                                <td className="sk-email__actions">
+                                    <Button variant="ghost" size="sm" onClick={() => remove(item.id || item.queue_id)}>
+                                        <Trash2 size={14} /> Delete
+                                    </Button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </section>
+    );
+}

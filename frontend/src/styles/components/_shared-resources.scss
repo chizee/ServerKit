@@ -375,36 +375,18 @@
         display: flex;
         flex-direction: column;
         gap: $space-4;
-  ty for '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.1|Debug|Parser|Quality parsed: Unknown v1
-2026-07-07 12:00:05.1|Debug|Parser|Release Group parsed: Anime Time
-2026-07-07 12:00:05.1|Debug|Parser|Parsing string '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.1|Debug|Parser|Episode Parsed. Attack on Titan - Season 04 
-2026-07-07 12:00:05.1|Debug|Parser|Languages parsed: Unknown
-2026-07-07 12:00:05.1|Debug|QualityParser|Trying to parse quality for '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.1|Debug|Parser|Quality parsed: Unknown v1
-2026-07-07 12:00:05.1|Debug|Parser|Release Group parsed: Anime Time
-2026-07-07 12:00:05.1|Debug|Parser|Parsing string '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.1|Debug|Parser|Episode Parsed. Attack on Titan - Season 04 
-2026-07-07 12:00:05.1|Debug|Parser|Languages parsed: Unknown
-2026-07-07 12:00:05.1|Debug|QualityParser|Trying to parse quality for '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.1|Debug|Parser|Quality parsed: Unknown v1
-2026-07-07 12:00:05.1|Debug|Parser|Release Group parsed: Anime Time
-2026-07-07 12:00:05.1|Debug|Parser|Parsing string '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.1|Debug|Parser|Episode Parsed. Attack on Titan - Season 04 
-2026-07-07 12:00:05.2|Debug|Parser|Languages parsed: Unknown
-2026-07-07 12:00:05.2|Debug|QualityParser|Trying to parse quality for '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.2|Debug|Parser|Quality parsed: Unknown v1
-2026-07-07 12:00:05.2|Debug|Parser|Release Group parsed: Anime Time
-2026-07-07 12:00:05.2|Debug|Parser|Parsing string '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.2|Debug|Parser|Episode Parsed. Attack on Titan - Season 04 
-2026-07-07 12:00:05.2|Debug|Parser|Languages parsed: Unknown
-2026-07-07 12:00:05.2|Debug|QualityParser|Trying to parse quality for '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.2|Debug|Parser|Quality parsed: Unknown v1
-2026-07-07 12:00:05.2|Debug|Parser|Release Group parsed: Anime Time
-2026-07-07 12:00:05.2|Debug|Parser|Parsing string '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.2|Debug|Parser|Episode Parsed. Attack on Titan - Season 04 
-2026-07-07 12:00:05.2|Debug|Parser|Languages parsed: Unknown
-2026-07-07 12:00:05.2|Debug|QualityParser|Trying to parse quality for '[Anime Time] Attack on Titan Season 4 - Finale 2'
-2026-07-07 12:00:05.2|Debug|Parser|Quality parsed: Unknown v1
-2026-07-07 12:00:05.2|Debug|Pars
+
+        &-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: $space-3;
+        }
+    }
+
+    &__desc {
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+        margin: 0;
+    }
+}
