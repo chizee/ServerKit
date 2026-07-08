@@ -376,3 +376,17 @@ def seed_builtin_schedules():
         bandwidth_service.BANDWIDTH_SCHEDULE_NAME, bandwidth_service.BANDWIDTH_JOB_KIND,
         interval_seconds=86400, startup_delay_seconds=1800,
     )
+    # Daily host "doctor" health sweep — handler registered by
+    # DoctorService.register_jobs() at boot.
+    from app.services.doctor_service import DOCTOR_JOB_KIND, DOCTOR_SCHEDULE_NAME
+    ScheduledJobService.ensure(
+        DOCTOR_SCHEDULE_NAME, DOCTOR_JOB_KIND,
+        interval_seconds=86400, startup_delay_seconds=600,
+    )
+    # Weekly setup-health nag (plan 22) — handler registered by
+    # SetupHealthService.register_jobs() at boot.
+    from app.services.setup_health_service import NAG_JOB_KIND, NAG_SCHEDULE_NAME
+    ScheduledJobService.ensure(
+        NAG_SCHEDULE_NAME, NAG_JOB_KIND,
+        interval_seconds=604800, startup_delay_seconds=3600,
+    )
