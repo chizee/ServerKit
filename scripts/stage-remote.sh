@@ -507,13 +507,18 @@ sr_check_migration_head() {
         sr_check migration skip "no venv"
         return
     fi
+    # Revision IDs are the descriptive slugs ServerKit uses (e.g.
+    # ``074_cf_ops_changes``), not Alembic's default hex hashes — so take the
+    # first whitespace-delimited token of the first non-empty line (strips the
+    # trailing `` (head)``). ``|| true`` keeps an empty result from tripping
+    # ``set -e`` and skipping the verdict.
     local cur head
     cur="$( cd "$STAGE_DIR/backend" && \
         DATABASE_URL="sqlite:///$SR_DB" FLASK_ENV=production \
-        "$SR_VENV/bin/flask" db current 2>/dev/null | grep -oiE '[0-9a-f]{8,}' | head -1 )"
+        "$SR_VENV/bin/flask" db current 2>/dev/null | awk 'NF{print $1; exit}' || true )"
     head="$( cd "$STAGE_DIR/backend" && \
         DATABASE_URL="sqlite:///$SR_DB" FLASK_ENV=production \
-        "$SR_VENV/bin/flask" db heads 2>/dev/null | grep -oiE '[0-9a-f]{8,}' | head -1 )"
+        "$SR_VENV/bin/flask" db heads 2>/dev/null | awk 'NF{print $1; exit}' || true )"
     if [ -n "$cur" ] && [ "$cur" = "$head" ]; then
         sr_check migration pass "$cur"
     else
