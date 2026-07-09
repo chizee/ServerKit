@@ -340,6 +340,10 @@ def create_app(config_name=None):
     from app.api.servers import servers_bp
     app.register_blueprint(servers_bp, url_prefix='/api/v1/servers')
 
+    # Register blueprints - Server Survey (read-only "flights" over a paired agent)
+    from app.api.survey import survey_bp
+    app.register_blueprint(survey_bp, url_prefix='/api/v1/servers')
+
     # Register blueprints - Fleet Monitor (Cross-server monitoring)
     from app.api.fleet_monitor import fleet_monitor_bp
     app.register_blueprint(fleet_monitor_bp, url_prefix='/api/v1/fleet-monitor')
