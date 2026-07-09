@@ -126,6 +126,11 @@ def test_copy_files_uses_staged_docroot(app, imports_base, monkeypatch):
                         role='admin', is_active=True))
     db.session.commit()
 
+    # _step_create_app provisions the app root under paths.APPS_DIR, which
+    # defaults to /var/serverkit/apps — not writable on the CI runner. Point it
+    # at the tmp import base (same pattern as test_site_import.py's apps_dir).
+    monkeypatch.setattr('app.paths.APPS_DIR', os.path.join(imports_base, 'apps'))
+
     monkeypatch.setattr(GenericSshImporter, 'pull', _fake_pull)
     imp = SiteImportService.create('ssh', dict(SSH_SOURCE))
     SiteImportService.analyze(imp)
