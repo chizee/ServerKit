@@ -57,6 +57,9 @@ FROM_SERVICE_PROPERTIES = (
     'connectionString', 'host', 'port', 'database', 'username', 'password', 'url',
 )
 
+# Appliance tier (plan 35): a service's own advertised identity.
+FROM_SERVER_PROPERTIES = ('publicIp', 'hostname')
+
 BACKUP_SCHEDULES = ('hourly', 'daily', 'weekly', 'monthly')
 
 # Appliance tier (plan 35): typed L4 port publishes.
@@ -214,6 +217,14 @@ MANIFEST_SCHEMA: Dict[str, Any] = {
                     "properties": {
                         "name": {"type": "string"},
                         "property": {"enum": list(FROM_SERVICE_PROPERTIES)},
+                    },
+                },
+                "fromServer": {
+                    "type": "object",
+                    "required": ["property"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "property": {"enum": list(FROM_SERVER_PROPERTIES)},
                     },
                 },
                 "generate": {"type": "boolean"},
@@ -672,18 +683,21 @@ class ManifestSpecService:
 
         from_secret = cls._alias(var, 'fromSecret', 'from_secret')
         from_service = cls._alias(var, 'fromService', 'from_service')
+        from_server = cls._alias(var, 'fromServer', 'from_server')
         has_value = 'value' in var and var.get('value') is not None
         generate = bool(var.get('generate'))
 
-        sources = [s for s in (has_value, bool(from_secret), bool(from_service), generate) if s]
+        sources = [s for s in (has_value, bool(from_secret), bool(from_service),
+                               generate, bool(from_server)) if s]
         if len(sources) > 1:
             errors.append(
                 f'{where}: env `{key}` must declare exactly one of '
-                'value/fromSecret/fromService/generate'
+                'value/fromSecret/fromService/fromServer/generate'
             )
 
         source = 'placeholder'
         service_ref = None
+        server_ref = None
         if has_value:
             source = 'value'
         elif from_secret:
@@ -696,6 +710,9 @@ class ManifestSpecService:
                 'name': from_service.get('name'),
                 'property': from_service.get('property'),
             }
+        elif isinstance(from_server, dict):
+            source = 'server'
+            server_ref = {'property': from_server.get('property') or 'publicIp'}
 
         return {
             'key': key,
@@ -703,6 +720,7 @@ class ManifestSpecService:
             'value': var.get('value') if has_value else None,
             'secret_name': from_secret or None,
             'service_ref': service_ref,
+            'server_ref': server_ref,
             'secret': source in ('secret', 'generate') or bool(var.get('secret')),
         }
 

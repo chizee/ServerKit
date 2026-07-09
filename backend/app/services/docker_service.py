@@ -782,6 +782,24 @@ class DockerService:
             return {'success': False, 'error': str(e)}
 
     @staticmethod
+    def ensure_network(name, driver='bridge'):
+        """Idempotently ensure a Docker network exists (appliance tier, plan 35).
+
+        The shared external ``serverkit`` network lets manifest-generated app
+        projects resolve each other by container name (fromService.host)."""
+        try:
+            inspect = subprocess.run(
+                ['docker', 'network', 'inspect', name],
+                capture_output=True, text=True)
+            if inspect.returncode == 0:
+                return {'success': True, 'existed': True}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+        created = DockerService.create_network(name, driver=driver)
+        created['existed'] = False
+        return created
+
+    @staticmethod
     def remove_network(network_id):
         """Remove a Docker network."""
         try:
@@ -1221,7 +1239,7 @@ class DockerService:
     @staticmethod
     def create_docker_app(app_path, app_name, image, ports=None, volumes=None, env=None,
                           named_volumes=None, cpu_limit=None, memory_limit=None,
-                          host_requirements=None):
+                          host_requirements=None, networks=None):
         """Create a Docker-based application with docker-compose.
 
         ``named_volumes`` is a list of managed Docker volume names to declare as
@@ -1282,6 +1300,14 @@ class DockerService:
                     svc['sysctls'] = dict(hr['sysctls'])
                 if hr.get('devices'):
                     svc['devices'] = list(hr['devices'])
+
+            if networks:
+                # Attach to shared external network(s) so manifest apps resolve
+                # each other by container name (fromService.host, plan 35).
+                for net in networks:
+                    DockerService.ensure_network(net)
+                compose['services'][app_name]['networks'] = list(networks)
+                compose['networks'] = {net: {'external': True} for net in networks}
 
             compose_path = os.path.join(app_path, 'docker-compose.yml')
             with open(compose_path, 'w') as f:

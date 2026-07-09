@@ -271,6 +271,15 @@
             }
           }
         },
+        "fromServer": {
+          "description": "Reference to the service's own target server identity (appliance tier). publicIp is what a NAT'd media/WebRTC bridge must advertise to clients.",
+          "type": "object",
+          "required": ["property"],
+          "additionalProperties": false,
+          "properties": {
+            "property": { "type": "string", "enum": ["publicIp", "hostname"] }
+          }
+        },
         "generate": {
           "description": "When true, ServerKit generates a random value on first apply, stores it as a vault secret, and rewires this entry as a fromSecret reference.",
           "type": "boolean"

@@ -166,7 +166,24 @@ Each entry has a `key` plus **exactly one** value source:
 | `value: <literal>` | A non-secret literal. Secrets never live in the manifest. |
 | `fromSecret: <name>` | Reference to a vault secret by name. Resolved at injection time; the value never lands in the env row and masking stays intact. A missing secret is a **plan-time** error. |
 | `fromService: { name, property }` | Reference to a sibling service's connection property. For db services: `connectionString`, `host`, `port`, `database`, `username`, `password`. For app services: `host`, `port`, `url`. |
+| `fromServer: { property }` | The service's own advertised identity — `publicIp` or `hostname`. `publicIp` is what a NAT'd media/WebRTC bridge must advertise to clients. Resolves against the target server (or the panel host); a missing IP is a plan-time blocker (`fromserver_no_ip`). |
 | `generate: true` | On first apply ServerKit generates a random value, stores it as a vault secret, and rewires the entry as a `fromSecret` reference — a committable manifest with zero secrets in git. |
+
+## Addressing
+
+- **In a unit** — containers reach each other by their short name on the unit's
+  private (compose default) network.
+- **Across apps** — a manifest app resolves a sibling app by its service name
+  (`fromService: { name, property: host }`). ServerKit attaches manifest-generated
+  projects to a shared external `serverkit` docker network (created idempotently
+  via `DockerService.ensure_network`), so that name resolves at runtime.
+- **Public IP** — `fromServer: { property: publicIp }` (or the
+  `${SERVER_PUBLIC_IP}` template magic var) binds the host's advertised address —
+  the WebRTC/NAT need.
+
+**Static egress IPs are out of scope.** Advertising an inbound IP is container
+config; pinning the *source* IP of outbound traffic is network infrastructure
+(secondary IPs, SNAT) that lives below the manifest.
 
 ## Disks & backups
 

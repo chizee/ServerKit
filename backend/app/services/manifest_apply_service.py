@@ -378,6 +378,11 @@ class ManifestApplyService:
                 desired = {'kind': 'service', 'service': sr['name'], 'property': sr['property']}
                 if cls._ref_changed(live_vars.get(key), desired):
                     steps.append(cls._set_env_ref_step(name, app, key, desired))
+            elif source == 'server':
+                sv = ref['server_ref']
+                desired = {'kind': 'server', 'property': sv['property']}
+                if cls._ref_changed(live_vars.get(key), desired):
+                    steps.append(cls._set_env_ref_step(name, app, key, desired))
 
         # disks
         for disk in resolved.get('disks', []):
@@ -498,11 +503,25 @@ class ManifestApplyService:
             if resolved.get('kind') != 'app':
                 continue
             name = resolved['name']
+            server_ref = resolved.get('server')
+
+            # fromServer publicIp must resolve (plan 35) — independent of the
+            # other appliance features; a service may bind only its own IP.
+            needs_ip = any(
+                r.get('source') == 'server'
+                and (r.get('server_ref') or {}).get('property') == 'publicIp'
+                for r in resolved.get('env_refs') or [])
+            if needs_ip and not cls._server_public_ip(server_ref):
+                where = f'server {server_ref}' if server_ref else 'the panel host'
+                blockers.append({
+                    'kind': 'fromserver_no_ip', 'service': name,
+                    'message': f'service {name} binds its public IP via fromServer, but '
+                               f'{where} has no recorded public IP — set it, then re-apply.'})
+
             feats = cls._service_features(resolved)
             if not feats:
                 continue
             need = ' and '.join(feats)
-            server_ref = resolved.get('server')
 
             # Remote target: appliance apply runs on the panel host only (plan 17's
             # remote-dispatch deferral). Say so instead of half-deploying.
@@ -643,6 +662,18 @@ class ManifestApplyService:
         return (ContainerRegistry.query.filter_by(id=name).first()
                 if str(name).isdigit() else None) \
             or ContainerRegistry.query.filter_by(name=name).first()
+
+    @classmethod
+    def _server_public_ip(cls, server_ref: Optional[str]) -> Optional[str]:
+        """Advertised public IP of the manifest target (panel host by default)."""
+        if server_ref:
+            srv = cls._resolve_server_obj(server_ref)
+            return getattr(srv, 'ip_address', None) if srv else None
+        try:
+            from app.services.site_domain_service import SiteDomainService
+            return SiteDomainService.server_ip()
+        except Exception:
+            return None
 
     @staticmethod
     def _registry_has_credential(reg) -> bool:

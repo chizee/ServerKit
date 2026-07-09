@@ -56,6 +56,13 @@ awaiting a stable release:
   are listed in plain words in the plan and written to a
   `manifest.host_requirements` audit line on apply — never applied silently;
   `kernelModules` are an advisory `/proc/modules` check.
+- **Appliance tier — network identity** — an env var can bind the service's own
+  advertised address with `fromServer: { property: publicIp|hostname }` (the
+  WebRTC/NAT need; a missing IP is a `fromserver_no_ip` blocker), and templates
+  gain a `${SERVER_PUBLIC_IP}` magic variable. Manifest-generated app projects
+  now attach to a shared external `serverkit` docker network (created
+  idempotently), so a `fromService` host reference resolves cross-app by
+  container name at runtime. Static egress IPs remain out of scope (documented).
 - **New Service wizard clarity** — each source card now shows a short explainer
   strip when selected (what it does, what to have ready, the next steps), and a
   "Docs" link to the matching serverkit.ai guide (hidden under White Label). The

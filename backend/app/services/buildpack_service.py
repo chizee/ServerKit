@@ -662,7 +662,8 @@ class BuildpackService:
     @classmethod
     def generate_compose(cls, plan: Dict, app_name: str, extra_ports: Optional[list] = None,
                          volumes: Optional[list] = None,
-                         named_volumes: Optional[list] = None) -> str:
+                         named_volumes: Optional[list] = None,
+                         networks: Optional[list] = None) -> str:
         """Return a docker-compose snippet wrapping the generated image.
 
         Appliance tier (plan 35): ``extra_ports`` are raw compose publish
@@ -690,10 +691,19 @@ class BuildpackService:
             lines.append('    volumes:')
             for spec in volumes:
                 lines.append(f'      - "{spec}"')
+        if networks:
+            lines.append('    networks:')
+            for net in networks:
+                lines.append(f'      - {net}')
         if named_volumes:
             lines.append('volumes:')
             for name in named_volumes:
                 lines.append(f'  {name}: {{}}')
+        if networks:
+            lines.append('networks:')
+            for net in networks:
+                lines.append(f'  {net}:')
+                lines.append('    external: true')
         return '\n'.join(lines) + '\n'
 
     # ------------------------------------------------------------------ #
