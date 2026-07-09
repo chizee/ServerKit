@@ -44,6 +44,7 @@ from app.models.workspace import Workspace, WorkspaceMember, WorkspaceApiKey, Re
 from app.models.dns_zone import DNSZone, DNSRecord
 from app.models.managed_dns_record import ManagedDnsRecord
 from app.models.dns_change import DnsChange
+from app.models.cf_ops_change import CfOpsChange
 from app.models.tunnel import Tunnel
 from app.models.exposed_service import ExposedService
 from app.models.status_page import StatusPage, StatusComponent, HealthCheck, StatusIncident, StatusIncidentUpdate
@@ -63,6 +64,7 @@ from app.models.backup_run import BackupRun
 from app.models.restore_drill import RestoreDrill
 from app.queue_bus.models import QueueGroup, Queue, QueueMessage
 from app.notifications.models import Notification, NotificationDelivery
+from app.models.email_bounce import EmailBounceState
 from app.models.email_provider import EmailProviderConnection
 from app.models.chat_webhook import ChatWebhookConnection
 from app.models.system_event import SystemEvent
@@ -91,7 +93,7 @@ __all__ = [
     'AgentPlugin', 'AgentPluginInstall',
     'ServerTemplate', 'ServerTemplateAssignment',
     'Workspace', 'WorkspaceMember', 'WorkspaceApiKey', 'ResourceGrant',
-    'DNSZone', 'DNSRecord', 'ManagedDnsRecord', 'DnsChange',
+    'DNSZone', 'DNSRecord', 'ManagedDnsRecord', 'DnsChange', 'CfOpsChange',
     'Tunnel', 'ExposedService',
     'StatusPage', 'StatusComponent', 'HealthCheck', 'StatusIncident', 'StatusIncidentUpdate',
     'CloudProvider', 'CloudServer', 'CloudSnapshot',
@@ -107,6 +109,7 @@ __all__ = [
     'BackupPolicy', 'BackupRun', 'RestoreDrill',
     'QueueGroup', 'Queue', 'QueueMessage',
     'Notification', 'NotificationDelivery',
+    'EmailBounceState',
     'EmailProviderConnection',
     'ChatWebhookConnection',
     'SystemEvent',
