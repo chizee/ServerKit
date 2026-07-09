@@ -20,6 +20,13 @@ awaiting a stable release:
 
 ### Added
 
+- **New Service wizard clarity** — each source card now shows a short explainer
+  strip when selected (what it does, what to have ready, the next steps), and a
+  "Docs" link to the matching serverkit.ai guide (hidden under White Label). The
+  demo deploy template moved out of the wizard into a shared module: the
+  Templates tab gains a **Deploy templates** section with a "Use template"
+  action that deep-links into the wizard with the template preselected
+  (`/services/new?template=<id>`), so there is one list with two entry points.
 - **Install extensions straight from GitHub, with a preview + consent step** —
   the manual-install URL flow is now two-step: paste a repo (`owner/repo`,
   `owner/repo@tag`, a release URL, or a direct `.zip`), **Preview** resolves and

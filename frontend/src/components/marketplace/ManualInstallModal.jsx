@@ -14,6 +14,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import DocsLink from '@/components/DocsLink';
 
 const INSTALL_SOURCES = [
     { id: 'url', label: 'URL', icon: Globe2 },
@@ -206,6 +207,7 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
                         <h3>Extension source</h3>
                         <p className="text-muted">Load extension packages from a repository, host folder, or zip archive.</p>
                     </div>
+                    <DocsLink to="extensionsInstalling" className="plugin-install-form__docs" />
                 </div>
 
                 <div className="plugin-install-tabs" role="tablist" aria-label="Extension install source">
