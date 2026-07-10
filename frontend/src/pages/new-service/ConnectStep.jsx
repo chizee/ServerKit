@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    ArrowRight, CheckCircle2, FileArchive, GitBranch, Info,
-    Package, RefreshCw, Search, Settings2,
+    FileArchive, GitBranch, Info, Package, RefreshCw, Search, Settings2,
 } from 'lucide-react';
 import { SiGithub } from 'react-icons/si';
 import { Button } from '@/components/ui/button';
@@ -11,8 +10,25 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { SOURCE_NEEDS } from './useNewServiceForm';
 
-// Templates flagged as featured get a badge in the picker.
-const FEATURED_TEMPLATES = ['agentsite'];
+// Curated ordering for the gallery: these float to the front (in this order),
+// everything else follows alphabetically. `agentsite` is also badged "Featured".
+const FEATURED_ORDER = [
+    'agentsite', 'wordpress', 'nextcloud', 'grafana', 'portainer',
+    'uptime-kuma', 'gitea', 'n8n', 'vaultwarden', 'jellyfin',
+];
+const FEATURED_BADGE = ['agentsite'];
+const COLLAPSED_COUNT = 8; // ~two rows of four before "Show all"
+
+function orderTemplates(list) {
+    return [...list].sort((a, b) => {
+        const ai = FEATURED_ORDER.indexOf(a.id);
+        const bi = FEATURED_ORDER.indexOf(b.id);
+        const aw = ai === -1 ? 999 : ai;
+        const bw = bi === -1 ? 999 : bi;
+        if (aw !== bw) return aw - bw;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+}
 
 // Template icon with a graceful fallback to a Package glyph if the inline/URL
 // icon is missing or fails to load.
@@ -21,7 +37,76 @@ const TemplateIcon = ({ template }) => {
     if (template.icon && !failed) {
         return <img src={template.icon} alt="" onError={() => setFailed(true)} />;
     }
-    return <Package size={22} />;
+    return <Package size={20} />;
+};
+
+// A mini app gallery: icon + title tiles, ~4 across. Collapsed to two rows;
+// "Show all" expands into a scrollable, searchable grid.
+const TemplateGallery = ({ templates, loading, selectedId, onPick }) => {
+    const [expanded, setExpanded] = useState(false);
+    const [query, setQuery] = useState('');
+
+    if (loading) {
+        return <div className="new-service-page__repo-state">Loading templates…</div>;
+    }
+    if (!templates.length) {
+        return <div className="new-service-page__repo-state">No templates available yet.</div>;
+    }
+
+    const q = query.trim().toLowerCase();
+    const filtered = orderTemplates(templates).filter(t => !q
+        || (t.name || '').toLowerCase().includes(q)
+        || (t.description || '').toLowerCase().includes(q)
+        || (t.categories || []).some(c => c.toLowerCase().includes(q)));
+    const visible = expanded ? filtered : filtered.slice(0, COLLAPSED_COUNT);
+    const hiddenCount = filtered.length - visible.length;
+
+    return (
+        <div className="new-service-page__tpl-gallery">
+            {expanded && (
+                <div className="new-service-page__tpl-gallery-search">
+                    <Search size={16} />
+                    <Input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search templates…"
+                        autoFocus
+                    />
+                </div>
+            )}
+            <div className={`new-service-page__tpl-gallery-grid ${expanded ? 'new-service-page__tpl-gallery-grid--scroll' : ''}`}>
+                {visible.map(template => (
+                    <button
+                        key={template.id}
+                        type="button"
+                        title={template.description || template.name}
+                        className={`new-service-page__tpl-tile ${selectedId === template.id ? 'new-service-page__tpl-tile--active' : ''}`}
+                        onClick={() => onPick(template)}
+                    >
+                        {FEATURED_BADGE.includes(template.id) && (
+                            <Badge variant="info" className="new-service-page__tpl-tile-badge">Featured</Badge>
+                        )}
+                        <span className="new-service-page__tpl-tile-icon">
+                            <TemplateIcon template={template} />
+                        </span>
+                        <span className="new-service-page__tpl-tile-name">{template.name}</span>
+                    </button>
+                ))}
+                {visible.length === 0 && (
+                    <div className="new-service-page__repo-state">No templates match “{query}”.</div>
+                )}
+            </div>
+            {(hiddenCount > 0 || expanded) && (
+                <button
+                    type="button"
+                    className="new-service-page__tpl-gallery-toggle"
+                    onClick={() => setExpanded(x => !x)}
+                >
+                    {expanded ? 'Show less' : `Show all ${filtered.length} templates`}
+                </button>
+            )}
+        </div>
+    );
 };
 
 // Step 2 — Connect. Only the source-specific input, plus the editable detected
@@ -30,7 +115,7 @@ const ConnectStep = ({ form }) => {
     const {
         sourceMode, selectSource, githubConnection, githubConfigured, reposLoading, repos, repoSearch,
         setRepoSearch, selectedRepo, setSelectedRepo, loadGithubRepos, handleConnectGithub,
-        templates, templatesLoading, selectedTemplate, selectTemplateById,
+        templates, templatesLoading, selectedTemplate, pickTemplate,
         manualRepoUrl, handleManualRepoChange, localPath, setLocalPath, composeFile,
         setComposeFile, systemdUnit, setSystemdUnit, managedBy, setManagedBy,
         uploadFile, onUploadFile, uploadDragOver, setUploadDragOver,
@@ -136,42 +221,12 @@ const ConnectStep = ({ form }) => {
 
             {sourceMode === 'template' && (
                 <div className="new-service-page__pane">
-                    {templatesLoading && <div className="new-service-page__repo-state">Loading templates…</div>}
-                    {!templatesLoading && templates.length === 0 && (
-                        <div className="new-service-page__repo-state">No deploy templates available yet.</div>
-                    )}
-                    {!templatesLoading && templates.map(template => {
-                        const active = selectedTemplate?.id === template.id;
-                        return (
-                            <button
-                                key={template.id}
-                                type="button"
-                                className={`new-service-page__template-card ${active ? 'new-service-page__template-card--active' : ''}`}
-                                onClick={() => selectTemplateById(template.id)}
-                            >
-                                <span className="new-service-page__template-card-icon">
-                                    <TemplateIcon template={template} />
-                                </span>
-                                <span className="new-service-page__template-card-body">
-                                    <span className="new-service-page__template-card-head">
-                                        <strong>{template.name}</strong>
-                                        {FEATURED_TEMPLATES.includes(template.id) && (
-                                            <Badge variant="info">Featured</Badge>
-                                        )}
-                                        {template.version && <Badge variant="outline">v{template.version}</Badge>}
-                                    </span>
-                                    <span className="new-service-page__template-card-desc">{template.description}</span>
-                                    <span className="new-service-page__template-card-meta">
-                                        {(template.categories || []).slice(0, 3).map(cat => (
-                                            <span key={cat} className="tg">{cat}</span>
-                                        ))}
-                                        {template.repo?.url && <em>{template.repo.url}</em>}
-                                    </span>
-                                </span>
-                                {active ? <CheckCircle2 size={20} /> : <ArrowRight size={20} />}
-                            </button>
-                        );
-                    })}
+                    <TemplateGallery
+                        templates={templates}
+                        loading={templatesLoading}
+                        selectedId={selectedTemplate?.id}
+                        onPick={pickTemplate}
+                    />
 
                     {/* Bring your own — no curated entry needed. Any repo with a
                         serverkit.yml / Docker Compose / Dockerfile deploys the same
@@ -186,11 +241,6 @@ const ConnectStep = ({ form }) => {
                             Use a repo URL
                         </Button>
                     </div>
-
-                    <Link to="/templates?kind=repo" className="new-service-page__pane-link">
-                        <Package size={14} />
-                        Open the full template library
-                    </Link>
                 </div>
             )}
 

@@ -460,43 +460,74 @@
         }
     }
 
-    // Richer featured template card (icon + name + preview + categories).
-    &__template-card {
+    // Mini app gallery: icon + title tiles, ~4 across. Collapsed to two rows;
+    // expands into a scrollable, searchable grid.
+    &__tpl-gallery {
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: $space-3;
+    }
+
+    &__tpl-gallery-search {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
         align-items: center;
-        gap: $space-4;
-        width: 100%;
-        padding: $space-4;
+        gap: $space-2;
+        padding: $space-2;
         background: $bg-elevated;
         border: 1px solid $border-subtle;
-        border-radius: $radius-lg;
+        border-radius: $radius-md;
+
+        > svg {
+            margin-left: $space-2;
+            color: $text-tertiary;
+        }
+    }
+
+    &__tpl-gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: $space-3;
+
+        &--scroll {
+            max-height: 440px;
+            overflow-y: auto;
+            padding-right: $space-1;
+        }
+    }
+
+    &__tpl-tile {
+        position: relative;
+        display: grid;
+        place-items: center;
+        gap: $space-2;
+        min-height: 120px;
+        padding: $space-4 $space-3;
+        background: $bg-elevated;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-md;
         color: $text-primary;
         font: inherit;
-        text-align: left;
+        text-align: center;
         cursor: pointer;
         transition: border-color $transition-fast, background $transition-fast, transform $transition-fast;
 
         &:hover {
             background: $bg-hover;
             border-color: $border-hover;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
 
         &--active {
             border-color: rgba(20, 184, 166, 0.55);
             box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.18);
-
-            > svg { color: $success; }
         }
     }
 
-    &__template-card-icon {
+    &__tpl-tile-icon {
         display: grid;
         place-items: center;
-        width: 48px;
-        height: 48px;
-        flex-shrink: 0;
+        width: 44px;
+        height: 44px;
         border-radius: $radius-lg;
         background: var(--surface-2);
         color: var(--accent-bright);
@@ -512,55 +543,33 @@
         svg { display: block; }
     }
 
-    &__template-card-body {
-        display: grid;
-        gap: 4px;
-        min-width: 0;
-    }
-
-    &__template-card-head {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-
-        strong {
-            color: $text-primary;
-            font-size: $font-size-base;
-            font-weight: $font-weight-semibold;
-        }
-    }
-
-    &__template-card-desc {
-        color: $text-tertiary;
+    &__tpl-tile-name {
+        max-width: 100%;
+        color: $text-primary;
         font-size: $font-size-sm;
-        line-height: 1.4;
-        overflow-wrap: anywhere;
+        font-weight: $font-weight-medium;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    &__template-card-meta {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        flex-wrap: wrap;
-        margin-top: 2px;
+    &__tpl-tile-badge {
+        position: absolute;
+        top: $space-2;
+        right: $space-2;
+    }
 
-        .tg {
-            padding: 1px 7px;
-            border-radius: $radius-sm;
-            background: var(--surface-2);
-            color: var(--text-dim);
-            font-size: 10.5px;
-            font-family: $font-mono;
-            text-transform: capitalize;
-        }
+    &__tpl-gallery-toggle {
+        justify-self: start;
+        padding: $space-2 0;
+        background: none;
+        border: none;
+        color: $accent-primary;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+        cursor: pointer;
 
-        em {
-            color: var(--text-faint);
-            font-size: $font-size-xs;
-            font-family: $font-mono;
-            font-style: normal;
-            overflow-wrap: anywhere;
-        }
+        &:hover { text-decoration: underline; }
     }
 
     // "Bring your own" — deploy any repo with a serverkit.yml / compose file.

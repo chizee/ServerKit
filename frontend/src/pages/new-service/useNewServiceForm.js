@@ -222,11 +222,13 @@ export function useNewServiceForm() {
         }
     }, [toast]);
 
+    // The template gallery shows the FULL catalog (repo + one-click compose), so
+    // the picker feels like a real app gallery rather than a single row.
     const loadTemplates = useCallback(async () => {
         setTemplatesLoading(true);
         try {
             const data = await api.listTemplates();
-            setTemplates((data.templates || []).filter(t => (t.kind || 'compose') === 'repo'));
+            setTemplates(data.templates || []);
         } catch (err) {
             setTemplates([]);
         } finally {
@@ -409,6 +411,17 @@ export function useNewServiceForm() {
         return false;
     }, [selectTemplate, toast]);
 
+    // Pick a template from the gallery. Repo templates continue in the wizard
+    // (they deploy from their Git repo); one-click compose templates route to
+    // their install flow on the Templates page, which is their real deploy path.
+    const pickTemplate = useCallback((template) => {
+        if ((template.kind || 'compose') === 'repo') {
+            selectTemplateById(template.id);
+        } else {
+            navigate(`/templates?install=${encodeURIComponent(template.id)}`);
+        }
+    }, [selectTemplateById, navigate]);
+
     function handleManualRepoChange(value) {
         setManualRepoUrl(value);
         if (!nameTouched) setName(repoNameFromUrl(normalizeManualRepo(value)));
@@ -543,7 +556,7 @@ export function useNewServiceForm() {
         repos, reposLoading, repoSearch, setRepoSearch, selectedRepo, setSelectedRepo,
         loadGithubRepos, handleConnectGithub, branches, branchesLoading,
         // templates
-        templates, templatesLoading, selectedTemplate, selectTemplate, selectTemplateById,
+        templates, templatesLoading, selectedTemplate, selectTemplate, selectTemplateById, pickTemplate,
         // manual / local / upload
         manualRepoUrl, handleManualRepoChange, normalizedManualRepo,
         localPath, setLocalPath, composeFile, setComposeFile,
