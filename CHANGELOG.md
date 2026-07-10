@@ -20,6 +20,20 @@ awaiting a stable release:
 
 ### Added
 
+- **`serverkit.yaml` — build services from a Dockerfile (`dockerfilePath`)** —
+  a manifest service can now declare `dockerfilePath: services/api/Dockerfile`
+  as a third image source next to buildpacks and BYO `image:`. This is the
+  monorepo path: one repository, several services, each built from its own
+  Dockerfile with the repo root as the shared build context. Apply clones the
+  project's repository (from the stored manifest's provenance, or a sibling
+  app's git deployment) and writes the same git-deployment + build config the
+  import wizard does, so the existing deploy pipeline — push webhook and
+  per-service `autoDeploy` included — takes over unchanged. Relative paths only
+  (`..`/absolute are validation errors); mutually exclusive with `image` and
+  `containers`; a project with no repository on record is a plan-time blocker
+  (`dockerfile_no_source`), and remote targets refuse like the other appliance
+  features. Scaffold round-trips it, and the import wizard seeds
+  `build_method: dockerfile` from the manifest.
 - **Appliance tier for `serverkit.yaml` — typed L4 ports + a plan-time blockers
   rail** — a service can now declare raw `ports[]` (`{port, containerPort,
   protocol: tcp|udp, expose: public|local}`) as an escape hatch for
