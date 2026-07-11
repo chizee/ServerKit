@@ -20,6 +20,19 @@ awaiting a stable release:
 
 ### Added
 
+- **Command palette is now an everything-search (F1 / Ctrl+Shift+P / Ctrl+K)** —
+  the palette went from a page-jumper to omnisearch. Type to search across pages,
+  individual **settings** (the actual card, e.g. "Require two-factor for all
+  members" or "SMTP", not just the tab), runnable **actions** (`>` prefix — New
+  Service, Add Server, Toggle theme, Sign out…), live **entities** (services,
+  servers, domains, databases, WordPress sites, cron jobs, extensions, vaults —
+  via a new authz-aware `GET /api/v1/search`), and **docs** (`?` prefix). Results
+  rank by match quality plus your own usage (per-user frecency), an empty query
+  shows Recently used, and pressing Enter on a settings result lands you on the
+  exact card — scrolled into view and briefly highlighted. VS Code's F1 and
+  Ctrl/Cmd+Shift+P now open it alongside the original Ctrl/Cmd+K. Results are
+  filtered by the same admin + workspace-nav rules as the sidebar, so a member's
+  palette never surfaces admin-only pages, settings, or actions.
 - **One-click GitHub setup (GitHub App manifest flow)** — connecting GitHub no
   longer means hand-registering an OAuth app and pasting a client id + secret.
   An admin clicks **Set up in one click** in Settings → Connections; ServerKit
