@@ -114,6 +114,34 @@ def deploy():
     return jsonify(result), 200
 
 
+# ── Starter templates ──
+
+@tramo_bp.route('/templates', methods=['GET'])
+@viewer_required
+def list_starter_templates():
+    from .templates import list_templates
+    return jsonify({'templates': list_templates()}), 200
+
+
+@tramo_bp.route('/workflows/from-template/<template_id>', methods=['POST'])
+@admin_required
+def create_from_template(template_id):
+    from .templates import get_template
+    tpl = get_template(template_id)
+    if not tpl:
+        return jsonify({'error': 'Template not found'}), 404
+    data = request.get_json(silent=True) or {}
+    try:
+        wf = WorkflowStore.create(
+            name=data.get('name') or tpl['name'],
+            doc=tpl['doc'],
+            enabled=data.get('enabled', True),
+        )
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    return jsonify(wf.to_dict(include_doc=True)), 201
+
+
 # ── Runs / approvals (proxied to the engine) ──
 
 @tramo_bp.route('/workflows/<slug>/run', methods=['POST'])
