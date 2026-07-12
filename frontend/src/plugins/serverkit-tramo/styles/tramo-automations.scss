@@ -309,6 +309,211 @@
     }
 }
 
+/* New-automation two-column modal (portaled -> top-level scope). Kill the modal
+   body padding so the hero panel can bleed to the dialog edges. */
+.tramo-newflow-modal .sk-modal__body { padding: 0; }
+
+.tramo-newflow {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    min-height: 430px;
+}
+
+.tramo-newflow__hero {
+    padding: 28px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: linear-gradient(160deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.02));
+    border-right: 1px solid var(--border, rgba(128, 128, 128, 0.18));
+
+    &-badge {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: rgba(99, 102, 241, 0.16);
+        color: var(--accent-bright, #818cf8);
+    }
+
+    &-diagram {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 2px 0 4px;
+    }
+
+    &-node {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: rgba(128, 128, 128, 0.16);
+        color: var(--accent-bright, #818cf8);
+    }
+
+    &-line {
+        flex: 1;
+        max-width: 24px;
+        height: 2px;
+        border-radius: 2px;
+        background: rgba(128, 128, 128, 0.35);
+    }
+
+    &-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    &-text {
+        margin: 0;
+        font-size: 12.5px;
+        line-height: 1.5;
+        opacity: 0.72;
+    }
+
+    &-list {
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+
+        li {
+            position: relative;
+            padding-left: 20px;
+            font-size: 12px;
+            line-height: 1.4;
+            opacity: 0.78;
+
+            &::before {
+                content: '';
+                position: absolute;
+                left: 4px;
+                top: 6px;
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--accent-bright, #818cf8);
+            }
+        }
+    }
+}
+
+.tramo-newflow__form {
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.tramo-newflow__triggers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    &-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.6;
+    }
+}
+
+.tramo-trigger-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tramo-trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    padding: 11px 13px;
+    border-radius: 10px;
+    border: 1px solid var(--border, rgba(128, 128, 128, 0.25));
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+        border-color: rgba(99, 102, 241, 0.5);
+        background: rgba(99, 102, 241, 0.04);
+    }
+
+    &.is-selected {
+        border-color: var(--accent-bright, #6366f1);
+        background: rgba(99, 102, 241, 0.09);
+    }
+
+    &__icon {
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        background: rgba(128, 128, 128, 0.14);
+        color: var(--accent-bright, #818cf8);
+    }
+
+    &__body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    &__title {
+        font-weight: 600;
+        font-size: 13.5px;
+    }
+
+    &__sub {
+        font-size: 12px;
+        line-height: 1.35;
+        opacity: 0.65;
+    }
+
+    &__check {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        border: 1.5px solid var(--border, rgba(128, 128, 128, 0.45));
+        color: #fff;
+    }
+
+    &.is-selected &__check {
+        background: var(--accent-bright, #6366f1);
+        border-color: var(--accent-bright, #6366f1);
+    }
+}
+
+@media (max-width: 640px) {
+    .tramo-newflow {
+        grid-template-columns: 1fr;
+        min-height: 0;
+    }
+
+    .tramo-newflow__hero {
+        display: none;
+    }
+}
+
 /* ── Full-bleed editor page (route automations/edit/:slug, layout "full") ── */
 .tramo-editor-page {
     height: 100%;

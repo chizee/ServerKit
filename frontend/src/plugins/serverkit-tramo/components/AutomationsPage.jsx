@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     Workflow, RefreshCw, Plus, Trash2, Rocket, Pencil, Play, LayoutTemplate,
     Server, Power, KeyRound, CheckCircle2, X, Send, Github, MessageSquare,
-    Zap, ChevronRight,
+    Zap, ChevronRight, MousePointerClick, Clock, Webhook, Check,
 } from 'lucide-react';
 import api from '@/services/api';
 import { PageTopbar, Pill } from '@/components/ds';
@@ -34,6 +34,33 @@ const TEMPLATE_META = {
     'panel-event-discord': { Icon: MessageSquare, brand: 'discord', tags: ['Events', 'Discord'] },
 };
 const DEFAULT_TEMPLATE_META = { Icon: Zap, brand: 'default', tags: [] };
+
+// Trigger choices for a new workflow. Each seeds a valid builtin tramo trigger
+// node so the editor opens with the trigger already placed. Panel events arrive
+// at a webhook-trigger on the /sk/events path (the events bridge posts there),
+// so no custom node type is needed.
+const TRIGGERS = [
+    {
+        id: 'manual', Icon: MousePointerClick, title: 'Manually trigger',
+        subtitle: 'Run it on demand from the Automations page',
+        node: () => ({ id: 'trigger', type: 'manual-trigger', position: { x: 80, y: 120 }, config: {} }),
+    },
+    {
+        id: 'schedule', Icon: Clock, title: 'On a schedule',
+        subtitle: 'Run on a cron schedule, e.g. every night',
+        node: () => ({ id: 'trigger', type: 'cron-trigger', position: { x: 80, y: 120 }, config: { expression: '0 3 * * *' } }),
+    },
+    {
+        id: 'event', Icon: Zap, title: 'On a panel event',
+        subtitle: 'React to app, backup, health, or security events',
+        node: () => ({ id: 'trigger', type: 'webhook-trigger', position: { x: 80, y: 120 }, config: { path: '/sk/events', method: 'POST' } }),
+    },
+    {
+        id: 'webhook', Icon: Webhook, title: 'Incoming webhook',
+        subtitle: 'Trigger from an external HTTP request',
+        node: () => ({ id: 'trigger', type: 'webhook-trigger', position: { x: 80, y: 120 }, config: { path: '/hooks/my-hook', method: 'POST' } }),
+    },
+];
 
 // Run status → Pill colour.
 const runPill = (status) => {
@@ -74,6 +101,7 @@ const AutomationsPage = () => {
     const [wfLoading, setWfLoading] = useState(false);
     const [newModal, setNewModal] = useState(false);
     const [newName, setNewName] = useState('');
+    const [newTrigger, setNewTrigger] = useState('manual');
     const [templateModal, setTemplateModal] = useState(false);
     const [templates, setTemplates] = useState([]);
 
@@ -143,11 +171,21 @@ const AutomationsPage = () => {
     }, [activeTab, loadWorkflows, loadRuns, loadSettings]);
 
     // ── Workflow actions ──
+    const openNewModal = () => {
+        setNewName('');
+        setNewTrigger('manual');
+        setNewModal(true);
+    };
+
     const handleCreate = async () => {
         if (!newName.trim()) { toast.error('Name is required.'); return; }
+        const trigger = TRIGGERS.find((t) => t.id === newTrigger) || TRIGGERS[0];
+        const doc = { name: newName.trim(), nodes: [trigger.node()], edges: [] };
         setBusy(true);
         try {
-            const wf = await api.request('/tramo/workflows', { method: 'POST', body: { name: newName.trim() } });
+            const wf = await api.request('/tramo/workflows', {
+                method: 'POST', body: { name: newName.trim(), doc },
+            });
             setNewModal(false);
             setNewName('');
             toast.success(`Workflow "${wf.name}" created`);
@@ -670,7 +708,7 @@ const AutomationsPage = () => {
                 <Button variant="secondary" size="sm" onClick={openTemplateModal}>
                     <LayoutTemplate size={14} /> New from template
                 </Button>
-                <Button variant="default" size="sm" onClick={() => { setNewName(''); setNewModal(true); }}>
+                <Button variant="default" size="sm" onClick={openNewModal}>
                     <Plus size={14} /> New workflow
                 </Button>
             </>
@@ -706,22 +744,87 @@ const AutomationsPage = () => {
                 </div>
             </div>
 
-            {/* New workflow modal */}
-            <Modal open={newModal} onClose={() => setNewModal(false)} title="New workflow">
-                <div className="form-group">
-                    <Label>Name</Label>
-                    <Input
-                        type="text"
-                        value={newName}
-                        placeholder="Notify on deploy"
-                        onChange={(e) => setNewName(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
-                    />
-                    <p className="text-muted">You will land on the visual editor to design the flow.</p>
-                </div>
-                <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setNewModal(false)}>Cancel</Button>
-                    <Button variant="default" onClick={handleCreate} disabled={busy || !newName.trim()}>Create</Button>
+            {/* New workflow modal — two-column: explainer + name/trigger picker */}
+            <Modal
+                open={newModal}
+                onClose={() => setNewModal(false)}
+                title="Create an automation"
+                size="2xl"
+                className="tramo-newflow-modal"
+                footer={(
+                    <>
+                        <Button variant="outline" onClick={() => setNewModal(false)}>Cancel</Button>
+                        <Button variant="default" onClick={handleCreate} disabled={busy || !newName.trim()}>
+                            <Plus size={14} /> Create
+                        </Button>
+                    </>
+                )}
+            >
+                <div className="tramo-newflow">
+                    <aside className="tramo-newflow__hero">
+                        <span className="tramo-newflow__hero-badge"><Workflow size={26} /></span>
+                        <div className="tramo-newflow__hero-diagram" aria-hidden="true">
+                            <span className="tramo-newflow__hero-node"><Zap size={15} /></span>
+                            <span className="tramo-newflow__hero-line" />
+                            <span className="tramo-newflow__hero-node"><Workflow size={15} /></span>
+                            <span className="tramo-newflow__hero-line" />
+                            <span className="tramo-newflow__hero-node"><Send size={15} /></span>
+                        </div>
+                        <h3 className="tramo-newflow__hero-title">Automate the boring parts</h3>
+                        <p className="tramo-newflow__hero-text">
+                            Chain triggers and actions on a visual canvas that runs headless
+                            on the tramo engine. Pick a starting trigger below, then design
+                            the rest in the editor.
+                        </p>
+                        <ul className="tramo-newflow__hero-list">
+                            <li>Message yourself on Telegram when a backup fails</li>
+                            <li>Open a GitHub issue on a nightly health check</li>
+                            <li>Relay any panel event to a Discord channel</li>
+                        </ul>
+                    </aside>
+
+                    <div className="tramo-newflow__form">
+                        <div className="form-group">
+                            <Label>Automation name</Label>
+                            <Input
+                                type="text"
+                                value={newName}
+                                autoFocus
+                                placeholder="Notify me when a backup fails"
+                                onChange={(e) => setNewName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) handleCreate(); }}
+                            />
+                        </div>
+
+                        <div className="tramo-newflow__triggers">
+                            <span className="tramo-newflow__triggers-label">How should it start?</span>
+                            <div className="tramo-trigger-list" role="radiogroup" aria-label="Trigger">
+                                {TRIGGERS.map((tr) => {
+                                    const { Icon } = tr;
+                                    const selected = newTrigger === tr.id;
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={tr.id}
+                                            role="radio"
+                                            aria-checked={selected}
+                                            className={`tramo-trigger${selected ? ' is-selected' : ''}`}
+                                            onClick={() => setNewTrigger(tr.id)}
+                                        >
+                                            <span className="tramo-trigger__icon"><Icon size={18} /></span>
+                                            <span className="tramo-trigger__body">
+                                                <span className="tramo-trigger__title">{tr.title}</span>
+                                                <span className="tramo-trigger__sub">{tr.subtitle}</span>
+                                            </span>
+                                            <span className="tramo-trigger__check">
+                                                {selected && <Check size={15} />}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </Modal>
 
