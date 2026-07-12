@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Workflow, RefreshCw, Plus, Trash2, Rocket, Pencil, Play, LayoutTemplate,
-    Server, Power, KeyRound, CheckCircle2, X,
+    Server, Power, KeyRound, CheckCircle2, X, Send, Github, MessageSquare,
+    Zap, ChevronRight,
 } from 'lucide-react';
 import api from '@/services/api';
 import { PageTopbar, Pill } from '@/components/ds';
@@ -23,6 +24,16 @@ const TABS = [
     { slug: 'settings', to: '/automations/settings', label: 'Settings' },
 ];
 const VALID_TABS = TABS.map((t) => t.slug);
+
+// Presentation for the starter templates (icon + accent + tags). Keyed by the
+// backend template id; unknown ids fall back to a neutral card so new templates
+// still render cleanly.
+const TEMPLATE_META = {
+    'backup-failed-telegram': { Icon: Send, brand: 'telegram', tags: ['Backups', 'Telegram'] },
+    'nightly-health-github': { Icon: Github, brand: 'github', tags: ['Schedule', 'GitHub'] },
+    'panel-event-discord': { Icon: MessageSquare, brand: 'discord', tags: ['Events', 'Discord'] },
+};
+const DEFAULT_TEMPLATE_META = { Icon: Zap, brand: 'default', tags: [] };
 
 // Run status → Pill colour.
 const runPill = (status) => {
@@ -715,28 +726,58 @@ const AutomationsPage = () => {
             </Modal>
 
             {/* New from template modal */}
-            <Modal open={templateModal} onClose={() => setTemplateModal(false)} title="New from template">
+            <Modal
+                open={templateModal}
+                onClose={() => setTemplateModal(false)}
+                title="Start from a template"
+                size="lg"
+                footer={(
+                    <Button variant="outline" onClick={() => setTemplateModal(false)}>
+                        <X size={14} /> Close
+                    </Button>
+                )}
+            >
+                <p className="tramo-tpl-intro">
+                    Pick a ready-made automation. You will land on the visual editor to
+                    customize it and add the credentials its integrations need.
+                </p>
                 {templates.length === 0 ? (
                     <EmptyState icon={LayoutTemplate} title="No templates available" />
                 ) : (
-                    <div className="tramo-template-list">
-                        {templates.map((t) => (
-                            <button
-                                type="button"
-                                className="tramo-template"
-                                key={t.id}
-                                onClick={() => handleFromTemplate(t)}
-                                disabled={busy}
-                            >
-                                <span className="tramo-template__name">{t.name}</span>
-                                {t.description && <span className="tramo-template__desc">{t.description}</span>}
-                            </button>
-                        ))}
+                    <div className="tramo-tpl-list">
+                        {templates.map((t) => {
+                            const meta = TEMPLATE_META[t.id] || DEFAULT_TEMPLATE_META;
+                            const { Icon } = meta;
+                            return (
+                                <button
+                                    type="button"
+                                    className="tramo-tpl"
+                                    key={t.id}
+                                    onClick={() => handleFromTemplate(t)}
+                                    disabled={busy}
+                                >
+                                    <span className={`tramo-tpl__icon tramo-tpl__icon--${meta.brand}`}>
+                                        <Icon size={20} />
+                                    </span>
+                                    <span className="tramo-tpl__body">
+                                        <span className="tramo-tpl__name">{t.name}</span>
+                                        {t.description && (
+                                            <span className="tramo-tpl__desc">{t.description}</span>
+                                        )}
+                                        {meta.tags.length > 0 && (
+                                            <span className="tramo-tpl__tags">
+                                                {meta.tags.map((tag) => (
+                                                    <span className="tramo-tpl__tag" key={tag}>{tag}</span>
+                                                ))}
+                                            </span>
+                                        )}
+                                    </span>
+                                    <ChevronRight className="tramo-tpl__arrow" size={18} />
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
-                <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setTemplateModal(false)}><X size={14} /> Close</Button>
-                </div>
             </Modal>
 
             {confirmDialog && (
