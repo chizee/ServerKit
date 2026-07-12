@@ -688,9 +688,11 @@ const AutomationsPage = () => {
             />
 
             <div className="sk-tabgroup__content">
-                {activeTab === 'workflows' && renderWorkflows()}
-                {activeTab === 'runs' && renderRuns()}
-                {activeTab === 'settings' && renderSettings()}
+                <div className="sk-tabgroup__inner">
+                    {activeTab === 'workflows' && renderWorkflows()}
+                    {activeTab === 'runs' && renderRuns()}
+                    {activeTab === 'settings' && renderSettings()}
+                </div>
             </div>
 
             {/* New workflow modal */}
