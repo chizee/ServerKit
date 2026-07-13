@@ -790,6 +790,44 @@ backup_current() {
 # frontends compile into the new bundle. The backend also has a boot-time
 # repair pass as a backstop (plugin_service.repair_missing_plugins).
 # ---------------------------------------------------------------------------
+
+# Plugins deliberately deleted from the product (replaced or retired) — e.g.
+# serverkit-workflows, superseded by serverkit-tramo (plan 45). Never carry
+# these forward: their frontends import dependencies the new tree no longer
+# ships (workflows → reactflow), which sinks the whole bundle build.
+# Space-separated slugs; append here whenever an extension is retired.
+# Mirror of extension_migration.RETIRED_EXTENSION_SLUGS in the backend.
+RETIRED_PLUGIN_SLUGS="serverkit-workflows"
+
+plugin_is_retired() {
+    local slug
+    for slug in $RETIRED_PLUGIN_SLUGS; do
+        [ "$1" = "$slug" ] && return 0
+    done
+    return 1
+}
+
+# Strip retired plugin leftovers from a tree (docker in-place mode, where
+# untracked plugin dirs survive the hard reset and would otherwise sink the
+# bundle rebuild).
+remove_retired_plugins() {
+    local tree="$1" slug sub
+    for slug in $RETIRED_PLUGIN_SLUGS; do
+        for sub in backend/app/plugins frontend/src/plugins; do
+            if [ -d "$tree/$sub/$slug" ]; then
+                rm -rf "$tree/$sub/$slug" 2>/dev/null || true
+                info "Removed retired plugin: $sub/$slug"
+            fi
+        done
+    done
+    return 0
+}
+
+# Frontend plugin dirs copied forward by preserve_installed_plugins this run.
+# If the bundle build then fails these are the prime suspects — see
+# quarantine_carried_plugins.
+CARRIED_FRONTEND_PLUGINS=""
+
 preserve_installed_plugins() {
     local src="$1" target="$2"
     local sub dir name
@@ -799,16 +837,57 @@ preserve_installed_plugins() {
             [ -d "$dir" ] || continue
             name="$(basename "$dir")"
             [ "$name" = "__pycache__" ] && continue
+            if plugin_is_retired "$name"; then
+                info "Not carrying forward retired plugin: $sub/$name"
+                continue
+            fi
             if [ ! -e "$target/$sub/$name" ]; then
                 mkdir -p "$target/$sub" 2>/dev/null || true
                 if cp -a "$dir" "$target/$sub/$name" 2>/dev/null; then
                     info "Preserved installed plugin: $sub/$name"
+                    if [ "$sub" = "frontend/src/plugins" ]; then
+                        CARRIED_FRONTEND_PLUGINS="$CARRIED_FRONTEND_PLUGINS $name"
+                    fi
                 else
                     warn "Could not preserve plugin $sub/$name"
                 fi
             fi
         done
     done
+    return 0
+}
+
+# Build the SPA bundle in a target tree. Pass "reuse" as $2 to skip npm ci
+# (node_modules already intact from a just-failed build). Subshell so the cd
+# cannot leak into the main shell.
+build_frontend_bundle() {
+    ( cd "$1/frontend" && \
+      { [ "${2:-}" = "reuse" ] || npm ci --prefer-offline 2>&1 | tail -3; } && \
+      NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -5 )
+}
+
+# A plugin carried forward from the old install can be incompatible with the
+# new tree (imports that no longer resolve) and sink the whole bundle build.
+# Rather than blocking the update, move the carried frontends aside so the
+# caller can retry — fail the plugin, never the update. Returns 1 when there
+# was nothing to quarantine (the failure is not plugin-borne).
+QUARANTINED_PLUGINS=""
+quarantine_carried_plugins() {
+    local target="$1" qdir name moved=""
+    [ -n "$CARRIED_FRONTEND_PLUGINS" ] || return 1
+    qdir="$BACKUP_DIR/quarantined-plugins-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$qdir" 2>/dev/null || return 1
+    for name in $CARRIED_FRONTEND_PLUGINS; do
+        [ -d "$target/frontend/src/plugins/$name" ] || continue
+        if mv "$target/frontend/src/plugins/$name" "$qdir/" 2>/dev/null; then
+            moved="$moved $name"
+        fi
+    done
+    CARRIED_FRONTEND_PLUGINS=""
+    [ -n "$moved" ] || { rmdir "$qdir" 2>/dev/null || true; return 1; }
+    QUARANTINED_PLUGINS="${moved# }"
+    warn "Carried-forward plugin(s) quarantined after build failure: $QUARANTINED_PLUGINS"
+    warn "Copies kept in $qdir — reinstall compatible versions from the Marketplace"
     return 0
 }
 
@@ -1416,6 +1495,9 @@ update_docker_compose() {
         git -C "$INSTALL_DIR" fetch --all --tags --prune 2>&1 | tail -n2 || halt "git fetch failed"
         git -C "$INSTALL_DIR" reset --hard "$ref" 2>&1 | tail -n2 || halt "git reset to $ref failed"
         chmod +x "$INSTALL_DIR/serverkit" "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
+        # Untracked plugin dirs survive the hard reset — drop retired ones so
+        # they can't sink the bundle rebuild below.
+        remove_retired_plugins "$INSTALL_DIR"
         good "Source synced to $ref"
     fi
 
@@ -1583,12 +1665,17 @@ fi
 if [ ! -d "$NEXT_DIR/frontend/dist" ]; then
     step "Building frontend..."
     if [ "$DRY_RUN" = "0" ]; then
-        # Subshell so the cd cannot leak into the main shell; the pipeline is
-        # guarded so a failed build halts loudly while the old slot still serves.
-        ( cd "$NEXT_DIR/frontend" && \
-          npm ci --prefer-offline 2>&1 | tail -3 && \
-          NODE_OPTIONS="--max-old-space-size=1024" npm run build 2>&1 | tail -5 ) \
-            || halt "Frontend build failed — previous installation still active"
+        # The build is guarded so a failure halts loudly while the old slot
+        # still serves. When plugins were carried forward from the old install
+        # they are the usual culprit (imports the new tree no longer satisfies)
+        # — quarantine them and give the build one retry before giving up.
+        if ! build_frontend_bundle "$NEXT_DIR"; then
+            quarantine_carried_plugins "$NEXT_DIR" \
+                || halt "Frontend build failed — previous installation still active"
+            step "Retrying frontend build without carried-forward plugins..."
+            build_frontend_bundle "$NEXT_DIR" reuse \
+                || halt "Frontend build failed — previous installation still active"
+        fi
     else
         info "[dry-run] would npm ci + npm run build in $NEXT_DIR/frontend"
     fi

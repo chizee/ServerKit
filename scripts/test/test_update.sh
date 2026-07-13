@@ -936,5 +936,56 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T30 — retired plugins (the serverkit-workflows update-breaker of 1.7.25→):
+# the carry-forward must NOT preserve a slug in RETIRED_PLUGIN_SLUGS (its dead
+# imports would sink the bundle build in the new slot) while still carrying
+# real user plugins; and remove_retired_plugins strips leftovers from an
+# in-place tree (docker mode).
+# --------------------------------------------------------------------------
+t="$WORK/t30"
+mkdir -p "$t/old/frontend/src/plugins/serverkit-workflows" \
+         "$t/old/frontend/src/plugins/user-plugin" \
+         "$t/new" \
+         "$t/tree/frontend/src/plugins/serverkit-workflows" \
+         "$t/tree/backend/app/plugins/serverkit-workflows"
+printf 'import "reactflow";\n' > "$t/old/frontend/src/plugins/serverkit-workflows/index.jsx"
+printf 'export default 1;\n'   > "$t/old/frontend/src/plugins/user-plugin/index.jsx"
+if (
+    set -Eeuo pipefail
+    preserve_installed_plugins "$t/old" "$t/new" \
+        && [ ! -e "$t/new/frontend/src/plugins/serverkit-workflows" ] \
+        && [ -f "$t/new/frontend/src/plugins/user-plugin/index.jsx" ] \
+        && remove_retired_plugins "$t/tree" \
+        && [ ! -e "$t/tree/frontend/src/plugins/serverkit-workflows" ] \
+        && [ ! -e "$t/tree/backend/app/plugins/serverkit-workflows" ]
+) >/dev/null 2>&1; then
+    ok "retired plugins are neither carried forward nor left in an in-place tree"
+else
+    bad "a retired plugin leaked into the new tree (the workflows update-breaker)"
+fi
+
+# --------------------------------------------------------------------------
+# T31 — quarantine_carried_plugins: after a failed bundle build the carried
+# frontends move aside (into BACKUP_DIR) so the build can be retried; with
+# nothing carried it returns 1 so the caller halts with the original error.
+# --------------------------------------------------------------------------
+t="$WORK/t31"
+mkdir -p "$t/new/frontend/src/plugins/broken-plugin"
+printf 'import "gone";\n' > "$t/new/frontend/src/plugins/broken-plugin/index.jsx"
+if (
+    set -Eeuo pipefail
+    BACKUP_DIR="$t/backups"
+    CARRIED_FRONTEND_PLUGINS=" broken-plugin"
+    quarantine_carried_plugins "$t/new" \
+        && [ ! -e "$t/new/frontend/src/plugins/broken-plugin" ] \
+        && ls "$t/backups"/quarantined-plugins-*/broken-plugin/index.jsx >/dev/null \
+        && ! quarantine_carried_plugins "$t/new"
+) >/dev/null 2>&1; then
+    ok "quarantine_carried_plugins sets carried plugins aside; no-op when nothing carried"
+else
+    bad "quarantine_carried_plugins failed to move a carried plugin aside (or false-positived)"
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]
