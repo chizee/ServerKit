@@ -298,8 +298,7 @@ const Login = () => {
 
     // Render normal login form
     return (
-        <div className="auth-container">
-            <div className="auth-card">
+        <AuthLayout>
                 <div className="auth-header">
                     <div className="brand-logo">
                         <ServerKitLogo width={40} height={40} />
@@ -382,8 +381,7 @@ const Login = () => {
                         Don&apos;t have an account? <Link to="/register">Create one</Link>
                     </p>
                 )}
-            </div>
-        </div>
+        </AuthLayout>
     );
 };
 

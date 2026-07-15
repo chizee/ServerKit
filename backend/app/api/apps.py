@@ -134,7 +134,9 @@ def _ensure_local_image_compose(app):
     container = {'name': 'app', 'image': app.docker_image}
     ports = AppPortService.get_ports(app)
     if not ports and app.port:
-        ports = [{'host_port': app.port, 'container_port': app.port}]
+        # Bind the legacy scalar port to loopback — nginx fronts it; publishing
+        # 0.0.0.0 (AppPortService._clean's default) would expose it past nginx.
+        ports = [{'host_port': app.port, 'container_port': app.port, 'expose': 'local'}]
     if ports:
         container['ports'] = ports
     if app.healthcheck_path:
