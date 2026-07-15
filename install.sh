@@ -1120,19 +1120,29 @@ EOF
 randomize_favicon() {
     local fav="$INSTALL_DIR/frontend/dist/favicon.svg"
     [ -f "$fav" ] || return 0
-    local hues=(210 225 235 250 265 285 320 345 12 25 160 175 190)
-    local base="${hues[$RANDOM % ${#hues[@]}]}"
-    local jitter=$(( RANDOM % 21 - 10 ))          # -10..+10 degrees
-    local h=$(( (base + jitter + 360) % 360 ))
-    local s=$(( 48 + RANDOM % 28 ))               # 48-75% saturation
-    local l=$(( 32 + RANDOM % 15 ))               # 32-46% lightness (dark enough for the glyph)
-    if sed -i -E "s|(<rect width=\"32\" height=\"32\" rx=\"7\" fill=\")[^\"]+(\")|\1hsl(${h}, ${s}%, ${l}%)\2|" "$fav" 2>/dev/null; then
-        good "Favicon tint set to hsl(${h}, ${s}%, ${l}%)"
+    # Assign the color ONCE and persist it in $CONFIG_DIR (survives updates), so
+    # `serverkit update` re-applies the SAME color instead of repainting the box
+    # on every update — a car keeps its paint. Existing installs get a color on
+    # their first update. See scripts/update.sh for the matching re-apply.
+    local color_file="$CONFIG_DIR/favicon-color"
+    local hsl=""
+    [ -s "$color_file" ] && hsl="$(cat "$color_file" 2>/dev/null)"
+    if [ -z "$hsl" ]; then
+        local hues=(210 225 235 250 265 285 320 345 12 25 160 175 190)
+        local base="${hues[$RANDOM % ${#hues[@]}]}"
+        local jitter=$(( RANDOM % 21 - 10 ))          # -10..+10 degrees
+        local h=$(( (base + jitter + 360) % 360 ))
+        local s=$(( 48 + RANDOM % 28 ))               # 48-75% saturation
+        local l=$(( 32 + RANDOM % 15 ))               # 32-46% lightness (dark enough for the glyph)
+        hsl="hsl(${h}, ${s}%, ${l}%)"
+        mkdir -p "$CONFIG_DIR" 2>/dev/null || true
+        printf '%s\n' "$hsl" > "$color_file" 2>/dev/null || true
+        good "Favicon tint assigned: ${hsl}"
     fi
-    # Also serve the tinted mark at /favicon.ico so a blind favicon-hash fetch
-    # there varies per install too, instead of a fixed cross-install icon. It's
-    # SVG bytes under an .ico name — browsers use the linked SVG anyway; this is
-    # only about what a scanner hashes at that URL.
+    sed -i -E "s|(<rect width=\"32\" height=\"32\" rx=\"7\" fill=\")[^\"]+(\")|\1${hsl}\2|" "$fav" 2>/dev/null || true
+    # Serve the same tinted mark at /favicon.ico so a blind favicon-hash fetch
+    # there varies per install too (SVG bytes under an .ico name — browsers use
+    # the linked SVG; this only affects what a scanner hashes at that URL).
     cp "$fav" "$INSTALL_DIR/frontend/dist/favicon.ico" 2>/dev/null || true
 }
 
