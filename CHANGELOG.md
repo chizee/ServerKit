@@ -29,6 +29,15 @@ awaiting a stable release:
   force-install WordPress — it's offered in the wizard when the WordPress use
   case is selected. Existing installs keep WordPress untouched.
 
+- **FTP, Cloud Provisioning, Remote Access, and Status Pages are now opt-in
+  extensions** — their backends moved out of core into
+  `serverkit-ftp`, `serverkit-cloud-provision`, `serverkit-remote-access`, and
+  `serverkit-status`, so a fresh panel that never uses them loads none of their
+  code or API surface. **Upgraders lose nothing:** a one-shot boot migration
+  re-acquires each extension's backend on panels that had installed it, and the
+  underlying data models stay in core. Uninstalling an extension now removes its
+  API surface too, not just its page.
+
 - **Automations (tramo) replaces the Workflow Builder** — the drag-and-drop
   React-Flow Workflow Builder is retired in favour of **Automations**
   (`/automations`), an opt-in builtin extension that embeds
