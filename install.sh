@@ -1442,10 +1442,15 @@ EOF
 render_service_unit() {
     local out="$1"
     local template="$INSTALL_DIR/templates/serverkit-backend.service.in"
+    # Bind the API to loopback by default — host nginx fronts it on :80/:443, so
+    # the raw gunicorn port must not be world-reachable. Operators who front it
+    # differently can override with SERVERKIT_BIND_HOST=0.0.0.0.
+    local bind_host="${SERVERKIT_BIND_HOST:-127.0.0.1}"
     if [ -f "$template" ]; then
         sed -e "s|@SERVERKIT_DIR@|$INSTALL_DIR|g" \
             -e "s|@SERVERKIT_VENV_DIR@|$VENV_DIR|g" \
             -e "s|@PORT@|5000|g" \
+            -e "s|@BIND_HOST@|$bind_host|g" \
             -e "s|@USER@|root|g" \
             -e "s|@LOG_DIR@|$LOG_DIR|g" \
             "$template" > "$out"
