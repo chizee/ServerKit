@@ -1105,19 +1105,29 @@ EOF
 # ---------------------------------------------------------------------------
 # Frontend build (skipped on release installs)
 # ---------------------------------------------------------------------------
-# Give each install a unique favicon tile color (same mark, different color) so
-# a favicon-hash comparison across ServerKit installs differs — a light-touch,
-# Cloudflare-lava-lamp-style deterrent, NOT a security control. The favicon is a
-# plain-text SVG, so this is a pure string replace: no image tooling needed, and
-# if it can't run (or the marker is absent) the shipped default color just stays.
+# Give each install a unique favicon tile color so a favicon-hash comparison
+# across ServerKit installs differs — a light-touch, Cloudflare-lava-lamp-style
+# deterrent, NOT a security control.
+#
+# "Car-paint" model: pick a curated base HUE (tasteful families, no muddy
+# yellows), then jitter the hue a few degrees and randomize the shade
+# (saturation + lightness, kept rich and mid-dark — never light/washed-out,
+# since a white glyph sits on top). So two installs that land on the same
+# family still get visibly different paint, and the overall space is large
+# enough that an identical color across installs is rare. The favicon is a
+# plain-text SVG, so this is a pure string replace (fill → an hsl() value): no
+# image tooling, and if it can't run the shipped default color just stays.
 randomize_favicon() {
     local fav="$INSTALL_DIR/frontend/dist/favicon.svg"
     [ -f "$fav" ] || return 0
-    # Curated, legible tile colors (no washed-out / low-contrast picks).
-    local colors=(6d7cff 5a67e8 4f46e5 4338ca 0ea5e9 0891b2 0d9488 059669 7c3aed db2777 e11d48 ea580c)
-    local pick="${colors[$RANDOM % ${#colors[@]}]}"
-    if sed -i -E "s|(<rect width=\"32\" height=\"32\" rx=\"7\" fill=\")#[0-9a-fA-F]{3,8}(\")|\1#${pick}\2|" "$fav" 2>/dev/null; then
-        good "Favicon tint set to #${pick}"
+    local hues=(210 225 235 250 265 285 320 345 12 25 160 175 190)
+    local base="${hues[$RANDOM % ${#hues[@]}]}"
+    local jitter=$(( RANDOM % 21 - 10 ))          # -10..+10 degrees
+    local h=$(( (base + jitter + 360) % 360 ))
+    local s=$(( 48 + RANDOM % 28 ))               # 48-75% saturation
+    local l=$(( 32 + RANDOM % 15 ))               # 32-46% lightness (dark enough for the glyph)
+    if sed -i -E "s|(<rect width=\"32\" height=\"32\" rx=\"7\" fill=\")[^\"]+(\")|\1hsl(${h}, ${s}%, ${l}%)\2|" "$fav" 2>/dev/null; then
+        good "Favicon tint set to hsl(${h}, ${s}%, ${l}%)"
     fi
 }
 
