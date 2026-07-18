@@ -13,11 +13,12 @@
  * (SCSS-classed absolutely-positioned divs), so the shipped product never
  * imports boneyard or runs a browser — it just reads the baked JSON.
  *
- * The in-page snapshot below is a faithful port of boneyard-js `snapshotBones`
- * (github: boneyard-js, `packages/boneyard/src/extract.ts`). We embed it rather
- * than injecting the npm ESM bundle into the page so the script stays runnable
- * from a fresh checkout; `boneyard-js` is kept as a devDependency for parity and
- * as the upstream source of truth for the bone format.
+ * The in-page snapshot is `src/utils/snapshotBones.js` — a faithful port of
+ * boneyard-js `snapshotBones` (`packages/boneyard/src/extract.ts`), shared with
+ * the runtime self-capture hook. We inject its source into the page rather than
+ * the npm ESM bundle so the script stays runnable from a fresh checkout;
+ * `boneyard-js` is kept as a devDependency for parity and as the upstream source
+ * of truth for the bone format.
  *
  * Usage:
  *   1. Start the dev stack (backend on :47927, `npm run dev` frontend) with
@@ -36,6 +37,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { snapshotBones } from '../src/utils/snapshotBones.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIR = path.resolve(__dirname, '..');
@@ -56,73 +58,6 @@ const TARGETS = [
 ];
 
 const log = (...a) => console.log('[bones]', ...a);
-
-// ---- the in-page snapshot (faithful port of boneyard snapshotBones) --------
-// Serialized into the page via Playwright's evaluate. Returns a SkeletonResult:
-//   { name, viewportWidth, width, height, bones: [{x, y, w, h, r, c?}] }
-// x/w are percentages of the root width; y/h are absolute px from the root top.
-function inPageSnapshot(el, name) {
-    const round = (n) => Math.round(n);
-    const round4 = (n) => Math.round(n * 10000) / 10000;
-    const MEDIA = new Set(['IMG', 'SVG', 'VIDEO', 'CANVAS']);
-    const FORM = new Set(['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT']);
-    const LEAF_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'TD', 'TH']);
-    const rootRect = el.getBoundingClientRect();
-    const bones = [];
-
-    const parseRadius = (cs) => {
-        const r = cs.borderTopLeftRadius;
-        if (!r || r === '0px') return null;
-        const px = parseFloat(r);
-        return Number.isFinite(px) ? px : null;
-    };
-    const visible = (node) => {
-        const cs = getComputedStyle(node);
-        return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
-    };
-    const relX = (rect) => round4(((rect.left - rootRect.left) / rootRect.width) * 100);
-    const relW = (rect) => round4((rect.width / rootRect.width) * 100);
-
-    const walk = (node) => {
-        if (!(node instanceof Element) || !visible(node)) return;
-        const cs = getComputedStyle(node);
-        const kids = Array.from(node.children).filter((c) => c instanceof Element && visible(c));
-        const tag = node.tagName;
-        const isLeaf = kids.length === 0 || MEDIA.has(tag) || FORM.has(tag) || LEAF_TAGS.has(tag);
-
-        if (isLeaf) {
-            const rect = node.getBoundingClientRect();
-            if (rect.width < 1 || rect.height < 1) return;
-            const squarish = MEDIA.has(tag) && Math.abs(rect.width - rect.height) < 4;
-            const r = squarish ? '50%' : (parseRadius(cs) ?? 8);
-            bones.push({ x: relX(rect), y: round(rect.top - rootRect.top), w: relW(rect), h: round(rect.height), r });
-            return;
-        }
-
-        // Non-leaf: emit a lighter container bone for visual surfaces, then recurse.
-        const hasBg = cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
-        const hasBgImage = cs.backgroundImage && cs.backgroundImage !== 'none';
-        const hasBorder = parseFloat(cs.borderTopWidth) > 0
-            && cs.borderTopColor && cs.borderTopColor !== 'rgba(0, 0, 0, 0)';
-        const hasRadius = parseFloat(cs.borderTopLeftRadius) > 0;
-        if (hasBg || hasBgImage || (hasBorder && hasRadius)) {
-            const rect = node.getBoundingClientRect();
-            if (rect.width >= 1 && rect.height >= 1) {
-                bones.push({ x: relX(rect), y: round(rect.top - rootRect.top), w: relW(rect), h: round(rect.height), r: parseRadius(cs) ?? 8, c: true });
-            }
-        }
-        kids.forEach(walk);
-    };
-
-    Array.from(el.children).forEach(walk);
-    return {
-        name: name || 'component',
-        viewportWidth: round(rootRect.width),
-        width: round(rootRect.width),
-        height: round(rootRect.height),
-        bones,
-    };
-}
 
 // ---- driver ---------------------------------------------------------------
 async function loadPlaywright() {
@@ -181,7 +116,7 @@ async function main() {
                         const fn = new Function(`return (${fnSrc})`)();
                         return fn(el, key);
                     },
-                    { selector: t.selector, key: t.key, fnSrc: inPageSnapshot.toString() },
+                    { selector: t.selector, key: t.key, fnSrc: snapshotBones.toString() },
                 );
                 if (!snapshot || !snapshot.bones.length) throw new Error(`no bones captured for ${t.selector}`);
                 await writeFile(path.join(OUT_DIR, `${t.key}.json`), JSON.stringify(snapshot, null, 2) + '\n');

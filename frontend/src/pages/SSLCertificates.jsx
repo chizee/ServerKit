@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/Skeleton';
 import SkeletonBoundary from '@/components/SkeletonBoundary';
+import { useSelfCapturedBones } from '@/hooks/useSelfCapturedBones';
 
 const SSLCertificates = () => {
     const toast = useToast();
@@ -25,6 +26,13 @@ const SSLCertificates = () => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [renewingDomain, setRenewingDomain] = useState(null);
+
+    // Runtime self-capture: after the real page renders, snapshot its layout so a
+    // later load replays a pixel-accurate skeleton (falls back to sslSkeleton on
+    // first-ever visit). See useSelfCapturedBones / plan 50 phase 3.
+    const { ref: pageRef, bones: capturedBones } = useSelfCapturedBones('ssl', {
+        ready: !loading && !!status,
+    });
 
     // Modal states
     const [showObtainModal, setShowObtainModal] = useState(false);
@@ -286,9 +294,11 @@ const SSLCertificates = () => {
     return (
         <>
         <SkeletonBoundary
+            ref={pageRef}
             className="sk-tabgroup__inner ssl-page"
             loading={loading}
             skeleton={sslSkeleton}
+            bones={capturedBones}
         >
             {(!loading || status) && (<>
             {/* Status Cards */}

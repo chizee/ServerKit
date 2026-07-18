@@ -1,4 +1,4 @@
-import { Children, useEffect, useState } from 'react';
+import { Children, forwardRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { renderBones } from './renderBones';
 
@@ -39,7 +39,7 @@ import { renderBones } from './renderBones';
  * @param {string}         [as]         Container tag name (default 'div').
  * @param {string}         [className]  Extra classes on the boundary container.
  */
-export function SkeletonBoundary({
+export const SkeletonBoundary = forwardRef(function SkeletonBoundary({
     loading,
     skeleton,
     bones = null,
@@ -48,7 +48,7 @@ export function SkeletonBoundary({
     as: Tag = 'div',
     className = '',
     ...rest
-}) {
+}, ref) {
     // Keep the skeleton mounted through a short fade-out when `transition` is on.
     const [showSkeleton, setShowSkeleton] = useState(loading);
     const leaving = !loading && showSkeleton;
@@ -72,6 +72,7 @@ export function SkeletonBoundary({
 
     return (
         <Tag
+            ref={ref}
             className={cn('skeleton-boundary', className)}
             data-loading={loading ? 'true' : undefined}
             aria-busy={loading ? 'true' : undefined}
@@ -93,6 +94,6 @@ export function SkeletonBoundary({
             )}
         </Tag>
     );
-}
+});
 
 export default SkeletonBoundary;
