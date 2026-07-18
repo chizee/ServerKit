@@ -1469,6 +1469,34 @@
     }
 
     // ---- Analytics head (eyebrow + SegControl) ----
+    .wp-analytics-banner {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+        margin-bottom: $space-4;
+        padding: $space-3 $space-4;
+        border: 1px solid rgba(129, 140, 248, 0.28);
+        border-radius: var(--radius, 8px);
+        background: rgba(129, 140, 248, 0.08);
+        color: var(--text-primary);
+        flex-wrap: wrap;
+
+        svg { color: var(--accent-bright, #818cf8); flex-shrink: 0; }
+
+        &__text { flex: 1 1 240px; font-size: 13px; line-height: 1.4; }
+        &__text span { color: var(--text-secondary); }
+
+        &__link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            font-size: 13px;
+            font-weight: $font-weight-semibold;
+            color: var(--accent-bright, #818cf8);
+        }
+    }
+
     .wp-analytics-head {
         display: flex;
         justify-content: space-between;

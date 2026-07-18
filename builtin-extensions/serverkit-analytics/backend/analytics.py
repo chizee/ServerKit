@@ -26,7 +26,10 @@ from flask import Blueprint, current_app, jsonify, request
 from app.middleware.rbac import admin_required, viewer_required
 from app.utils.client_ip import get_client_ip
 
-from . import ingest_service, report_service, rollup_service, site_service
+from . import (
+    ingest_service, nginx_integration, report_service, rollup_service,
+    site_service, wp_integration,
+)
 from .config import cfg_bool
 from .ingest_service import MAX_BODY_BYTES, referrer_host
 from .models import AnalyticsSite
@@ -357,3 +360,51 @@ def site_realtime(site_id):
 def trigger_rollup():
     """Run the rollup on demand (ops/testing convenience)."""
     return jsonify(rollup_service.run_rollup()), 200
+
+
+# --------------------------------------------------------------------------- #
+# tracker injection into managed sites (JWT: admin)
+# --------------------------------------------------------------------------- #
+def _tracker_url():
+    return f'{_panel_base_url()}/api/v1/analytics/tracker.js'
+
+
+@analytics_bp.route('/sites/<int:site_id>/inject/wordpress', methods=['POST'])
+@admin_required
+def inject_wordpress(site_id):
+    site, err = _site_or_404(site_id)
+    if err:
+        return err
+    result = wp_integration.inject(site, _tracker_url())
+    code = 200 if result.get('success') else 400
+    return jsonify(result), code
+
+
+@analytics_bp.route('/sites/<int:site_id>/inject/wordpress', methods=['DELETE'])
+@admin_required
+def remove_wordpress(site_id):
+    site, err = _site_or_404(site_id)
+    if err:
+        return err
+    return jsonify(wp_integration.remove(site)), 200
+
+
+@analytics_bp.route('/sites/<int:site_id>/inject/nginx', methods=['POST'])
+@admin_required
+def inject_nginx(site_id):
+    site, err = _site_or_404(site_id)
+    if err:
+        return err
+    vhost = (request.get_json(silent=True) or {}).get('vhost')
+    result = nginx_integration.inject(site, _tracker_url(), vhost=vhost)
+    code = 200 if result.get('success') else 400
+    return jsonify(result), code
+
+
+@analytics_bp.route('/sites/<int:site_id>/inject/nginx', methods=['DELETE'])
+@admin_required
+def remove_nginx(site_id):
+    site, err = _site_or_404(site_id)
+    if err:
+        return err
+    return jsonify(nginx_integration.remove(site)), 200

@@ -31,8 +31,8 @@ def _load_ext():
         f'builtin extension backend not importable from {EXT_DIR}')
     mods = {}
     for name in ('config', 'models', 'ingest_service', 'rollup_service',
-                 'report_service', 'site_service', 'lifecycle', 'jobs',
-                 'analytics'):
+                 'report_service', 'site_service', 'wp_integration',
+                 'nginx_integration', 'lifecycle', 'jobs', 'analytics'):
         mods[name] = importlib.import_module(f'app.plugins.{SLUG}.{name}')
     return mods
 
@@ -44,6 +44,8 @@ ingest_mod = _M['ingest_service']
 rollup_mod = _M['rollup_service']
 report_mod = _M['report_service']
 site_mod = _M['site_service']
+wp_mod = _M['wp_integration']
+nginx_mod = _M['nginx_integration']
 lifecycle_mod = _M['lifecycle']
 jobs_mod = _M['jobs']
 bp_mod = _M['analytics']
@@ -737,3 +739,189 @@ def test_snippet_missing_site_404(app, analytics_client):
     viewer = _auth(_mk_viewer())
     r = analytics_client.get('/api/v1/analytics/sites/9999/snippet', headers=viewer)
     assert r.status_code == 404
+
+
+# --------------------------------------------------------------------------- #
+# Phase 5: WordPress mu-plugin injection
+# --------------------------------------------------------------------------- #
+def test_mu_plugin_php_content():
+    php = wp_mod.build_mu_plugin_php('KEY123', 'https://panel.test/api/v1/analytics/tracker.js')
+    assert php.startswith('<?php')
+    assert "add_action('wp_head'" in php
+    assert 'KEY123' in php and 'https://panel.test/api/v1/analytics/tracker.js' in php
+    assert 'esc_url' in php and 'esc_attr' in php
+
+
+def test_wp_inject_writes_and_is_idempotent(app, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    site = _mk_site(app_id=42)
+    target = SimpleNamespace(container='wp1', is_docker=False, root=str(tmp_path))
+    monkeypatch.setattr(wp_mod, '_resolve_target', lambda s: target)
+
+    res = wp_mod.inject(site, 'https://panel.test/api/v1/analytics/tracker.js')
+    assert res.get('success')
+    mu = tmp_path / 'wp-content' / 'mu-plugins' / 'serverkit-analytics.php'
+    assert mu.exists()
+    body = mu.read_text(encoding='utf-8')
+    assert site.site_key in body
+    assert site.get_settings().get('wp_injected') is True
+
+    # Re-run overwrites, stays single file, flag persists.
+    wp_mod.inject(site, 'https://panel.test/api/v1/analytics/tracker.js')
+    assert mu.exists()
+    assert site.get_settings().get('wp_injected') is True
+
+
+def test_wp_inject_docker_uses_exec(app, monkeypatch):
+    from types import SimpleNamespace
+    calls = []
+    site = _mk_site(app_id=7)
+    target = SimpleNamespace(container='wpc', is_docker=True, root=None)
+    monkeypatch.setattr(wp_mod, '_resolve_target', lambda s: target)
+    monkeypatch.setattr(wp_mod, '_docker_exec',
+                        lambda c, argv, input_text=None: calls.append((c, argv, input_text)) or {'success': True})
+    res = wp_mod.inject(site, 'https://p.test/api/v1/analytics/tracker.js')
+    assert res.get('success')
+    # mkdir then tee-with-content
+    assert any(a[1][0] == 'tee' and a[2] and site.site_key in a[2] for a in calls)
+
+
+def test_wp_remove_deletes_and_clears_flag(app, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    site = _mk_site(app_id=42)
+    target = SimpleNamespace(container='wp1', is_docker=False, root=str(tmp_path))
+    monkeypatch.setattr(wp_mod, '_resolve_target', lambda s: target)
+    wp_mod.inject(site, 'https://p.test/api/v1/analytics/tracker.js')
+    mu = tmp_path / 'wp-content' / 'mu-plugins' / 'serverkit-analytics.php'
+    assert mu.exists()
+    wp_mod.remove(site)
+    assert not mu.exists()
+    assert site.get_settings().get('wp_injected') is False
+
+
+def test_wp_inject_no_linked_site(app):
+    site = _mk_site()  # app_id None
+    res = wp_mod.inject(site, 'https://p.test/x')
+    assert res.get('success') is False
+
+
+def test_wp_remove_all_injections(app, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    site = _mk_site(app_id=1)
+    target = SimpleNamespace(container='wp1', is_docker=False, root=str(tmp_path))
+    monkeypatch.setattr(wp_mod, '_resolve_target', lambda s: target)
+    wp_mod.inject(site, 'https://p.test/api/v1/analytics/tracker.js')
+    n = wp_mod.remove_all_injections()
+    assert n == 1
+    assert site.get_settings().get('wp_injected') is False
+
+
+def test_wordpress_available_reflects_installed(app):
+    from app import db
+    from app.models.plugin import InstalledPlugin
+    # Control the state: remove any seeded flagship row first.
+    InstalledPlugin.query.filter_by(slug='serverkit-wordpress').delete()
+    db.session.commit()
+    assert wp_mod.wordpress_available() is False
+    db.session.add(InstalledPlugin(name='serverkit-wordpress', display_name='WP',
+                                   slug='serverkit-wordpress', version='1.0.0',
+                                   status=InstalledPlugin.STATUS_ACTIVE))
+    db.session.commit()
+    assert wp_mod.wordpress_available() is True
+
+
+# --------------------------------------------------------------------------- #
+# Phase 5: nginx sub_filter injection
+# --------------------------------------------------------------------------- #
+_VHOST = (
+    'server {\n'
+    '    listen 80;\n'
+    '    server_name app.test;\n'
+    '    location / {\n'
+    '        proxy_pass http://127.0.0.1:8001;\n'
+    '    }\n'
+    '}\n'
+)
+
+
+def _patch_nginx(monkeypatch, path, test_ok=True):
+    monkeypatch.setattr(nginx_mod, '_vhost_path', lambda v: str(path))
+    monkeypatch.setattr(nginx_mod, '_nginx_test', lambda: {'success': test_ok,
+                                                           'message': 'ok' if test_ok else 'bad'})
+    monkeypatch.setattr(nginx_mod, '_nginx_reload', lambda: {'success': True})
+
+
+def test_nginx_block_build_and_strip():
+    block = nginx_mod.build_sub_filter_block('https://p/t.js', 'KEY')
+    assert 'sub_filter' in block and 'KEY' in block
+    content = 'server {\n}\n'
+    injected = nginx_mod._insert_block(content, block)
+    assert 'BEGIN serverkit-analytics' in injected
+    stripped = nginx_mod._strip_block(injected)
+    assert 'serverkit-analytics' not in stripped
+    assert stripped == content  # perfectly reversible
+
+
+def test_nginx_inject_and_idempotent(app, tmp_path, monkeypatch):
+    vpath = tmp_path / 'app.test'
+    vpath.write_text(_VHOST, encoding='utf-8')
+    site = _mk_site()
+    site.update_settings(nginx_vhost='app.test')
+    from app import db
+    db.session.commit()
+    _patch_nginx(monkeypatch, vpath)
+
+    res = nginx_mod.inject(site, 'https://p/t.js')
+    assert res.get('success')
+    body = vpath.read_text(encoding='utf-8')
+    assert body.count('BEGIN serverkit-analytics') == 1
+    assert site.get_settings().get('nginx_injected') is True
+
+    nginx_mod.inject(site, 'https://p/t.js')  # re-inject
+    assert vpath.read_text(encoding='utf-8').count('BEGIN serverkit-analytics') == 1
+
+
+def test_nginx_inject_reverts_on_invalid_config(app, tmp_path, monkeypatch):
+    vpath = tmp_path / 'app.test'
+    vpath.write_text(_VHOST, encoding='utf-8')
+    site = _mk_site()
+    site.update_settings(nginx_vhost='app.test')
+    from app import db
+    db.session.commit()
+    _patch_nginx(monkeypatch, vpath, test_ok=False)
+
+    res = nginx_mod.inject(site, 'https://p/t.js')
+    assert res.get('success') is False
+    # File must be reverted to the original — never leave nginx broken.
+    assert vpath.read_text(encoding='utf-8') == _VHOST
+    assert site.get_settings().get('nginx_injected') is not True
+
+
+def test_nginx_remove(app, tmp_path, monkeypatch):
+    vpath = tmp_path / 'app.test'
+    vpath.write_text(_VHOST, encoding='utf-8')
+    site = _mk_site()
+    site.update_settings(nginx_vhost='app.test')
+    from app import db
+    db.session.commit()
+    _patch_nginx(monkeypatch, vpath)
+    nginx_mod.inject(site, 'https://p/t.js')
+    nginx_mod.remove(site)
+    assert 'serverkit-analytics' not in vpath.read_text(encoding='utf-8')
+    assert site.get_settings().get('nginx_injected') is False
+
+
+def test_inject_endpoints_admin_gated(app, analytics_client, monkeypatch):
+    from types import SimpleNamespace
+    site = _mk_site(app_id=5)
+    monkeypatch.setattr(wp_mod, '_resolve_target',
+                        lambda s: SimpleNamespace(container='c', is_docker=True, root=None))
+    monkeypatch.setattr(wp_mod, '_docker_exec',
+                        lambda c, argv, input_text=None: {'success': True})
+    viewer = _auth(_mk_viewer())
+    admin = _auth(_mk_admin())
+    assert analytics_client.post(f'/api/v1/analytics/sites/{site.id}/inject/wordpress',
+                                 headers=viewer).status_code == 403
+    r = analytics_client.post(f'/api/v1/analytics/sites/{site.id}/inject/wordpress',
+                              headers=admin)
+    assert r.status_code == 200 and r.get_json().get('success')
