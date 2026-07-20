@@ -9,19 +9,25 @@ Mounted at ``/api/v1/localkit`` (see plugin.json). Every route accepts
 surface for WordPress automation).
 
 Endpoints (all JSON unless noted):
-  GET  /pair        — validate the API key + report panel info
+  GET  /pair        — validate the API key + report panel info + `features`
   GET  /sites       — list WordPress sites (delegates to serverkit-wordpress)
   POST /sites       — provision a new WordPress site to push into
   POST /push/code   — multipart: site_id + wp-content tar.gz -> docker cp into the site
   POST /push/db     — multipart: site_id + SQL dump + local_url -> import + search-replace
   GET  /pull/db     — ?site_id= -> gzipped SQL dump of the site's database
+  GET  /pull/code   — ?site_id= -> tar.gz of the site's wp-content directory
 
 Sync v1: push/pull run inline (no job queue). Large pushes are bounded by the
 panel's MAX_CONTENT_LENGTH (100MB).
+
+`FEATURES` below is the capability contract LocalKit gates its UI on: an older
+copy of this extension simply omits a name, and the client disables the
+matching button instead of failing halfway through an operation.
 """
 
 import importlib
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -36,6 +42,11 @@ from app.utils.domain import canonical_origin
 from app.utils.version import get_panel_version
 
 localkit_bp = Blueprint('localkit', __name__)
+
+# What this build of the extension can do — reported by GET /pair so LocalKit
+# can gate its UI on capability instead of discovering a 404 mid-operation.
+# Append only; never rename an entry (clients match on the literal string).
+FEATURES = ['sites', 'push-code', 'push-db', 'pull-db', 'pull-code']
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +129,26 @@ def _compose_file(site):
     return compose_file if os.path.exists(compose_file) else None
 
 
+def _php_version(site):
+    """PHP version of a Docker-stack site, read from the compose image tag
+    (``wordpress:<core>-php<ver>-apache`` — the same tag
+    ``WordPressService.set_php_version`` rewrites).
+
+    Deliberately a file read rather than ``get_php_info``: that shells into the
+    container, and this runs once per site in a listing.
+    """
+    compose_file = _compose_file(site)
+    if not compose_file:
+        return None
+    try:
+        with open(compose_file) as f:
+            content = f.read()
+    except OSError:
+        return None
+    m = re.search(r'image:\s*wordpress:\S*?-php(\d+\.\d+)', content)
+    return m.group(1) if m else None
+
+
 def _safe_extract_tar_gz(archive_path, dest_dir):
     """Extract a .tar.gz into dest_dir, rejecting path traversal and links
     (same policy as WordPressService._safe_extract_zip)."""
@@ -157,6 +188,7 @@ def pair():
                  or getattr(user, 'name', None)),
         'canonical_domain': canonical_domain,
         'canonical_origin': canonical_origin(canonical_domain, https_enabled) if canonical_domain else None,
+        'features': FEATURES,
     }), 200
 
 
@@ -168,11 +200,27 @@ def pair():
 @admin_required
 def list_sites():
     """List WordPress sites — the API-key-friendly equivalent of
-    GET /api/v1/wordpress/sites (which is JWT-only)."""
+    GET /api/v1/wordpress/sites (which is JWT-only).
+
+    Enriched with the fields LocalKit's import flow needs and the hub payload
+    does not carry: ``php_version`` (to pick the closest local image) and
+    ``site_url`` (an explicit alias of ``url``, which is what search-replace
+    rewrites from). ``multisite`` already comes from the model — LocalKit
+    refuses to import those.
+    """
     svc, err = _require_wp_service()
     if err:
         return err
-    return jsonify(svc.get_sites()), 200
+    payload = svc.get_sites()
+
+    from app.models import WordPressSite
+    for entry in payload.get('sites') or []:
+        site = WordPressSite.query.get(entry.get('id')) if entry.get('id') else None
+        if site is None or not site.application:
+            continue
+        entry['php_version'] = _php_version(site)
+        entry['site_url'] = entry.get('url') or _site_url(site)
+    return jsonify(payload), 200
 
 
 @localkit_bp.route('/sites', methods=['POST'])
@@ -351,4 +399,65 @@ def pull_db():
         mimetype='application/gzip',
         as_attachment=True,
         download_name=f'{site.application.name}-db.sql.gz',
+    )
+
+
+@localkit_bp.route('/pull/code', methods=['GET'])
+@admin_required
+def pull_code():
+    """Stream a tar.gz of the site's ``wp-content`` directory.
+
+    The mirror image of ``POST /push/code``, and the missing half LocalKit's
+    "import this site as a new local site" flow needs. The archive is built
+    *inside* the container (``docker exec ... tar czf -``) rather than from the
+    host: the site's files are container-owned, and tarring in place keeps
+    permissions and directory structure intact. Entries are prefixed
+    ``wp-content/``, exactly like the archive push/code accepts, so the two
+    directions share one format.
+    """
+    site, err = _resolve_site(request.args.get('site_id'))
+    if err:
+        return err
+    container = site.application.name
+    if not container:
+        return jsonify({'error': 'Site has no container'}), 409
+
+    fd, archive_path = tempfile.mkstemp(prefix='localkit_pullcode_', suffix='.tar.gz')
+
+    def _discard():
+        try:
+            os.remove(archive_path)
+        except OSError:
+            pass
+
+    try:
+        with os.fdopen(fd, 'wb') as out:
+            proc = subprocess.run(
+                ['docker', 'exec', container, 'tar', 'czf', '-',
+                 '-C', '/var/www/html', 'wp-content'],
+                stdout=out, stderr=subprocess.PIPE, timeout=900,
+            )
+    except (subprocess.SubprocessError, OSError) as e:
+        _discard()
+        return jsonify({'error': f'wp-content export failed: {e}'}), 500
+
+    # GNU tar exits 1 for "file changed as we read it" — a live site writing
+    # cache/uploads mid-archive is normal and the archive is still usable.
+    stderr = (proc.stderr or b'').decode('utf-8', 'replace').strip()
+    if proc.returncode not in (0, 1) or os.path.getsize(archive_path) == 0:
+        _discard()
+        return jsonify({
+            'error': f'wp-content export failed: {stderr or "is the site running?"}'
+        }), 500
+
+    @after_this_request
+    def _cleanup(response):
+        _discard()
+        return response
+
+    return send_file(
+        archive_path,
+        mimetype='application/gzip',
+        as_attachment=True,
+        download_name=f'{container}-wp-content.tar.gz',
     )
