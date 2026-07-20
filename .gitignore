@@ -123,6 +123,13 @@ SECURITY_AND_CODE_AUDIT.md
 !/docs/screenshots/
 !/docs/screenshots/*.png
 
+# …and the hand-authored documentation diagrams (architecture) plus the locally
+# generated donation QR codes (funding). Both are referenced directly from
+# committed Markdown, so leaving them ignored publishes docs with broken images.
+!/docs/images/
+!/docs/images/architecture/*.png
+!/docs/images/funding/*.png
+
 # …and the bundled marketplace extension cover icons — real source assets
 # imported/hashed by Vite, so they must be committed.
 !/frontend/src/assets/extension-icons/
