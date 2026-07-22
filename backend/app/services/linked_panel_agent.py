@@ -261,15 +261,31 @@ def handle_file_write(params):
     return {'path': real, 'size': len(content)}
 
 
-def handle_compose_up(params):
-    from app.services.docker_service import DockerService
+def _resolve_compose_target(params):
+    """Normalize the compose target the master sends.
+
+    The deployment runner forwards the plan's ``compose_file`` (the YAML
+    file path) in the ``project_path`` field, while DockerService wants a
+    project DIRECTORY plus an optional compose_file. Accept both shapes.
+    """
     project_path = params.get('project_path')
     if not project_path:
-        raise RuntimeError('docker:compose:up requires project_path')
+        raise RuntimeError('docker compose command requires project_path')
+    compose_file = None
+    if os.path.isfile(project_path):
+        compose_file = os.path.basename(project_path)
+        project_path = os.path.dirname(project_path)
+    return project_path, compose_file
+
+
+def handle_compose_up(params):
+    from app.services.docker_service import DockerService
+    project_path, compose_file = _resolve_compose_target(params)
     result = DockerService.compose_up(
         project_path,
         detach=bool(params.get('detach', True)),
         build=bool(params.get('build', False)),
+        compose_file=compose_file,
     )
     if not result.get('success'):
         raise RuntimeError(result.get('error') or 'docker compose up failed')
@@ -278,21 +294,18 @@ def handle_compose_up(params):
 
 def handle_compose_ps(params):
     from app.services.docker_service import DockerService
-    project_path = params.get('project_path')
-    if not project_path:
-        raise RuntimeError('docker:compose:ps requires project_path')
-    return DockerService.compose_ps(project_path)
+    project_path, compose_file = _resolve_compose_target(params)
+    return DockerService.compose_ps(project_path, compose_file=compose_file)
 
 
 def handle_compose_logs(params):
     from app.services.docker_service import DockerService
-    project_path = params.get('project_path')
-    if not project_path:
-        raise RuntimeError('docker:compose:logs requires project_path')
+    project_path, compose_file = _resolve_compose_target(params)
     result = DockerService.compose_logs(
         project_path,
         service=params.get('service') or None,
         tail=int(params.get('tail', 100)),
+        compose_file=compose_file,
     )
     if not result.get('success'):
         raise RuntimeError(result.get('error') or 'docker compose logs failed')
