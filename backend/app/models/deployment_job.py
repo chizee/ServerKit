@@ -142,7 +142,14 @@ class DeploymentJobLog(db.Model):
 
     __tablename__ = 'deployment_job_logs'
 
-    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    # BigInteger on SQLite is NOT a rowid alias, so it never autoincrements and
+    # every insert fails with "NOT NULL constraint failed: deployment_job_logs.id".
+    # Use a real Integer PK on SQLite (rowid alias → autoincrement works).
+    id = db.Column(
+        db.BigInteger().with_variant(db.Integer, 'sqlite'),
+        primary_key=True,
+        autoincrement=True,
+    )
     job_id = db.Column(db.String(36), db.ForeignKey('deployment_jobs.id'), nullable=False, index=True)
     step_index = db.Column(db.Integer, nullable=True)
     level = db.Column(db.String(10), default='info')

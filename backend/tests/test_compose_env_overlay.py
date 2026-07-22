@@ -132,13 +132,37 @@ def test_dollar_signs_are_escaped(app, tmp_path):
 def test_no_env_removes_stale_override(app, tmp_path):
     from app.services.compose_env_service import ComposeEnvService
     with app.app_context():
-        _make_compose_app(tmp_path, workspace_id=1)  # app with no env vars
+        a = _make_compose_app(tmp_path, workspace_id=1)  # app with no env vars
+        # Every service already sets its own restart policy and there is no env
+        # to inject → nothing for the override to carry.
+        with open(os.path.join(str(tmp_path), 'docker-compose.yml'), 'w', encoding='utf-8') as f:
+            f.write("services:\n  web:\n    image: nginx:latest\n    restart: always\n"
+                    "  db:\n    image: postgres:16\n    restart: \"no\"\n")
         stale = ComposeEnvService.override_path(str(tmp_path))
         with open(stale, 'w', encoding='utf-8') as f:
             f.write('services: {}\n')
         path = ComposeEnvService.refresh_for_project(str(tmp_path))
         assert path is None
         assert not os.path.exists(stale)   # stale override cleaned up
+
+
+def test_restart_policy_injected_for_services_without_one(app, tmp_path):
+    from app.services.compose_env_service import ComposeEnvService
+    with app.app_context():
+        _make_compose_app(tmp_path, workspace_id=1)  # no env vars at all
+        # Base compose: web has no restart policy, db opts out explicitly.
+        with open(os.path.join(str(tmp_path), 'docker-compose.yml'), 'w', encoding='utf-8') as f:
+            f.write("services:\n  web:\n    image: nginx:latest\n"
+                    "  db:\n    image: postgres:16\n    restart: \"no\"\n")
+
+        path = ComposeEnvService.refresh_for_project(str(tmp_path))
+        assert path and os.path.exists(path)
+        with open(path, encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+
+        assert data['services']['web']['restart'] == 'unless-stopped'
+        # Explicit policy respected — nothing else to inject for db.
+        assert 'db' not in data['services']
 
 
 def test_non_app_dir_is_untouched(app, tmp_path):

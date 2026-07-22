@@ -150,13 +150,18 @@ def test_compose_override_carries_limits_on_primary_service(tmp_path, docker_app
     web = override['services']['web']            # primary (first-declared) service
     assert web['cpus'] == 2.0
     assert web['mem_limit'] == '1g'
-    assert 'db' not in override['services']      # secondary services untouched
+    db_block = override['services']['db']        # secondary: no limits…
+    assert 'cpus' not in db_block and 'mem_limit' not in db_block
+    assert db_block['restart'] == 'unless-stopped'  # …but restart policy default
 
 
 def test_compose_override_removed_when_no_env_and_no_limits(tmp_path, docker_app, monkeypatch):
     project = tmp_path / 'proj'
     project.mkdir()
-    (project / 'docker-compose.yml').write_text('services:\n  web:\n    image: nginx:latest\n')
+    # The service sets its own restart policy, so with no env and no limits
+    # there is nothing for the override to carry.
+    (project / 'docker-compose.yml').write_text(
+        'services:\n  web:\n    image: nginx:latest\n    restart: always\n')
     docker_app.root_path = str(project)
     db.session.commit()
 

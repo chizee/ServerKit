@@ -1331,6 +1331,22 @@ h3.svc-eyebrow {
     gap: 0;
 }
 
+// Live deploy progress shown above the container logs when a DeploymentJob
+// is active for the app (repo create, template install, redeploy).
+.deploy-job-banner {
+    margin-bottom: $space-4;
+    padding: $space-4;
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+
+    &__title {
+        margin: 0 0 $space-3 0;
+        font-size: $font-size-base;
+        font-weight: $font-weight-semibold;
+    }
+}
+
 .logs-toolbar {
     display: flex;
     justify-content: space-between;

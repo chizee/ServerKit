@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Search, X, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import EmptyState from '../components/EmptyState';
+import DeploymentJobProgress from '../components/DeploymentJobProgress';
 
 // Featured templates (curated list)
 const FEATURED_TEMPLATES = [
@@ -832,7 +833,7 @@ const Templates = () => {
                         setShowInstallModal(false);
                         setSelectedTemplate(null);
                         toast.success('Application installed successfully!');
-                        navigate(`/apps/${appId}`);
+                        navigate(`/services/${appId}/logs`);
                     }}
                 />
             )}
@@ -940,9 +941,7 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
     const [selectedServerId, setSelectedServerId] = useState('local');
     const [installing, setInstalling] = useState(false);
     const [errors, setErrors] = useState([]);
-    const [job, setJob] = useState(null);
-    const [jobLogs, setJobLogs] = useState([]);
-    const pollRef = useRef(null);
+    const [jobId, setJobId] = useState(null);
 
     useEffect(() => {
         // Initialize variables with defaults
@@ -957,11 +956,6 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
 
     useEffect(() => {
         loadServers();
-        return () => {
-            if (pollRef.current) {
-                clearInterval(pollRef.current);
-            }
-        };
     }, []);
 
     async function loadServers() {
@@ -978,42 +972,22 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
         }
     }
 
-    function startPolling(jobId) {
-        if (pollRef.current) {
-            clearInterval(pollRef.current);
-        }
+    function handleJobSuccess(latestJob) {
+        setInstalling(false);
+        onSuccess(latestJob.result?.app_id || latestJob.app_id);
+    }
 
-        pollRef.current = setInterval(async () => {
-            try {
-                const data = await api.getDeploymentJob(jobId, true);
-                const latestJob = data.job;
-                setJob(latestJob);
-                setJobLogs(latestJob.logs || []);
-
-                if (latestJob.status === 'succeeded' && latestJob.result?.app_id) {
-                    clearInterval(pollRef.current);
-                    pollRef.current = null;
-                    setInstalling(false);
-                    onSuccess(latestJob.result?.app_id);
-                } else if (latestJob.status === 'failed') {
-                    clearInterval(pollRef.current);
-                    pollRef.current = null;
-                    setInstalling(false);
-                    setErrors([latestJob.error_message || 'Deployment failed']);
-                    toast.error(latestJob.error_message || 'Deployment failed');
-                }
-            } catch (err) {
-                console.error('Failed to poll deployment job:', err);
-            }
-        }, 1500);
+    function handleJobFailure(message) {
+        setInstalling(false);
+        setErrors([message]);
+        toast.error(message);
     }
 
     async function handleInstall(e) {
         e.preventDefault();
         setInstalling(true);
         setErrors([]);
-        setJob(null);
-        setJobLogs([]);
+        setJobId(null);
 
         try {
             // Validate first
@@ -1029,17 +1003,16 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                 serverId: selectedServerId
             });
             if (result.success && result.job_id) {
-                setJob(result.job);
-                setJobLogs(result.job?.logs || []);
-                startPolling(result.job_id);
+                setJobId(result.job_id);
             } else if (result.success) {
+                setInstalling(false);
                 onSuccess(result.app_id);
             } else {
                 setErrors([result.error || 'Installation failed']);
                 setInstalling(false);
             }
         } catch (err) {
-            setErrors([err.message || 'Installation failed']);
+            setErrors([err?.data?.error || err.message || 'Installation failed']);
             setInstalling(false);
         }
     }
@@ -1129,24 +1102,14 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                             </>
                         )}
 
-                        {job && (
+                        {jobId && (
                             <div className="detail-section">
                                 <h4>Deployment Status</h4>
-                                <div className="deployment-progress">
-                                    <div className="deployment-progress-track">
-                                        <div
-                                            className="deployment-progress-fill"
-                                            style={{ width: `${job.progress_percent || 0}%` }}
-                                        />
-                                    </div>
-                                    <span>{job.status} {job.progress_percent || 0}%</span>
-                                </div>
-                                <pre className="log-viewer">
-                                    {(jobLogs || []).map(log => {
-                                        const prefix = log.step_index ? `[${log.step_index}] ` : '';
-                                        return `${prefix}${log.message}`;
-                                    }).join('\n') || 'Waiting for deployment logs...'}
-                                </pre>
+                                <DeploymentJobProgress
+                                    jobId={jobId}
+                                    onSuccess={handleJobSuccess}
+                                    onFailure={handleJobFailure}
+                                />
                             </div>
                         )}
                     </div>

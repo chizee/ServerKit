@@ -9,8 +9,10 @@ Mounted at ``/api/v1/localkit`` (see plugin.json). Every route accepts
 surface for WordPress automation).
 
 Endpoints (all JSON unless noted):
-  GET  /pair        — validate the API key + report panel info + `features`
-  GET  /sites       — list WordPress sites (delegates to serverkit-wordpress)
+  GET  /pair        — validate the API key + report panel info + `features` +
+                      `kinds` (site kinds this extension can sync, plan 26)
+  GET  /sites       — list WordPress sites (delegates to serverkit-wordpress);
+                      each carries a `kind` (plan 26)
   POST /sites       — provision a new WordPress site to push into
   POST /push/code   — multipart: site_id + wp-content tar.gz -> docker cp into the site
   POST /push/db     — multipart: site_id + SQL dump + local_url -> import + search-replace
@@ -62,6 +64,13 @@ localkit_bp = Blueprint('localkit', __name__)
 # can gate its UI on capability instead of discovering a 404 mid-operation.
 # Append only; never rename an entry (clients match on the literal string).
 FEATURES = ['sites', 'push-code', 'push-db', 'pull-db', 'pull-code', 'sync-v2']
+
+# Site kinds this extension can sync (plan 26). LocalKit gates its per-kind
+# sync/import UI on this list, so a new client never starts a php sync a server
+# can't finish. Only WordPress is backed today (serverkit-wordpress is the only
+# site backend); add 'php' here in lockstep with a php-stack backend that
+# `_resolve_site` / `_install_code` / `_import_db` can dispatch to.
+KINDS = ['wordpress']
 
 # A transfer with no chunk activity for this long is abandoned; the next
 # ``init`` sweeps it. Long enough that a user pausing on a slow link keeps
@@ -293,6 +302,7 @@ def pair():
         'canonical_domain': canonical_domain,
         'canonical_origin': canonical_origin(canonical_domain, https_enabled) if canonical_domain else None,
         'features': FEATURES,
+        'kinds': KINDS,
     }), 200
 
 
@@ -324,6 +334,10 @@ def list_sites():
             continue
         entry['php_version'] = _php_version(site)
         entry['site_url'] = entry.get('url') or _site_url(site)
+        # Stack kind (plan 26). Every site here is WordPress today; the client
+        # defaults an absent kind to 'wordpress', so this is also the safe value
+        # for a php-stack backend to override once one exists.
+        entry.setdefault('kind', 'wordpress')
     return jsonify(payload), 200
 
 

@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import { useLogsDrawer } from '../../contexts/LogsDrawerContext';
+import DeploymentJobProgress from '../DeploymentJobProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -9,6 +12,8 @@ const LOG_LEVELS = ['all', 'error', 'warn', 'info', 'debug'];
 
 const LogsTab = ({ app }) => {
     const { openDrawer } = useLogsDrawer();
+    const toast = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [rawLogs, setRawLogs] = useState('');
     const [loading, setLoading] = useState(true);
     const [autoRefresh, setAutoRefresh] = useState(false);
@@ -17,6 +22,11 @@ const LogsTab = ({ app }) => {
     const [lineCount, setLineCount] = useState(200);
     const [autoScroll, setAutoScroll] = useState(true);
     const logRef = useRef(null);
+    // Live deploy tracking: seeded from the ?deploy_job=<id> query param
+    // (set by the new-service wizard / template install), or discovered below
+    // when a deploy is already pending/running for this app.
+    const [deployJobId, setDeployJobId] = useState(() => searchParams.get('deploy_job'));
+    const [deployError, setDeployError] = useState(null);
 
     const isDockerApp = app.app_type === 'docker';
     const isPythonApp = ['flask', 'django'].includes(app.app_type);
@@ -24,6 +34,24 @@ const LogsTab = ({ app }) => {
     useEffect(() => {
         loadLogs();
     }, [app.id, lineCount]);
+
+    // No explicit ?deploy_job= param — check whether a deployment job is
+    // currently pending/running for this app so a mid-deploy visit to the
+    // Logs tab still shows live progress.
+    useEffect(() => {
+        if (deployJobId || !app?.id) return undefined;
+        let cancelled = false;
+        api.getDeploymentJobs({ appId: app.id, limit: 5 })
+            .then((data) => {
+                if (cancelled) return;
+                const active = (data.jobs || []).find(
+                    (j) => j.status === 'pending' || j.status === 'running'
+                );
+                if (active) setDeployJobId(active.id);
+            })
+            .catch(() => { /* non-fatal: container logs still work without it */ });
+        return () => { cancelled = true; };
+    }, [app?.id, deployJobId]);
 
     useEffect(() => {
         if (!autoRefresh) return;
@@ -54,6 +82,27 @@ const LogsTab = ({ app }) => {
         } finally {
             setLoading(false);
         }
+    }
+
+    function handleDeploySuccess() {
+        setDeployJobId(null);
+        setDeployError(null);
+        // Drop the one-shot ?deploy_job= param so a refresh doesn't rewatch
+        // a finished job.
+        if (searchParams.has('deploy_job')) {
+            const next = new URLSearchParams(searchParams);
+            next.delete('deploy_job');
+            setSearchParams(next, { replace: true });
+        }
+        toast.success('Deployment finished successfully');
+        loadLogs();
+    }
+
+    function handleDeployFailure(message) {
+        const reason = message || 'Deployment failed';
+        setDeployJobId(null);
+        setDeployError(reason);
+        toast.error(reason);
     }
 
     const filteredLines = useMemo(() => {
@@ -105,6 +154,23 @@ const LogsTab = ({ app }) => {
 
     return (
         <div className="logs-tab-v2">
+            {/* Live deploy progress (from repo create / template install) */}
+            {deployJobId && (
+                <div className="deploy-job-banner">
+                    <h4 className="deploy-job-banner__title">Deploying this service</h4>
+                    <DeploymentJobProgress
+                        jobId={deployJobId}
+                        onSuccess={handleDeploySuccess}
+                        onFailure={handleDeployFailure}
+                    />
+                </div>
+            )}
+            {deployError && (
+                <div className="alert alert-danger">
+                    <strong>Deployment failed:</strong> {deployError}
+                </div>
+            )}
+
             {/* Toolbar */}
             <div className="logs-toolbar">
                 <div className="logs-toolbar__left">
