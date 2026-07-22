@@ -39,30 +39,34 @@ class DeploymentPlanRunner:
         steps = plan.get('steps', [])
         results = []
 
-        self.job.status = 'running'
-        self.job.started_at = datetime.utcnow()
-        self.job.total_steps = len(steps)
-        db.session.commit()
-
-        self.log('info', f"Deployment started on {self.job.target_server_name}")
-        TelemetryService.emit(
-            source='deployment',
-            event_type='deployment.started',
-            message=f'Deployment started: {self.job.kind}',
-            severity='info',
-            resource_type='deployment_job',
-            resource_id=self.job.id,
-            correlation_id=self.correlation_id,
-            payload={
-                'job_id': self.job.id,
-                'kind': self.job.kind,
-                'target_server_id': self.job.target_server_id,
-                'total_steps': len(steps),
-            },
-            commit=False,
-        )
-
+        # Everything — including the very first status write and log line — runs
+        # inside the try so ANY failure (schema bugs, telemetry errors, DB hiccups)
+        # marks the job failed with a visible error instead of leaving it stuck
+        # at "running 0%" with no logs forever.
         try:
+            self.job.status = 'running'
+            self.job.started_at = datetime.utcnow()
+            self.job.total_steps = len(steps)
+            db.session.commit()
+
+            self.log('info', f"Deployment started on {self.job.target_server_name}")
+            TelemetryService.emit(
+                source='deployment',
+                event_type='deployment.started',
+                message=f'Deployment started: {self.job.kind}',
+                severity='info',
+                resource_type='deployment_job',
+                resource_id=self.job.id,
+                correlation_id=self.correlation_id,
+                payload={
+                    'job_id': self.job.id,
+                    'kind': self.job.kind,
+                    'target_server_id': self.job.target_server_id,
+                    'total_steps': len(steps),
+                },
+                commit=False,
+            )
+
             for index, step in enumerate(steps, start=1):
                 name = step.get('name') or step.get('type') or f"Step {index}"
                 self.job.current_step = index
@@ -105,29 +109,40 @@ class DeploymentPlanRunner:
             return {'success': True, 'steps': results}
 
         except Exception as exc:
-            self.job.status = 'failed'
-            self.job.completed_at = datetime.utcnow()
-            self.job.error_message = str(exc)
-            self.job.set_result({'steps': results})
-            db.session.commit()
+            # The session may be wedged (e.g. a failed flush rolled everything
+            # back) — start clean, then mark the job failed. Never let the
+            # failure-handling itself raise: a stuck "running" job is worse
+            # than a missing log line.
+            try:
+                db.session.rollback()
+                self.job.status = 'failed'
+                self.job.completed_at = datetime.utcnow()
+                self.job.error_message = str(exc)
+                self.job.set_result({'steps': results})
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
 
             self.log('error', str(exc), step_index=self.job.current_step)
-            TelemetryService.emit(
-                source='deployment',
-                event_type='deployment.failed',
-                message=f'Deployment failed: {self.job.kind}',
-                severity='error',
-                resource_type='deployment_job',
-                resource_id=self.job.id,
-                correlation_id=self.correlation_id,
-                payload={
-                    'job_id': self.job.id,
-                    'kind': self.job.kind,
-                    'error': str(exc),
-                    'failed_step': self.job.current_step,
-                },
-                commit=False,
-            )
+            try:
+                TelemetryService.emit(
+                    source='deployment',
+                    event_type='deployment.failed',
+                    message=f'Deployment failed: {self.job.kind}',
+                    severity='error',
+                    resource_type='deployment_job',
+                    resource_id=self.job.id,
+                    correlation_id=self.correlation_id,
+                    payload={
+                        'job_id': self.job.id,
+                        'kind': self.job.kind,
+                        'error': str(exc),
+                        'failed_step': self.job.current_step,
+                    },
+                    commit=False,
+                )
+            except Exception:
+                pass
             return {'success': False, 'error': str(exc), 'steps': results}
 
     def log(self, level: str, message: str, data: Any = None, step_index: int = None):
@@ -138,15 +153,20 @@ class DeploymentPlanRunner:
             except TypeError:
                 payload = json.dumps(str(data))
 
-        entry = DeploymentJobLog(
-            job_id=self.job.id,
-            step_index=step_index,
-            level=level,
-            message=message,
-            data=payload,
-        )
-        db.session.add(entry)
-        db.session.commit()
+        # Logging must never kill the deployment: a failed log insert rolls
+        # back and is skipped rather than crashing the runner mid-job.
+        try:
+            entry = DeploymentJobLog(
+                job_id=self.job.id,
+                step_index=step_index,
+                level=level,
+                message=message,
+                data=payload,
+            )
+            db.session.add(entry)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     def _execute_step(self, step: Dict[str, Any]) -> Any:
         step_type = step.get('type')

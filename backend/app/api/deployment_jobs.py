@@ -14,10 +14,12 @@ deployment_jobs_bp = Blueprint('deployment_jobs', __name__)
 def list_deployment_jobs():
     status = request.args.get('status')
     target_server_id = request.args.get('server_id')
+    app_id = request.args.get('app_id', type=int)
     limit = request.args.get('limit', 50, type=int)
     jobs = DeploymentJobService.list_jobs(
         status=status,
         target_server_id=target_server_id,
+        app_id=app_id,
         limit=min(limit, 200),
     )
     return jsonify({'jobs': jobs}), 200

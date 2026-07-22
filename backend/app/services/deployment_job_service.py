@@ -13,8 +13,10 @@ from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
 
-# Unified job kind for asynchronous template installs (see register_jobs()).
+# Unified job kinds (see register_jobs()): asynchronous template installs and
+# builds/deploys of existing apps (e.g. repo-based services from Flow A).
 JOB_KIND = 'deploy.install'
+APP_JOB_KIND = 'deploy.app'
 
 
 class DeploymentJobService:
@@ -75,7 +77,72 @@ class DeploymentJobService:
         if wait:
             cls.run_job(job.id)
         else:
-            cls._enqueue_install(job)
+            try:
+                cls._enqueue_install(job)
+            except Exception as exc:
+                # Enqueue failed after the DeploymentJob commit — without this
+                # the row would sit 'pending' forever with no runner.
+                db.session.rollback()
+                job.status = 'failed'
+                job.error_message = f'Failed to queue deployment: {exc}'
+                job.completed_at = datetime.utcnow()
+                db.session.commit()
+                return {'success': False, 'error': job.error_message, 'job_id': job.id}
+
+        return {
+            'success': True,
+            'job_id': job.id,
+            'job': job.to_dict(include_logs=True),
+        }
+
+    @classmethod
+    def enqueue_app_deploy(cls, app, user_id: int = None, trigger: str = 'install') -> Dict:
+        """Create a deploy job for an existing app and queue it asynchronously.
+
+        Used by the repo-based create flow (POST /apps/from-repository): the
+        app row already exists (cloned + build/deploy configured) but nothing
+        has been built or started yet. The job runs the existing
+        DeploymentService.deploy pipeline with progress persisted to
+        deployment_job_logs, so repo apps get the same observable deployment
+        UX as template installs. Deploys create containers and are NOT
+        idempotent, so max_attempts=1 (no auto-retry), same as installs.
+        """
+        job = DeploymentJob(
+            id=str(uuid.uuid4()),
+            kind='app_deploy',
+            status='pending',
+            app_id=app.id,
+            target_server_id=app.server_id,
+            requested_by=user_id,
+            trigger=trigger,
+            correlation_id=generate_correlation_id(),
+        )
+        # Execution is delegated to DeploymentService.deploy; these steps only
+        # drive the progress bar and mirror the milestones _run_app_deploy logs.
+        job.set_plan({
+            'app_id': app.id,
+            'app_name': app.name,
+            'steps': [
+                {'name': 'Prepare deployment'},
+                {'name': 'Build application'},
+                {'name': 'Start containers'},
+            ],
+        })
+        db.session.add(job)
+        db.session.commit()
+
+        try:
+            cls._enqueue_app_deploy(job)
+        except Exception as exc:
+            # Enqueue failed after the DeploymentJob commit — without this the
+            # row would sit 'pending' forever with no runner (same guard as
+            # install_template).
+            db.session.rollback()
+            job.status = 'failed'
+            job.error_message = f'Failed to queue deployment: {exc}'
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+            return {'success': False, 'error': job.error_message, 'job_id': job.id}
 
         return {
             'success': True,
@@ -90,11 +157,29 @@ class DeploymentJobService:
         if not job:
             return {'success': False, 'error': 'Deployment job not found'}
 
+        if job.kind == 'app_deploy':
+            return cls._run_app_deploy(job)
+
         if job.kind != 'template_install':
             return {'success': False, 'error': f'Unsupported deployment job kind: {job.kind}'}
 
         runner = DeploymentPlanRunner(job)
-        run_result = runner.run()
+        try:
+            run_result = runner.run()
+        except Exception as exc:
+            # The runner died before/outside its own error handling (schema
+            # bug, wedged session, ...). Mark the job failed visibly so the UI
+            # never shows a deployment stuck at "running" with no explanation.
+            try:
+                db.session.rollback()
+                job.status = 'failed'
+                job.error_message = str(exc)
+                job.completed_at = datetime.utcnow()
+                db.session.commit()
+                runner.log('error', f'Deployment crashed: {exc}')
+            except Exception:
+                db.session.rollback()
+            return {'success': False, 'error': str(exc)}
 
         if not run_result.get('success'):
             return run_result
@@ -115,13 +200,79 @@ class DeploymentJobService:
         return job.to_dict(include_logs=include_logs) if job else None
 
     @classmethod
-    def list_jobs(cls, status: str = None, target_server_id: str = None, limit: int = 50):
+    def list_jobs(cls, status: str = None, target_server_id: str = None,
+                  app_id: int = None, limit: int = 50):
         query = DeploymentJob.query.order_by(DeploymentJob.created_at.desc())
         if status:
             query = query.filter_by(status=status)
         if target_server_id:
             query = query.filter_by(target_server_id=cls._normalize_server_id(target_server_id))
+        if app_id is not None:
+            query = query.filter_by(app_id=app_id)
         return [job.to_dict() for job in query.limit(limit).all()]
+
+    @classmethod
+    def _run_app_deploy(cls, job: DeploymentJob) -> Dict:
+        """Run an 'app_deploy' job: build + start an existing app via the
+        existing DeploymentService.deploy pipeline (no build logic is
+        reimplemented here), with milestones logged to deployment_job_logs so
+        the UI sees the same progress/log stream as a template install."""
+        runner = DeploymentPlanRunner(job)
+        try:
+            app = Application.query.get(job.app_id) if job.app_id else None
+            if not app:
+                raise RuntimeError(f'Application not found for deployment job {job.id}')
+
+            job.status = 'running'
+            job.started_at = datetime.utcnow()
+            job.current_step = 1
+            job.current_step_name = 'Prepare deployment'
+            db.session.commit()
+            runner.log('info', f"Deploying application '{app.name}' (trigger: {job.trigger})")
+
+            job.current_step = 2
+            job.current_step_name = 'Build application'
+            db.session.commit()
+
+            from app.services.deployment_service import DeploymentService
+            result = DeploymentService.deploy(
+                app.id,
+                user_id=job.requested_by,
+                trigger=job.trigger or 'manual',
+                log_callback=lambda line: runner.log('info', line),
+            )
+            if not result.get('success'):
+                raise RuntimeError(result.get('error') or 'Deployment failed')
+
+            job.current_step = 3
+            job.current_step_name = 'Start containers'
+            db.session.commit()
+            runner.log('info', 'Containers started')
+
+            deployment = result.get('deployment') or {}
+            job.status = 'succeeded'
+            job.completed_at = datetime.utcnow()
+            job.current_step_name = None
+            job.deployment_id = deployment.get('id')
+            job.set_result({**job.get_result(), 'app_id': app.id,
+                            'deployment_id': deployment.get('id')})
+            db.session.commit()
+            runner.log('info', f"Deployment completed: {app.name} is now live")
+            return {'success': True, 'app_id': app.id, 'job': job.to_dict(include_logs=True)}
+        except Exception as exc:
+            # Never leave the job stuck 'running': mark it failed with a
+            # visible error + log line, even if the session needs a rollback
+            # first (mirrors the runner's own failure handling).
+            try:
+                db.session.rollback()
+                job.status = 'failed'
+                job.error_message = str(exc)
+                job.completed_at = datetime.utcnow()
+                db.session.commit()
+                runner.log('error', f'Deployment failed: {exc}')
+            except Exception:
+                db.session.rollback()
+            return {'success': False, 'error': str(exc)}
 
     @classmethod
     def _finalize_template_install(cls, job: DeploymentJob) -> Dict:
@@ -246,11 +397,66 @@ class DeploymentJobService:
         }
 
     @classmethod
+    def _enqueue_app_deploy(cls, job: DeploymentJob):
+        """Hand an app deploy to the unified job system (same pattern as
+        ``_enqueue_install``): persistent on the Queue Bus, run by the single
+        JobConsumer, max_attempts=1 because deploys are not idempotent."""
+        from app.jobs.service import JobService
+        return JobService.enqueue(
+            APP_JOB_KIND,
+            payload={'deployment_job_id': job.id},
+            max_attempts=1,
+            owner_type='deployment_job',
+            owner_id=job.id,
+            correlation_id=job.correlation_id,
+        )
+
+    @staticmethod
+    def _run_app_deploy_job(unified_job):
+        """Unified-job handler for ``deploy.app`` (same shape as
+        ``_run_install_job``): a failed deploy raises so the unified job is
+        marked failed too."""
+        deployment_job_id = (unified_job.get_payload() or {}).get('deployment_job_id')
+        if not deployment_job_id:
+            raise ValueError('deploy.app job missing deployment_job_id')
+        result = DeploymentJobService.run_job(deployment_job_id)
+        if not result.get('success'):
+            raise RuntimeError(result.get('error') or 'Deployment failed')
+        return {
+            'deployment_job_id': deployment_job_id,
+            'app_id': result.get('app_id'),
+        }
+
+    @classmethod
     def register_jobs(cls):
         """Register deployment handlers with the unified job registry. Called once
         at app startup (see app/__init__.py)."""
         from app.jobs import registry
         registry.register(JOB_KIND, cls._run_install_job, replace=True)
+        registry.register(APP_JOB_KIND, cls._run_app_deploy_job, replace=True)
+        cls._reconcile_interrupted_jobs()
+
+    @classmethod
+    def _reconcile_interrupted_jobs(cls):
+        """Fail DeploymentJobs left 'running' by a previous process.
+
+        Called once at startup: a job still 'running' at boot has no live
+        runner (the process that ran it is gone), so leaving it would show a
+        forever-spinning deployment in the UI with no logs and no error.
+        """
+        try:
+            stale = DeploymentJob.query.filter_by(status='running').all()
+            for job in stale:
+                job.status = 'failed'
+                job.error_message = (
+                    'Interrupted: the server restarted while this deployment was '
+                    'running. Please retry the install.'
+                )
+                job.completed_at = datetime.utcnow()
+            if stale:
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     @staticmethod
     def _normalize_server_id(server_id: Optional[str]) -> Optional[str]:

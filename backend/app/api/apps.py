@@ -6,7 +6,7 @@ import json
 import re
 import shutil
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Application, User
@@ -895,9 +895,30 @@ def create_app_from_repository():
         except Exception:
             manifest_summary = None
 
+        # Actually deploy + start the service: hand it to the same observable
+        # DeploymentJob pipeline template installs use (kind 'app_deploy' →
+        # unified job 'deploy.app' → DeploymentService.deploy). A queue failure
+        # must NOT fail app creation — the service stays 'stopped' and the user
+        # can deploy manually from the Builds tab.
+        deploy_job_id = None
+        try:
+            from app.services.deployment_job_service import DeploymentJobService
+            enqueue_result = DeploymentJobService.enqueue_app_deploy(
+                app, user_id=current_user_id, trigger='install')
+            if enqueue_result.get('success'):
+                deploy_job_id = enqueue_result.get('job_id')
+            else:
+                current_app.logger.warning(
+                    'app deploy enqueue failed for app %s: %s',
+                    app.id, enqueue_result.get('error'))
+        except Exception as exc:
+            current_app.logger.warning(
+                'app deploy enqueue failed for app %s: %s', app.id, exc)
+
         return jsonify({
             'message': 'Repository service created',
             'app': _attach_deploy_config(app.to_dict(include_linked=True)),
+            'deploy_job_id': deploy_job_id,
             'manifest_import': manifest_summary,
             'deploy_config': {
                 'repo_url': _safe_repo_url(deploy_repo_url),

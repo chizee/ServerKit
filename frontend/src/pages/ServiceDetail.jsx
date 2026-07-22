@@ -144,7 +144,7 @@ const ServiceDetail = () => {
             await performAction(action);
             toast.success(`Service ${action}ed successfully`);
         } catch (err) {
-            toast.error(`Failed to ${action} service`);
+            toast.error(err?.data?.error || err?.message || `Failed to ${action} service`);
         } finally {
             setActionLoading(null);
             setShowDeployMenu(false);
@@ -228,7 +228,7 @@ const ServiceDetail = () => {
             await deleteService();
             navigate('/services');
         } catch (err) {
-            toast.error('Failed to delete service');
+            toast.error(err?.data?.error || err?.message || 'Failed to delete service');
             setActionLoading(null);
         }
     }

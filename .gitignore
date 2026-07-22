@@ -179,11 +179,16 @@ docs/SERVICES_ROADMAP.md
 # here — the source of truth is the extension's own repo, and vendoring a copy
 # guarantees the two drift apart.
 backend/app/plugins/serverkit-analytics/
+backend/app/plugins/serverkit-cloud-provision/
 backend/app/plugins/serverkit-crowdsec/
 backend/app/plugins/serverkit-dns-server/
+backend/app/plugins/serverkit-ftp/
 backend/app/plugins/serverkit-gpu/
+backend/app/plugins/serverkit-gui/
 backend/app/plugins/serverkit-k8s/
 backend/app/plugins/serverkit-mail/
+backend/app/plugins/serverkit-remote-access/
+backend/app/plugins/serverkit-status/
 backend/app/plugins/serverkit-tramo/
 frontend/src/plugins/serverkit-analytics/
 frontend/src/plugins/serverkit-crowdsec/

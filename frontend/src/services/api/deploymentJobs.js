@@ -3,6 +3,7 @@
 export async function getDeploymentJobs(params = {}) {
     const query = new URLSearchParams();
     if (params.status) query.append('status', params.status);
+    if (params.appId) query.append('app_id', params.appId);
     if (params.serverId) query.append('server_id', params.serverId);
     if (params.limit) query.append('limit', params.limit);
     const suffix = query.toString() ? `?${query}` : '';

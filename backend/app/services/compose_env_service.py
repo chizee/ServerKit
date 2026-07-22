@@ -8,7 +8,10 @@ app's containers we write a **managed override compose file**
 (``docker-compose.serverkit.yml``) next to the app's base compose. The override
 adds an ``environment:`` overlay to every service; Docker Compose merges it on top
 of the base (override wins on key collisions), so the effective env is
-authoritative — matching the single-container behaviour.
+authoritative — matching the single-container behaviour. The override also
+carries per-app resource limits and a ``restart: unless-stopped`` default for
+services that don't set their own restart policy, so app containers survive a
+reboot / daemon restart.
 
 This is non-destructive: ServerKit owns only the override file and never edits the
 user's / template's base compose. The override is regenerated on every
@@ -85,17 +88,23 @@ class ComposeEnvService:
             return None
 
     @staticmethod
-    def _service_names(base_compose_path):
-        """Service names declared in the base compose (empty list on any error)."""
+    def _services(base_compose_path):
+        """Services declared in the base compose as {name: service-dict}
+        (empty dict on any error)."""
         try:
             with open(base_compose_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f) or {}
             services = data.get('services') or {}
             if isinstance(services, dict):
-                return list(services.keys())
+                return services
         except Exception as e:
             logger.debug('could not read services from %s: %s', base_compose_path, e)
-        return []
+        return {}
+
+    @classmethod
+    def _service_names(cls, base_compose_path):
+        """Service names declared in the base compose (empty list on any error)."""
+        return list(cls._services(base_compose_path).keys())
 
     @staticmethod
     def _limits_block(app):
@@ -145,7 +154,8 @@ class ComposeEnvService:
             return {'applies': False, 'path': None, 'content': None}
         override_path = cls.override_path(project_path)
         base_path = base if os.path.isabs(base) else os.path.join(project_path, base)
-        service_names = cls._service_names(base_path)
+        services = cls._services(base_path)
+        service_names = list(services.keys())
         if not service_names:
             return {'applies': True, 'path': override_path, 'content': None}
 
@@ -171,6 +181,14 @@ class ComposeEnvService:
         if limits:
             services_block.setdefault(service_names[0], {}).update(limits)
 
+        # Restart policy: services without an explicit `restart:` get
+        # `unless-stopped` so an app's containers come back after a reboot or
+        # Docker daemon restart (a service that sets its own policy — even
+        # `restart: "no"` — is left alone).
+        for name, svc in services.items():
+            if not (isinstance(svc, dict) and svc.get('restart')):
+                services_block.setdefault(name, {})['restart'] = 'unless-stopped'
+
         if not services_block:
             # Nothing to inject → no override should exist.
             return {'applies': True, 'path': override_path, 'content': None}
@@ -180,7 +198,8 @@ class ComposeEnvService:
             '# Managed by ServerKit — do not edit.\n'
             '# Injects the app\'s effective environment (shared variable groups\n'
             '# under the app\'s own local env vars) into every compose service,\n'
-            '# plus any per-app resource limits on the primary service.\n'
+            '# plus any per-app resource limits on the primary service and a\n'
+            '# `restart: unless-stopped` default for services without one.\n'
             '# Regenerated on every deploy; delete it and it will be recreated.\n'
         )
         content = header + yaml.safe_dump(override, default_flow_style=False, sort_keys=True)

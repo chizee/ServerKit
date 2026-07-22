@@ -536,8 +536,16 @@ export function useNewServiceForm() {
                 }
 
                 const result = await api.createAppFromRepository(payload);
-                toast.success('Repository service created');
-                navigate(`/services/${result.app.id}`);
+                if (result.deploy_job_id) {
+                    // A deploy job was queued — take the user straight to the
+                    // Logs tab so they can watch the build/startup live.
+                    toast.success('Repository service created — deploying…');
+                    navigate(`/services/${result.app.id}/logs?deploy_job=${encodeURIComponent(result.deploy_job_id)}`);
+                } else {
+                    toast.success('Repository service created');
+                    toast.warning('Service was created without auto-deploy — start it manually from the service page.');
+                    navigate(`/services/${result.app.id}`);
+                }
             }
         } catch (err) {
             toast.error(err.message || 'Failed to create service');
