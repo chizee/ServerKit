@@ -1093,11 +1093,17 @@ class TemplateService:
                     'content': content,
                     'mode': int(file_def.get('mode', 0o644)),
                 })
-                bind_mounts.append({
-                    'local': f'./{filename}',
-                    'container': container_path,
-                    'container_dir': os.path.dirname(container_path),
-                })
+                # Only absolute container paths are bind-mounted into the
+                # container (e.g. /app/config.yaml). A relative path like
+                # 'Dockerfile' is a build-context file: it is written into the
+                # app directory only — mounting it would produce an invalid
+                # './Dockerfile:Dockerfile' volume spec and compose up fails.
+                if container_path.startswith('/'):
+                    bind_mounts.append({
+                        'local': f'./{filename}',
+                        'container': container_path,
+                        'container_dir': os.path.dirname(container_path),
+                    })
 
             if bind_mounts:
                 cls._apply_bind_mounts_to_compose(compose, bind_mounts)
