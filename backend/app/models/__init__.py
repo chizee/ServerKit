@@ -12,6 +12,7 @@ from app.models.application_preview import ApplicationPreview, ApplicationPrevie
 from app.models.proxy_stack import ProxyStack
 from app.models.site_base_domain import SiteBaseDomain
 from app.models.deployment_job import DeploymentJob, DeploymentJobLog
+from app.models.linked_panel import LinkedPanelConfig
 from app.models.system_settings import SystemSettings
 from app.models.audit_log import AuditLog
 from app.models.metrics_history import MetricsHistory
