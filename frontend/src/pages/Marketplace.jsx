@@ -586,6 +586,7 @@ const ExtensionCover = ({ entry, category, brandSize = 34 }) => {
                 aria-hidden="true"
                 focusable="false"
                 className="extension-card__glyph"
+                /* sink-safe: iconSvg = sanitizeSvgInner(entry.icon) above */
                 dangerouslySetInnerHTML={{ __html: iconSvg }}
             />
         );

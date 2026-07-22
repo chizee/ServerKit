@@ -92,6 +92,22 @@ single-worker deployment (see the Deployment Note below).
 | `AUTH_IP_WINDOW_MINUTES` | `15` | Rolling window for counting failures. |
 | `AUTH_IP_BLOCK_MINUTES` | `15` | How long a blocked IP stays blocked. |
 
+## Frontend HTML Sinks (XSS)
+
+Raw-HTML sinks (`dangerouslySetInnerHTML`, `innerHTML =`, `insertAdjacentHTML`,
+`new Function`, `eval`) must sit behind a sanitizer/escaper, and template output
+on the backend (`|safe`, `Markup(`, `render_template_string`) is avoided in favor
+of Jinja's default autoescaping. Today every sink is safe by construction:
+extension icons pass through `sanitizeSvgInner`, assistant markdown through the
+escape-then-allowlist `renderMarkdownToHtml`, and the SQL/file syntax tinting
+escapes input before inserting its own token spans.
+
+To keep the sweep swept, each sink must reference an allowlisted sanitizer **or**
+carry a `sink-safe: <sanitizer> — <why>` comment. `scripts/check-html-sinks.mjs`
+(run in `npm run lint`, and mirrored by `backend/tests/test_html_sink_sweep.py`)
+fails CI on any new unannotated sink, so a raw-HTML injection point can't land
+silently.
+
 ## Deployment Note
 
 The agent gateway keeps all connected-agent state in-memory in a single process.
