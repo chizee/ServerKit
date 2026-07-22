@@ -19,7 +19,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ds';
-import LinkedPanelCard from '../components/servers/LinkedPanelCard';
+import LinkPanelForm from '../components/servers/LinkPanelForm';
 
 const Servers = () => {
     const [servers, setServers] = useState([]);
@@ -440,8 +440,6 @@ const Servers = () => {
                             />
                         </div>
                     )}
-
-                    <LinkedPanelCard />
                 </main>
             </div>
 
@@ -925,9 +923,11 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
             <div className="modal server-setup-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <div>
-                        <h2>{step === 1 ? 'Add Server' : (mode === 'pair' ? 'Pair Agent' : 'Connect Agent')}</h2>
+                        <h2>{step === 1 ? (mode === 'link' ? 'Link to Master Panel' : 'Add Server') : (mode === 'pair' ? 'Pair Agent' : 'Connect Agent')}</h2>
                         <p>
-                            {step === 2 && mode !== 'pair'
+                            {step === 1 && mode === 'link'
+                                ? 'Make THIS server manageable by another ServerKit panel — no agent install needed.'
+                                : step === 2 && mode !== 'pair'
                                 ? 'Paste the connection string into the agent, or run the one-liner installer.'
                                 : step === 2
                                 ? 'Enter the 6-char code shown on the agent and your passphrase.'
@@ -953,10 +953,19 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                         >
                             Pair code
                         </button>
+                        <button
+                            type="button"
+                            className={`mode-switcher__tab${mode === 'link' ? ' is-active' : ''}`}
+                            onClick={() => setMode('link')}
+                        >
+                            Link panel
+                        </button>
                     </div>
                 )}
 
-                {step === 1 && mode === 'pair' ? (
+                {step === 1 && mode === 'link' ? (
+                    <LinkPanelForm onClose={onClose} />
+                ) : step === 1 && mode === 'pair' ? (
                     <PairAgentForm
                         groups={groups}
                         onClose={onClose}

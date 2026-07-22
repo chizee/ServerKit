@@ -18,6 +18,8 @@ ni el coste de las plataformas gestionadas.
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 [![Discord](https://img.shields.io/discord/1470639209059455008?style=for-the-badge&logo=discord&logoColor=white&label=Discord&color=5865F2)](https://discord.gg/ZKk6tkCQfG)
 
+<a href="https://trendshift.io/repositories/21908?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-21908" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/21908/daily?language=JavaScript" alt="jhd3197/ServerKit | Trendshift" width="250" height="55"/></a>
+
 [![GitHub Stars](https://img.shields.io/github/stars/jhd3197/ServerKit?style=flat-square&color=f5c542)](https://github.com/jhd3197/ServerKit/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/jhd3197/ServerKit/total?style=flat-square)](https://github.com/jhd3197/ServerKit/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](../LICENSE)
