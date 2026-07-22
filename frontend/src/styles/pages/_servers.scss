@@ -4293,68 +4293,10 @@
 }
 
 // ============================================
-// LINKED PANEL CARD — link this panel to a master ServerKit (embedded agent)
+// LINK PANEL — "Link panel" tab of the Add Server modal (linked state view)
 // ============================================
-.linked-panel-card {
-    flex-shrink: 0;
+.link-panel-status {
     display: flex;
     flex-direction: column;
     gap: $space-3;
-    padding: $space-4;
-    background: $bg-card;
-    border: 1px solid $border-default;
-    border-radius: $radius-lg;
-
-    &__header {
-        display: flex;
-        align-items: flex-start;
-        gap: $space-3;
-
-        > svg {
-            color: $accent-primary;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        > div {
-            flex: 1;
-            min-width: 0;
-        }
-
-        h3 {
-            margin: 0;
-            font-size: $font-size-base;
-            font-weight: $font-weight-semibold;
-            color: $text-primary;
-        }
-
-        p {
-            margin: $space-1 0 0;
-            font-size: $font-size-sm;
-        }
-    }
-
-    &__form {
-        display: flex;
-        flex-direction: column;
-        gap: $space-3;
-        max-width: 480px;
-
-        > p {
-            margin: 0;
-            font-size: $font-size-sm;
-        }
-    }
-
-    &__status {
-        display: flex;
-        flex-direction: column;
-        gap: $space-3;
-    }
-
-    &__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: $space-2;
-    }
 }
