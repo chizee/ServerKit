@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-    Activity,
     CheckCircle2,
     XCircle,
     Clock,
     RefreshCw,
     Server,
     Loader2,
-    AlertTriangle,
     GitBranch,
     PlayCircle,
 } from 'lucide-react';
@@ -22,14 +20,6 @@ const STATUS_COLORS = {
     running: { bg: 'var(--accent-bg)', fg: 'var(--accent-bright)', icon: Loader2 },
     succeeded: { bg: 'var(--green-bg)', fg: 'var(--green)', icon: CheckCircle2 },
     failed: { bg: 'var(--red-bg)', fg: 'var(--red)', icon: XCircle },
-};
-
-const formatDuration = (seconds) => {
-    if (seconds == null) return '—';
-    if (seconds < 60) return `${seconds.toFixed(1)}s`;
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}m ${s}s`;
 };
 
 const formatTime = (iso) => {
@@ -54,16 +44,14 @@ const StatusBadge = ({ status }) => {
 };
 
 const Deployments = () => {
+    const navigate = useNavigate();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('all');
     const [serverFilter, setServerFilter] = useState('all');
     const [servers, setServers] = useState([]);
-    const [selectedJob, setSelectedJob] = useState(null);
-    const [jobDetail, setJobDetail] = useState(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const refreshRef = useRef(null);
-    const detailRef = useRef(null);
 
     const loadJobs = async () => {
         try {
@@ -88,16 +76,6 @@ const Deployments = () => {
         }
     };
 
-    const loadJobDetail = async (jobId) => {
-        if (!jobId) return;
-        try {
-            const data = await api.getDeploymentJob(jobId, true);
-            setJobDetail(data.job || null);
-        } catch (err) {
-            console.error('Failed to load deployment job detail', err);
-        }
-    };
-
     useEffect(() => {
         loadServers();
     }, []);
@@ -109,23 +87,9 @@ const Deployments = () => {
     useEffect(() => {
         if (refreshRef.current) clearInterval(refreshRef.current);
         if (!autoRefresh) return undefined;
-        refreshRef.current = setInterval(() => {
-            loadJobs();
-            if (selectedJob) loadJobDetail(selectedJob);
-        }, 3000);
+        refreshRef.current = setInterval(loadJobs, 3000);
         return () => clearInterval(refreshRef.current);
-    }, [autoRefresh, selectedJob, statusFilter, serverFilter]);
-
-    useEffect(() => {
-        if (selectedJob) loadJobDetail(selectedJob);
-        else setJobDetail(null);
-    }, [selectedJob]);
-
-    useEffect(() => {
-        if (detailRef.current) {
-            detailRef.current.scrollTop = detailRef.current.scrollHeight;
-        }
-    }, [jobDetail?.logs?.length]);
+    }, [autoRefresh, statusFilter, serverFilter]);
 
     const summary = useMemo(() => {
         const counts = { running: 0, succeeded: 0, failed: 0, pending: 0 };
@@ -226,8 +190,8 @@ const Deployments = () => {
                                 {jobs.map((job) => (
                                     <tr
                                         key={job.id}
-                                        onClick={() => setSelectedJob(job.id)}
-                                        className={selectedJob === job.id ? 'is-selected' : ''}
+                                        onClick={() => navigate(`/deployments/${job.id}`)}
+                                        title="Open the Deploy Console"
                                     >
                                         <td><StatusBadge status={job.status} /></td>
                                         <td>{job.kind}</td>
@@ -257,95 +221,6 @@ const Deployments = () => {
                                 ))}
                             </tbody>
                         </table>
-                    )}
-                </div>
-
-                <div className="deployments-page__panel deployments-page__detail-panel">
-                    <div className="deployments-page__panel-header">
-                        <div>
-                            <h2>Details</h2>
-                            <span>Plan and logs</span>
-                        </div>
-                    </div>
-                    {!selectedJob ? (
-                        <div className="deployments-page__empty">
-                            <Activity size={34} />
-                            <strong>No job selected</strong>
-                            Select a job to view its plan and logs.
-                        </div>
-                    ) : !jobDetail ? (
-                        <div className="deployments-page__empty">Loading...</div>
-                    ) : (
-                        <div className="deployments-page__detail-content">
-                            <div className="deployments-page__detail-title">
-                                <div>
-                                    <h3>{jobDetail.app_name || jobDetail.kind}</h3>
-                                    <div>
-                                        {jobDetail.id}
-                                    </div>
-                                </div>
-                                <StatusBadge status={jobDetail.status} />
-                            </div>
-
-                            <div className="deployments-page__detail-grid">
-                                <div className="deployments-page__detail-metric">
-                                    <span>Target</span>
-                                    <div>{jobDetail.target_server_name}</div>
-                                </div>
-                                <div className="deployments-page__detail-metric">
-                                    <span>Step</span>
-                                    <div>{jobDetail.current_step || 0} / {jobDetail.total_steps || 0}</div>
-                                </div>
-                                <div className="deployments-page__detail-metric">
-                                    <span>Duration</span>
-                                    <div>{formatDuration(jobDetail.duration)}</div>
-                                </div>
-                                <div className="deployments-page__detail-metric">
-                                    <span>Started</span>
-                                    <div>{formatTime(jobDetail.started_at)}</div>
-                                </div>
-                            </div>
-
-                            {jobDetail.current_step_name && jobDetail.status === 'running' && (
-                                <div className="deployments-page__notice deployments-page__notice--running">
-                                    <Loader2 size={14} className="deployments-page__spin" />
-                                    {jobDetail.current_step_name}
-                                </div>
-                            )}
-
-                            {jobDetail.error_message && (
-                                <div className="deployments-page__notice deployments-page__notice--error">
-                                    <AlertTriangle size={14} />
-                                    {jobDetail.error_message}
-                                </div>
-                            )}
-
-                            <h4 className="deployments-page__logs-title">Logs</h4>
-                            <div
-                                ref={detailRef}
-                                className="deployments-page__logs"
-                            >
-                                {(jobDetail.logs || []).length === 0
-                                    ? 'Waiting for logs…'
-                                    : jobDetail.logs.map((log) => {
-                                        const ts = log.created_at ? new Date(log.created_at).toLocaleTimeString() : '';
-                                        const stepPrefix = log.step_index ? `[${log.step_index}] ` : '';
-                                        const color =
-                                            log.level === 'error'
-                                                ? 'var(--red)'
-                                                : log.level === 'debug'
-                                                ? 'var(--text-faint)'
-                                                : 'var(--text-dim)';
-                                        return (
-                                            <div key={log.id} style={{ color }}>
-                                                <span className="deployments-page__log-time">{ts}</span>{' '}
-                                                <span className="deployments-page__log-level">{log.level.toUpperCase()}</span>{' '}
-                                                {stepPrefix}{log.message}
-                                            </div>
-                                        );
-                                    })}
-                            </div>
-                        </div>
                     )}
                 </div>
             </div>
