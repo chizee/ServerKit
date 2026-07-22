@@ -10,11 +10,19 @@ export async function getDeploymentJobs(params = {}) {
     return this.request(`/deployment-jobs${suffix}`);
 }
 
-export async function getDeploymentJob(jobId, includeLogs = true) {
-    return this.request(`/deployment-jobs/${jobId}?logs=${includeLogs}`);
+export async function getDeploymentJob(jobId, includeLogs = true, includePlan = false) {
+    const query = new URLSearchParams({ logs: String(includeLogs) });
+    if (includePlan) query.append('plan', 'true');
+    return this.request(`/deployment-jobs/${jobId}?${query}`);
 }
 
 export async function getDeploymentJobLogs(jobId, afterId = null) {
     const suffix = afterId ? `?after_id=${afterId}` : '';
     return this.request(`/deployment-jobs/${jobId}/logs${suffix}`);
+}
+
+// Retry a failed deployment job — clones it and enqueues a fresh run (plan 51
+// D8). Returns { job_id, job } for the new job so the console can swap to it.
+export async function retryDeploymentJob(jobId) {
+    return this.request(`/deployment-jobs/${jobId}/retry`, { method: 'POST' });
 }
