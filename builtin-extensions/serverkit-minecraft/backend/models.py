@@ -21,7 +21,7 @@ class MinecraftServer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # Soft reference to core applications.id (kept an int, not an FK, so the
     # extension's create_all never depends on core table ordering).
-    application_id = db.Column(db.Integer, index=True)
+    application_id = db.Column(db.Integer)
 
     name = db.Column(db.String(200), nullable=False)
     edition = db.Column(db.String(20), default='java')      # java | bedrock
@@ -65,7 +65,7 @@ class MinecraftBackup(db.Model):
     __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
-    server_id = db.Column(db.Integer, index=True, nullable=False)
+    server_id = db.Column(db.Integer, nullable=False)
     name = db.Column(db.String(255), nullable=False)
     file_path = db.Column(db.String(500))
     size_bytes = db.Column(db.BigInteger, default=0)
