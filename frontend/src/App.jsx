@@ -67,6 +67,7 @@ import NotFound from './pages/NotFound';
 import AppMap from './pages/AppMap';
 import Documentation from './pages/Documentation';
 import Deployments from './pages/Deployments';
+import DeployConsole from './pages/DeployConsole';
 import QueueOperations from './pages/QueueOperations';
 import QueueDetail from './pages/QueueDetail';
 import Notifications from './pages/Notifications';
@@ -322,7 +323,7 @@ function AppRoutes() {
                     <Route path="services/new" element={<NewService />} />
                     <Route path="templates" element={<Templates />} />
                     <Route path="deployments" element={<Deployments />} />
-                    <Route path="deployments/:jobId" element={<Deployments />} />
+                    <Route path="deployments/:jobId" element={<DeployConsole />} />
                 </Route>
                 <Route path="services/:id" element={<ServiceDetail />} />
                 <Route path="services/:id/:tab" element={<ServiceDetail />} />
