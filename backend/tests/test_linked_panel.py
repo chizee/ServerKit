@@ -195,8 +195,9 @@ def test_compose_up_maps_params_and_raises_on_failure(monkeypatch):
 
     class FakeDocker:
         @staticmethod
-        def compose_up(project_path, detach=True, build=False):
-            seen.update(path=project_path, detach=detach, build=build)
+        def compose_up(project_path, detach=True, build=False, compose_file=None):
+            seen.update(path=project_path, detach=detach, build=build,
+                        compose_file=compose_file)
             return {'success': True, 'output': 'ok'}
 
     monkeypatch.setattr(
@@ -204,17 +205,38 @@ def test_compose_up_maps_params_and_raises_on_failure(monkeypatch):
     data = agent.handle_compose_up(
         {'project_path': '/var/serverkit/apps/x', 'detach': True, 'build': True})
     assert data['success'] is True
-    assert seen == {'path': '/var/serverkit/apps/x', 'detach': True, 'build': True}
+    assert seen == {'path': '/var/serverkit/apps/x', 'detach': True,
+                    'build': True, 'compose_file': None}
 
     class FailingDocker(FakeDocker):
         @staticmethod
-        def compose_up(project_path, detach=True, build=False):
+        def compose_up(project_path, detach=True, build=False, compose_file=None):
             return {'success': False, 'error': 'build exploded'}
 
     monkeypatch.setattr(
         'app.services.docker_service.DockerService', FailingDocker)
     with pytest.raises(RuntimeError, match='build exploded'):
         agent.handle_compose_up({'project_path': '/x'})
+
+
+def test_compose_target_accepts_compose_file_path(tmp_path, monkeypatch):
+    """The deployment runner sends the compose FILE in project_path — the
+    handler must split it into (dir, compose_file) for DockerService."""
+    compose = tmp_path / 'docker-compose.yml'
+    compose.write_text('services: {}')
+    seen = {}
+
+    class FakeDocker:
+        @staticmethod
+        def compose_up(project_path, detach=True, build=False, compose_file=None):
+            seen.update(path=project_path, compose_file=compose_file)
+            return {'success': True}
+
+    monkeypatch.setattr(
+        'app.services.docker_service.DockerService', FakeDocker)
+    agent.handle_compose_up({'project_path': str(compose)})
+    assert seen['path'] == str(tmp_path)
+    assert seen['compose_file'] == 'docker-compose.yml'
 
 
 def test_unknown_action_reported_via_dispatch(monkeypatch):
