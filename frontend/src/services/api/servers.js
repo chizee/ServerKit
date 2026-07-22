@@ -1035,3 +1035,19 @@ export async function deleteCloudSnapshot(id) {
 export async function getCloudCosts() {
     return this.request('/cloud/costs');
 }
+
+// Linked Panel — this panel linked to a MASTER ServerKit as a worker
+// (embedded agent mode: the master manages this server without a separate
+// Go agent install).
+export async function getLinkedPanel() {
+    return this.request('/linked-panel');
+}
+
+export async function linkPanel(data) {
+    // data: { master_url, registration_token, name? }
+    return this.request('/linked-panel', { method: 'POST', body: data });
+}
+
+export async function unlinkPanel() {
+    return this.request('/linked-panel', { method: 'DELETE' });
+}

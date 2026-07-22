@@ -19,6 +19,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/ds';
+import LinkedPanelCard from '../components/servers/LinkedPanelCard';
 
 const Servers = () => {
     const [servers, setServers] = useState([]);
@@ -439,6 +440,8 @@ const Servers = () => {
                             />
                         </div>
                     )}
+
+                    <LinkedPanelCard />
                 </main>
             </div>
 

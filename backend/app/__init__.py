@@ -125,6 +125,11 @@ def create_app(config_name=None):
     from app.api.agent_poll import agent_poll_bp
     app.register_blueprint(agent_poll_bp, url_prefix='/api/v1/agent')
 
+    # ServerKit-to-ServerKit peering: this panel linked to a master panel
+    # (embedded agent mode — no standalone Go agent required).
+    from app.api.linked_panel import linked_panel_bp
+    app.register_blueprint(linked_panel_bp, url_prefix='/api/v1/linked-panel')
+
     # Register blueprints - Core
     from app.api.apps import apps_bp
     from app.api.domains import domains_bp
@@ -695,6 +700,11 @@ def create_app(config_name=None):
         from app.services.bandwidth_service import BandwidthService
         BandwidthService.register_jobs()
         start_job_system(app, seed=seed_builtin_schedules)
+
+        # Resume the embedded agent when this panel is linked to a master
+        # ServerKit panel (ServerKit-to-ServerKit peering).
+        from app.services.linked_panel_service import LinkedPanelService
+        LinkedPanelService.start_client_if_linked(app)
 
     # Request body size limit
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
