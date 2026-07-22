@@ -201,7 +201,13 @@ def clear_build_cache(app_id):
 @builds_bp.route('/apps/<int:app_id>/deploy', methods=['POST'])
 @jwt_required()
 def deploy_app(app_id):
-    """Deploy an application (build + deploy)."""
+    """Deploy an application (build + deploy).
+
+    Every deploy is a job (plan 51 D7): by default this enqueues an `app_deploy`
+    DeploymentJob and returns 202 + {deploy_job_id} so the UI can open the live
+    Deploy Console. `?wait=true` preserves the old synchronous contract for
+    CLI/tests (runs inline, returns the deployment result body).
+    """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
     app = Application.query.get(app_id)
@@ -213,16 +219,32 @@ def deploy_app(app_id):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json() or {}
+    no_cache = data.get('no_cache', False)
+    version_tag = data.get('version_tag')
+    wait = request.args.get('wait', 'false').lower() == 'true'
 
-    result = DeploymentService.deploy(
-        app_id=app_id,
-        user_id=current_user_id,
-        no_cache=data.get('no_cache', False),
-        trigger='manual',
-        version_tag=data.get('version_tag')
+    if wait:
+        result = DeploymentService.deploy(
+            app_id=app_id,
+            user_id=current_user_id,
+            no_cache=no_cache,
+            trigger='manual',
+            version_tag=version_tag,
+        )
+        return jsonify(result), 200 if result.get('success') else 400
+
+    from app.services.deployment_job_service import DeploymentJobService
+    job_result = DeploymentJobService.enqueue_app_deploy(
+        app, user_id=current_user_id, trigger='manual',
+        no_cache=no_cache, version_tag=version_tag,
     )
-
-    return jsonify(result), 200 if result.get('success') else 400
+    if not job_result.get('success'):
+        return jsonify({'error': job_result.get('error') or 'Failed to queue deployment'}), 400
+    return jsonify({
+        'success': True,
+        'deploy_job_id': job_result['job_id'],
+        'job': job_result.get('job'),
+    }), 202
 
 
 @builds_bp.route('/apps/<int:app_id>/deployments', methods=['GET'])

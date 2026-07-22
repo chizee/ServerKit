@@ -9,6 +9,7 @@ from app import db
 from app.models import Application, Server
 from app.models.deployment_job import DeploymentJob
 from app.services.deployment_runner import DeploymentPlanRunner
+from app.services.run_log_service import append_log
 from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
@@ -96,7 +97,8 @@ class DeploymentJobService:
         }
 
     @classmethod
-    def enqueue_app_deploy(cls, app, user_id: int = None, trigger: str = 'install') -> Dict:
+    def enqueue_app_deploy(cls, app, user_id: int = None, trigger: str = 'install',
+                           no_cache: bool = False, version_tag: str = None) -> Dict:
         """Create a deploy job for an existing app and queue it asynchronously.
 
         Used by the repo-based create flow (POST /apps/from-repository): the
@@ -119,9 +121,12 @@ class DeploymentJobService:
         )
         # Execution is delegated to DeploymentService.deploy; these steps only
         # drive the progress bar and mirror the milestones _run_app_deploy logs.
+        # Deploy options ride in the plan so the async runner can honor them.
         job.set_plan({
             'app_id': app.id,
             'app_name': app.name,
+            'no_cache': bool(no_cache),
+            'version_tag': version_tag,
             'steps': [
                 {'name': 'Prepare deployment'},
                 {'name': 'Build application'},
@@ -176,7 +181,9 @@ class DeploymentJobService:
                 job.error_message = str(exc)
                 job.completed_at = datetime.utcnow()
                 db.session.commit()
-                runner.log('error', f'Deployment crashed: {exc}')
+                # append_log persists immediately: the runner's own stream may
+                # never have reached close() on this crash path.
+                append_log(job, 'error', f'Deployment crashed: {exc}')
             except Exception:
                 db.session.rollback()
             return {'success': False, 'error': str(exc)}
@@ -191,13 +198,58 @@ class DeploymentJobService:
             job.error_message = str(exc)
             job.completed_at = datetime.utcnow()
             db.session.commit()
-            runner.log('error', f'Failed to finalize deployment: {exc}')
+            # Stream already closed after a successful run(); flush this line now.
+            append_log(job, 'error', f'Failed to finalize deployment: {exc}')
             return {'success': False, 'error': str(exc)}
 
     @classmethod
-    def get_job(cls, job_id: str, include_logs: bool = True) -> Optional[Dict]:
+    def get_job(cls, job_id: str, include_logs: bool = True,
+                include_plan: bool = False) -> Optional[Dict]:
         job = DeploymentJob.query.get(job_id)
-        return job.to_dict(include_logs=include_logs) if job else None
+        return job.to_dict(include_logs=include_logs, include_plan=include_plan) if job else None
+
+    @classmethod
+    def retry_job(cls, job_id: str, user_id: int = None) -> Dict:
+        """Clone a FAILED deployment job and enqueue a fresh run (plan 51 D8).
+
+        Uniform for both kinds: the queue payload is just {deployment_job_id}
+        and template plans are self-contained (compose content lives in
+        file.write steps), so cloning the row + re-enqueuing the same unified
+        kind re-runs the deploy from scratch on a new console URL.
+        """
+        job = DeploymentJob.query.get(job_id)
+        if not job:
+            return {'success': False, 'error': 'Deployment job not found'}
+        if job.status != 'failed':
+            return {'success': False,
+                    'error': 'Only failed deployments can be retried'}
+
+        clone = DeploymentJob(
+            id=str(uuid.uuid4()),
+            kind=job.kind,
+            status='pending',
+            target_server_id=job.target_server_id,
+            app_id=job.app_id,
+            requested_by=user_id or job.requested_by,
+            trigger='retry',
+            correlation_id=generate_correlation_id(),
+        )
+        clone.set_plan(job.get_plan())
+        db.session.add(clone)
+        db.session.commit()
+
+        enqueue = cls._enqueue_app_deploy if clone.kind == 'app_deploy' else cls._enqueue_install
+        try:
+            enqueue(clone)
+        except Exception as exc:
+            db.session.rollback()
+            clone.status = 'failed'
+            clone.error_message = f'Failed to queue retry: {exc}'
+            clone.completed_at = datetime.utcnow()
+            db.session.commit()
+            return {'success': False, 'error': clone.error_message, 'job_id': clone.id}
+
+        return {'success': True, 'job_id': clone.id, 'job': clone.to_dict(include_logs=True)}
 
     @classmethod
     def list_jobs(cls, status: str = None, target_server_id: str = None,
@@ -225,28 +277,27 @@ class DeploymentJobService:
 
             job.status = 'running'
             job.started_at = datetime.utcnow()
-            job.current_step = 1
-            job.current_step_name = 'Prepare deployment'
-            db.session.commit()
+            # set_step handles the current_step/name row update + commit, flushes
+            # buffered lines, records per-step timings, and emits a live status.
+            runner.stream.set_step(1, 'Prepare deployment')
             runner.log('info', f"Deploying application '{app.name}' (trigger: {job.trigger})")
 
-            job.current_step = 2
-            job.current_step_name = 'Build application'
-            db.session.commit()
+            runner.stream.set_step(2, 'Build application')
 
+            plan = job.get_plan()
             from app.services.deployment_service import DeploymentService
             result = DeploymentService.deploy(
                 app.id,
                 user_id=job.requested_by,
                 trigger=job.trigger or 'manual',
+                no_cache=bool(plan.get('no_cache')),
+                version_tag=plan.get('version_tag'),
                 log_callback=lambda line: runner.log('info', line),
             )
             if not result.get('success'):
                 raise RuntimeError(result.get('error') or 'Deployment failed')
 
-            job.current_step = 3
-            job.current_step_name = 'Start containers'
-            db.session.commit()
+            runner.stream.set_step(3, 'Start containers')
             runner.log('info', 'Containers started')
 
             deployment = result.get('deployment') or {}
@@ -258,6 +309,7 @@ class DeploymentJobService:
                             'deployment_id': deployment.get('id')})
             db.session.commit()
             runner.log('info', f"Deployment completed: {app.name} is now live")
+            runner.stream.close('succeeded')
             return {'success': True, 'app_id': app.id, 'job': job.to_dict(include_logs=True)}
         except Exception as exc:
             # Never leave the job stuck 'running': mark it failed with a
@@ -272,6 +324,8 @@ class DeploymentJobService:
                 runner.log('error', f'Deployment failed: {exc}')
             except Exception:
                 db.session.rollback()
+            # Flush + persist failure tail/hint/timings; terminal status emit.
+            runner.stream.close('failed', error_message=str(exc))
             return {'success': False, 'error': str(exc)}
 
     @classmethod
@@ -340,20 +394,18 @@ class DeploymentJobService:
                 dom = SiteDomainService.give_subdomain(app)
                 result['auto_domain'] = dom
                 if dom.get('success'):
-                    DeploymentPlanRunner(job).log(
-                        'info', f"Published at {dom.get('url')}", dom)
+                    append_log(job, 'info', f"Published at {dom.get('url')}", dom)
                 else:
-                    DeploymentPlanRunner(job).log(
-                        'warn', f"Auto-domain skipped: {dom.get('error')}", dom)
+                    append_log(job, 'warn', f"Auto-domain skipped: {dom.get('error')}", dom)
             except Exception as exc:
                 result['auto_domain'] = {'success': False, 'error': str(exc)}
-                DeploymentPlanRunner(job).log('warn', f"Auto-domain failed: {exc}")
+                append_log(job, 'warn', f"Auto-domain failed: {exc}")
 
         job.app_id = app.id
         job.set_result({**job.get_result(), **result})
         db.session.commit()
 
-        DeploymentPlanRunner(job).log('info', f'Application record created: {app.name}', result)
+        append_log(job, 'info', f'Application record created: {app.name}', result)
 
         return {'success': True, 'job': job.to_dict(include_logs=True), **result}
 
