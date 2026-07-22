@@ -10,6 +10,7 @@ This document outlines the development roadmap for ServerKit. Features are organ
 
 ### Recently Completed (v1.7.x)
 
+- **Deploy Console & Live Run Logs** - Every install and deploy lands on one full-page live console: streaming build output, a step timeline with per-step durations and a live elapsed timer, and failure cards showing the real error tail with plain-language hints and one-click retry. Backed by a unified batched run-log layer (database persistence + WebSocket push with a polling fallback).
 - **New Service Wizard & Template Catalog** - Three-step service creation (Source / Connect / Review) backed by a server-side template catalog with one-click compose templates and Git-repo templates.
 - **Extensions Platform Maturation** - Marketplace registry backed by standalone extension repos (Kubernetes, Automations, Analytics, Mail, GPU, CrowdSec, DNS server, and more), with built-in features progressively extracted to keep the default panel lean.
 - **Privacy-First Web Analytics** - Cookieless, self-hosted analytics extension with WordPress and nginx integration and optional geo lookup.
@@ -597,10 +598,10 @@ platform infrastructure; new capability areas ship as Marketplace extensions.
 The publish pipeline is becoming ServerKit's signature experience: deploy anything, watch it
 happen live, and debug failures entirely from the UI.
 
-- [ ] Full-page live deploy console for every install and deploy (templates, Git repos, uploads, redeploys)
-- [ ] Streaming build output with a step timeline, per-step durations, and live elapsed time
-- [ ] Failure cards showing the real error tail with plain-language hints and one-click retry
-- [ ] Unified batched run-log layer (database persistence + WebSocket push, polling fallback)
+- [x] Full-page live deploy console for every install and deploy (templates, Git repos, uploads, redeploys)
+- [x] Streaming build output with a step timeline, per-step durations, and live elapsed time
+- [x] Failure cards showing the real error tail with plain-language hints and one-click retry
+- [x] Unified batched run-log layer (database persistence + WebSocket push, polling fallback)
 
 ## Extension Platform
 

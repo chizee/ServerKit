@@ -508,6 +508,35 @@ drive handlers directly.
 
 ---
 
+## Deploy Console & run logs
+
+Every install and deploy is a `DeploymentJob` run by the single `JobConsumer`, and
+its live output is surfaced by the full-page **Deploy Console** at
+`/deployments/<jobId>`. All deploy-path logging funnels through one seam,
+`app/services/run_log_service.py` (`RunLogStream`):
+
+- **Batched persistence** — one DB commit + one socket emit per flush (50 lines,
+  300 ms, a step change, or close) instead of a commit per line; a hard 5000-row cap
+  per job. Every line is a `DeploymentJobLog` row.
+- **Truthful failure tail** — an 80-line in-memory ring buffer persisted to the job's
+  `result` JSON on failure, alongside `step_timings` and a matched plain-language
+  `hint` (no schema migration).
+- **Clean text** — ANSI escapes and `\r` progress overwrites are stripped at the seam;
+  builds run with `--ansi never --progress plain` (`DockerService.compose_up_streaming`).
+- **Crash-proof** — `RunLogStream.log()` never raises; a flush failure degrades to a
+  buffered-drop + one telemetry event. Job failure marking never depends on the log
+  path.
+
+The read side stays the source of truth: `GET /deployment-jobs/<id>/logs?after_id=`
+for incremental polling, plus a `deploy_log` / `deploy_status` Socket.IO channel
+(room `deploy_{job_id}`) as an accelerator. The frontend `useDeployJobStream` hook
+de-dupes by row id and re-syncs with `after_id` on reconnect, with a 2-second poll
+fallback — so the console works with sockets disabled. Emits are in-process only,
+consistent with the single-worker gateway constraint below. See
+[DEPLOY_CONSOLE.md](DEPLOY_CONSOLE.md).
+
+---
+
 ## Notifications Bus
 
 ![Notifications bus: a non-blocking notify.send(event, to, data) call writes a durable
