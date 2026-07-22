@@ -200,3 +200,4 @@ frontend/src/plugins/serverkit-gui/
 frontend/src/plugins/serverkit-k8s/
 frontend/src/plugins/serverkit-mail/
 frontend/src/plugins/serverkit-tramo/
+/graphify-out
