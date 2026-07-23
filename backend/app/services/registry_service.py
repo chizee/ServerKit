@@ -16,6 +16,7 @@ Design rules:
 import json
 import logging
 import os
+import re
 import time
 from urllib.parse import urljoin
 
@@ -74,6 +75,7 @@ _FIELDS = {
     'max_panel_version': None,
     'source': '',
     'sha256': None,
+    'review': None,
     'repo': '',
     'logo': None,
     'homepage': '',
@@ -98,6 +100,34 @@ def _resolve_logo(logo, base_url):
     return logo
 
 
+# A review stamp counts only when it pins a full lowercase sha256 digest —
+# anything else is treated as absent (never trusted by shape alone).
+_REVIEW_SHA_RE = re.compile(r'^[0-9a-f]{64}$')
+
+
+def _validate_review(review):
+    """Keep a `review` stamp only if it is a dict whose `sha256` is a 64-char
+    lowercase hex digest of the exact artifact the reviewer inspected."""
+    if not isinstance(review, dict):
+        return None
+    sha = review.get('sha256')
+    if not isinstance(sha, str) or not _REVIEW_SHA_RE.match(sha):
+        return None
+    return review
+
+
+def _derive_trust(entry):
+    """first_party > reviewed (review stamp hash-bound to the entry's sha256)
+    > unreviewed. A stale stamp (artifact changed → sha256 moved on) never
+    counts: the reviewer vouched for exact bytes, not a slug."""
+    if entry['first_party']:
+        return 'first_party'
+    review = entry['review']
+    if review and entry['sha256'] and review['sha256'] == entry['sha256']:
+        return 'reviewed'
+    return 'unreviewed'
+
+
 def _normalize(raw, base_url=None):
     if not isinstance(raw, dict) or not raw.get('slug'):
         return None
@@ -110,6 +140,8 @@ def _normalize(raw, base_url=None):
         out['screenshots'] = []
     out['bundled'] = bool(out['bundled'])
     out['logo'] = _resolve_logo(out['logo'], base_url)
+    out['review'] = _validate_review(out['review'])
+    out['trust'] = _derive_trust(out)
     return out
 
 

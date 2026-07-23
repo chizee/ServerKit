@@ -908,10 +908,13 @@ export async function getRegistryExtensions() {
     return this.request('/marketplace/registry');
 }
 
-// One-click install for a registry extension by slug (admin-only).
-export async function installRegistryExtension(slug) {
+// One-click install for a registry extension by slug (admin-only). Pass
+// `{ acknowledge_risk: true }` to confirm an unreviewed community extension
+// after the 409 `requires_acknowledgment` gate.
+export async function installRegistryExtension(slug, body) {
     return this.request(`/marketplace/registry/${encodeURIComponent(slug)}/install`, {
         method: 'POST',
+        ...(body ? { body } : {}),
     });
 }
 

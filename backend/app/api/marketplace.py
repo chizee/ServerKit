@@ -46,20 +46,43 @@ def install_registry(slug):
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
 
+    # Trust gate: an unreviewed community extension (or one with no pinned
+    # checksum) installs only after an explicit risk acknowledgment — the
+    # Marketplace shows a confirmation dialog and resends with
+    # acknowledge_risk: true. first_party / reviewed entries install as-is.
+    from app.services import registry_service
+    entry = registry_service.get_entry(slug)
+    body = request.get_json(silent=True) or {}
+    trust = (entry or {}).get('trust', 'unreviewed')
+    acknowledged = body.get('acknowledge_risk') is True
+    if entry is not None and not acknowledged and (
+            trust == 'unreviewed' or not entry.get('sha256')):
+        return jsonify({
+            'error': 'This community extension has not been reviewed by the '
+                     'ServerKit maintainers; installing it runs unreviewed code '
+                     'with full panel privileges. Resend with '
+                     'acknowledge_risk: true to proceed.',
+            'trust': trust,
+            'requires_acknowledgment': True,
+        }), 409
+
     from app.services.plugin_service import install_registry_extension
     try:
         plugin = install_registry_extension(slug, user_id=user.id)
+        details = {'name': plugin.name, 'version': plugin.version, 'source': 'registry'}
+        if acknowledged:
+            details['trust'] = trust
+            details['acknowledged_risk'] = True
         AuditService.log(
             action=AuditLog.ACTION_RESOURCE_CREATE,
             user_id=user.id,
             target_type='plugin',
             target_id=plugin.id,
-            details={'name': plugin.name, 'version': plugin.version, 'source': 'registry'},
+            details=details,
         )
         # Opt-in anonymous install ping (default OFF; #17). Best-effort — never
         # affects the install result.
         try:
-            from app.services import registry_service
             registry_service.record_install(plugin.slug, plugin.version)
         except Exception:
             pass
