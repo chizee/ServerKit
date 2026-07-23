@@ -15,8 +15,8 @@ a diff of colors.
 - **Share a theme:** open a PR to the
   [`serverkit-themes`](https://github.com/jhd3197/serverkit-themes) registry.
   Merged = published.
-- **See them:** every bundled theme, screenshotted on the live panel —
-  [screenshots/themes](screenshots/themes/README.md).
+- **See them:** every theme, screenshotted on the live panel — the
+  [gallery in the themes registry](https://github.com/jhd3197/serverkit-themes#gallery).
 
 ---
 
