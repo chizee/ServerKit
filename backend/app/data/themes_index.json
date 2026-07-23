@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "themes": [
+    {
+      "slug": "default",
+      "name": "ServerKit",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "The stock ServerKit look — deep slate surfaces with a periwinkle accent.",
+      "base": "dark",
+      "preview": [
+        "#0a0b0e",
+        "#101218",
+        "#6d7cff",
+        "#e9ebf0"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "gruvbox",
+      "name": "Gruvbox",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A warm retro terminal palette with earthy browns and an orange accent.",
+      "base": "dark",
+      "preview": [
+        "#1d2021",
+        "#282828",
+        "#fe8019",
+        "#ebdbb2"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "high-contrast",
+      "name": "High Contrast",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A maximum-contrast theme tuned for accessibility, in dark and light.",
+      "base": "dark",
+      "preview": [
+        "#000000",
+        "#0a0a0a",
+        "#00d0ff",
+        "#ffffff"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "nord-deep",
+      "name": "Nord Deep",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A deep arctic dark theme with cool blue surfaces and frosty accents.",
+      "base": "dark",
+      "preview": [
+        "#242933",
+        "#2e3440",
+        "#88c0d0",
+        "#eceff4"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "paper",
+      "name": "Paper",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A clean, bright light theme with crisp white surfaces and a blue accent.",
+      "base": "light",
+      "preview": [
+        "#fbfbfd",
+        "#ffffff",
+        "#2563eb",
+        "#1a1d24"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "phosphor",
+      "name": "Phosphor",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A near-black OLED theme with glowing terminal-green text.",
+      "base": "dark",
+      "preview": [
+        "#000000",
+        "#0a0f0a",
+        "#33ff66",
+        "#c8f7c8"
+      ],
+      "bundled": true
+    }
+  ]
+}
