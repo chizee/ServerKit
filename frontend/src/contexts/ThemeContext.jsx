@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { BUNDLED_THEMES, BUNDLED_THEME_MAP, DEFAULT_THEME_SLUG } from '../data/bundledThemes';
+import { applySkin } from '../utils/applySkin';
 
 const ThemeContext = createContext(null);
 
@@ -68,6 +70,17 @@ function applyAccentToDOM(hex) {
     style.setProperty('--accent-shadow', v.shadow);
 }
 
+// Accent precedence (highest wins): an active workspace's brand color, then the
+// user's explicit custom accent, then the active skin's declared accent, then
+// the stock default. This keeps workspace/white-label independent of skins and
+// lets a theme ship a cohesive accent without stomping a user's choice.
+function computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor, skinAccent }) {
+    if (workspaceAccent) return workspaceAccent;
+    if (hasCustomAccent && accentColor) return accentColor;
+    if (skinAccent) return skinAccent;
+    return DEFAULT_ACCENT;
+}
+
 export function ThemeProvider({ children }) {
     const [theme, setThemeState] = useState(() => {
         return localStorage.getItem('theme') || 'dark';
@@ -81,6 +94,21 @@ export function ThemeProvider({ children }) {
     const [accentColor, setAccentColorState] = useState(() => {
         return localStorage.getItem('accent_color') || DEFAULT_ACCENT;
     });
+
+    // Whether the user has explicitly chosen an accent (vs. inheriting the
+    // skin/default). Drives accent precedence.
+    const [hasCustomAccent, setHasCustomAccent] = useState(() => {
+        return localStorage.getItem('accent_color') != null;
+    });
+
+    // Selected skin slug (per-user, like dark/light). 'default' = stock look.
+    const [skin, setSkinState] = useState(() => {
+        return localStorage.getItem('skin') || DEFAULT_THEME_SLUG;
+    });
+
+    // Registry/imported themes merged on top of the bundled seeds at runtime
+    // (populated in Phase 2 by fetching installed themes from the API).
+    const [installedThemes, setInstalledThemes] = useState({});
 
     const [whiteLabel, setWhiteLabelState] = useState(() => {
         try {
@@ -97,6 +125,17 @@ export function ThemeProvider({ children }) {
     // reloads on switch — so a one-time read is deterministic and sufficient.
     const workspaceAccent = localStorage.getItem('workspace_accent') || null;
 
+    // All selectable themes (bundled seeds + installed), keyed by slug.
+    const themesMap = useMemo(
+        () => ({ ...BUNDLED_THEME_MAP, ...installedThemes }),
+        [installedThemes],
+    );
+    const availableThemes = useMemo(() => {
+        const merged = { ...BUNDLED_THEME_MAP, ...installedThemes };
+        const extras = Object.values(installedThemes).filter((t) => !(t.slug in BUNDLED_THEME_MAP));
+        return [...BUNDLED_THEMES, ...extras].map((t) => merged[t.slug] || t);
+    }, [installedThemes]);
+
     // Update the DOM attribute and resolved theme
     const applyTheme = useCallback((newTheme) => {
         document.documentElement.setAttribute('data-theme', newTheme);
@@ -110,13 +149,57 @@ export function ThemeProvider({ children }) {
         applyTheme(newTheme);
     }, [applyTheme]);
 
-    // Public setter for accent color. Persists the user's choice but keeps an
-    // active workspace's brand color in precedence while one is selected.
+    // Public setter for accent color. Persists the user's explicit choice.
     const setAccentColor = useCallback((hex) => {
         setAccentColorState(hex);
+        setHasCustomAccent(true);
         localStorage.setItem('accent_color', hex);
-        applyAccentToDOM(workspaceAccent || hex);
-    }, [workspaceAccent]);
+    }, []);
+
+    // Clear the explicit accent so the active skin's accent (or the default)
+    // takes over again.
+    const resetAccentColor = useCallback(() => {
+        setHasCustomAccent(false);
+        setAccentColorState(DEFAULT_ACCENT);
+        localStorage.removeItem('accent_color');
+    }, []);
+
+    // Public setter for the selected skin (per-user).
+    const setSkin = useCallback((slug) => {
+        const next = slug || DEFAULT_THEME_SLUG;
+        setSkinState(next);
+        localStorage.setItem('skin', next);
+    }, []);
+
+    // Live preview: temporarily apply a theme (or null for stock) without
+    // persisting it — used by the gallery on hover. clearPreview restores the
+    // currently-selected skin.
+    const previewSkin = useCallback((themeObj) => {
+        const skinAccent = applySkin(themeObj, resolvedTheme);
+        applyAccentToDOM(
+            computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor, skinAccent }),
+        );
+    }, [resolvedTheme, workspaceAccent, hasCustomAccent, accentColor]);
+
+    const clearPreview = useCallback(() => {
+        const skinTheme = skin !== DEFAULT_THEME_SLUG ? themesMap[skin] : null;
+        const skinAccent = applySkin(skinTheme, resolvedTheme);
+        applyAccentToDOM(
+            computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor, skinAccent }),
+        );
+    }, [skin, themesMap, resolvedTheme, workspaceAccent, hasCustomAccent, accentColor]);
+
+    // Merge installed (registry/imported) themes into the selectable set.
+    const registerInstalledThemes = useCallback((list) => {
+        if (!Array.isArray(list)) return;
+        setInstalledThemes((prev) => {
+            const next = { ...prev };
+            for (const t of list) {
+                if (t && t.slug) next[t.slug] = t;
+            }
+            return next;
+        });
+    }, []);
 
     // Public setter for white label config (accepts partial updates)
     const setWhiteLabel = useCallback((partial) => {
@@ -141,18 +224,39 @@ export function ThemeProvider({ children }) {
         return () => mediaQuery.removeEventListener('change', handleChange);
     }, [theme]);
 
-    // Apply theme and accent on mount (workspace brand color wins when active).
+    // Apply the theme mode attribute on mount / change.
     useEffect(() => {
         applyTheme(theme);
-        applyAccentToDOM(workspaceAccent || accentColor);
-    }, [theme, applyTheme, accentColor, workspaceAccent]);
+    }, [theme, applyTheme]);
+
+    // Apply the active skin's tokens and the effective accent whenever anything
+    // that feeds them changes. The 'default' slug means "no skin" — applySkin
+    // is handed null so it clears any overrides and the stock stylesheet shows.
+    useEffect(() => {
+        const skinTheme = skin !== DEFAULT_THEME_SLUG ? themesMap[skin] : null;
+        const skinAccent = applySkin(skinTheme, resolvedTheme);
+        applyAccentToDOM(
+            computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor, skinAccent }),
+        );
+    }, [skin, resolvedTheme, accentColor, hasCustomAccent, workspaceAccent, themesMap]);
+
+    const activeTheme = skin !== DEFAULT_THEME_SLUG ? (themesMap[skin] || null) : null;
 
     const value = {
         theme,           // Current setting: 'dark' | 'light' | 'system'
         resolvedTheme,   // Actual appearance: 'dark' | 'light'
         setTheme,        // Function to change theme
-        accentColor,     // Current accent hex color
+        accentColor,     // Current accent hex color (user's explicit choice)
         setAccentColor,  // Function to change accent color
+        hasCustomAccent, // Whether the accent is an explicit user override
+        resetAccentColor,// Clear the explicit accent (fall back to skin/default)
+        skin,            // Selected skin slug ('default' = stock)
+        setSkin,         // Function to change the selected skin
+        activeTheme,     // The active skin's theme object (null for stock)
+        availableThemes, // Selectable themes (bundled + installed)
+        previewSkin,     // Temporarily apply a theme (hover preview)
+        clearPreview,    // Restore the selected skin after a preview
+        registerInstalledThemes, // Merge registry/imported themes into the set
         whiteLabel,      // White label config object
         setWhiteLabel,   // Function to update white label config
     };

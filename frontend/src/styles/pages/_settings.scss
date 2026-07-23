@@ -1326,6 +1326,115 @@
     color: $text-secondary;
 }
 
+.accent-custom-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 4px 10px;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: $radius-md;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+    }
+}
+
+// ============================================
+// THEME GALLERY (plan 60 — community themes)
+// ============================================
+
+.theme-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: $space-3;
+
+    @media (max-width: $breakpoint-md) {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+.theme-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    padding: $space-3;
+    text-align: left;
+    background: var(--surface-2);
+    border: 2px solid var(--border);
+    border-radius: $radius-lg;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+        border-color: var(--border-strong);
+    }
+
+    &--active {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 1px var(--accent-primary);
+    }
+
+    &__swatches {
+        display: flex;
+        height: 44px;
+        border-radius: $radius-md;
+        overflow: hidden;
+        border: 1px solid var(--border-soft);
+    }
+
+    &__swatch {
+        flex: 1;
+    }
+
+    &__meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-2;
+    }
+
+    &__name {
+        font-size: $font-size-sm;
+        font-weight: $font-weight-semibold;
+        color: var(--text);
+    }
+
+    &__base {
+        font-size: $font-size-xs;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-faint);
+        padding: 1px 6px;
+        border: 1px solid var(--border);
+        border-radius: $radius-sm;
+    }
+
+    &__desc {
+        margin: 0;
+        font-size: $font-size-xs;
+        line-height: 1.4;
+        color: var(--text-dim);
+    }
+
+    &__applied {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: $font-size-xs;
+        font-weight: $font-weight-medium;
+        color: var(--accent-primary);
+    }
+}
+
 // ============================================
 // DASHBOARD WIDGET CONFIG
 // ============================================

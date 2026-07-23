@@ -27,13 +27,13 @@
         &--manual {
             background: rgba(245, 185, 69, 0.08);
             border-color: rgba(245, 185, 69, 0.2);
-            color: #f5b945;
+            color: var(--amber);
         }
 
         &--upload {
             background: rgba(176, 123, 245, 0.08);
             border-color: rgba(176, 123, 245, 0.2);
-            color: #b07bf5;
+            color: var(--violet);
         }
     }
 

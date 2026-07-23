@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import ThemeGallery from './ThemeGallery';
 
 const ACCENT_PRESETS = [
     { label: 'Indigo', color: '#6366f1' },
@@ -17,7 +18,7 @@ const ACCENT_PRESETS = [
 ];
 
 const AppearanceTab = () => {
-    const { theme, setTheme, accentColor, setAccentColor } = useTheme();
+    const { theme, setTheme, accentColor, setAccentColor, hasCustomAccent, resetAccentColor } = useTheme();
     const { widgets, toggleWidget, moveWidget, resetLayout } = useDashboardLayout();
     const register = useSettingFocus();
 
@@ -74,6 +75,12 @@ const AppearanceTab = () => {
                 </div>
             </div>
 
+            <div {...register('appearance-theme-gallery', 'settings-card')}>
+                <h3>Theme</h3>
+                <p>Pick a color theme. Applies instantly and stays your personal choice; the dark/light toggle above still works on top of it.</p>
+                <ThemeGallery />
+            </div>
+
             <div {...register('appearance-accent-color', 'settings-card')}>
                 <h3>Accent Color</h3>
                 <p>Choose the primary accent color used across the interface</p>
@@ -99,6 +106,16 @@ const AppearanceTab = () => {
                             onChange={(e) => setAccentColor(e.target.value)}
                         />
                         <span className="accent-custom-hex">{accentColor.toUpperCase()}</span>
+                        {hasCustomAccent && (
+                            <button
+                                type="button"
+                                className="accent-custom-reset"
+                                onClick={resetAccentColor}
+                                title="Use the theme's accent"
+                            >
+                                <RotateCcw size={13} /> Use theme accent
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

@@ -20,6 +20,15 @@ awaiting a stable release:
 
 ### Added
 
+- **Themes — pick a color theme, or build and share your own.** Settings →
+  Appearance now has a Theme Gallery: swap the whole panel's palette instantly
+  with one click (Paper, Nord Deep, Gruvbox, Phosphor, High Contrast, or the
+  stock look), previewed live as you hover. Your choice is personal, and the
+  dark/light toggle still works on top of it. A theme is just data — a small map
+  of color tokens, no code, no build step — so anyone can make one: a built-in
+  Theme Studio lets you edit colors over the live panel and export a shareable
+  `theme.json`, and a public themes registry means community themes install with
+  one click. See [`docs/THEMING.md`](docs/THEMING.md).
 - **Extensions render on a production panel without a rebuild.** An extension that
   ships a prebuilt ESM bundle (`frontend_entry: "dist/index.mjs"`) now lights up its
   UI the moment it's installed — the panel fetches the bundle through the authed

@@ -340,7 +340,7 @@
         background: rgba(61, 220, 151, 0.1);
         border: 1px solid rgba(61, 220, 151, 0.2);
         border-radius: $radius-full;
-        color: #3ddc97;
+        color: var(--green);
         font-size: $font-size-xs;
         font-weight: $font-weight-medium;
     }
