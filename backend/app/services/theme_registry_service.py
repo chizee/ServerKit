@@ -1,0 +1,211 @@
+"""Remote theme registry (plan 60, Phase 3).
+
+Mirrors the extension registry_service pattern, minus the trust machinery: a
+theme is data, not code, so there are no zips, no sha256, no permissions — the
+registry is a curated ``index.json`` (in the ``serverkit-themes`` repo, submitted
+via PR, published on merge) and installing is fetching + validating + storing a
+color map.
+
+Design rules (same as the extension registry):
+  - Read-only discovery. Nothing here auto-installs; installs are explicit.
+  - Offline-tolerant. A failed fetch falls back to the last good cache, then to
+    the bundled index (``app/data/themes_index.json``) — the gallery never blanks.
+  - Configurable. ``SERVERKIT_THEMES_REGISTRY_URL`` points at the live index.
+    Unset ⇒ the public registry; set-but-EMPTY ⇒ disabled (bundled only — also
+    how the test suite stays offline).
+"""
+import json
+import logging
+import os
+import time
+from urllib.parse import urljoin
+
+import requests
+
+from app.models.theme import Theme
+from app.services import theme_service
+
+logger = logging.getLogger(__name__)
+
+_BUNDLED_INDEX = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'themes_index.json'
+)
+
+# The curated public index. Default goes through serverkit.ai, which proxies the
+# raw-GitHub index (operator-gated route). Operators can also point
+# SERVERKIT_THEMES_REGISTRY_URL straight at the raw index:
+#   https://raw.githubusercontent.com/jhd3197/serverkit-themes/main/index.json
+DEFAULT_REGISTRY_URL = 'https://serverkit.ai/themes/index.json'
+
+_FIELDS = {
+    'slug': '',
+    'name': '',
+    'author': '',
+    'version': '1.0.0',
+    'description': '',
+    'base': 'dark',
+    'accent': None,
+    'preview': [],
+    'modes': [],
+    'theme': '',   # relative path to the full theme.json
+    'image': None,
+}
+
+
+def _registry_url():
+    value = os.environ.get('SERVERKIT_THEMES_REGISTRY_URL')
+    if value is None:
+        return DEFAULT_REGISTRY_URL
+    return value.strip()
+
+
+try:
+    _TTL = int(os.environ.get('SERVERKIT_THEMES_REGISTRY_TTL', '3600'))
+except ValueError:
+    _TTL = 3600
+
+# After a failed fetch with no cache to serve, hold the bundled fallback only
+# this long before retrying upstream (instead of the full TTL) — the panel
+# recovers quickly when the registry comes back, without hammering it.
+_FAILURE_TTL = 60
+
+_cache = {'ts': 0.0, 'entries': None, 'source': None}
+
+
+def _resolve_url(path, base_url):
+    if not path or not isinstance(path, str):
+        return path
+    if path.startswith('http://') or path.startswith('https://'):
+        return path
+    return urljoin(base_url, path) if base_url else path
+
+
+def _normalize(raw, base_url=None):
+    if not isinstance(raw, dict) or not raw.get('slug'):
+        return None
+    out = {k: raw.get(k, d) for k, d in _FIELDS.items()}
+    if not isinstance(out['preview'], list):
+        out['preview'] = []
+    if not isinstance(out['modes'], list):
+        out['modes'] = []
+    out['image'] = _resolve_url(out['image'], base_url)
+    # Keep the resolved absolute URL to the full theme.json for install.
+    out['_theme_url'] = _resolve_url(out['theme'], base_url)
+    return out
+
+
+def _read_index_payload(payload, base_url=None):
+    themes = payload.get('themes') if isinstance(payload, dict) else None
+    if not isinstance(themes, list):
+        return []
+    return [t for t in (_normalize(x, base_url) for x in themes) if t]
+
+
+def _load_bundled():
+    try:
+        with open(_BUNDLED_INDEX, 'r', encoding='utf-8') as f:
+            return _read_index_payload(json.load(f), base_url=None)
+    except Exception as e:
+        logger.warning('Could not read bundled themes index: %s', e)
+        return []
+
+
+def _fetch_remote():
+    url = _registry_url()
+    if not url:
+        return None, None
+    resp = requests.get(url, timeout=15, headers={
+        'Accept': 'application/json',
+        'User-Agent': 'ServerKit-Themes/1.0',
+    })
+    resp.raise_for_status()
+    return _read_index_payload(resp.json(), base_url=url), url
+
+
+def refresh(force=False):
+    """Return registry entries, refreshing when the cache is stale. Never
+    raises — falls back to last-good cache, then the bundled index."""
+    now = time.time()
+    if not force and _cache['entries'] is not None and (now - _cache['ts']) < _TTL:
+        return _cache['entries']
+
+    entries = None
+    source = None
+    failed = False
+    try:
+        entries, _ = _fetch_remote()
+        if entries is not None:
+            source = 'remote'
+    except Exception as e:
+        failed = True
+        logger.warning('Theme registry fetch failed (%s): %s', _registry_url(), e)
+
+    if entries is None:
+        if _cache['entries'] is not None:
+            # Failed refresh with a last-good cache: serve it and stamp the
+            # timestamp so the TTL applies — otherwise every call retries the
+            # network and stalls up to the fetch timeout.
+            _cache['ts'] = now
+            return _cache['entries']
+        entries = _load_bundled()
+        source = 'bundled'
+
+    ts = now - (_TTL - _FAILURE_TTL) if failed else now
+    _cache.update({'entries': entries, 'ts': ts, 'source': source})
+    return entries
+
+
+def _installed_slugs():
+    return {row.slug for row in Theme.query.with_entities(Theme.slug).all()}
+
+
+def list_catalog():
+    """Registry entries + live install state, for the Browse gallery. Bundled
+    seed slugs are dropped — those already show as always-present gallery cards,
+    so a registry entry for them would duplicate."""
+    installed = _installed_slugs()
+    bundled = {t['slug'] for t in theme_service.list_bundled()}
+    out = []
+    for e in refresh():
+        if e['slug'] in bundled:
+            continue
+        d = {k: e[k] for k in _FIELDS if k != 'theme'}
+        d['installed'] = e['slug'] in installed
+        out.append(d)
+    return out
+
+
+def get_entry(slug):
+    for e in refresh():
+        if e['slug'] == slug:
+            return e
+    return None
+
+
+def registry_source_label():
+    return _cache.get('source')
+
+
+def install(slug):
+    """Fetch a registry theme's full theme.json, validate it, and store it.
+    Returns ``(theme_dict, error)``."""
+    entry = get_entry(slug)
+    if entry is None:
+        return None, 'Theme not found in the registry'
+    theme_url = entry.get('_theme_url')
+    if not theme_url:
+        return None, 'Registry entry has no theme file'
+    try:
+        resp = requests.get(theme_url, timeout=15, headers={
+            'Accept': 'application/json',
+            'User-Agent': 'ServerKit-Themes/1.0',
+        })
+        resp.raise_for_status()
+        raw = resp.json()
+    except Exception as e:
+        logger.warning('Fetching theme %s failed (%s): %s', slug, theme_url, e)
+        return None, 'Could not download the theme from the registry'
+    # The registry index and the theme file must agree on the slug.
+    if isinstance(raw, dict) and raw.get('slug') and raw['slug'] != slug:
+        return None, 'Registry theme slug mismatch'
+    return theme_service.import_theme(raw, source='registry')

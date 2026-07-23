@@ -463,6 +463,10 @@ def create_app(config_name=None):
     from app.api.marketplace import marketplace_bp
     app.register_blueprint(marketplace_bp, url_prefix='/api/v1/marketplace')
 
+    # Register blueprints - Themes (plan 60)
+    from app.api.themes import themes_bp
+    app.register_blueprint(themes_bp, url_prefix='/api/v1/themes')
+
     # Register blueprints - Plugins
     from app.api.plugins import plugins_bp
     app.register_blueprint(plugins_bp, url_prefix='/api/v1/plugins')

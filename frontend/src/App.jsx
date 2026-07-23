@@ -7,6 +7,7 @@ import { LayoutProvider } from './contexts/LayoutContext';
 import { ResourceTierProvider } from './contexts/ResourceTierContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import { Toaster } from './components/ui/sonner';
+import ThemeSync from './components/ThemeSync';
 import DashboardLayout from './layouts/DashboardLayout';
 import AppLoader from './components/AppLoader';
 import Dashboard from './pages/Dashboard';
@@ -486,6 +487,7 @@ function App() {
                             publicTitle via useAuth (branding), so it must sit under
                             the provider. It stays inside Router for useLocation. */}
                         <PageTitleUpdater />
+                        <ThemeSync />
                         <ResourceTierProvider>
                             <ToastProvider>
                                 <NotificationsProvider>

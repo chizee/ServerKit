@@ -79,6 +79,7 @@ from app.models.cron_run import CronRun
 from app.models.fleet_doctor_result import FleetDoctorResult
 from app.models.server_survey import ServerSurvey
 from app.models.dns_cutover_snapshot import DnsCutoverSnapshot
+from app.models.theme import Theme
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -129,4 +130,5 @@ __all__ = [
     'FleetDoctorResult',
     'ServerSurvey',
     'DnsCutoverSnapshot',
+    'Theme',
 ]

@@ -1,0 +1,241 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Download, Save, Github } from 'lucide-react';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
+import { TOKEN_GROUPS, GROUP_LABELS, TOKEN_TYPE, sanitizeTokens } from '../../data/themeTokens';
+import { DEFAULT_THEME_SLUG, BUNDLED_THEME_MAP } from '../../data/bundledThemes';
+import api from '../../services/api';
+
+const REGISTRY_REPO = 'https://github.com/jhd3197/serverkit-themes';
+
+const slugify = (s) => String(s || '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+// Seed the editor from a theme's tokens for the given mode; fall back to the
+// stock default so every picker starts with a real value.
+function seedTokens(theme, mode) {
+    const stock = BUNDLED_THEME_MAP[DEFAULT_THEME_SLUG]?.tokens?.[mode] || {};
+    const from = theme?.tokens?.[mode] || {};
+    return { ...stock, ...from };
+}
+
+// Theme Studio (plan 60, Phase 4) — the "SDK" for a data format is docs +
+// tooling. Edit colors over the LIVE panel (every change applies instantly via
+// the skin preview), start from any installed theme, then Export a valid
+// theme.json, Save it into this panel, or Submit it to the registry.
+const ThemeStudioModal = ({ open, onOpenChange }) => {
+    const { availableThemes, previewSkin, clearPreview, refreshInstalledThemes, setSkin } = useTheme();
+    const { user } = useAuth();
+    const toast = useToast();
+    const isAdmin = user?.role === 'admin';
+
+    const [name, setName] = useState('My Theme');
+    const [slug, setSlug] = useState('my-theme');
+    const [slugTouched, setSlugTouched] = useState(false);
+    const [base, setBase] = useState('dark');
+    const [editMode, setEditMode] = useState('dark');
+    const [accent, setAccent] = useState('#6d7cff');
+    const [darkTokens, setDarkTokens] = useState(() => seedTokens(null, 'dark'));
+    const [lightTokens, setLightTokens] = useState(() => seedTokens(null, 'light'));
+    const [saving, setSaving] = useState(false);
+
+    const activeTokens = editMode === 'light' ? lightTokens : darkTokens;
+    const setActiveTokens = editMode === 'light' ? setLightTokens : setDarkTokens;
+
+    // Build the in-progress theme object (used for live preview + export).
+    const workingTheme = useMemo(() => ({
+        schema_version: 1,
+        slug: slug || 'my-theme',
+        name: name || 'My Theme',
+        author: user?.username || '',
+        version: '1.0.0',
+        base,
+        tokens: { dark: sanitizeTokens(darkTokens), light: sanitizeTokens(lightTokens) },
+        accent,
+        preview: [
+            activeTokens['--bg-body'] || '#101218',
+            activeTokens['--surface'] || '#161922',
+            accent || '#6d7cff',
+            activeTokens['--text'] || '#e9ebf0',
+        ],
+    }), [slug, name, base, darkTokens, lightTokens, accent, activeTokens, user]);
+
+    // Live-apply the in-progress theme while the studio is open.
+    useEffect(() => {
+        if (open) previewSkin(workingTheme);
+        return () => { if (open) clearPreview(); };
+    }, [open, workingTheme, previewSkin, clearPreview]);
+
+    const startFrom = (fromSlug) => {
+        const theme = availableThemes.find((t) => t.slug === fromSlug);
+        if (!theme) return;
+        setDarkTokens(seedTokens(theme, 'dark'));
+        setLightTokens(seedTokens(theme, 'light'));
+        if (theme.base) setBase(theme.base);
+        if (theme.accent) setAccent(theme.accent);
+    };
+
+    const onNameChange = (v) => {
+        setName(v);
+        if (!slugTouched) setSlug(slugify(v));
+    };
+
+    const setToken = (token, value) => setActiveTokens((prev) => ({ ...prev, [token]: value }));
+
+    const download = () => {
+        const blob = new Blob([JSON.stringify(workingTheme, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${workingTheme.slug || 'theme'}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('theme.json downloaded');
+    };
+
+    const saveToPanel = async () => {
+        if (workingTheme.slug === DEFAULT_THEME_SLUG) {
+            toast.error("'default' is reserved — choose another slug");
+            return;
+        }
+        setSaving(true);
+        try {
+            const saved = await api.importTheme(workingTheme, { source: 'studio' });
+            await refreshInstalledThemes();
+            if (saved?.slug) setSkin(saved.slug);
+            toast.success(`Saved "${saved?.name}" to this panel`);
+            onOpenChange(false);
+        } catch (e) {
+            toast.error(e?.message || 'Could not save the theme');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const submitToRegistry = () => {
+        const filename = `themes/${workingTheme.slug || 'my-theme'}/theme.json`;
+        const value = encodeURIComponent(JSON.stringify(workingTheme, null, 2));
+        // GitHub "create new file" deep-link, prefilled with the theme.
+        const url = `${REGISTRY_REPO}/new/main?filename=${encodeURIComponent(filename)}&value=${value}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="theme-studio">
+                <DialogHeader>
+                    <DialogTitle>Theme Studio</DialogTitle>
+                    <DialogDescription>
+                        Edit colors over the live panel. Export a shareable theme.json, save it here, or submit it to the registry.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="theme-studio__top">
+                    <label className="theme-studio__field">
+                        <span>Name</span>
+                        <input value={name} onChange={(e) => onNameChange(e.target.value)} />
+                    </label>
+                    <label className="theme-studio__field">
+                        <span>Slug</span>
+                        <input
+                            value={slug}
+                            onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }}
+                        />
+                    </label>
+                    <label className="theme-studio__field">
+                        <span>Base</span>
+                        <select value={base} onChange={(e) => setBase(e.target.value)}>
+                            <option value="dark">dark</option>
+                            <option value="light">light</option>
+                        </select>
+                    </label>
+                    <label className="theme-studio__field">
+                        <span>Start from</span>
+                        <select defaultValue="" onChange={(e) => { startFrom(e.target.value); e.target.value = ''; }}>
+                            <option value="" disabled>Choose…</option>
+                            {availableThemes.map((t) => (
+                                <option key={t.slug} value={t.slug}>{t.name || t.slug}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
+
+                <div className="theme-studio__modebar">
+                    <div className="theme-studio__accent">
+                        <span>Accent</span>
+                        <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} />
+                    </div>
+                    <div className="theme-studio__modes">
+                        <button
+                            type="button"
+                            className={editMode === 'dark' ? 'active' : ''}
+                            onClick={() => setEditMode('dark')}
+                        >Dark tokens</button>
+                        <button
+                            type="button"
+                            className={editMode === 'light' ? 'active' : ''}
+                            onClick={() => setEditMode('light')}
+                        >Light tokens</button>
+                    </div>
+                </div>
+
+                <div className="theme-studio__groups">
+                    {Object.entries(TOKEN_GROUPS).map(([group, tokens]) => (
+                        <div key={group} className="theme-studio__group">
+                            <h4>{GROUP_LABELS[group]}</h4>
+                            <div className="theme-studio__tokens">
+                                {tokens.map((token) => {
+                                    const isColor = TOKEN_TYPE[token] === 'color';
+                                    const value = activeTokens[token] ?? '';
+                                    return (
+                                        <div key={token} className="theme-studio__token">
+                                            <label>{token}</label>
+                                            <div className="theme-studio__token-input">
+                                                {isColor && /^#([0-9a-fA-F]{6})$/.test(value) && (
+                                                    <input
+                                                        type="color"
+                                                        value={value}
+                                                        onChange={(e) => setToken(token, e.target.value)}
+                                                    />
+                                                )}
+                                                <input
+                                                    type="text"
+                                                    value={value}
+                                                    placeholder="unset"
+                                                    onChange={(e) => setToken(token, e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="theme-studio__footer">
+                    <Button variant="outline" size="sm" onClick={download}>
+                        <Download size={14} /> Export theme.json
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={submitToRegistry}>
+                        <Github size={14} /> Submit to registry
+                    </Button>
+                    {isAdmin && (
+                        <Button size="sm" onClick={saveToPanel} disabled={saving}>
+                            <Save size={14} /> {saving ? 'Saving…' : 'Save to this panel'}
+                        </Button>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+export default ThemeStudioModal;

@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "themes": [
+    {
+      "slug": "default",
+      "name": "ServerKit",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "The stock ServerKit look — deep slate surfaces with a periwinkle accent.",
+      "base": "dark",
+      "preview": [
+        "#0a0b0e",
+        "#101218",
+        "#6d7cff",
+        "#e9ebf0"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "apamate",
+      "name": "Apamate",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Muted rose dark with soft gold highlights, after the pink-flowering apamate tree.",
+      "base": "dark",
+      "preview": [
+        "#191014",
+        "#211619",
+        "#e88fa4",
+        "#f3e9ec"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "araguaney",
+      "name": "Araguaney",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Amber terminal glow on near-black — the national tree in full yellow bloom, CRT style.",
+      "base": "dark",
+      "preview": [
+        "#0f0b04",
+        "#161006",
+        "#ffb000",
+        "#ffd98a"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "azulejo",
+      "name": "Azulejo",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Navy depths with the soft blue of the azulejo tanager as the accent.",
+      "base": "dark",
+      "preview": [
+        "#0b1220",
+        "#101a2c",
+        "#58a6e0",
+        "#e7edf6"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "cacao",
+      "name": "Cacao",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Chocolate-warm dark with soft pastel accents — criollo cacao in theme form.",
+      "base": "dark",
+      "preview": [
+        "#171210",
+        "#1e1815",
+        "#d29a6b",
+        "#f2ebe4"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "ceiba",
+      "name": "Ceiba",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Earthy jungle greens under the canopy of the great ceiba tree.",
+      "base": "dark",
+      "preview": [
+        "#0d130e",
+        "#131a14",
+        "#58c98a",
+        "#e8f0e9"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "gruvbox",
+      "name": "Gruvbox",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A warm retro terminal palette with earthy browns and an orange accent.",
+      "base": "dark",
+      "preview": [
+        "#1d2021",
+        "#282828",
+        "#fe8019",
+        "#ebdbb2"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "guacamaya",
+      "name": "Guacamaya",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Indigo night with the scarlet, gold and blue of the macaws that fly over at sunset.",
+      "base": "dark",
+      "preview": [
+        "#12121f",
+        "#181829",
+        "#ff5964",
+        "#ffd23f"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "high-contrast",
+      "name": "High Contrast",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A maximum-contrast theme tuned for accessibility, in dark and light.",
+      "base": "dark",
+      "preview": [
+        "#000000",
+        "#0a0a0a",
+        "#00d0ff",
+        "#ffffff"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "nord-deep",
+      "name": "Nord Deep",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A deep arctic dark theme with cool blue surfaces and frosty accents.",
+      "base": "dark",
+      "preview": [
+        "#242933",
+        "#2e3440",
+        "#88c0d0",
+        "#eceff4"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "onoto",
+      "name": "Onoto",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Warm annatto red-orange in both modes — a full dark and light pair, like the kitchen staple.",
+      "base": "dark",
+      "preview": [
+        "#171110",
+        "#1e1614",
+        "#e8642c",
+        "#faf3ea"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "orquidea",
+      "name": "Orquídea",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A deep violet dark theme in the lilac of the national flower, the Cattleya orchid.",
+      "base": "dark",
+      "preview": [
+        "#14101d",
+        "#1b1626",
+        "#c58af5",
+        "#ece7f5"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "papelon",
+      "name": "Papelón",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A warm sepia light theme in cane-sugar cream and terracotta — papelón con limón.",
+      "base": "light",
+      "preview": [
+        "#f7f0e3",
+        "#fdf8ee",
+        "#b5651d",
+        "#3a2f22"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "paper",
+      "name": "Paper",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A clean, bright light theme with crisp white surfaces and a blue accent.",
+      "base": "light",
+      "preview": [
+        "#fbfbfd",
+        "#ffffff",
+        "#2563eb",
+        "#1a1d24"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "phosphor",
+      "name": "Phosphor",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "A near-black OLED theme with glowing terminal-green text.",
+      "base": "dark",
+      "preview": [
+        "#000000",
+        "#0a0f0a",
+        "#33ff66",
+        "#c8f7c8"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "tepuy",
+      "name": "Tepuy",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Stark grayscale on black stone with a single red accent — hard edges, tight radius.",
+      "base": "dark",
+      "preview": [
+        "#0d0d0d",
+        "#141414",
+        "#e53e3e",
+        "#ededed"
+      ],
+      "bundled": true
+    },
+    {
+      "slug": "turpial",
+      "name": "Turpial",
+      "author": "serverkit",
+      "version": "1.0.0",
+      "description": "Deep black warmed by the vivid orange of Venezuela's national bird.",
+      "base": "dark",
+      "preview": [
+        "#0d0b09",
+        "#151210",
+        "#ff9d1f",
+        "#f2ede6"
+      ],
+      "bundled": true
+    }
+  ]
+}
