@@ -1,10 +1,17 @@
+import { useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import useDashboardLayout from '../../hooks/useDashboardLayout';
-import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, RotateCcw, Upload, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import useSettingFocus from '../../hooks/useSettingFocus';
 import ThemeGallery from './ThemeGallery';
+import ThemeBrowseModal from './ThemeBrowseModal';
+import ThemeStudioModal from './ThemeStudioModal';
+import { Sparkles } from 'lucide-react';
+import api from '../../services/api';
 
 const ACCENT_PRESETS = [
     { label: 'Indigo', color: '#6366f1' },
@@ -18,9 +25,32 @@ const ACCENT_PRESETS = [
 ];
 
 const AppearanceTab = () => {
-    const { theme, setTheme, accentColor, setAccentColor, hasCustomAccent, resetAccentColor } = useTheme();
+    const {
+        theme, setTheme, accentColor, setAccentColor, hasCustomAccent, resetAccentColor,
+        refreshInstalledThemes, setSkin,
+    } = useTheme();
+    const { user } = useAuth();
+    const toast = useToast();
     const { widgets, toggleWidget, moveWidget, resetLayout } = useDashboardLayout();
     const register = useSettingFocus();
+    const fileInputRef = useRef(null);
+    const [browseOpen, setBrowseOpen] = useState(false);
+    const [studioOpen, setStudioOpen] = useState(false);
+    const isAdmin = user?.role === 'admin';
+
+    const onImportFile = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';               // allow re-selecting the same file
+        if (!file) return;
+        try {
+            const imported = await api.importThemeFile(file);
+            await refreshInstalledThemes();
+            if (imported?.slug) setSkin(imported.slug);
+            toast.success(`Imported theme "${imported?.name || imported?.slug}"`);
+        } catch (err) {
+            toast.error(err?.message || 'Could not import that theme.json');
+        }
+    };
 
     return (
         <div className="settings-section">
@@ -76,9 +106,40 @@ const AppearanceTab = () => {
             </div>
 
             <div {...register('appearance-theme-gallery', 'settings-card')}>
-                <h3>Theme</h3>
-                <p>Pick a color theme. Applies instantly and stays your personal choice; the dark/light toggle above still works on top of it.</p>
+                <div className="theme-gallery-header">
+                    <div>
+                        <h3>Theme</h3>
+                        <p>Pick a color theme. Applies instantly and stays your personal choice; the dark/light toggle above still works on top of it.</p>
+                    </div>
+                    <div className="theme-gallery-actions">
+                        <Button variant="outline" size="sm" onClick={() => setStudioOpen(true)}>
+                            <Sparkles size={14} />
+                            Create theme
+                        </Button>
+                        {isAdmin && (
+                            <>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="application/json,.json"
+                                    style={{ display: 'none' }}
+                                    onChange={onImportFile}
+                                />
+                                <Button variant="outline" size="sm" onClick={() => setBrowseOpen(true)}>
+                                    <Store size={14} />
+                                    Browse themes
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                                    <Upload size={14} />
+                                    Import theme.json
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                </div>
                 <ThemeGallery />
+                <ThemeBrowseModal open={browseOpen} onOpenChange={setBrowseOpen} />
+                <ThemeStudioModal open={studioOpen} onOpenChange={setStudioOpen} />
             </div>
 
             <div {...register('appearance-accent-color', 'settings-card')}>

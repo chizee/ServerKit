@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { BUNDLED_THEMES, BUNDLED_THEME_MAP, DEFAULT_THEME_SLUG } from '../data/bundledThemes';
 import { applySkin } from '../utils/applySkin';
+import api from '../services/api';
 
 const ThemeContext = createContext(null);
 
@@ -101,13 +102,19 @@ export function ThemeProvider({ children }) {
         return localStorage.getItem('accent_color') != null;
     });
 
-    // Selected skin slug (per-user, like dark/light). 'default' = stock look.
-    const [skin, setSkinState] = useState(() => {
-        return localStorage.getItem('skin') || DEFAULT_THEME_SLUG;
+    // The user's explicit skin choice (per-user, like dark/light), or null when
+    // they've never picked one — in which case the panel default is followed.
+    // 'default' means the user explicitly chose the stock look.
+    const [pickedSkin, setPickedSkinState] = useState(() => {
+        return localStorage.getItem('skin');
     });
 
+    // The panel-wide default theme (fetched from the unauthenticated
+    // /themes/public/active). New users and the login/setup screens follow it.
+    const [panelDefaultTheme, setPanelDefaultTheme] = useState(null);
+
     // Registry/imported themes merged on top of the bundled seeds at runtime
-    // (populated in Phase 2 by fetching installed themes from the API).
+    // (populated by fetching installed themes from the API once authenticated).
     const [installedThemes, setInstalledThemes] = useState({});
 
     const [whiteLabel, setWhiteLabelState] = useState(() => {
@@ -135,6 +142,23 @@ export function ThemeProvider({ children }) {
         const extras = Object.values(installedThemes).filter((t) => !(t.slug in BUNDLED_THEME_MAP));
         return [...BUNDLED_THEMES, ...extras].map((t) => merged[t.slug] || t);
     }, [installedThemes]);
+
+    // The slug actually in effect: the user's explicit pick, else the panel
+    // default, else the stock look.
+    const activeSlug = pickedSkin != null
+        ? pickedSkin
+        : (panelDefaultTheme?.slug || DEFAULT_THEME_SLUG);
+
+    // Resolve a slug to a theme object to skin with. 'default' (or unknown)
+    // resolves to null → applySkin clears overrides and the stock stylesheet
+    // shows. Falls back to the fetched panel-default object so a custom default
+    // paints the login screen even before its full record is loaded.
+    const resolveSkinTheme = useCallback((slug) => {
+        if (!slug || slug === DEFAULT_THEME_SLUG) return null;
+        if (themesMap[slug]) return themesMap[slug];
+        if (panelDefaultTheme && panelDefaultTheme.slug === slug) return panelDefaultTheme;
+        return null;
+    }, [themesMap, panelDefaultTheme]);
 
     // Update the DOM attribute and resolved theme
     const applyTheme = useCallback((newTheme) => {
@@ -164,10 +188,11 @@ export function ThemeProvider({ children }) {
         localStorage.removeItem('accent_color');
     }, []);
 
-    // Public setter for the selected skin (per-user).
+    // Public setter for the selected skin (per-user). Persists an explicit
+    // choice; from now on this user no longer follows the panel default.
     const setSkin = useCallback((slug) => {
         const next = slug || DEFAULT_THEME_SLUG;
-        setSkinState(next);
+        setPickedSkinState(next);
         localStorage.setItem('skin', next);
     }, []);
 
@@ -182,23 +207,41 @@ export function ThemeProvider({ children }) {
     }, [resolvedTheme, workspaceAccent, hasCustomAccent, accentColor]);
 
     const clearPreview = useCallback(() => {
-        const skinTheme = skin !== DEFAULT_THEME_SLUG ? themesMap[skin] : null;
-        const skinAccent = applySkin(skinTheme, resolvedTheme);
+        const skinAccent = applySkin(resolveSkinTheme(activeSlug), resolvedTheme);
         applyAccentToDOM(
             computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor, skinAccent }),
         );
-    }, [skin, themesMap, resolvedTheme, workspaceAccent, hasCustomAccent, accentColor]);
+    }, [resolveSkinTheme, activeSlug, resolvedTheme, workspaceAccent, hasCustomAccent, accentColor]);
 
-    // Merge installed (registry/imported) themes into the selectable set.
+    // Replace the installed-theme set from an API listing (bundled dicts are
+    // harmless — the gallery de-dupes them against the seeds by slug). A replace
+    // (not merge) means an uninstalled theme disappears without a reload.
     const registerInstalledThemes = useCallback((list) => {
         if (!Array.isArray(list)) return;
-        setInstalledThemes((prev) => {
-            const next = { ...prev };
-            for (const t of list) {
-                if (t && t.slug) next[t.slug] = t;
-            }
-            return next;
-        });
+        const map = {};
+        for (const t of list) {
+            if (t && t.slug) map[t.slug] = t;
+        }
+        setInstalledThemes(map);
+    }, []);
+
+    // Re-fetch installed themes (after an import/delete) and the panel default
+    // (after an admin changes it). Best-effort; failures leave state unchanged.
+    const refreshInstalledThemes = useCallback(async () => {
+        try {
+            const data = await api.getInstalledThemes();
+            if (data && Array.isArray(data.themes)) registerInstalledThemes(data.themes);
+            return data;
+        } catch {
+            return null;
+        }
+    }, [registerInstalledThemes]);
+
+    const refreshPanelDefault = useCallback(async () => {
+        try {
+            const data = await api.getPublicActiveTheme();
+            if (data && data.slug) setPanelDefaultTheme(data);
+        } catch { /* keep current */ }
     }, []);
 
     // Public setter for white label config (accepts partial updates)
@@ -229,18 +272,30 @@ export function ThemeProvider({ children }) {
         applyTheme(theme);
     }, [theme, applyTheme]);
 
-    // Apply the active skin's tokens and the effective accent whenever anything
-    // that feeds them changes. The 'default' slug means "no skin" — applySkin
-    // is handed null so it clears any overrides and the stock stylesheet shows.
+    // Fetch the panel default once (unauthenticated-safe) so new users and the
+    // login/setup screens follow it. Best-effort — a failure just leaves the
+    // stock look.
     useEffect(() => {
-        const skinTheme = skin !== DEFAULT_THEME_SLUG ? themesMap[skin] : null;
-        const skinAccent = applySkin(skinTheme, resolvedTheme);
+        let cancelled = false;
+        api.getPublicActiveTheme?.()
+            .then((data) => {
+                if (!cancelled && data && data.slug) setPanelDefaultTheme(data);
+            })
+            .catch(() => { /* stay on stock */ });
+        return () => { cancelled = true; };
+    }, []);
+
+    // Apply the active skin's tokens and the effective accent whenever anything
+    // that feeds them changes. A null resolution means "no skin" — applySkin
+    // clears any overrides and the stock stylesheet shows.
+    useEffect(() => {
+        const skinAccent = applySkin(resolveSkinTheme(activeSlug), resolvedTheme);
         applyAccentToDOM(
             computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor, skinAccent }),
         );
-    }, [skin, resolvedTheme, accentColor, hasCustomAccent, workspaceAccent, themesMap]);
+    }, [activeSlug, resolveSkinTheme, resolvedTheme, accentColor, hasCustomAccent, workspaceAccent]);
 
-    const activeTheme = skin !== DEFAULT_THEME_SLUG ? (themesMap[skin] || null) : null;
+    const activeTheme = resolveSkinTheme(activeSlug);
 
     const value = {
         theme,           // Current setting: 'dark' | 'light' | 'system'
@@ -250,13 +305,17 @@ export function ThemeProvider({ children }) {
         setAccentColor,  // Function to change accent color
         hasCustomAccent, // Whether the accent is an explicit user override
         resetAccentColor,// Clear the explicit accent (fall back to skin/default)
-        skin,            // Selected skin slug ('default' = stock)
-        setSkin,         // Function to change the selected skin
-        activeTheme,     // The active skin's theme object (null for stock)
-        availableThemes, // Selectable themes (bundled + installed)
+        skin: activeSlug,      // Slug in effect (user pick, else panel default)
+        pickedSkin,            // The user's explicit pick, or null (following default)
+        setSkin,               // Function to change the selected skin
+        panelDefaultSlug: panelDefaultTheme?.slug || DEFAULT_THEME_SLUG,
+        activeTheme,           // The active skin's theme object (null for stock)
+        availableThemes,       // Selectable themes (bundled + installed)
         previewSkin,     // Temporarily apply a theme (hover preview)
         clearPreview,    // Restore the selected skin after a preview
-        registerInstalledThemes, // Merge registry/imported themes into the set
+        registerInstalledThemes, // Replace the installed-theme set from a listing
+        refreshInstalledThemes,  // Re-fetch installed themes (after import/delete)
+        refreshPanelDefault,     // Re-fetch the panel default (after admin change)
         whiteLabel,      // White label config object
         setWhiteLabel,   // Function to update white label config
     };

@@ -44,6 +44,7 @@ import * as surveyMethods from './survey.js';
 import * as dnsCutoverMethods from './dnsCutover.js';
 import * as searchMethods from './search.js';
 import * as testSandboxMethods from './testSandbox.js';
+import * as themeMethods from './themes.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -95,6 +96,7 @@ class ApiService extends ApiClient {
             dnsCutoverMethods,
             searchMethods,
             testSandboxMethods,
+            themeMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

@@ -1,0 +1,114 @@
+import { useEffect, useState } from 'react';
+import { Check, Download, Loader2 } from 'lucide-react';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useToast } from '../../contexts/ToastContext';
+import api from '../../services/api';
+
+// Browse & install community themes from the registry (plan 60, Phase 3).
+// Offline-tolerant: if the registry is unreachable the panel falls back to the
+// bundled index, so this never hard-fails — it just shows fewer (or no) cards.
+const ThemeBrowseModal = ({ open, onOpenChange }) => {
+    const { refreshInstalledThemes } = useTheme();
+    const toast = useToast();
+    const [loading, setLoading] = useState(false);
+    const [themes, setThemes] = useState([]);
+    const [source, setSource] = useState(null);
+    const [installing, setInstalling] = useState(null);
+
+    const load = async () => {
+        setLoading(true);
+        try {
+            const data = await api.getThemeRegistry();
+            setThemes(Array.isArray(data?.themes) ? data.themes : []);
+            setSource(data?.source || null);
+        } catch (e) {
+            toast.error(e?.message || 'Could not load the theme registry');
+            setThemes([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (open) load();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+
+    const install = async (slug) => {
+        setInstalling(slug);
+        try {
+            await api.installRegistryTheme(slug);
+            await refreshInstalledThemes();
+            setThemes((prev) => prev.map((t) => (t.slug === slug ? { ...t, installed: true } : t)));
+            toast.success('Theme installed — find it in the gallery');
+        } catch (e) {
+            toast.error(e?.message || 'Could not install that theme');
+        } finally {
+            setInstalling(null);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="theme-browse-modal">
+                <DialogHeader>
+                    <DialogTitle>Browse themes</DialogTitle>
+                    <DialogDescription>
+                        Community themes from the registry. Installing one adds it to your gallery.
+                    </DialogDescription>
+                </DialogHeader>
+
+                {loading ? (
+                    <div className="theme-browse__state">
+                        <Loader2 className="spin" size={18} /> Loading registry…
+                    </div>
+                ) : themes.length === 0 ? (
+                    <div className="theme-browse__state">
+                        No community themes available right now.
+                        {source === 'bundled' && ' (registry offline — showing bundled only)'}
+                    </div>
+                ) : (
+                    <div className="theme-browse__grid">
+                        {themes.map((t) => {
+                            const swatches = Array.isArray(t.preview) ? t.preview.slice(0, 4) : [];
+                            return (
+                                <div key={t.slug} className="theme-browse__card">
+                                    <div className="theme-browse__swatches">
+                                        {swatches.map((c, i) => (
+                                            <span key={i} style={{ background: c }} />
+                                        ))}
+                                    </div>
+                                    <div className="theme-browse__meta">
+                                        <span className="theme-browse__name">{t.name || t.slug}</span>
+                                        {t.author && <span className="theme-browse__author">by {t.author}</span>}
+                                    </div>
+                                    {t.description && <p className="theme-browse__desc">{t.description}</p>}
+                                    {t.installed ? (
+                                        <span className="theme-browse__installed"><Check size={13} /> Installed</span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="theme-browse__install"
+                                            disabled={installing === t.slug}
+                                            onClick={() => install(t.slug)}
+                                        >
+                                            {installing === t.slug
+                                                ? <Loader2 className="spin" size={13} />
+                                                : <Download size={13} />}
+                                            Install
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+export default ThemeBrowseModal;
