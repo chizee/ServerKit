@@ -535,7 +535,10 @@ cmd_update() {
     print_header
     echo ""
 
-    if [ ! -x "$INSTALL_DIR/scripts/update.sh" ]; then
+    # -f, not -x: scripts are tracked 0644 in git and invoked via `bash`, so
+    # requiring the executable bit wrongly fails every update with
+    # "Updater not found" on a perfectly good install.
+    if [ ! -f "$INSTALL_DIR/scripts/update.sh" ]; then
         print_error "Updater not found at $INSTALL_DIR/scripts/update.sh"
         exit 1
     fi
