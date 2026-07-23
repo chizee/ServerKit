@@ -20,6 +20,30 @@ awaiting a stable release:
 
 ### Added
 
+- **Extensions render on a production panel without a rebuild.** An extension that
+  ships a prebuilt ESM bundle (`frontend_entry: "dist/index.mjs"`) now lights up its
+  UI the moment it's installed — the panel fetches the bundle through the authed
+  assets route, verifies its integrity against the hash pinned at install, and loads
+  it live. Previously an installed extension's backend worked but its pages stayed
+  invisible until the whole panel was rebuilt. A panel-wide kill switch
+  (`extensions.runtime_frontend`, on by default) can turn the mechanism off.
+- **The Deploy Console — publish anything, watch it live, debug it from the UI.**
+  Installing a template, deploying a repo, redeploying a service, or uploading a
+  build now takes you to one full-page live console at `/deployments/<id>`: a
+  terminal-style log that streams the real pull/build/start output line-by-line
+  (not 1.5-second snapshots), a step rail that checks off with per-step timings, a
+  live elapsed timer, and follow/wrap/timestamps/level-filter/search/copy/download
+  controls. When a deploy fails, the page pins an error card with the real failure
+  tail (the actual build output, not a stripped one-liner), a plain-language hint
+  for common cases (port in use, image pull denied, OOM, missing env var, npm/pip
+  failures…), and a one-click **Retry** — so you can read the failure and fix your
+  env var / port / Dockerfile and retry entirely from the browser, no SSH. Every
+  install and deploy flow — templates, repo services, manual redeploys, the Build
+  tab — now rides the same job + log + console machinery, and the `/deployments`
+  index deep-links every run to its console. Updates push over websockets with a
+  transparent 2-second polling fallback, so the console keeps working (and says so)
+  when live updates are unavailable. See [docs/DEPLOY_CONSOLE.md](docs/DEPLOY_CONSOLE.md).
+
 - **Web Analytics — a native, privacy-first analytics extension
   (`serverkit-analytics`).** Self-hosted, first-party website analytics for the
   sites this panel manages, built on the extension platform. A cookieless

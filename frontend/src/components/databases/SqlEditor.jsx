@@ -46,6 +46,7 @@ const SqlEditor = forwardRef(function SqlEditor({ value, onChange, onKeyDown, pl
                     className="dbx-sqled__hl"
                     ref={preRef}
                     aria-hidden="true"
+                    /* sink-safe: hlSql() esc()-escapes each line before tinting */
                     dangerouslySetInnerHTML={{ __html: html }}
                 />
                 <textarea

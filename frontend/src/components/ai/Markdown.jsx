@@ -3,6 +3,7 @@ import { renderMarkdownToHtml } from '../../lib/ai/markdown';
 
 // Renders assistant text. The renderer escapes all input before injecting its
 // own allowlisted tags, so dangerouslySetInnerHTML is safe here.
+// sink-safe: renderMarkdownToHtml (lib/ai/markdown.js) — escapes then allowlists.
 const Markdown = ({ text }) => {
     const html = useMemo(() => renderMarkdownToHtml(text || ''), [text]);
     return <div className="sk-ai-markdown" dangerouslySetInnerHTML={{ __html: html }} />;

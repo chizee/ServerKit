@@ -63,6 +63,16 @@ class SocketService {
         this.socket.on('notification', (data) => {
             this.emit('notification', data);
         });
+
+        // Deploy Console live push (plan 51): batched log lines + status
+        // summaries for a deployment job. Accelerator over after_id polling.
+        this.socket.on('deploy_log', (data) => {
+            this.emit('deploy_log', data);
+        });
+
+        this.socket.on('deploy_status', (data) => {
+            this.emit('deploy_status', data);
+        });
     }
 
     disconnect() {
@@ -93,6 +103,18 @@ class SocketService {
     unsubscribeLogs() {
         if (this.socket?.connected) {
             this.socket.emit('unsubscribe_logs');
+        }
+    }
+
+    subscribeDeploy(jobId) {
+        if (this.socket?.connected) {
+            this.socket.emit('subscribe_deploy', { job_id: jobId });
+        }
+    }
+
+    unsubscribeDeploy(jobId) {
+        if (this.socket?.connected) {
+            this.socket.emit('unsubscribe_deploy', { job_id: jobId });
         }
     }
 

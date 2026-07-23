@@ -15,6 +15,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import api from '../services/api';
 import SystemNotices from '../components/SystemNotices';
 import StagingBanner from '../components/StagingBanner';
+import DeployPill from '../components/DeployPill';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -109,6 +110,7 @@ const DashboardLayout = () => {
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
                 <LogsDrawer />
+                <DeployPill />
                 <AIAssistant />
                 <PluginLoader api={api} />
             </div>
