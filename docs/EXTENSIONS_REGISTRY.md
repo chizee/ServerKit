@@ -70,6 +70,13 @@ stay valid unchanged; the new fields (`logo`, `repo`, `bundled`) are optional.
       "sdk_version": "^1.0.0",                   // optional (additive) — frontend SDK range the bundle targets
       "source": "https://github.com/owner/repo", // repo URL (latest release), release URL, or direct .zip
       "sha256": "…",                            // sha256 of the release zip — STRONGLY recommended
+      "review": {                                // optional — hash-bound review stamp (see below)
+        "reviewer": "jhd3197",
+        "date": "2026-07-23",
+        "sha256": "…",                           // sha256 of the exact zip the reviewer inspected
+        "commit": "…",                           // optional git sha
+        "notes": "…"                             // optional
+      },
       "repo": "https://github.com/owner/repo",   // v2 — https URL of the source repo (shown as "Source repo")
       "logo": "assets/serverkit-gui/logo.svg",   // v2 — https URL OR repo-relative assets/<slug>/<file>
       "release_notes": "…",                      // optional (additive) — shown in the update-diff modal
@@ -116,6 +123,60 @@ Notes:
   ```bash
   node scripts/export-registry-entries.mjs   # emits index-v2 bundled entries
   ```
+
+### Review stamps (`review`) & trust levels
+
+An entry may carry an optional **`review`** stamp recording that a reviewer
+inspected the published artifact:
+
+```jsonc
+"review": {
+  "reviewer": "jhd3197",          // who reviewed it
+  "date": "2026-07-23",           // when
+  "sha256": "…",                  // sha256 of the EXACT zip that was reviewed
+  "commit": "…",                  // optional git sha of the reviewed source
+  "notes": "…"                    // optional free text
+}
+```
+
+The stamp is **hash-bound**: the reviewer vouched for the bytes whose digest is
+`review.sha256`, not for the slug. If the artifact ever changes (new release,
+replaced asset), the entry's `sha256` moves on and no longer matches
+`review.sha256` — the review is **stale** and stops counting. A stamp only
+survives normalization when it is an object whose `sha256` is a 64-character
+lowercase hex digest; anything malformed is dropped.
+
+From this the panel derives a per-entry **`trust`** level, surfaced on the
+catalog API and in the Marketplace:
+
+| `trust` | Meaning |
+|---|---|
+| `first_party` | `first_party: true` — authored by ServerKit (always wins). |
+| `reviewed` | A valid `review` stamp exists and `review.sha256` equals the entry's `sha256`. |
+| `unreviewed` | Everything else — no stamp, a stale stamp (hash mismatch), a malformed stamp, or no `sha256` to bind to. |
+
+The Marketplace renders **Reviewed** (with a *Reviewed by \<reviewer\> on
+\<date\>* tooltip) and **Unreviewed** badges accordingly.
+
+**Install-time acknowledgment.** Installing an `unreviewed` entry — or any
+entry with no `sha256` to verify against — requires explicit consent:
+`POST /api/v1/marketplace/registry/<slug>/install` without
+`{"acknowledge_risk": true}` in the JSON body returns **409** with
+`{"error": …, "trust": …, "reason": …, "requires_acknowledgment": true}`,
+where `reason` is `unreviewed` (community code not vetted) or `unverified`
+(no pinned checksum, possible even for `first_party`). The Marketplace catches
+this, shows a confirmation dialog whose copy matches the reason, and resends
+with `acknowledge_risk: true` only if the operator confirms (the
+acknowledgment is recorded in the audit log). `first_party` and `reviewed`
+entries install unchanged, with no extra prompt.
+
+**Unreviewed entries are developer-stage content.** On a production panel
+(Flask debug off, `dev_mode` setting off) `unreviewed` entries do not appear
+in the Marketplace at all, and the install endpoint answers **404** for them —
+hiding is the default, the 409 acknowledgment flow only exists where they are
+visible. They list and install only in development contexts: Flask debug mode
+(development/testing config) or the `dev_mode` setting toggled on under
+Settings → Site. `first_party` and `reviewed` entries are unaffected.
 
 ---
 

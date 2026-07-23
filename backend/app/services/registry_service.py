@@ -16,6 +16,7 @@ Design rules:
 import json
 import logging
 import os
+import re
 import time
 from urllib.parse import urljoin
 
@@ -74,6 +75,7 @@ _FIELDS = {
     'max_panel_version': None,
     'source': '',
     'sha256': None,
+    'review': None,
     'repo': '',
     'logo': None,
     'homepage': '',
@@ -98,6 +100,34 @@ def _resolve_logo(logo, base_url):
     return logo
 
 
+# A review stamp counts only when it pins a full lowercase sha256 digest —
+# anything else is treated as absent (never trusted by shape alone).
+_REVIEW_SHA_RE = re.compile(r'^[0-9a-f]{64}$')
+
+
+def _validate_review(review):
+    """Keep a `review` stamp only if it is a dict whose `sha256` is a 64-char
+    lowercase hex digest of the exact artifact the reviewer inspected."""
+    if not isinstance(review, dict):
+        return None
+    sha = review.get('sha256')
+    if not isinstance(sha, str) or not _REVIEW_SHA_RE.match(sha):
+        return None
+    return review
+
+
+def _derive_trust(entry):
+    """first_party > reviewed (review stamp hash-bound to the entry's sha256)
+    > unreviewed. A stale stamp (artifact changed → sha256 moved on) never
+    counts: the reviewer vouched for exact bytes, not a slug."""
+    if entry['first_party']:
+        return 'first_party'
+    review = entry['review']
+    if review and entry['sha256'] and review['sha256'] == entry['sha256']:
+        return 'reviewed'
+    return 'unreviewed'
+
+
 def _normalize(raw, base_url=None):
     if not isinstance(raw, dict) or not raw.get('slug'):
         return None
@@ -110,6 +140,8 @@ def _normalize(raw, base_url=None):
         out['screenshots'] = []
     out['bundled'] = bool(out['bundled'])
     out['logo'] = _resolve_logo(out['logo'], base_url)
+    out['review'] = _validate_review(out['review'])
+    out['trust'] = _derive_trust(out)
     return out
 
 
@@ -172,6 +204,28 @@ def refresh(force=False):
     return entries
 
 
+def _show_unreviewed():
+    """Unreviewed community entries are developer-stage content.
+
+    They list in the Marketplace (and install, behind the 409 risk
+    acknowledgment) only when the panel runs in a development context:
+    Flask debug mode (development/testing config) or the ``dev_mode``
+    setting toggled on in Settings. Production panels with dev_mode off
+    never see them — a hidden extension is not installable either.
+    """
+    try:
+        from flask import current_app
+        if current_app.debug or current_app.config.get('TESTING'):
+            return True
+    except RuntimeError:
+        return False  # no app context (CLI/scripts): hide by default
+    try:
+        from app.services.settings_service import SettingsService
+        return bool(SettingsService.get('dev_mode'))
+    except Exception:
+        return False
+
+
 def list_extensions():
     return refresh()
 
@@ -213,6 +267,8 @@ def list_catalog(include_bundled=False):
     entries = refresh()
     if not include_bundled:
         entries = [e for e in entries if not e.get('bundled')]
+    if not _show_unreviewed():
+        entries = [e for e in entries if e.get('trust') != 'unreviewed']
     return [to_catalog_dict(e) for e in entries]
 
 

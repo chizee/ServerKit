@@ -85,6 +85,8 @@ const getRegistryCatalogEntry = (entry) => ({
     version: entry.version || '0.0.0',
     author: entry.author,
     firstParty: isFirstParty(entry.author, entry),
+    trust: entry.trust || 'unreviewed',
+    review: entry.review || null,
     icon: entry.icon || null,
     logo: entry.logo || null,
     repo: entry.repo || entry.homepage || null,
@@ -103,6 +105,27 @@ const sourceBadgeVariant = (source) => {
     if (source === 'local') return 'warning';
     if (source === 'registry') return 'info';
     return 'outline';
+};
+
+// Trust badge derived from the registry's hash-bound review stamp. 'reviewed'
+// shows who/when in the tooltip; 'unreviewed' warns on registry entries
+// (built-in entries never carry a trust field).
+const TrustBadge = ({ entry }) => {
+    if (entry.trust === 'reviewed') {
+        const review = entry.review || {};
+        const title = review.reviewer && review.date
+            ? `Reviewed by ${review.reviewer} on ${review.date}`
+            : 'Reviewed by the ServerKit maintainers';
+        return (
+            <Badge variant="success" title={title}>
+                <ShieldCheck aria-hidden="true" /> Reviewed
+            </Badge>
+        );
+    }
+    if (entry.trust === 'unreviewed' && entry.source === 'registry') {
+        return <Badge variant="warning">Unreviewed</Badge>;
+    }
+    return null;
 };
 
 const getLocalCatalogEntry = (builtin) => {
@@ -173,6 +196,11 @@ const Marketplace = () => {
     const [manualInstallSource, setManualInstallSource] = useState(null);
     const [installing, setInstalling] = useState(false);
     const [detailEntry, setDetailEntry] = useState(null);
+    // Registry entry awaiting risk confirmation — drives the acknowledge-risk
+    // dialog (confirm retries with acknowledge_risk: true). Shape:
+    // { slug, reason } where reason is 'unreviewed' (proactive gate or 409)
+    // or 'unverified' (409: entry has no pinned checksum).
+    const [riskTarget, setRiskTarget] = useState(null);
     // Plugin pending uninstall — drives the keep-vs-purge data-policy dialog.
     const [uninstallTarget, setUninstallTarget] = useState(null);
     // Id of the installed plugin whose row action (uninstall/toggle/update) is
@@ -216,14 +244,20 @@ const Marketplace = () => {
         }
     };
 
-    const handleRegistryInstall = async (slug) => {
+    const handleRegistryInstall = async (slug, acknowledgeRisk = false) => {
         setInstalling(true);
         try {
-            const result = await api.installRegistryExtension(slug);
+            const result = await api.installRegistryExtension(
+                slug, acknowledgeRisk ? { acknowledge_risk: true } : undefined);
             toast.success(`Installed "${result.display_name}". Restart backend if blueprint routes do not appear.`);
             loadExtensions();
         } catch (err) {
-            toast.error(err.message || 'Registry install failed');
+            // 409 trust gate — ask for explicit confirmation, then retry.
+            if (err.status === 409 && err.data?.requires_acknowledgment) {
+                setRiskTarget({ slug, reason: err.data?.reason || 'unreviewed' });
+            } else {
+                toast.error(err.message || 'Registry install failed');
+            }
         } finally {
             setInstalling(false);
         }
@@ -232,9 +266,19 @@ const Marketplace = () => {
     const installEntry = (entry) => {
         if (entry.source === 'local') {
             handleBuiltinInstall(entry.installKey);
+        } else if (entry.trust === 'unreviewed') {
+            // Proactive gate: unreviewed registry entries confirm first
+            // (the backend 409 path above covers the race/stale cases).
+            setRiskTarget({ slug: entry.installKey, reason: 'unreviewed' });
         } else {
             handleRegistryInstall(entry.installKey);
         }
+    };
+
+    const confirmRiskyInstall = () => {
+        const slug = riskTarget?.slug;
+        setRiskTarget(null);
+        if (slug) handleRegistryInstall(slug, true);
     };
 
     // Land on Installed after a manual install so the new row (and its
@@ -414,11 +458,7 @@ const Marketplace = () => {
                                         key={entry.key}
                                         entry={entry}
                                         installing={installing}
-                                        onInstall={
-                                            entry.source === 'local'
-                                                ? handleBuiltinInstall
-                                                : handleRegistryInstall
-                                        }
+                                        onInstall={() => installEntry(entry)}
                                         onOpenDetail={setDetailEntry}
                                         statusVariant={pluginStatusVariant}
                                     />
@@ -502,6 +542,39 @@ const Marketplace = () => {
                     onCancel={() => setUninstallTarget(null)}
                     onConfirm={confirmPluginUninstall}
                 />
+            )}
+
+            {riskTarget && (
+                <Modal
+                    open
+                    onClose={() => setRiskTarget(null)}
+                    title={riskTarget.reason === 'unverified'
+                        ? 'Install without checksum verification?'
+                        : 'Install unreviewed extension?'}
+                    size="sm"
+                    footer={
+                        <>
+                            <Button variant="ghost" onClick={() => setRiskTarget(null)}>Cancel</Button>
+                            <Button variant="destructive" onClick={confirmRiskyInstall}>
+                                Install anyway
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className="extension-risk-dialog">
+                        <p>
+                            {riskTarget.reason === 'unverified'
+                                ? 'This extension has no pinned checksum, so the panel '
+                                  + 'cannot verify the artifact it would download.'
+                                : 'This is a community extension whose exact code has not '
+                                  + 'been reviewed by the ServerKit maintainers.'}
+                        </p>
+                        <p className="text-muted">
+                            It runs with full panel privileges. Only install it if you trust
+                            the author.
+                        </p>
+                    </div>
+                </Modal>
             )}
 
             {configTarget && (
@@ -641,6 +714,7 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, onOpenDetail, stat
                     ) : (
                         entry.author && <span>by {entry.author}</span>
                     )}
+                    <TrustBadge entry={entry} />
                 </div>
                 <div className="extension-card__actions">
                     {entry.installed ? (
@@ -691,6 +765,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                             {entry.firstParty && (
                                 <Badge variant="secondary" className="extension-firstparty">by ServerKit</Badge>
                             )}
+                            <TrustBadge entry={entry} />
                             <Badge variant={sourceBadgeVariant(entry.source)}>{entry.sourceLabel}</Badge>
                             <Badge variant="outline">{titleCase(category)}</Badge>
                         </div>

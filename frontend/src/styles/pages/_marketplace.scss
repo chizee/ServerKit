@@ -832,6 +832,19 @@
     }
 }
 
+// Risk-acknowledgment dialog shown before installing an unreviewed
+// community extension from the registry.
+.extension-risk-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+
+    p {
+        margin: 0;
+        line-height: $line-height-normal;
+    }
+}
+
 // Per-plugin config editor (#49) — fields generated from config_schema.
 .plugin-config-form {
     display: flex;

@@ -349,3 +349,167 @@ def test_registry_endpoint_include_bundled_flag(app, client, auth_headers, monke
 
     resp2 = client.get('/api/v1/marketplace/registry?include_bundled=true', headers=auth_headers)
     assert any(e['slug'] == 'serverkit-wordpress' for e in resp2.get_json()['extensions'])
+
+
+# --------------------------------------------------------------------------- #
+# Review stamps → trust derivation + the install acknowledgment gate
+# --------------------------------------------------------------------------- #
+
+_SHA_A = 'a' * 64
+_SHA_B = 'b' * 64
+
+
+def _entry(**overrides):
+    base = {
+        'slug': 'community-ext', 'display_name': 'Community', 'version': '1.0.0',
+        'source': 'https://x/c.zip', 'sha256': _SHA_A,
+    }
+    base.update(overrides)
+    return registry_service._normalize(base)
+
+
+def test_trust_first_party_wins():
+    e = _entry(first_party=True, review={'reviewer': 'jhd3197', 'sha256': _SHA_B})
+    assert e['trust'] == 'first_party'
+
+
+def test_trust_reviewed_when_hashes_match():
+    e = _entry(review={'reviewer': 'jhd3197', 'date': '2026-07-23', 'sha256': _SHA_A})
+    assert e['trust'] == 'reviewed'
+    assert e['review']['reviewer'] == 'jhd3197'
+
+
+def test_trust_unreviewed_without_review():
+    assert _entry()['trust'] == 'unreviewed'
+    assert _entry()['review'] is None
+
+
+def test_trust_unreviewed_when_review_hash_is_stale():
+    # The artifact changed → entry sha256 moved on → the stamp no longer counts.
+    e = _entry(review={'reviewer': 'jhd3197', 'sha256': _SHA_B})
+    assert e['trust'] == 'unreviewed'
+
+
+@pytest.mark.parametrize('review', [
+    'not-a-dict',
+    {'reviewer': 'jhd3197'},                       # no sha256
+    {'sha256': 'ABCDEF' + '0' * 58},               # uppercase
+    {'sha256': 'a' * 63},                          # too short
+    {'sha256': 'g' * 64},                          # non-hex
+])
+def test_trust_unreviewed_when_review_malformed(review):
+    e = _entry(review=review)
+    assert e['review'] is None
+    assert e['trust'] == 'unreviewed'
+
+
+class _FakePlugin:
+    id = 1
+    name = 'community-ext'
+    slug = 'community-ext'
+    version = '1.0.0'
+
+    def to_dict(self):
+        return {'name': self.name, 'version': self.version}
+
+
+@pytest.fixture
+def fake_install(monkeypatch):
+    """Stub the heavy install; the gate tests only exercise the route logic."""
+    monkeypatch.setattr(
+        plugin_service, 'install_registry_extension', lambda slug, user_id=None: _FakePlugin())
+
+
+def _seed_cache(monkeypatch, entry):
+    monkeypatch.setattr(registry_service, '_cache', {
+        'ts': 9e18, 'source': 'test', 'entries': [entry],
+    })
+
+
+def test_install_gate_blocks_unreviewed_without_ack(app, client, auth_headers, fake_install, monkeypatch):
+    _seed_cache(monkeypatch, _entry())
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers)
+    assert resp.status_code == 409
+    data = resp.get_json()
+    assert data['requires_acknowledgment'] is True
+    assert data['trust'] == 'unreviewed'
+    assert data['reason'] == 'unreviewed'
+    assert 'unreviewed' in data['error']
+
+
+def test_install_gate_blocks_first_party_without_sha256(app, client, auth_headers, fake_install, monkeypatch):
+    # trusted publisher, but no pinned checksum to verify the artifact against.
+    e = _entry(first_party=True, sha256=None)
+    assert e['trust'] == 'first_party'
+    _seed_cache(monkeypatch, e)
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers)
+    assert resp.status_code == 409
+    data = resp.get_json()
+    assert data['requires_acknowledgment'] is True
+    assert data['reason'] == 'unverified'
+    assert 'checksum' in data['error']
+
+
+def test_install_gate_passes_with_acknowledge_risk(app, client, auth_headers, fake_install, monkeypatch):
+    _seed_cache(monkeypatch, _entry())
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers, json={'acknowledge_risk': True})
+    assert resp.status_code == 201
+
+
+def test_install_gate_unaffected_for_first_party(app, client, auth_headers, fake_install, monkeypatch):
+    _seed_cache(monkeypatch, _entry(first_party=True))
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers)
+    assert resp.status_code == 201
+
+
+def test_install_gate_unaffected_for_reviewed(app, client, auth_headers, fake_install, monkeypatch):
+    _seed_cache(monkeypatch, _entry(review={'reviewer': 'jhd3197', 'sha256': _SHA_A}))
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers)
+    assert resp.status_code == 201
+
+
+def test_catalog_hides_unreviewed_outside_dev_mode(app, client, auth_headers, monkeypatch):
+    # Production panel with dev_mode off: unreviewed entries never list.
+    monkeypatch.setattr(registry_service, '_show_unreviewed', lambda: False)
+    _seed_cache(monkeypatch, _entry())
+    resp = client.get('/api/v1/marketplace/registry', headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.get_json()['extensions'] == []
+
+
+def test_catalog_lists_unreviewed_in_dev_mode(app, client, auth_headers, monkeypatch):
+    monkeypatch.setattr(registry_service, '_show_unreviewed', lambda: True)
+    _seed_cache(monkeypatch, _entry())
+    resp = client.get('/api/v1/marketplace/registry', headers=auth_headers)
+    assert resp.status_code == 200
+    slugs = [e['slug'] for e in resp.get_json()['extensions']]
+    assert 'community-ext' in slugs
+
+
+def test_catalog_keeps_reviewed_visible_outside_dev_mode(app, client, auth_headers, monkeypatch):
+    monkeypatch.setattr(registry_service, '_show_unreviewed', lambda: False)
+    _seed_cache(monkeypatch, _entry(review={'reviewer': 'jhd3197', 'sha256': _SHA_A}))
+    resp = client.get('/api/v1/marketplace/registry', headers=auth_headers)
+    assert resp.status_code == 200
+    slugs = [e['slug'] for e in resp.get_json()['extensions']]
+    assert 'community-ext' in slugs
+
+
+def test_install_hidden_unreviewed_returns_404(app, client, auth_headers, fake_install, monkeypatch):
+    # Hidden means not installable, even with acknowledge_risk.
+    monkeypatch.setattr(registry_service, '_show_unreviewed', lambda: False)
+    _seed_cache(monkeypatch, _entry())
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers, json={'acknowledge_risk': True})
+    assert resp.status_code == 404
+
+
+def test_show_unreviewed_defaults_on_under_testing_config(app):
+    # The test suite runs with DEBUG/TESTING on, i.e. a development context.
+    with app.test_request_context():
+        assert registry_service._show_unreviewed() is True
